@@ -6,6 +6,7 @@ import {
   Search,
 } from 'lucide-react';
 import { createContext, memo, useContext, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   closestCenter,
   DndContext,
@@ -28,8 +29,9 @@ import {
 } from '@dnd-kit/sortable';
 
 import { Button } from '@/components/ui/button';
-import type { NoteSummary } from '@/lib/electron-api';
-import type { LocalVaultSkippedFile } from '@/lib/local-vault';
+import { getHackDeskAPI, type NoteSummary } from '@/lib/electron-api';
+import { runHackmdRequest } from '@/lib/hackmd-requests';
+import type { LocalVaultSkippedFile, LocalVaultSnapshot } from '@/lib/local-vault';
 import {
   buildFolderDropOperation,
   flattenFolderTree,
@@ -48,16 +50,18 @@ import {
 } from '@/lib/hackmd-note-dnd';
 import {
   DEFAULT_NOTE_FINDER_STATE,
+  applyNoteFinder,
   getNoteFinderOptions,
   isNoteFinderActive,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
 import { buildNoteTagIndex } from '@/lib/electron-note-tags';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
-import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
 import { useScrollOverflow } from './useScrollOverflow';
 import { RowOverlayHost } from './row-overlays';
+import { FOLDER_EXPANDED_PREFIX } from './ui-preferences';
 
 import { applyTreeGuides } from './tree-guides-preference';
 import { cn } from '@/lib/utils';
@@ -68,6 +72,7 @@ import type { WorkspaceScope } from './types';
 import { NOTE_FINDER_RESULTS_ID, NoteFilterChips, NoteSearchField, NoteViewOptionsMenu, type NoteFinderResults } from './FolderNavigatorFinder';
 import {
   FolderDragOverlay,
+  RowOperationsContext,
   FolderTreeView,
   NoteDragOverlay,
   NoteListSkeleton,
@@ -75,8 +80,13 @@ import {
   TREE_CHILDREN_INDENT_CLASS,
   TreeBlankArea,
   SidebarTrashRow,
+  SidebarHistoryRow,
   TREE_GUIDE_CLASS,
   treeItemClassName,
+  buildWorkspaceFolderDragId,
+  parseWorkspaceFolderDragId,
+  WorkspaceFolderPreview,
+  WorkspaceFolderSection,
   WorkspaceRootScopeIcon,
   WorkspaceRootTreeRow,
 } from './FolderNavigatorRows';
@@ -100,7 +110,16 @@ import { trashTeamPathForScope, useTrashList } from './useTrash';
  * under it. The workspace row is checked first, since rows scroll beneath it. Keyboard drags have
  * no pointer and step through the nearest rows.
  */
-const treeCollisionDetection: CollisionDetection = (args) => {
+const treeCollisionDetection: CollisionDetection = (input) => {
+  // A workspace folder section only lands on another section, and a note or folder never lands on
+  // a section: the section wraps the whole active tree, so it would hide every row inside it.
+  const sectionDrag = parseWorkspaceFolderDragId(String(input.active.id)) !== null;
+  const args = {
+    ...input,
+    droppableContainers: input.droppableContainers.filter((container) => (
+      (parseWorkspaceFolderDragId(String(container.id)) !== null) === sectionDrag
+    )),
+  };
   const pointer = args.pointerCoordinates;
   if (!pointer) {
     return closestCenter(args).filter((collision) => collision.id !== ROOT_FOLDER_DROP_ID);
@@ -206,17 +225,47 @@ export type FolderNavigatorActions = {
   onFolderDrop: (operation: FolderDropOperation) => void;
   onFolderSelect: (folderId: string | null) => void;
   onFolderToggle: (folderId: string) => void;
+  onExpandAllFolders?: () => void;
+  onCollapseAllFolders?: () => void;
   onFolderRevealInFinder: (folderId: string) => void;
   onImportMarkdown: () => void;
   onNoteMove: (operation: NoteDropOperation) => void;
   onNoteSelect: (note: NoteSummary) => void;
+  /** Opens a note in a tab that stays: what double-clicking it in the sidebar does. */
+  onNoteKeep?: (note: NoteSummary) => void;
   onNoteRevealInFinder: (note: NoteSummary) => void;
   onOpenNote: (note: NoteSummary) => void;
+  /** Moves the selection into another folder in the open working set, switching it in first. */
+  onOpenWorkspaceFolder?: (vaultId: string, folderIds: string[]) => void;
+  onWorkspaceFolderAction?: (vaultId: string, folderIds: string[], action: 'create-note' | 'create-folder' | 'rename' | 'move' | 'edit' | 'delete' | 'reveal', name?: string) => void;
+  /** Opens a note that lives in another folder of the open working set. */
+  onOpenWorkspaceNote?: (vaultId: string, note: NoteSummary) => void;
+  /** Saves a new order for the folders of the open working set. */
+  onReorderWorkspaceFolders?: (vaultIds: string[]) => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
   onRefresh: () => void;
   onRevealNoteFolder: (entry: FolderTreeNote) => void;
   onRenameFolder: (folderId: string) => void;
+  onRenameNoteInline?: (note: NoteSummary, name: string) => void;
+  onRenameFolderInline?: (folderId: string, name: string) => void;
+  onMoveNoteRequest?: (note: NoteSummary) => void;
+  onMoveFolderRequest?: (folderId: string) => void;
+};
+
+export type WorkspaceFolderTree = {
+  id: string;
+  label: string;
+  path: string;
+  /** The open folder: the navigator shows the live tree in its place. */
+  active: boolean;
+  /** The id its scan reports, which keys its saved state (expanded folders, tabs) like a scope. */
+  snapshotVaultId: string | null;
+  /** Its last scan; null for the open folder, whose scan the session holds. */
+  snapshot?: LocalVaultSnapshot | null;
+  tree: FolderTree;
+  isLoading: boolean;
+  error: string | null;
 };
 
 export type FolderNavigatorProps = {
@@ -227,12 +276,19 @@ export type FolderNavigatorProps = {
   id: string;
   layout: FolderNavigatorLayout;
   scope: WorkspaceScope;
+  /** The active vault's folder name; the root row shows it instead of the generic scope label. */
+  vaultFolderName?: string | null;
+  /** The open named working set, whose name becomes the root row. */
+  localWorkspaceName?: string | null;
+  /** Every other folder in the working set, each with its own tree. */
+  workspaceFolders?: WorkspaceFolderTree[];
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
   /** Notes whose text matched the finder query, with snippets. */
   textSearch?: NoteTextSearch;
   tree: FolderTree;
   trash?: TrashNavigatorViewProps;
+  history?: { open: boolean; onOpenChange: (open: boolean) => void };
   /** The workspace switcher in the title and the account row at the bottom. */
   workspace: WorkspaceSidebarProps;
 };
@@ -263,11 +319,15 @@ function FolderNavigatorPanel({
   id,
   layout,
   scope,
+  vaultFolderName,
+  localWorkspaceName,
+  workspaceFolders,
   selection,
   status,
   textSearch,
   tree,
   trash,
+  history,
   workspace,
 }: FolderNavigatorProps) {
   return (
@@ -288,30 +348,35 @@ function FolderNavigatorPanel({
           to the left with that edge rather than sitting still under the note card. The width queries
           (note-navigator) read this full width, so rows never change mid-animation. */}
       <div className="note-navigator scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col self-end">
-        <ExpandedNavigator
+        <RowOperationsContext.Provider value={{ renameNote: actions.onRenameNoteInline, renameFolder: actions.onRenameFolderInline, moveNote: actions.onMoveNoteRequest, moveFolder: actions.onMoveFolderRequest }}><ExpandedNavigator
           actions={actions}
           emptyState={emptyState}
           entries={entries}
           finderState={finderState}
           layout={layout}
           scope={scope}
+          vaultFolderName={vaultFolderName}
+          localWorkspaceName={localWorkspaceName}
+          workspaceFolders={workspaceFolders}
           selection={selection}
           status={status}
           textSearch={textSearch}
           tree={tree}
           trash={trash}
+          history={history}
           workspace={workspace}
-        />
+        /></RowOperationsContext.Provider>
         {/* Pinned above the account row rather than at the end of the tree, so a long workspace
             never pushes it out of reach. Search hides it with the tree. */}
-        {trash && (scope.type === 'personal' || scope.type === 'team') && !isNoteFinderActive(finderState) ? (
+        {!isNoteFinderActive(finderState) && scope.type !== 'local' ? (
           // No rule: the list above fades out at its edge while it scrolls, which separates enough.
-          <div className="mx-2 shrink-0 pt-1">
-            <SidebarTrashRow
+          <div data-testid="sidebar-destinations" className="mx-2 shrink-0 pt-1">
+            <SidebarHistoryRow selected={Boolean(history?.open) || scope.type === 'history'} onOpen={() => history ? history.onOpenChange(true) : workspace.onScopeChange({ type: 'history', label: 'History' })} />
+            {trash && (scope.type === 'personal' || scope.type === 'team') ? <SidebarTrashRow
               label={trashNavigatorRowLabel(scope)}
               selected={Boolean(trash.open)}
               onOpen={() => trash.onOpenChange(true)}
-            />
+            /> : null}
           </div>
         ) : null}
         <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onSignOut={workspace.onSignOut} />
@@ -327,13 +392,29 @@ function ExpandedNavigator({
   finderState,
   layout,
   scope,
+  vaultFolderName,
+  localWorkspaceName,
+  workspaceFolders,
   selection,
   status,
   textSearch,
   tree,
   trash,
+  history,
   workspace,
 }: Omit<FolderNavigatorProps, 'id'>) {
+  const [historyFinder, setHistoryFinder] = useState(DEFAULT_NOTE_FINDER_STATE);
+  const historyQuery = useQuery({
+    queryKey: ['electron', 'hackmd', 'history'],
+    queryFn: ({ signal }) => {
+      const api = getHackDeskAPI();
+      if (!api) throw new Error('The HackDesk desktop app is unavailable.');
+      return runHackmdRequest(api.hackmd, signal, api.hackmd.listHistory, [40]);
+    },
+    enabled: Boolean(history?.open),
+  });
+  const historyTree = useMemo(() => buildHackmdFolderTree(historyQuery.data?.data ?? [], []), [historyQuery.data]);
+  const historyEntries = useMemo(() => applyNoteFinder(historyTree, historyFinder, null), [historyTree, historyFinder]);
   const isFinderMode = isNoteFinderActive(finderState);
   const finderOptions = useMemo(() => getNoteFinderOptions(tree.allNotes), [tree.allNotes]);
   const tagIndex = useMemo(() => buildNoteTagIndex(tree.allNotes), [tree.allNotes]);
@@ -378,10 +459,10 @@ function ExpandedNavigator({
         )}
       />
       <NavigatorFilterBar actions={actions} scope={scope} status={status} />
-      {trash?.open ? <TrashNavigatorTitleBar trash={trash} /> : null}
+      {trash?.open ? <TrashNavigatorTitleBar trash={trash} /> : history?.open ? <TrashNavigatorHeader title="History" count={undefined} onBack={() => history.onOpenChange(false)} trailing={<NoteViewOptionsMenu state={historyFinder} selectedFolderId={null} options={getNoteFinderOptions(historyTree.allNotes)} onChange={setHistoryFinder} tags={buildNoteTagIndex(historyTree.allNotes)} />} /> : null}
       {/* A flat list (results, a changed view, or History) has no root row to hold View options,
           so it gets a header row of its own in the same place. */}
-      {!trash?.open && (isFinderMode || scope.type === 'history') ? (
+      {!trash?.open && !history?.open && (isFinderMode || scope.type === 'history' || (scope.type === 'local' && tree.roots.length === 0 && tree.unfiled.notes.length === 0 && !workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length))) ? (
         <>
           {/* Icon and label on the same columns as the root row it stands in for. */}
           <div className="flex h-8 shrink-0 items-center gap-1.5 px-4 text-sm text-text-subtle">
@@ -389,7 +470,7 @@ function ExpandedNavigator({
               {finderState.query.trim() ? <Search className="h-3.5 w-3.5" /> : scope.type === 'history' ? <History className="h-3.5 w-3.5" /> : <WorkspaceRootScopeIcon scope={scope} />}
             </span>
             <span className="min-w-0 flex-1 truncate">
-              {finderState.query.trim() ? 'Results' : scope.type === 'history' ? 'History' : (workspaceRootLabel(scope) ?? 'Notes')}
+              {finderState.query.trim() ? 'Results' : scope.type === 'history' ? 'Recent notes' : (workspaceRootLabel(scope, vaultFolderName) ?? 'Notes')}
             </span>
             {results ? (
               <span className="shrink-0 text-xs tabular-nums">{`${results.count} ${results.count === 1 ? 'result' : 'results'}`}</span>
@@ -400,6 +481,7 @@ function ExpandedNavigator({
               options={finderOptions}
               onChange={actions.onFinderStateChange}
               tags={tagIndex}
+              showLocalOptions={scope.type === 'local'}
               className="-mr-1.5"
             />
           </div>
@@ -419,10 +501,18 @@ function ExpandedNavigator({
         selectedFolderForNoteMove={selectedFolderForNoteMove}
         selection={selection}
         scope={scope}
+        vaultFolderName={vaultFolderName}
+        localWorkspaceName={localWorkspaceName}
+        workspaceFolders={workspaceFolders}
+        workspace={workspace}
         status={status}
         textSearch={textSearch}
         tree={tree}
         trash={trash}
+        history={history}
+        historyEntries={historyEntries}
+        historyLoading={historyQuery.isLoading}
+        historyError={historyQuery.error instanceof Error ? historyQuery.error.message : historyQuery.data?.source === 'error' && !historyQuery.data.data ? historyQuery.data.error : null}
         treeFocusRequestId={treeFocusRequestId}
       />
     </>
@@ -460,9 +550,8 @@ function NavigatorHeader({
         </div>
       )}
       titleElement="div"
-      // 12px below, against 8px between search and New Note, so the workspace reads as its own group
-      // above the find-and-create group.
-      className="px-4 pb-3 pt-2.5"
+      // Keep a little separation between the workspace and the controls below it.
+      className="px-4 pb-0.5 pt-2.5"
       // Icon buttons carry 8px of padding, so pulling them out by 8px puts their glyphs on the
       // same 16px edge as the rest of the sidebar.
       // No action buttons: search, and the sync spinner beside it, are in the title row. Folder
@@ -516,10 +605,18 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   selectedFolderForNoteMove,
   selection,
   scope,
+  vaultFolderName,
+  localWorkspaceName,
+  workspaceFolders,
+  workspace,
   status,
   textSearch,
   tree,
   trash,
+  history,
+  historyEntries,
+  historyLoading,
+  historyError,
   treeFocusRequestId,
 }: {
   actions: FolderNavigatorActions;
@@ -534,14 +631,23 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   selectedFolderForNoteMove: FolderTreeNode | null;
   selection: FolderNavigatorSelection;
   scope: WorkspaceScope;
+  vaultFolderName?: string | null;
+  localWorkspaceName?: string | null;
+  workspaceFolders?: WorkspaceFolderTree[];
+  workspace: WorkspaceSidebarProps;
   status: FolderNavigatorStatus;
   textSearch?: NoteTextSearch;
   tree: FolderTree;
   trash?: TrashNavigatorViewProps;
+  history?: { open: boolean; onOpenChange: (open: boolean) => void };
+  historyEntries: FolderTreeNote[];
+  historyLoading: boolean;
+  historyError: string | null;
   treeFocusRequestId: number;
 }) {
-  const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
-  const trashActive = Boolean(trash?.open);
+  const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0
+    || Boolean(workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length));
+  const trashActive = Boolean(trash?.open || history?.open);
   // The pinned workspace row (8px of cover plus its 32px row) stays solid; rows fade under it.
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
@@ -555,6 +661,17 @@ const MemoNavigatorContent = memo(function NavigatorContent({
           below it instead of under it: 2.5rem is its 8px cover plus its 32px row. */}
       <div
         ref={setScroller}
+        // One listener for every note row (tree, search results and the other folders of a set): a
+        // click previews the note, a double-click keeps its tab.
+        onDoubleClick={actions.onNoteKeep ? (event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          const row = target?.closest<HTMLElement>('[data-folder-tree-note-id], [data-workspace-note-id]');
+          if (!row) return;
+          const noteId = row.dataset.folderTreeNoteId ?? row.dataset.workspaceNoteId;
+          const entry = tree.allNotes.find((candidate) => candidate.note.id === noteId)
+            ?? workspaceFolders?.flatMap((folder) => folder.tree.allNotes).find((candidate) => candidate.note.id === noteId);
+          if (entry) actions.onNoteKeep?.(entry.note);
+        } : undefined}
         data-overflow-start={overflow.start || undefined}
         data-overflow-end={overflow.end || undefined}
         className={cn('scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2', pinnedRootShown && 'scroll-pt-10')}
@@ -564,7 +681,9 @@ const MemoNavigatorContent = memo(function NavigatorContent({
         <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : '-top-2')}>
           <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />
         </div>
-        {trashActive && trash ? (
+        {history?.open ? (
+          historyLoading ? <NoteListSkeleton /> : historyError ? <EmptyState title="Could not load history" description={historyError} /> : historyEntries.length ? <HistoryList actions={actions} entries={historyEntries} selectedNoteId={selection.selectedNoteId} selectedFolderForNoteMove={null} /> : <EmptyState title="No matching recent notes" />
+        ) : trash?.open ? (
           <TrashNavigatorList
             open={trash.open}
             onOpenChange={trash.onOpenChange}
@@ -615,11 +734,17 @@ const MemoNavigatorContent = memo(function NavigatorContent({
               options: finderOptions,
               onChange: actions.onFinderStateChange,
               tags: tagIndex,
+              showLocalOptions: scope.type === 'local',
             }}>
               <MemoNavigatorTree
                 actions={actions}
                 layout={layout}
                 scope={scope}
+                vaultFolderName={vaultFolderName}
+                localWorkspaceName={localWorkspaceName}
+                workspaceFolders={workspaceFolders}
+                activeLocalVaultId={workspace.activeLocalVaultId ?? null}
+                activeLocalWorkspaceId={workspace.activeLocalWorkspaceId ?? null}
                 selectedFolderForNoteMove={selectedFolderForNoteMove}
                 selection={selection}
                 status={status}
@@ -833,6 +958,11 @@ function NavigatorTree({
   actions,
   layout,
   scope,
+  vaultFolderName,
+  localWorkspaceName,
+  workspaceFolders,
+  activeLocalVaultId,
+  activeLocalWorkspaceId,
   selectedFolderForNoteMove,
   selection,
   status,
@@ -842,6 +972,11 @@ function NavigatorTree({
   actions: FolderNavigatorActions;
   layout: FolderNavigatorLayout;
   scope: WorkspaceScope;
+  vaultFolderName?: string | null;
+  localWorkspaceName?: string | null;
+  workspaceFolders?: WorkspaceFolderTree[];
+  activeLocalVaultId?: string | null;
+  activeLocalWorkspaceId?: string | null;
   selectedFolderForNoteMove: FolderTreeNode | null;
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
@@ -874,12 +1009,66 @@ function NavigatorTree({
     : null;
   const treeId = useId();
   const workspaceChildrenGroupId = `${treeId}-workspace-children`;
-  const rootLabel = workspaceRootLabel(scope) ?? 'My Notes';
+  const rootLabel = scope.type === 'local' ? 'Files' : workspaceRootLabel(scope, vaultFolderName, localWorkspaceName) ?? 'My Notes';
   const showRootRow = scope.type !== 'history';
   const scopeStorageKey = getScopeStorageKey(scope);
   const [rootSectionExpanded, setRootSectionExpanded] = useState(() => (
     scopeStorageKey ? readRootSectionExpanded(scopeStorageKey) : true
   ));
+  // Every folder in the open set has its own section; collapse is per folder, not per workspace.
+  const [collapsedWorkspaceFolderIds, setCollapsedWorkspaceFolderIds] = useState<Set<string>>(new Set());
+  const [expandCommand, setExpandCommand] = useState<{ sequence: number; expanded: boolean }>();
+  const [workspaceFolderKey, setWorkspaceFolderKey] = useState(activeLocalWorkspaceId ?? null);
+  if (workspaceFolderKey !== (activeLocalWorkspaceId ?? null)) {
+    setWorkspaceFolderKey(activeLocalWorkspaceId ?? null);
+    setCollapsedWorkspaceFolderIds(new Set());
+  }
+  const toggleWorkspaceFolder = (vaultId: string) => {
+    setCollapsedWorkspaceFolderIds((current) => {
+      const next = new Set(current);
+      if (next.has(vaultId)) next.delete(vaultId);
+      else next.add(vaultId);
+      return next;
+    });
+  };
+  // Sections follow the set's stored order, so opening a folder never moves it. A set of one
+  // folder is just that folder's tree.
+  // Only while a local scope is on screen: a HackMD workspace never shows the local folders, even
+  // though the set stays open for when the user comes back.
+  const localScope = scope.type === 'local';
+  const showWorkspaceFolders = Boolean(
+    localScope && localWorkspaceName && activeLocalVaultId && (workspaceFolders?.length ?? 0) > 0
+    && workspaceFolders?.some((folder) => folder.active),
+  );
+  const workspaceFolderSections = useMemo(() => {
+    if (!showWorkspaceFolders || !workspaceFolders) return [];
+    return workspaceFolders.map((folder) => (
+      folder.active ? { ...folder, label: vaultFolderName ?? folder.label, tree } : folder
+    ));
+  }, [showWorkspaceFolders, tree, vaultFolderName, workspaceFolders]);
+  const allExpanded = rootSectionExpanded && collapsedWorkspaceFolderIds.size === 0
+    && [...tree.nodesById.values()].every((node) => (!node.children.length && !node.notes.length) || !layout.collapsedFolderIds.has(node.id))
+    && (!showWorkspaceFolders || workspaceFolderSections.every((section) => section.active || section.tree.nodesById.size === 0 || expandCommand?.expanded));
+  const toggleAll = () => {
+    const expanded = !allExpanded;
+    setRootSectionExpanded(true);
+    if (scopeStorageKey) writeRootSectionExpanded(scopeStorageKey, true);
+    setCollapsedWorkspaceFolderIds(new Set(expanded ? [] : workspaceFolderSections.map((section) => section.id)));
+    if (expanded) actions.onExpandAllFolders?.();
+    else actions.onCollapseAllFolders?.();
+    setExpandCommand((previous) => ({ sequence: (previous?.sequence ?? 0) + 1, expanded }));
+  };
+  const [activeWorkspaceFolderId, setActiveWorkspaceFolderId] = useState<string | null>(null);
+  const [workspaceFolderDrop, setWorkspaceFolderDrop] = useState<{ overId: string; placement: 'before' | 'after' } | null>(null);
+  const reorderWorkspaceFolders = actions.onReorderWorkspaceFolders;
+  const moveWorkspaceFolder = (vaultId: string, targetIndex: number) => {
+    const ids = workspaceFolderSections.map((section) => section.id);
+    const from = ids.indexOf(vaultId);
+    if (from === -1 || targetIndex < 0 || targetIndex >= ids.length || targetIndex === from) return;
+    ids.splice(from, 1);
+    ids.splice(targetIndex, 0, vaultId);
+    reorderWorkspaceFolders?.(ids);
+  };
   useEffect(() => {
     if (scopeStorageKey) {
       setRootSectionExpanded(readRootSectionExpanded(scopeStorageKey));
@@ -961,6 +1150,10 @@ function NavigatorTree({
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : null;
     const pointerY = pointerYRef.current;
+    if (parseWorkspaceFolderDragId(activeId) !== null) {
+      setWorkspaceFolderDrop(getWorkspaceFolderDrop(activeId, overId, pointerY, event.over?.rect ?? null));
+      return;
+    }
     if (pointerY === null || parseNoteDragId(activeId) || !overId || overId === ROOT_FOLDER_DROP_ID) {
       showFolderDrop(null);
       return;
@@ -982,8 +1175,45 @@ function NavigatorTree({
     showFolderDrop(valid ? { overId, placement, row } : null);
   };
 
+  const trackPointer = (event: DragStartEvent) => {
+    const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
+    if (!pointerStart) return false;
+    pointerYRef.current = pointerStart.clientY;
+    const track = (moveEvent: PointerEvent) => { pointerYRef.current = moveEvent.clientY; };
+    document.addEventListener('pointermove', track, { passive: true });
+    stopPointerTrackingRef.current = () => document.removeEventListener('pointermove', track);
+    return true;
+  };
+
+  // Where a dragged section lands: above or below the section under the pointer, or for a keyboard
+  // drag, on the side it came from.
+  const getWorkspaceFolderDrop = (
+    activeId: string,
+    overId: string | null,
+    pointerY: number | null,
+    rect: { top: number; height: number } | null,
+  ) => {
+    if (!overId || overId === activeId) return null;
+    const ids = workspaceFolderSections.map((section) => buildWorkspaceFolderDragId(section.id));
+    const from = ids.indexOf(activeId);
+    const to = ids.indexOf(overId);
+    if (from === -1 || to === -1) return null;
+    const placement: 'before' | 'after' = pointerY !== null && rect
+      ? (pointerY < rect.top + rect.height / 2 ? 'before' : 'after')
+      : (to < from ? 'before' : 'after');
+    // Dropping right next to where it already is would not move it.
+    if ((placement === 'after' && to === from - 1) || (placement === 'before' && to === from + 1)) return null;
+    return { overId, placement };
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = String(event.active.id);
+    const workspaceFolderId = parseWorkspaceFolderDragId(activeId);
+    if (workspaceFolderId !== null) {
+      setActiveWorkspaceFolderId(workspaceFolderId);
+      trackPointer(event);
+      return;
+    }
     const noteId = parseNoteDragId(activeId);
     if (noteId) {
       setActiveNoteId(noteId);
@@ -993,23 +1223,34 @@ function NavigatorTree({
 
     setActiveFolderId(activeId);
     setActiveNoteId(null);
-    const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
-    setKeyboardFolderDrag(!pointerStart);
-    if (pointerStart) {
-      pointerYRef.current = pointerStart.clientY;
-      const track = (moveEvent: PointerEvent) => { pointerYRef.current = moveEvent.clientY; };
-      document.addEventListener('pointermove', track, { passive: true });
-      stopPointerTrackingRef.current = () => document.removeEventListener('pointermove', track);
-    }
+    setKeyboardFolderDrag(!trackPointer(event));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : null;
     const pointerFolderDrop = pointerYRef.current === null ? undefined : folderDropRef.current;
+    const sectionDrop = parseWorkspaceFolderDragId(activeId) !== null
+      ? getWorkspaceFolderDrop(activeId, overId, pointerYRef.current, event.over?.rect ?? null)
+      : null;
     endPointerFolderDrag();
     setActiveFolderId(null);
     setActiveNoteId(null);
+    setActiveWorkspaceFolderId(null);
+    setWorkspaceFolderDrop(null);
+
+    const movedWorkspaceFolderId = parseWorkspaceFolderDragId(activeId);
+    if (movedWorkspaceFolderId !== null) {
+      if (!sectionDrop) return;
+      const ids = workspaceFolderSections.map((section) => section.id);
+      const overIndex = ids.indexOf(parseWorkspaceFolderDragId(sectionDrop.overId) ?? '');
+      const fromIndex = ids.indexOf(movedWorkspaceFolderId);
+      if (overIndex === -1 || fromIndex === -1) return;
+      // The index the section ends up at once it has left its old place.
+      const insertAt = overIndex + (sectionDrop.placement === 'after' ? 1 : 0);
+      moveWorkspaceFolder(movedWorkspaceFolderId, insertAt > fromIndex ? insertAt - 1 : insertAt);
+      return;
+    }
 
     const noteOperation = buildNoteDropOperation({ tree, activeId, overId });
     if (noteOperation) {
@@ -1060,6 +1301,8 @@ function NavigatorTree({
     endPointerFolderDrag();
     setActiveFolderId(null);
     setActiveNoteId(null);
+    setActiveWorkspaceFolderId(null);
+    setWorkspaceFolderDrop(null);
   };
 
   // The rows don't depend on whether the root is open: memoized, toggling it only flips the
@@ -1160,6 +1403,8 @@ function NavigatorTree({
                 dragActive={Boolean(activeFolderId || activeNoteId)}
                 onSelectTopLevel={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
                 onSectionToggle={toggleRootSection}
+                onToggleAll={actions.onExpandAllFolders && actions.onCollapseAllFolders ? toggleAll : undefined}
+                allExpanded={allExpanded}
                 onCreateFolder={() => actions.onCreateFolderInside(null)}
                 onCreateNote={() => actions.onCreateNoteInside(null)}
                 canCreate={status.canCreate && !status.isCreating}
@@ -1181,7 +1426,50 @@ function NavigatorTree({
                 hidden={showRootRow && !rootSectionExpanded}
                 className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && cn('relative mt-0.5', TREE_CHILDREN_INDENT_CLASS))}
               >
-                {treeRows}
+                {showWorkspaceFolders ? (
+                  workspaceFolderSections.map((section, index) => (
+                    <WorkspaceFolderSection
+                      key={section.id}
+                      id={section.id}
+                      label={section.label}
+                      path={section.path}
+                      active={section.active}
+                      expanded={!collapsedWorkspaceFolderIds.has(section.id)}
+                      dropPlacement={workspaceFolderDrop?.overId === buildWorkspaceFolderDragId(section.id)
+                        ? workspaceFolderDrop.placement
+                        : null}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < workspaceFolderSections.length - 1}
+                      onOpen={() => {
+                        if (section.active) toggleWorkspaceFolder(section.id);
+                        else actions.onOpenWorkspaceFolder?.(section.id, []);
+                      }}
+                      onToggle={() => toggleWorkspaceFolder(section.id)}
+                      onCreateNote={() => section.active ? actions.onCreateNoteInside(null) : actions.onWorkspaceFolderAction?.(section.id, [], 'create-note')}
+                      onCreateFolder={() => section.active ? actions.onCreateFolderInside(null) : actions.onWorkspaceFolderAction?.(section.id, [], 'create-folder')}
+                      dragging={activeWorkspaceFolderId === section.id}
+                      onMove={reorderWorkspaceFolders
+                        ? (direction) => moveWorkspaceFolder(section.id, index + direction)
+                        : undefined}
+                    >
+                      {section.active ? treeRows : (
+                        <WorkspaceFolderPreview
+                          expandCommand={expandCommand}
+                          expandedStorageKey={section.snapshotVaultId
+                            ? `${FOLDER_EXPANDED_PREFIX}${getScopeStorageKey({ type: 'local', label: section.label, vaultId: section.snapshotVaultId })}`
+                            : null}
+                          error={section.error}
+                          folderLabel={section.label}
+                          isLoading={section.isLoading}
+                          onOpenFolder={(_folderId, folderIds) => actions.onOpenWorkspaceFolder?.(section.id, folderIds)}
+                          onFolderAction={(folderIds, action, name) => actions.onWorkspaceFolderAction?.(section.id, folderIds, action, name)}
+                          onOpenNote={(note) => actions.onOpenWorkspaceNote?.(section.id, note)}
+                          tree={section.tree}
+                        />
+                      )}
+                    </WorkspaceFolderSection>
+                  ))
+                ) : treeRows}
               </ul>
             <TreeBlankArea
               onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}

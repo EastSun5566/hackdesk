@@ -18,6 +18,7 @@ import { CreateNoteDialog } from './CreateNoteDialog';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
 import { DeleteNoteDialog } from './DeleteNoteDialog';
 import { HackmdOnboardingDialog } from './HackmdOnboardingDialog';
+import type { LocalWorkspaceSettingsActions } from './VaultSettingsPanel';
 import { RenameFolderDialog } from './RenameFolderDialog';
 import { SettingsDialog } from './SettingsDialog';
 import type {
@@ -53,6 +54,7 @@ export type ElectronHomeDialogsProps = {
   onCreateFolder: (input: CreateFolderInput) => void;
   onCreateFolderStateChange: (state: CreateFolderDialogState) => void;
   onCreateNote: (title: string) => void;
+  onChooseNoteLocation?: () => void;
   onCreateNoteStateChange: (state: CreateNoteDialogState) => void;
   onChooseLocalVault: () => Promise<void | boolean>;
   onDisconnectHackmd: () => void;
@@ -62,14 +64,16 @@ export type ElectronHomeDialogsProps = {
   onDeleteNote: (note: DocumentSummary) => void;
   onDeleteNoteCancel: () => void;
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
-  onForgetLocalVault: () => Promise<void>;
+  onForgetLocalVault: (vaultId?: string) => Promise<void>;
+  onSwitchLocalVault: (vaultId: string) => Promise<void>;
+  localWorkspaceActions?: LocalWorkspaceSettingsActions;
   onOpenLocalVault: () => Promise<void>;
   onOnboardingOpenChange: (open: boolean) => void;
   onRefreshLocalVault: () => Promise<void>;
   onRenameFolder: (folderId: string, input: UpdateFolderInput) => void;
   onRenameFolderStateChange: (state: RenameFolderDialogState) => void;
   onSaveSettings: (input: SettingsFormInput) => void;
-  onSaveToken: (token: string) => Promise<void>;
+  onSaveToken: (token: string, label?: string) => Promise<void>;
   onSettingsOpenChange: (open: boolean) => void;
   onSetupLater: () => Promise<void>;
 };
@@ -93,6 +97,7 @@ export function ElectronHomeDialogs({
   onCreateFolder,
   onCreateFolderStateChange,
   onCreateNote,
+  onChooseNoteLocation,
   onCreateNoteStateChange,
   onChooseLocalVault,
   onDisconnectHackmd,
@@ -103,6 +108,8 @@ export function ElectronHomeDialogs({
   onDeleteNoteCancel,
   onImportHackmdCliToken,
   onForgetLocalVault,
+  onSwitchLocalVault,
+  localWorkspaceActions,
   onOpenLocalVault,
   onOnboardingOpenChange,
   onRefreshLocalVault,
@@ -134,6 +141,8 @@ export function ElectronHomeDialogs({
         onChooseLocalVault={onChooseLocalVault}
         onDisconnectHackmd={onDisconnectHackmd}
         onForgetLocalVault={onForgetLocalVault}
+        onSwitchLocalVault={onSwitchLocalVault}
+        localWorkspaceActions={localWorkspaceActions}
         onOpenLocalVault={onOpenLocalVault}
         onRefreshLocalVault={onRefreshLocalVault}
         onOpenChange={onSettingsOpenChange}
@@ -165,6 +174,7 @@ export function ElectronHomeDialogs({
         isCreating={status.creatingNote}
         onStateChange={onCreateNoteStateChange}
         onCreate={onCreateNote}
+        onChooseLocation={onChooseNoteLocation}
       />
 
       <CreateFolderDialog

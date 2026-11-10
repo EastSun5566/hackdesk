@@ -14,7 +14,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 
-import { getActiveLines } from './hfm-decoration-ranges';
+import { getActiveLines, revealInitialSelection } from './hfm-decoration-ranges';
 
 export type OpenLinkHandler = (url: string) => void;
 
@@ -77,7 +77,7 @@ export function hackmdLinkOpenAffordance(onOpenLinkRef: OpenLinkRef): Extension 
         }
 
         update(update: ViewUpdate) {
-          if (update.docChanged || update.selectionSet || update.viewportChanged) {
+          if (update.docChanged || update.selectionSet || update.viewportChanged || update.transactions.some((tr) => tr.effects.some((effect) => effect.is(revealInitialSelection)))) {
             this.decorations = buildLinkOpenDecorations(update.state);
           }
         }

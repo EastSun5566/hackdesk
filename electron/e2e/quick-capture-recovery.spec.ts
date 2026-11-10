@@ -38,7 +38,7 @@ test('recovers an accepted Quick Hack after restart and clears recovery after sa
   await mkdir(vault, { recursive: true });
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
-    localVault: { path: vault },
+    localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
   }));
 
   const capturedText = `Recovered capture ${Date.now()}`;
@@ -94,7 +94,7 @@ test('renderer recovery targets the failing window and keeps Quick Hack text on 
   await mkdir(join(home, '.hackdesk'), { recursive: true });
   await mkdir(vault);
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const app = await launchApp(home, join(home, 'user-data'), true);
   try {

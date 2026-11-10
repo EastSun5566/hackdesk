@@ -87,6 +87,9 @@ const localVaultFolderMutationResult = vi.hoisted(() => ({
 }));
 const localVaultServiceMock = vi.hoisted(() => ({
   readLocalVaultNotesForIndex: vi.fn(async () => []),
+  browseLocalDirectories: vi.fn(async () => ({ path: '/tmp', parent: '/', home: '/tmp', entries: [] })),
+  createLocalDirectory: vi.fn(async () => ({ path: '/tmp/new' })),
+  resolveLocalDirectory: vi.fn(async (path: string) => path),
   createLocalFolder: vi.fn(),
   createLocalNote: vi.fn(async () => localVaultMutationResult),
   getActiveLocalVaultSnapshot: vi.fn(async () => localVaultSnapshot),
@@ -211,11 +214,19 @@ import { clearHackmdCache } from './hackmd-service';
 
 const windowManager = {
   cancelClose: vi.fn(),
+  cancelCloseForSender: vi.fn(),
   holdClose: vi.fn(),
+  holdCloseForSender: vi.fn(),
   confirmClose: vi.fn(),
+  confirmCloseForSender: vi.fn(),
   getMainWindow: vi.fn<WindowManager['getMainWindow']>(() => null),
+  getMainWindows: vi.fn(() => []),
+  getMainWindowForWebContents: vi.fn(() => null),
+  sendToAllMainWindows: vi.fn(),
+  newMainWindow: vi.fn(),
   getTargetWindow: vi.fn(() => null),
   getWindowPresentationState: vi.fn(() => ({ fullScreen: true })),
+  getWindowPresentationStateForSender: vi.fn(() => ({ fullScreen: true })),
   hideQuickCaptureWindow: vi.fn(),
   isTrustedIpcSender: vi.fn(() => true),
   resolveQuickCaptureSubmission: vi.fn(),
@@ -376,7 +387,7 @@ describe('registerIpcHandlers', () => {
 
     expect(settingsMock.readHackmdCliAccessToken).toHaveBeenCalledOnce();
     expect(hackmdServiceMock.validateToken).toHaveBeenCalledWith('cli-token');
-    expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({ hackmdApiToken: 'cli-token' });
+    expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({ hackmdApiToken: 'cli-token', hackmdAccountLabel: '@michael' });
     expect(result).toMatchObject({
       settings: {
         hasHackmdApiToken: true,
@@ -418,12 +429,31 @@ describe('registerIpcHandlers', () => {
     });
   });
 
-  it('exposes the main window presentation state', () => {
+  it('exposes the requesting window presentation state', () => {
     registerIpcHandlers(windowManager);
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.appGetWindowPresentationState);
 
-    expect(handler?.({})).toEqual({ fullScreen: true });
-    expect(windowManager.getWindowPresentationState).toHaveBeenCalledOnce();
+    expect(handler?.({ sender: 'sender' })).toEqual({ fullScreen: true });
+    expect(windowManager.getWindowPresentationStateForSender).toHaveBeenCalledWith('sender');
+  });
+
+  it('opens a new window with a validated workspace', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appNewWindow);
+
+    handler?.({}, { workspace: { type: 'team', label: 'Atlas', teamPath: 'atlas' } });
+
+    expect(windowManager.newMainWindow).toHaveBeenCalledWith({
+      workspace: { type: 'team', label: 'Atlas', teamPath: 'atlas' },
+    });
+  });
+
+  it('rejects a new window whose team workspace names no team', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appNewWindow);
+
+    expect(() => handler?.({}, { workspace: { type: 'team', label: 'Atlas' } })).toThrow('must name its team');
+    expect(windowManager.newMainWindow).not.toHaveBeenCalled();
   });
 
   it('waits for the native clipboard write to finish', async () => {
@@ -449,6 +479,26 @@ describe('registerIpcHandlers', () => {
     expect(settled).toBe(true);
   });
 
+  it('applies a local workspace edit and returns the active snapshot', async () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultWorkspace);
+
+    const result = await handler?.({}, { type: 'create', name: 'Work', vaultIds: ['vault-a'] });
+
+    expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({
+      localWorkspace: { type: 'create', name: 'Work', vaultIds: ['vault-a'] },
+    });
+    expect(result).toMatchObject({ snapshot: localVaultSnapshot });
+  });
+
+  it('rejects a local workspace edit that names no valid action', async () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultWorkspace);
+
+    await expect(handler?.({}, { type: 'explode' })).rejects.toThrow();
+    expect(settingsMock.updateStoredSettings).not.toHaveBeenCalled();
+  });
+
   it('keeps one local vault watcher for repeated snapshot requests', async () => {
     const close = vi.fn();
     localVaultServiceMock.watchLocalVault.mockReturnValue({ close, pause: vi.fn(), resume: vi.fn() });
@@ -465,22 +515,93 @@ describe('registerIpcHandlers', () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  it('scans a known workspace folder without changing the active vault', async () => {
+    settingsMock.readStoredSettings.mockResolvedValueOnce({
+      localVault: {
+        vaults: [{ id: 'vault-a', path: '/tmp/A' }, { id: 'vault-b', path: '/tmp/B' }],
+        activeVaultId: 'vault-a',
+        workspaces: [],
+        activeWorkspaceId: null,
+      },
+    });
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot);
+
+    expect(await handler?.({}, { vaultId: 'vault-b' })).toEqual(localVaultSnapshot);
+
+    expect(localVaultServiceMock.scanLocalVault).toHaveBeenCalledWith('/tmp/B');
+    expect(settingsMock.updateStoredSettings).not.toHaveBeenCalled();
+  });
+
+  it('rejects a workspace folder that is no longer configured', async () => {
+    settingsMock.readStoredSettings.mockResolvedValueOnce({
+      localVault: { vaults: [{ id: 'vault-a', path: '/tmp/A' }], activeVaultId: 'vault-a', workspaces: [], activeWorkspaceId: null },
+    });
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot);
+
+    await expect(handler?.({}, { vaultId: 'vault-gone' })).rejects.toThrow('no longer configured');
+    expect(localVaultServiceMock.scanLocalVault).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid workspace folder request', async () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot);
+
+    await expect(handler?.({}, { vaultId: '' })).rejects.toThrow('Invalid');
+  });
+
   it('sends local vault watcher changes to the main window', async () => {
     let onChange: ((snapshot: typeof localVaultSnapshot) => void) | undefined;
     localVaultServiceMock.watchLocalVault.mockImplementation((_path, callback) => {
       onChange = callback;
       return { close: vi.fn(), pause: vi.fn(), resume: vi.fn() };
     });
-    const send = vi.fn();
-    windowManager.getMainWindow.mockReturnValue({ webContents: { send } } as unknown as NonNullable<ReturnType<WindowManager['getMainWindow']>>);
     registerIpcHandlers(windowManager);
 
     await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
     onChange?.(localVaultSnapshot);
 
-    expect(send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, {
+    expect(windowManager.sendToAllMainWindows).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, {
       snapshot: localVaultSnapshot,
     });
+  });
+
+  it('chooses a vault from an in-app picker path after resolving it', async () => {
+    localVaultServiceMock.resolveLocalDirectory.mockResolvedValueOnce('/tmp/picked');
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultChoosePath);
+
+    expect(await handler?.({}, { path: '/tmp/picked' })).toMatchObject({ canceled: false });
+
+    expect(localVaultServiceMock.resolveLocalDirectory).toHaveBeenCalledWith('/tmp/picked');
+    expect(localVaultServiceMock.scanLocalVault).toHaveBeenCalledWith('/tmp/picked');
+    expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({ localVaultPath: '/tmp/picked' });
+    expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalled();
+  });
+
+  it('rejects a picker path that is not a folder', async () => {
+    localVaultServiceMock.resolveLocalDirectory.mockRejectedValueOnce(new Error('That path is not a folder.'));
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultChoosePath);
+
+    await expect(handler?.({}, { path: '/tmp/note.md' })).rejects.toThrow('not a folder');
+    expect(localVaultServiceMock.scanLocalVault).not.toHaveBeenCalled();
+  });
+
+  it('browses folders and creates one from the in-app picker', async () => {
+    registerIpcHandlers(windowManager);
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultBrowse)?.({}, { path: '/tmp' });
+    expect(localVaultServiceMock.browseLocalDirectories).toHaveBeenCalledWith('/tmp');
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultBrowse)?.({}, undefined);
+    expect(localVaultServiceMock.browseLocalDirectories).toHaveBeenCalledWith(undefined);
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateDirectory)?.({}, { parentPath: '/tmp', name: 'New' });
+    expect(localVaultServiceMock.createLocalDirectory).toHaveBeenCalledWith('/tmp', 'New');
+
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateDirectory)?.({}, { parentPath: '/tmp', name: '' })).toThrow();
   });
 
   it('returns complete local folder mutation results over IPC', async () => {

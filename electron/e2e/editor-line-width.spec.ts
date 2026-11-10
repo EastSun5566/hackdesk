@@ -14,7 +14,7 @@ test('editor text stays in a centered, readable column', async () => {
   await mkdir(vault);
   await writeFile(join(vault, 'Wide.md'), ['# Wide', '', 'word '.repeat(400).trim(), ''].join('\n'));
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;

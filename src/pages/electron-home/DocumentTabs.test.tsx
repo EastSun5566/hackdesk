@@ -66,6 +66,24 @@ function renderDocumentTabs(overrides: Partial<Parameters<typeof DocumentTabs>[0
 }
 
 describe('DocumentTabs', () => {
+  it('shows a preview tab in italics and keeps it on double-click', () => {
+    const onKeepTab = vi.fn();
+    renderDocumentTabs({
+      onKeepTab,
+      tabs: [tab(), tab({ noteId: 'note-2', tabId: 'tab-2', title: 'Project Plan', preview: true })],
+    });
+
+    const preview = screen.getByRole('tab', { name: 'Project Plan, preview' });
+    expect(preview.querySelector('[data-tab-title]')).toHaveClass('italic');
+    expect(screen.getByRole('tab', { name: 'Daily Notes' }).querySelector('[data-tab-title]')).not.toHaveClass('italic');
+
+    fireEvent.doubleClick(preview);
+    expect(onKeepTab).toHaveBeenCalledWith('tab-2');
+    // A kept tab has nothing to keep.
+    fireEvent.doubleClick(screen.getByRole('tab', { name: 'Daily Notes' }));
+    expect(onKeepTab).toHaveBeenCalledOnce();
+  });
+
   it('renders a new tab button beside the strip', () => {
     const props = renderDocumentTabs();
     fireEvent.click(screen.getByRole('button', { name: 'New Tab' }));

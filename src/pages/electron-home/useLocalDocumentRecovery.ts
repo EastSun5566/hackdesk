@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/components/ui/toast';
 
 import type { DocumentSummary, HackDeskElectronAPI, NoteSummary, UpdateNoteInput } from '@/lib/electron-api';
-import type { LocalDocument, LocalRevision } from '@/lib/local-vault';
+import type { LocalDocument, LocalRevision, LocalVaultSnapshot } from '@/lib/local-vault';
 
 import {
   getLocalParentPathFromRelativePath,
@@ -51,6 +51,7 @@ export function useLocalDocumentRecovery({
   notes,
   openNote,
   resetSaveMutation,
+  snapshotForNote,
   syncNoteSummary,
   tabs,
   trackRecentNote,
@@ -61,7 +62,10 @@ export function useLocalDocumentRecovery({
   drafts: Record<string, NoteDocumentDraft>;
   enabled: boolean;
   getTabsMatching: (note: NoteIdentity) => OpenNoteTab[];
+  /** Every note a tab may hold: in a named set, the notes of all its folders. */
   notes: NoteSummary[];
+  /** The scan of the folder holding a note, when it is not the open folder. */
+  snapshotForNote?: (note: NoteIdentity) => LocalVaultSnapshot | null;
   openNote: (note: NoteSummary) => void;
   resetSaveMutation: () => void;
   syncNoteSummary: (note: NoteSummary) => void;
@@ -85,7 +89,13 @@ export function useLocalDocumentRecovery({
     const result = await documentQueries.refetchByIdentity(note);
     const document = getRefetchedLocalDocument(result);
     if (document) {
-      const snapshot = await api?.localVault.getSnapshot();
+      // A note from another folder of the set is described by that folder, not the open one.
+      const active = await api?.localVault.getSnapshot();
+      const owner = snapshotForNote?.(note);
+      const snapshot = owner && owner.vaultId !== active?.vaultId
+        && owner.notes.some((candidate) => candidate.id === document.id)
+        ? owner
+        : active;
       if (snapshot) {
         const summary = toDocumentSummary(document, snapshot);
         syncNoteSummary(summary);
@@ -94,7 +104,7 @@ export function useLocalDocumentRecovery({
       }
     }
     return document;
-  }, [api, documentQueries, queryClient, syncNoteSummary]);
+  }, [api, documentQueries, queryClient, snapshotForNote, syncNoteSummary]);
 
   useEffect(() => {
     if (!enabled) {

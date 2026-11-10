@@ -27,7 +27,7 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
   const settings = {
     ...defaultSettings,
     appearance: { ...defaultSettings.appearance, theme },
-    localVault: { path: vault },
+    localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
     editor: { mode: editorMode },
   };
   await writeFile(join(testHome, '.hackdesk', 'settings.json'), JSON.stringify(settings));

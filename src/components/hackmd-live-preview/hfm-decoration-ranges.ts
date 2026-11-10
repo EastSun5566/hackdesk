@@ -1,5 +1,5 @@
-import type { EditorState } from '@codemirror/state';
-import { Decoration, WidgetType } from '@codemirror/view';
+import { StateEffect, StateField, type EditorState } from '@codemirror/state';
+import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 
 import {
   getHfmLineDecorations,
@@ -60,8 +60,22 @@ class AlertHeaderWidget extends WidgetType {
   }
 }
 
+export const revealInitialSelection = StateEffect.define<void>();
+const initialSelectionHidden = StateField.define<boolean>({
+  create: () => true,
+  update: (hidden, transaction) => hidden && !transaction.effects.some((effect) => effect.is(revealInitialSelection)),
+});
+
+/** Keep the initial selection out of the preview until the editor receives focus. */
+export const hideInitialSelection = [initialSelectionHidden, EditorView.theme({
+  '&:not(.cm-focused) .cm-activeLine': { backgroundColor: 'transparent !important' },
+}), EditorView.domEventHandlers({
+  focus: (_event, view) => { view.dispatch({ effects: revealInitialSelection.of() }); },
+})];
+
 export function getActiveLines(state: EditorState): Set<number> {
   const activeLines = new Set<number>();
+  if (state.field(initialSelectionHidden, false)) return activeLines;
 
   for (const range of state.selection.ranges) {
     activeLines.add(state.doc.lineAt(range.from).number);

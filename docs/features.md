@@ -16,7 +16,8 @@ Open the workspace switcher at the top of the sidebar:
 
 - **My Workspace** holds your personal HackMD notes.
 - **Pinned** and **More** list your teams. Hover a team to pin it, or drag a pinned team to reorder it.
-- **Local Vault** opens your selected Markdown folder.
+- **Local** holds your Markdown folders, each listed by its folder name. **Add local folder** beside the heading opens another one.
+- **Local workspaces** are named sets of those folders. Opening a set shows every folder in it as its own root in the sidebar, each with its own tree, so the whole set stays in view. Folders keep their order when you open one; drag a folder's row, use **Move Up**/**Move Down** in its context menu, or press **Alt+↑**/**Alt+↓** on it to reorder the set. Create and edit them under **Settings → Vault → Workspaces**.
 - **History** shows recent HackMD browsing activity.
 
 Settings and account controls are at the bottom of the sidebar. HackMD workspaces show **My Trash** or **Team Trash** just above the account controls. Press **Cmd+B** on macOS or **Ctrl+B** on Windows/Linux to hide or show the sidebar.

@@ -746,6 +746,17 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
   },
   {
+    id: 'new-window',
+    label: 'New Window',
+    description: 'Open another HackDesk window.',
+    keywords: ['window', 'new', 'open', 'another'],
+    category: 'app',
+    scope: 'global',
+    defaultKeybinding: 'mod+alt+n',
+    shortcut: '⌥⌘N',
+    menuAccelerator: 'CmdOrCtrl+Alt+N',
+  },
+  {
     id: 'open-settings',
     label: 'Open Settings',
     description: 'Manage the HackDesk title, appearance, and HackMD API token.',

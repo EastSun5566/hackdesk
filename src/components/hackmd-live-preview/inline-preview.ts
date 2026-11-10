@@ -20,6 +20,7 @@ import {
   expandActiveHfmBlockLines,
   getActiveHfmBlocks,
   getActiveLines,
+  revealInitialSelection,
 } from './hfm-decoration-ranges';
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
 import { getOrderedListMarkerPreviews } from './list-markers';
@@ -140,7 +141,7 @@ const inlinePreviewPlugin = ViewPlugin.fromClass(
         return;
       }
 
-      if (update.docChanged || update.selectionSet || update.viewportChanged || treeGrew || previewJustUnfroze) {
+      if (update.docChanged || update.selectionSet || update.viewportChanged || treeGrew || previewJustUnfroze || update.transactions.some((tr) => tr.effects.some((effect) => effect.is(revealInitialSelection)))) {
         this.previewState = update.state;
         this.rebuild(update.state, treeGrew);
       }

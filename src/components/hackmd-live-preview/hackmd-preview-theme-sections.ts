@@ -1,9 +1,9 @@
+import { EDITOR_CONTENT_MAX_WIDTH, EDITOR_CONTENT_WIDTH, EDITOR_SIDE_PADDING } from './editor-content-layout';
+export { EDITOR_LINE_WIDTH } from './editor-content-layout';
+
 const EDITOR_CONTROL_HEIGHT = '32px';
 const EDITOR_CONTROL_RADIUS = '6px';
 const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)';
-// Readable line length in the editor font's em, about 75 characters of prose at any font size.
-export const EDITOR_LINE_WIDTH = '46em';
-const EDITOR_SIDE_PADDING = 'clamp(20px, 6%, 48px)';
 export const EDITOR_SELECTION_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 24%, transparent)';
 const EDITOR_BLOCK_CURSOR_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 55%, transparent)';
 
@@ -24,8 +24,8 @@ export const editorChromeTheme = {
     padding: `24px ${EDITOR_SIDE_PADDING} 36vh`,
     // CodeMirror draws selections up to the content box, so the column is a
     // centered max-width box rather than padding inside a full-width one.
-    width: `min(100%, calc(${EDITOR_LINE_WIDTH} + 2 * ${EDITOR_SIDE_PADDING}))`,
-    maxWidth: `calc(${EDITOR_LINE_WIDTH} + 2 * ${EDITOR_SIDE_PADDING})`,
+    width: EDITOR_CONTENT_WIDTH,
+    maxWidth: EDITOR_CONTENT_MAX_WIDTH,
     marginInline: 'auto',
     boxSizing: 'border-box',
     caretColor: 'var(--primary-default)',

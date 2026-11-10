@@ -305,6 +305,7 @@ function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}): Elec
     appearance: defaultSettings.appearance,
     editor: defaultSettings.editor,
     hasHackmdApiToken: true,
+    hackmdAccounts: { accounts: [], activeAccountId: null },
     hasAppearanceSettings: true,
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
     hasLocalVault: false,
@@ -401,8 +402,12 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
     },
     localVault: {
       choose: vi.fn(async () => ({ canceled: true })),
+      activate: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
+      forget: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
+      updateWorkspace: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
       disconnect: vi.fn(async () => createSafeSettings()),
       getSnapshot: vi.fn(async () => null),
+      getVaultSnapshot: vi.fn(async () => { throw new Error('No vault'); }),
       readNote: vi.fn(),
       createNote: vi.fn(),
       writeNote: vi.fn(),
@@ -420,6 +425,9 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       trashFolder: vi.fn(),
       revealFolder: vi.fn(async () => undefined),
       revealRoot: vi.fn(async () => undefined),
+      browse: vi.fn(async () => ({ path: '/tmp', parent: '/', home: '/tmp', entries: [] })),
+      choosePath: vi.fn(async () => ({ canceled: true })),
+      createDirectory: vi.fn(async () => ({ path: '/tmp/new' })),
       onDidChange: vi.fn(() => () => undefined),
     },
     shell: {
@@ -445,8 +453,13 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       onCloseRequest: vi.fn(() => () => undefined),
       confirmClose: vi.fn(async () => undefined),
       cancelClose: vi.fn(async () => undefined),
+      newWindow: vi.fn(async () => undefined),
     },
   };
+
+  const sessionLocalVault = base.localVault as unknown as Record<string, unknown>;
+  sessionLocalVault.switchVault ??= vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null }));
+  sessionLocalVault.forgetVault ??= vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null }));
 
   return {
     ...base,
@@ -549,6 +562,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -589,6 +603,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: true,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
         })),
       },
@@ -626,6 +641,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: true,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
         })),
       },
@@ -670,6 +686,7 @@ describe('Home native-feel behavior', () => {
   it('defers first-run HackMD onboarding with Setup later', async () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       onboarding: { hackmdTokenSetupDeferred: true },
       shouldShowHackmdOnboarding: false,
     }));
@@ -677,6 +694,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -707,8 +725,9 @@ describe('Home native-feel behavior', () => {
     }));
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: true,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
-      localVault: { path: '/Users/michael/Notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
       onboarding: { hackmdTokenSetupDeferred: false },
       shouldShowHackmdOnboarding: false,
     }));
@@ -730,8 +749,9 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
-          localVault: { path: '/Users/michael/Notes' },
+          localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -751,6 +771,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
       title: 'HackDesk',
       hackmdApiToken: 'secret-token',
+      hackmdAccountLabel: '@michael',
     }));
     await waitFor(() => {
       expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
@@ -767,13 +788,14 @@ describe('Home native-feel behavior', () => {
 
   it('opens a local folder from HackMD onboarding as a secondary path', async () => {
     const snapshot: LocalVaultSnapshot = { vaultId: 'first-vault', rootPath: '/Users/michael/Notes', notes: [], folders: [] };
-    const chooseLocalVault = vi.fn(async () => ({
+    const choosePath = vi.fn(async () => ({
       canceled: false,
       snapshot,
       settings: createSafeSettings({
         hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hasLocalVault: true,
-        localVault: { path: '/Users/michael/Notes' },
+        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
         onboarding: { hackmdTokenSetupDeferred: false },
         shouldShowHackmdOnboarding: false,
       }),
@@ -782,12 +804,13 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
       },
       localVault: {
-        choose: chooseLocalVault,
+        choosePath,
       },
     });
 
@@ -795,13 +818,16 @@ describe('Home native-feel behavior', () => {
     const onboardingDialog = await openHackmdOnboardingDialog();
     fireEvent.click(within(onboardingDialog).getByRole('button', { name: 'Open local folder' }));
 
-    await waitFor(() => expect(chooseLocalVault).toHaveBeenCalledOnce());
+    // The in-app picker opens instead of the native dialog; choosing confirms the vault.
+    const picker = await screen.findByRole('dialog', { name: 'Choose a Vault Folder' });
+    fireEvent.click(within(picker).getByRole('button', { name: /Choose “tmp”/ }));
+    await waitFor(() => expect(choosePath).toHaveBeenCalledOnce());
     await waitFor(() => {
       expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
     });
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'local',
-      label: 'Local Vault',
+      label: 'Notes',
       vaultId: 'first-vault',
     });
   });
@@ -810,6 +836,7 @@ describe('Home native-feel behavior', () => {
     const importHackmdCliToken = vi.fn(async () => ({
       settings: createSafeSettings({
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         onboarding: { hackmdTokenSetupDeferred: false },
         shouldShowHackmdOnboarding: false,
       }),
@@ -827,6 +854,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
@@ -861,6 +889,7 @@ describe('Home native-feel behavior', () => {
     }));
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: true,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       onboarding: { hackmdTokenSetupDeferred: false },
       shouldShowHackmdOnboarding: false,
     }));
@@ -868,6 +897,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           onboarding: { hackmdTokenSetupDeferred: true },
           shouldShowHackmdOnboarding: false,
         })),
@@ -888,6 +918,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
       title: 'HackDesk',
       hackmdApiToken: 'configured-token',
+      hackmdAccountLabel: '@michael',
     }));
     await waitFor(() => {
       expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
@@ -901,8 +932,9 @@ describe('Home native-feel behavior', () => {
   it('does not switch workspace when saving a token from Settings', async () => {
     const localSettings = createSafeSettings({
       hasHackmdApiToken: true,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
-      localVault: { path: '/Users/michael/Notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
     });
     const updateSettings = vi.fn(async (input) => createSafeSettings({
       ...localSettings,
@@ -953,6 +985,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
       title: 'HackDesk',
       hackmdApiToken: 'settings-token',
+      hackmdAccountLabel: '@michael',
     }));
     expect(validateToken.mock.invocationCallOrder[0]).toBeLessThan(updateSettings.mock.invocationCallOrder[0]);
     await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(2));
@@ -965,6 +998,7 @@ describe('Home native-feel behavior', () => {
   it('disconnects HackMD, clears remote account data, and stays in My Workspace without reopening onboarding', async () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       onboarding: { hackmdTokenSetupDeferred: true },
       shouldShowHackmdOnboarding: false,
     }));
@@ -1015,8 +1049,9 @@ describe('Home native-feel behavior', () => {
     window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({ type: 'history', label: 'History' }));
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
-      localVault: { path: '/Users/michael/Notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
       onboarding: { hackmdTokenSetupDeferred: true },
       shouldShowHackmdOnboarding: false,
     }));
@@ -1024,7 +1059,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasLocalVault: true,
-          localVault: { path: '/Users/michael/Notes' },
+          localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
         })),
         update: updateSettings,
       },
@@ -1040,7 +1075,8 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => {
       expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
         type: 'local',
-        label: 'Local Vault',
+        label: 'Notes',
+        vaultId: 'vault-notes',
       });
     });
     expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
@@ -1067,6 +1103,7 @@ describe('Home native-feel behavior', () => {
   it('clears cached HackMD account data when Reset All removes the token', async () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       shouldShowHackmdOnboarding: true,
     }));
     const api = createApi({
@@ -1739,8 +1776,9 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
-          localVault: { path: '/tmp/vault' },
+          localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp', workspaces: [], activeWorkspaceId: null },
         })),
       },
       localVault: {
@@ -2098,6 +2136,43 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(2);
   });
 
+  it('previews notes picked in the sidebar in one tab until one is kept', async () => {
+    const notes = [
+      { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 3000 },
+      { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 2000 },
+      { ...note, id: 'note-c', title: 'Gamma', shortId: 'gamma', updatedAtMillis: 1000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote' as const,
+          data: { ...document, id: noteId, title: notes.find((candidate) => candidate.id === noteId)!.title, content: `# ${noteId}` },
+        })),
+      },
+    });
+    const tabNames = () => screen.getAllByRole('tab').map((tab) => tab.getAttribute('aria-label'));
+
+    renderHome(api);
+    await findRenderedNoteTitle('Alpha');
+    fireEvent.click(await findNoteRow('Beta'));
+    await findRenderedNoteTitle('Beta');
+    // The note shown on launch is a tab of its own; a sidebar pick is a preview.
+    await waitFor(() => expect(tabNames()).toEqual(['Alpha', 'Beta, preview']));
+    fireEvent.click(await findNoteRow('Gamma'));
+    await findRenderedNoteTitle('Gamma');
+    // Gamma took Beta's preview tab instead of opening another.
+    await waitFor(() => expect(tabNames()).toEqual(['Alpha', 'Gamma, preview']));
+
+    // Double-clicking the note in the sidebar keeps its tab; the next pick opens a new preview.
+    fireEvent.doubleClick(await findNoteRow('Gamma'));
+    await waitFor(() => expect(tabNames()).toEqual(['Alpha', 'Gamma']));
+    fireEvent.click(await findNoteRow('Beta'));
+    await findRenderedNoteTitle('Beta');
+    await waitFor(() => expect(tabNames()).toEqual(['Alpha', 'Gamma', 'Beta, preview']));
+  });
+
   it('focuses note tabs with next and previous shortcuts', async () => {
     const notes = [
       { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 3000 },
@@ -2122,9 +2197,15 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle('Alpha');
-    fireEvent.click(await findNoteRow('Beta'));
+    // A click only previews a note; double-clicking keeps each in a tab of its own.
+    const keep = async (title: string) => {
+      const row = await findNoteRow(title);
+      fireEvent.click(row);
+      fireEvent.doubleClick(row);
+    };
+    await keep('Beta');
     await findRenderedNoteTitle('Beta');
-    fireEvent.click(await findNoteRow('Gamma'));
+    await keep('Gamma');
     await findRenderedNoteTitle('Gamma');
 
     fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true });
@@ -2755,7 +2836,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasLocalVault: true,
-          localVault: { path: '/tmp/vault' },
+          localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp', workspaces: [], activeWorkspaceId: null },
         })),
       },
       localVault: { getSnapshot, readNote },
@@ -2895,14 +2976,9 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await within(palette).findByRole('option', { name: /^Go to History/ }));
 
     await waitFor(() => expect(api.hackmd.listHistory).toHaveBeenCalledWith(40));
-    expect(await screen.findByText('No history yet')).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: 'k', metaKey: true });
-    const historyPalette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(historyPalette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'new note' } });
-
-    // New Note and New Note from Template both need a writable workspace.
-    expect(await within(historyPalette).findAllByText('Choose My Workspace or a team first.')).toHaveLength(2);
+    expect(await screen.findByText('No matching recent notes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Switch workspace, current: My Workspace' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to notes' })).toBeInTheDocument();
   });
 
   it('restores the last active history workspace on startup', async () => {
@@ -3400,7 +3476,8 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(within(await openWorkspaceSwitcher()).getByRole('button', { name: 'History' }));
+    await findRenderedNoteTitle();
+    fireEvent.click(await screen.findByRole('button', { name: 'History' }));
     await findNoteRow('History Product');
     // History is a flat list, most recent first, not a folder tree.
     expect(screen.queryByTestId('folder-navigator-tree')).not.toBeInTheDocument();
@@ -3408,9 +3485,8 @@ describe('Home native-feel behavior', () => {
     await openViewOptions();
     fireEvent.click(await findTagOption('product'));
 
-    await screen.findByText('1 result');
+    await waitFor(() => expect(queryNoteRow('History Design')).not.toBeInTheDocument());
     expect(getNoteRow('History Product')).toBeInTheDocument();
-    expect(queryNoteRow('History Design')).not.toBeInTheDocument();
   });
 
   it('sorts finder results by title', async () => {
@@ -3539,7 +3615,8 @@ describe('Home native-feel behavior', () => {
       return noteRow as HTMLElement;
     });
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+    fireEvent.click(await screen.findByText('Move to…'));
+    fireEvent.click(await screen.findByRole('option', { name: /Projects/ }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       parentFolderId: 'folder-1',
@@ -3565,7 +3642,8 @@ describe('Home native-feel behavior', () => {
       return noteRow as HTMLElement;
     });
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+    fireEvent.click(await screen.findByText('Move to…'));
+    fireEvent.click(await screen.findByRole('option', { name: /Root/ }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       parentFolderId: null,
@@ -3725,7 +3803,8 @@ describe('Home native-feel behavior', () => {
       return noteRow as HTMLElement;
     });
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+    fireEvent.click(await screen.findByText('Move to…'));
+    fireEvent.click(await screen.findByRole('option', { name: /Projects/ }));
 
     await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-workspace', 'note-1', {
       parentFolderId: 'folder-1',
@@ -3778,7 +3857,8 @@ describe('Home native-feel behavior', () => {
       return noteRow as HTMLElement;
     });
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+    fireEvent.click(await screen.findByText('Move to…'));
+    fireEvent.click(await screen.findByRole('option', { name: /Root/ }));
 
     await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-workspace', 'note-1', {
       parentFolderId: null,

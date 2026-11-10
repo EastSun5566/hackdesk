@@ -107,6 +107,10 @@ test('a HackMD book shows its contents and walks through its chapters', async ()
     await expect(editor(page)).toContainText('Setup body text.');
     await expect(contents(page)).toHaveCount(0);
     await expect(page.getByRole('tab', { selected: true }).locator('[data-tab-book]')).toHaveCount(0);
+    // A sidebar pick is a preview tab; double-clicking the note keeps it before the next pick.
+    await expect(page.getByRole('tab', { selected: true })).toHaveAccessibleName(/^Setup, preview/);
+    await page.getByRole('treeitem', { name: 'Setup', exact: true }).dblclick();
+    await expect(page.getByRole('tab', { selected: true })).toHaveAccessibleName(/^Setup(?!, preview)/);
     await page.getByRole('treeitem', { name: 'Handbook', exact: true }).click();
     await expect(contents(page)).toHaveCount(0);
     await expect(page.locator('[data-book-contents-note]')).toHaveCount(0);
@@ -130,7 +134,7 @@ test('any Local Vault note opens as a book', async () => {
   await writeFile(join(vault, 'chapters', 'alpha.md'), '# Alpha\n\nAlpha body text.\n');
   await writeFile(join(vault, 'chapters', 'beta.md'), '# Beta\n\nBeta body text.\n');
   await writeFile(join(directory, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(directory, 'user-data')}`, `--hackdesk-home=${directory}`], cwd: repoRoot, env: environment() });
   try {

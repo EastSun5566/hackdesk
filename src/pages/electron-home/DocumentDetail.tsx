@@ -1,9 +1,9 @@
+import { useCallback, useEffect, useMemo, useRef, useState, useContext } from 'react';
 import { ConflictComparison } from './ConflictComparison';
 import { rememberNoteSlideType } from './note-kind';
-import { useTeamNameLookup } from './NoteSummaryCard';
+import { LocalVaultNameContext, useTeamNameLookup } from './NoteSummaryCard';
 import { ActionMenuShortcut } from './ActionShortcutContext';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, CSSProperties } from 'react';
 import { toast } from '@/components/ui/toast';
 import {
   AlertCircle,
@@ -66,6 +66,7 @@ import { useBookSessionContext, usePaneTabId } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { RenameNoteDialog } from './RenameNoteDialog';
+import { EDITOR_CONTENT_MAX_WIDTH, EDITOR_CONTENT_WIDTH, EDITOR_SIDE_PADDING } from '@/components/hackmd-live-preview/editor-content-layout';
 import { ShareDialog } from './ShareDialog';
 import {
   FOCUS_RING_INSET_CLASS,
@@ -314,12 +315,12 @@ function DocumentBreadcrumb({
  * Where the note lives: its workspace, then its folders. Each part carries the folder IDs down to it,
  * so choosing one can show that folder in the sidebar; the workspace has none.
  */
-function getDocumentHeaderPath(document: Pick<NoteSummary, 'description' | 'folderPaths' | 'teamPath'>, isLocalDocument: boolean, teamName?: string): HeaderPathPart[] {
+function getDocumentHeaderPath(document: Pick<NoteSummary, 'description' | 'folderPaths' | 'teamPath'>, isLocalDocument: boolean, teamName?: string, localVaultName?: string | null): HeaderPathPart[] {
   if (isLocalDocument) {
     // A vault note's description is its path in the vault; each folder's ID is its own path.
     const folders = (document.description ?? '').split('/').slice(0, -1).filter(Boolean);
     return [
-      { label: 'Local Vault', folderIds: [] },
+      { label: localVaultName ?? 'Local Vault', folderIds: [] },
       ...folders.map((label, index) => ({
         label,
         folderIds: folders.slice(0, index + 1).map((_, depth) => `local-folder:${folders.slice(0, depth + 1).join('/')}`),
@@ -389,7 +390,8 @@ function LoadingDocumentDetail({
   // The list already knows where the note lives, so the header shows its final breadcrumb now and
   // nothing shifts when the content arrives; only the body waits.
   const lookupTeamName = useTeamNameLookup();
-  const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH, summary.teamPath ? lookupTeamName(summary.teamPath) : undefined) : [];
+  const localVaultName = useContext(LocalVaultNameContext);
+  const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH, summary.teamPath ? lookupTeamName(summary.teamPath) : undefined, localVaultName) : [];
   // A chapter loading in the book's tab already shows its book as its place, as it will once loaded.
   const bookSession = useBookSessionContext();
   const paneTabId = usePaneTabId();
@@ -412,7 +414,7 @@ function LoadingDocumentDetail({
           titleElement="div"
         />
       ) : null}
-      <div role="status" aria-busy="true" aria-label="Loading note" className="flex min-h-0 flex-1 flex-col gap-4 p-6">
+      {selectedNote?.teamPath !== LOCAL_VAULT_TEAM_PATH && summary?.teamPath !== LOCAL_VAULT_TEAM_PATH ? <div role="status" aria-busy="true" aria-label="Loading note" className="mx-auto box-border flex min-h-0 w-(--placeholder-width) max-w-(--placeholder-max-width) flex-1 flex-col gap-4 px-(--placeholder-padding) pt-6 text-(length:--font-size-editor)" style={{ '--placeholder-width': EDITOR_CONTENT_WIDTH, '--placeholder-max-width': EDITOR_CONTENT_MAX_WIDTH, '--placeholder-padding': EDITOR_SIDE_PADDING } as CSSProperties}>
         <div className="h-4 w-2/3 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         <div className="h-4 w-1/2 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         <div className="mt-4 space-y-3">
@@ -420,7 +422,7 @@ function LoadingDocumentDetail({
           <div className="h-3 w-11/12 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
           <div className="h-3 w-4/5 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         </div>
-      </div>
+      </div> : null}
     </PanelShell>
   );
 }
@@ -825,8 +827,9 @@ function DocumentHeader({
     syncState: documentState.syncState,
   });
   const lookupTeamName = useTeamNameLookup();
+  const localVaultName = useContext(LocalVaultNameContext);
   const teamPath = documentState.document?.teamPath;
-  const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument, teamPath ? lookupTeamName(teamPath) : undefined) : [];
+  const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument, teamPath ? lookupTeamName(teamPath) : undefined, localVaultName) : [];
   const bookSession = useBookSessionContext();
   const paneTabId = usePaneTabId();
   const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document, paneTabId) : null;

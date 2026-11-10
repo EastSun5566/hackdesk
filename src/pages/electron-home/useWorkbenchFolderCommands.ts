@@ -117,8 +117,8 @@ export function useWorkbenchFolderCommands({
   }, [handleCreateFolder, setSelectedFolderId]);
 
   const handleCreateNoteInside = useCallback((folderId: string | null) => {
-    if (canStartDraft) { openDraftNote(); return; }
     setSelectedFolderId(folderId ?? UNFILED_FOLDER_ID);
+    if (canStartDraft) { openDraftNote(); return; }
     if (scopeType === 'local' && !hasLocalVault) {
       onChooseLocalVault();
       return;

@@ -36,6 +36,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
   const onChooseLocalVault = props.onChooseLocalVault ?? vi.fn(async () => undefined);
   const onDisconnectHackmd = props.onDisconnectHackmd ?? vi.fn();
   const onForgetLocalVault = props.onForgetLocalVault ?? vi.fn(async () => undefined);
+  const onSwitchLocalVault = props.onSwitchLocalVault ?? vi.fn(async () => undefined);
   const onOpenLocalVault = props.onOpenLocalVault ?? vi.fn(async () => undefined);
   const onRefreshLocalVault = props.onRefreshLocalVault ?? vi.fn(async () => undefined);
   const onSave = props.onSave ?? vi.fn();
@@ -46,6 +47,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
     appearance: defaultSettings.appearance,
     editor: defaultSettings.editor,
     hasHackmdApiToken: false,
+    hackmdAccounts: { accounts: [], activeAccountId: null },
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
     hasLocalVault: false,
     localVault: defaultSettings.localVault,
@@ -62,6 +64,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
         onChooseLocalVault={onChooseLocalVault}
         onDisconnectHackmd={onDisconnectHackmd}
         onForgetLocalVault={onForgetLocalVault}
+        onSwitchLocalVault={onSwitchLocalVault}
         onOpenLocalVault={onOpenLocalVault}
         onRefreshLocalVault={onRefreshLocalVault}
         onOpenChange={onOpenChange}
@@ -78,6 +81,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
     onChooseLocalVault,
     onDisconnectHackmd,
     onForgetLocalVault,
+    onSwitchLocalVault,
     onOpenLocalVault,
     onRefreshLocalVault,
     onOpenChange,
@@ -333,6 +337,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: { mode: 'vim' },
         hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -630,6 +635,7 @@ describe('SettingsDialog', () => {
       appearance: defaultSettings.appearance,
       editor: defaultSettings.editor,
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
       hasLocalVault: false,
       localVault: defaultSettings.localVault,
@@ -695,6 +701,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -739,6 +746,7 @@ describe('SettingsDialog', () => {
       expect(onSave).toHaveBeenCalledWith({
         title: 'HackDesk',
         hackmdApiToken: 'secret-token',
+        hackmdAccountLabel: '@michael5566',
       });
     });
   });
@@ -812,6 +820,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -844,6 +853,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -864,8 +874,9 @@ describe('SettingsDialog', () => {
         title: 'HackDesk', appearance: defaultSettings.appearance, editor: defaultSettings.editor,
         workspaceNavigation: defaultSettings.workspaceNavigation,
         hasHackmdApiToken: true, hackmdTokenStorageError: 'Unlock your system keyring or reconnect.',
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
-        hasLocalVault: true, localVault: { path: '/tmp/vault' }, onboarding: defaultSettings.onboarding,
+        hasLocalVault: true, localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp', workspaces: [], activeWorkspaceId: null }, onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
       },
     });
@@ -882,6 +893,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -923,6 +935,79 @@ describe('SettingsDialog', () => {
     expect(onDisconnectHackmd).toHaveBeenCalledOnce();
   });
 
+  it('lists connected accounts with switch and forget actions', () => {
+    const { onSave } = renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: true,
+        hackmdAccounts: {
+          accounts: [
+            { id: 'a1', label: '@ada', hasToken: true },
+            { id: 'g1', label: '@grace', hasToken: true },
+          ],
+          activeAccountId: 'a1',
+        },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    expect(screen.getByText('@ada')).toBeVisible();
+    expect(screen.getByText('@grace')).toBeVisible();
+    expect(screen.getByText('Active')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', hackmdActiveAccountId: 'g1' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
+    const confirm = screen.getByRole('alertdialog', { name: 'Forget @grace?' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Forget Account' }));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', hackmdRemoveAccountId: 'g1' });
+  });
+
+  it('connects another account from the token form without replacing the active one', async () => {
+    const { onSave } = renderSettingsDialog({
+      onValidateToken: vi.fn(async () => validatedUser),
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: true,
+        hackmdAccounts: {
+          accounts: [{ id: 'a1', label: '@ada', hasToken: true }],
+          activeAccountId: 'a1',
+        },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect another account' }));
+    fireEvent.change(screen.getByLabelText('API Token'), { target: { value: 'second-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect account' }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        title: 'HackDesk',
+        hackmdApiToken: 'second-token',
+        hackmdAccountLabel: '@michael5566',
+        hackmdAddAccount: true,
+      });
+    });
+  });
+
   it('does not show Disconnect HackMD without a configured token', () => {
     renderSettingsDialog();
 
@@ -931,12 +1016,13 @@ describe('SettingsDialog', () => {
     expect(screen.queryByRole('button', { name: 'Disconnect HackMD' })).not.toBeInTheDocument();
   });
 
-  it('shows local vault details and runs vault actions', () => {
+  it('shows local vault details and runs vault actions', async () => {
     const {
       onChooseLocalVault,
       onForgetLocalVault,
       onOpenLocalVault,
       onRefreshLocalVault,
+      onSwitchLocalVault,
     } = renderSettingsDialog({
       settings: {
         title: 'HackDesk',
@@ -944,9 +1030,10 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: true,
-        localVault: { path: '/Users/michael/Notes' },
+        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/MyVault' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
         onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
       },
@@ -964,25 +1051,115 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
 
-    expect(screen.getByText('/Users/michael/Notes')).toBeInTheDocument();
-    expect(screen.getByText('Notes')).toBeInTheDocument();
+    expect(screen.getAllByText('/Users/michael/MyVault').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('MyVault').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Notes').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Folders').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('Folders')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open in Finder' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Refresh Vault' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Change Vault' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Forget Vault' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add Folder' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Forget' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open in Finder' }));
+    await waitFor(() => expect(onOpenLocalVault).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole('button', { name: 'Refresh Vault' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Change Vault' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Forget Vault' }));
+    await waitFor(() => expect(onRefreshLocalVault).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('button', { name: 'Add Folder' }));
+    await waitFor(() => expect(onChooseLocalVault).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
+    await waitFor(() => expect(onForgetLocalVault).toHaveBeenCalledWith('vault-notes'));
 
     expect(onOpenLocalVault).toHaveBeenCalledOnce();
     expect(onRefreshLocalVault).toHaveBeenCalledOnce();
     expect(onChooseLocalVault).toHaveBeenCalledOnce();
-    expect(onForgetLocalVault).toHaveBeenCalledOnce();
+    expect(onForgetLocalVault).toHaveBeenCalledWith('vault-notes');
+    expect(onSwitchLocalVault).not.toHaveBeenCalled();
+  });
+
+  it('creates, edits, opens and deletes named workspaces', async () => {
+    const localWorkspaceActions = {
+      create: vi.fn(async () => undefined),
+      rename: vi.fn(async () => undefined),
+      remove: vi.fn(async () => undefined),
+      activate: vi.fn(async () => undefined),
+      setVaults: vi.fn(async () => undefined),
+    };
+    renderSettingsDialog({
+      localWorkspaceActions,
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: true,
+        localVault: {
+          vaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-b', path: '/Users/michael/B' }],
+          activeVaultId: 'vault-a',
+          workspaces: [{ id: 'workspace-work', name: 'Work', vaultIds: ['vault-a'] }],
+          activeWorkspaceId: 'workspace-work',
+        },
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+
+    const workspaceRow = () => screen.getByRole('button', { name: 'Edit workspace Work' }).closest('li') as HTMLElement;
+    expect(within(workspaceRow()).getByText('Work')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close workspace Work' }));
+    await waitFor(() => expect(localWorkspaceActions.activate).toHaveBeenCalledWith(null));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit workspace Work' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Studio' } });
+    fireEvent.click(within(workspaceRow()).getByLabelText('B'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save workspace Work' }));
+    await waitFor(() => expect(localWorkspaceActions.rename).toHaveBeenCalledWith('workspace-work', 'Studio'));
+    await waitFor(() => expect(localWorkspaceActions.setVaults).toHaveBeenCalledWith('workspace-work', ['vault-a', 'vault-b']));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete workspace Work' }));
+    await waitFor(() => expect(localWorkspaceActions.remove).toHaveBeenCalledWith('workspace-work'));
+
+    // The create form stays folded away until asked for.
+    fireEvent.click(screen.getByRole('button', { name: 'New workspace' }));
+    const newForm = screen.getByRole('group', { name: 'Create a workspace' });
+    fireEvent.change(within(newForm).getByLabelText('Workspace name'), { target: { value: 'Reading' } });
+    fireEvent.click(within(newForm).getByLabelText('A'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create workspace' }));
+    await waitFor(() => expect(localWorkspaceActions.create).toHaveBeenCalledWith('Reading', ['vault-a']));
+  });
+
+  it('switches between vaults from the folders list', () => {
+    const { onSwitchLocalVault } = renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: true,
+        localVault: { vaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-b', path: '/Users/michael/B' }], activeVaultId: 'vault-a', workspaces: [], activeWorkspaceId: null },
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+
+    expect(screen.getAllByText('A').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('B').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Open')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+
+    expect(onSwitchLocalVault).toHaveBeenCalledWith('vault-b');
   });
 
   it('saves whether key hints show at once', () => {

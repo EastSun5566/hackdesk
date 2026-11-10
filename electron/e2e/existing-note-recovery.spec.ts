@@ -15,7 +15,7 @@ async function fixture() {
   await mkdir(vault);
   await writeFile(join(vault, 'Original.md'), '# Original\n\nSaved body');
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   return { home, vault };
 }

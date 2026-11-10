@@ -3,11 +3,13 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
+import type { LocalVaultSessionApi } from './useLocalVaultSession';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
-import { defaultSettings } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { getLocalVaultSnapshotQueryKey } from './useElectronLocalVault';
+import type { WorkspaceScope } from './types';
 import { useHomeLocalVaultActions } from './useHomeLocalVaultActions';
 
 const { toastErrorMock, toastSuccessMock, confirmDialogMock } = vi.hoisted(() => ({
@@ -34,9 +36,10 @@ function safeSettings(overrides: Partial<ElectronSafeSettings> = {}): ElectronSa
     appearance: defaultSettings.appearance,
     editor: defaultSettings.editor,
     hasHackmdApiToken: false,
+    hackmdAccounts: { accounts: [], activeAccountId: null },
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
     hasLocalVault: true,
-    localVault: { path: '/Users/michael/Notes' },
+    localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
     onboarding: defaultSettings.onboarding,
     shouldShowHackmdOnboarding: false,
     ...overrides,
@@ -56,7 +59,7 @@ function snapshot(overrides: Partial<LocalVaultSnapshot> = {}): LocalVaultSnapsh
 function createApi(overrides: {
   choose?: HackDeskElectronAPI['localVault']['choose'];
   disconnect?: HackDeskElectronAPI['localVault']['disconnect'];
-} = {}): HackDeskElectronAPI {
+} = {}): LocalVaultSessionApi {
   return {
     getRuntimeEnvironment: () => 'electron',
     platform: 'darwin',
@@ -68,7 +71,12 @@ function createApi(overrides: {
     hackmd: {} as HackDeskElectronAPI['hackmd'],
     localVault: {
       choose: overrides.choose ?? vi.fn(async () => ({ canceled: true })),
-      disconnect: overrides.disconnect ?? vi.fn(async () => safeSettings({ localVault: { path: null }, hasLocalVault: false })),
+      disconnect: overrides.disconnect ?? vi.fn(async () => safeSettings({ localVault: { vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null }, hasLocalVault: false })),
+      activate: vi.fn(async () => ({ settings: safeSettings(), snapshot: snapshot() })),
+      forget: vi.fn(async () => ({ settings: safeSettings({ localVault: { vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null }, hasLocalVault: false }), snapshot: null })),
+      switchVault: vi.fn(async () => ({ settings: safeSettings(), snapshot: snapshot() })),
+      updateWorkspace: vi.fn(async () => ({ settings: safeSettings(), snapshot: snapshot() })),
+      forgetVault: vi.fn(async () => ({ settings: safeSettings({ localVault: { vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null }, hasLocalVault: false }), snapshot: null })),
       getSnapshot: vi.fn(),
       readNote: vi.fn(),
       createNote: vi.fn(),
@@ -84,6 +92,9 @@ function createApi(overrides: {
       trashFolder: vi.fn(),
       revealFolder: vi.fn(async () => undefined),
       revealRoot: vi.fn(async () => undefined),
+      browse: vi.fn(async () => ({ path: '/tmp', parent: '/', home: '/tmp', entries: [] })),
+      choosePath: vi.fn(async () => ({ canceled: true })),
+      createDirectory: vi.fn(async () => ({ path: '/tmp/new' })),
       onDidChange: vi.fn(),
     },
     shell: {} as HackDeskElectronAPI['shell'],
@@ -100,17 +111,19 @@ function createApi(overrides: {
       cancelClose: vi.fn(),
       checkForUpdates: vi.fn(),
       setThemeSurface: vi.fn(),
+      newWindow: vi.fn(),
     },
-  } as HackDeskElectronAPI;
+  } as unknown as LocalVaultSessionApi;
 }
 
-function renderLocalVaultActions(api: HackDeskElectronAPI, queryClient = new QueryClient()) {
+function renderLocalVaultActions(api: LocalVaultSessionApi, queryClient = new QueryClient(), scopeType?: WorkspaceScope['type']) {
   const setWorkspaceScope = vi.fn();
   const refetchLocalVault = vi.fn(async () => undefined);
   const result = renderHook(() => useHomeLocalVaultActions({
     api,
     queryClient,
     refetchLocalVault,
+    scopeType,
     setWorkspaceScope,
   }));
 
@@ -146,8 +159,8 @@ describe('useHomeLocalVaultActions', () => {
 
     expect(api.localVault.choose).toHaveBeenCalledOnce();
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
-    expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey(nextSettings.localVault.path))).toBe(nextSnapshot);
-    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault', vaultId: nextSnapshot.vaultId });
+    expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(nextSettings)))).toBe(nextSnapshot);
+    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Notes', vaultId: nextSnapshot.vaultId });
   });
 
   it('does not switch scope when local vault choosing is canceled', async () => {
@@ -186,7 +199,7 @@ describe('useHomeLocalVaultActions', () => {
 
   it('forgets the local vault only after confirmation', async () => {
     confirmDialogMock.mockResolvedValue({ confirmed: true });
-    const nextSettings = safeSettings({ localVault: { path: null }, hasLocalVault: false });
+    const nextSettings = safeSettings({ localVault: { vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null }, hasLocalVault: false });
     const api = createApi({
       disconnect: vi.fn(async () => nextSettings),
     });
@@ -206,6 +219,90 @@ describe('useHomeLocalVaultActions', () => {
     expect(api.localVault.disconnect).toHaveBeenCalledOnce();
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
     expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey())).toBeNull();
+    expect(toastSuccessMock).toHaveBeenCalledWith('Local vault forgotten.', {
+      description: 'Markdown files were not deleted.',
+    });
+  });
+
+  it('creates a working set and opens it', async () => {
+    const api = createApi();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['electron', 'settings'], safeSettings());
+    const { result, setWorkspaceScope } = renderLocalVaultActions(api, queryClient);
+
+    await act(async () => {
+      await result.current.createLocalWorkspace('Work', ['vault-notes']);
+    });
+
+    expect(api.localVault.updateWorkspace).toHaveBeenCalledOnce();
+    expect(api.localVault.updateWorkspace).toHaveBeenCalledWith({ type: 'create', name: 'Work', vaultIds: ['vault-notes'] });
+    expect(setWorkspaceScope).toHaveBeenCalled();
+  });
+
+  it('renames, re-scopes and deletes working sets through the session api', async () => {
+    const api = createApi();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['electron', 'settings'], safeSettings());
+    const { result } = renderLocalVaultActions(api, queryClient);
+
+    await act(async () => {
+      await result.current.renameLocalWorkspace('workspace-work', 'Studio');
+      await result.current.setLocalWorkspaceFolders('workspace-work', ['vault-notes']);
+      await result.current.deleteLocalWorkspace('workspace-work');
+      await result.current.activateLocalWorkspace(null);
+    });
+
+    expect(api.localVault.updateWorkspace).toHaveBeenCalledWith({ type: 'rename', id: 'workspace-work', name: 'Studio' });
+    expect(api.localVault.updateWorkspace).toHaveBeenCalledWith({ type: 'setVaults', id: 'workspace-work', vaultIds: ['vault-notes'] });
+    expect(api.localVault.updateWorkspace).toHaveBeenCalledWith({ type: 'delete', id: 'workspace-work' });
+    expect(api.localVault.updateWorkspace).toHaveBeenCalledWith({ type: 'activate', id: null });
+  });
+
+  it('leaves another workspace alone when a set is renamed from it', async () => {
+    const api = createApi();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['electron', 'settings'], safeSettings());
+    const { result, setWorkspaceScope } = renderLocalVaultActions(api, queryClient, 'team');
+
+    await act(async () => {
+      await result.current.renameLocalWorkspace('workspace-work', 'Studio');
+      await result.current.deleteLocalWorkspace('workspace-work');
+    });
+
+    expect(api.localVault.updateWorkspace).toHaveBeenCalledTimes(2);
+    expect(setWorkspaceScope).not.toHaveBeenCalled();
+  });
+
+  it('switches to another vault and updates the scope', async () => {
+    const api = createApi();
+    const queryClient = new QueryClient();
+    const { result, setWorkspaceScope } = renderLocalVaultActions(api, queryClient);
+
+    await act(async () => {
+      await result.current.switchLocalVault('vault-notes');
+    });
+
+    expect(api.localVault.switchVault).toHaveBeenCalledWith('vault-notes');
+    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Notes', vaultId: 'vault-1' });
+  });
+
+  it('forgets a single vault by id after confirmation', async () => {
+    confirmDialogMock.mockResolvedValue({ confirmed: true });
+    const api = createApi();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['electron', 'settings'], safeSettings());
+    const { result, setWorkspaceScope } = renderLocalVaultActions(api, queryClient);
+
+    await act(async () => {
+      await result.current.forgetLocalVault('vault-notes');
+    });
+
+    expect(confirmDialogMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Forget Local Vault',
+    }));
+    expect(api.localVault.forgetVault).toHaveBeenCalledWith('vault-notes');
+    // Forgetting the active vault re-scopes onto the fallback (here: none left).
+    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault', vaultId: undefined });
     expect(toastSuccessMock).toHaveBeenCalledWith('Local vault forgotten.', {
       description: 'Markdown files were not deleted.',
     });

@@ -29,6 +29,7 @@ function renderOnboarding(overrides: Partial<Parameters<typeof HackmdOnboardingD
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hasAppearanceSettings: true,
         hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
         hasLocalVault: false,
@@ -95,7 +96,7 @@ describe('HackmdOnboardingDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
 
     await waitFor(() => expect(props.onValidateToken).toHaveBeenCalledWith('pasted-token'));
-    await waitFor(() => expect(props.onSaveToken).toHaveBeenCalledWith('pasted-token'));
+    await waitFor(() => expect(props.onSaveToken).toHaveBeenCalledWith('pasted-token', '@michael'));
     await waitFor(() => expect(props.onConnected).toHaveBeenCalledOnce());
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
     expect(screen.queryByRole('heading', { name: 'HackMD connected' })).not.toBeInTheDocument();

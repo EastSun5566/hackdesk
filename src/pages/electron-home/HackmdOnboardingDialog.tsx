@@ -64,7 +64,7 @@ export type HackmdOnboardingDialogProps = {
   onConnected?: () => void;
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
   onOpenHackmdSettings: () => void;
-  onSaveToken: (token: string) => Promise<void>;
+  onSaveToken: (token: string, label?: string) => Promise<void>;
   onSetupLater: () => Promise<void> | void;
   onValidateToken: (token: string) => Promise<UserSummary>;
 };
@@ -141,9 +141,9 @@ export function HackmdOnboardingDialog({
 
     dispatch({ type: 'set-status', status: { kind: 'validating', message: 'Testing token…' } });
     onValidateToken(normalizedToken)
-      .then(() => {
+      .then((user) => {
         dispatch({ type: 'set-status', status: { kind: 'saving', message: 'Saving token locally…' } });
-        return onSaveToken(normalizedToken);
+        return onSaveToken(normalizedToken, `@${user.username}`);
       })
       .then(() => {
         onConnected?.();

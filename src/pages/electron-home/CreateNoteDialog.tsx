@@ -1,4 +1,4 @@
-import { Loader2, Plus } from 'lucide-react';
+import { ChevronDown, Loader2, Plus } from 'lucide-react';
 
 import {
   Dialog,
@@ -25,6 +25,7 @@ export function CreateNoteDialog({
   isCreating,
   onStateChange,
   onCreate,
+  onChooseLocation,
 }: {
   state: CreateNoteDialogState;
   scopeLabel: string;
@@ -32,6 +33,7 @@ export function CreateNoteDialog({
   isCreating: boolean;
   onStateChange: (state: CreateNoteDialogState) => void;
   onCreate: (title: string) => void;
+  onChooseLocation?: () => void;
 }) {
   const normalizedTitle = state.title.trim();
   const location = folderLabel ? `${scopeLabel} / ${folderLabel}` : scopeLabel;
@@ -48,13 +50,18 @@ export function CreateNoteDialog({
             Create a note in the selected workspace or folder.
           </DialogDescription>
         </DialogHeader>
-        <p
+        <button
+          type="button"
           id={CREATE_NOTE_LOCATION_ID}
-          className="flex min-w-0 items-center gap-2 rounded border border-border-default bg-background-muted px-2.5 py-2 text-xs text-text-subtle"
+          onClick={onChooseLocation}
+          disabled={!onChooseLocation || isCreating}
+          aria-label={`Change location, current: ${location}`}
+          className="flex min-w-0 items-center gap-2 rounded border border-border-default bg-background-muted px-2.5 py-2 text-left text-xs text-text-subtle hover:bg-background-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         >
           <span className="shrink-0 font-medium text-text-default">Location</span>
-          <span className="min-w-0 truncate">{location}</span>
-        </p>
+          <span className="min-w-0 flex-1 truncate">{location}</span>
+          <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
+        </button>
         <form
           className="space-y-5"
           onSubmit={(event) => {

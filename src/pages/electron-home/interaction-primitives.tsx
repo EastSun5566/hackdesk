@@ -4,6 +4,7 @@ import {
   useContext,
   type ButtonHTMLAttributes,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type Ref,
 } from 'react';
@@ -47,13 +48,13 @@ type EntityRowProps = {
   titleClassName?: string;
   trailingClassName?: string;
   focusTarget?: boolean;
-  contentOnClick?: () => void;
-  contentAriaLabel?: string;
+  contentOnClick?: () => void;  contentAriaLabel?: string;
   contentAriaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
   contentFocusTarget?: boolean;
   contentButtonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
-  onClick?: () => void;
+  /** Receives the click event so rows can branch on modifier keys. */
+  onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   ariaLabel?: string;
   ariaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
   ariaKeyShortcuts?: string;
@@ -133,7 +134,9 @@ function EntityRowContent({
   const contentBody = (
     <>
       <span className={cn('flex min-w-0 items-center gap-2', titleClassName)}>
-        <span className={cn('min-w-0 truncate', tone === 'quiet' && !(selected || active) ? 'font-normal' : 'font-medium')}>{title}</span>
+        {/* A quiet row (the sidebar tree) keeps one weight: selection shows in colour and background,
+            since a bolder title is wider and would shift and re-truncate the row (#330). */}
+        <span className={cn('min-w-0 truncate', tone === 'quiet' ? 'font-normal' : 'font-medium')}>{title}</span>
         {badges ? <span className="shrink-0">{badges}</span> : null}
       </span>
       {subtitle ? (
@@ -194,7 +197,7 @@ function EntityRowContent({
       )}
       {controlsAfterNode ? controlsElement : null}
       {menu ? (
-        <span className="shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none">
+        <span className="entity-row-menu shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none">
           {menu}
         </span>
       ) : null}
@@ -287,11 +290,19 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   }
 
   return (
+    // The whole row lights up on hover, so the whole row answers a click: a press on its padding or
+    // the gaps beside its controls acts like one on its content. Keyboard users reach the content
+    // button itself, so this is only for the pointer.
     <div
       ref={ref as Ref<HTMLDivElement>}
       aria-label={ariaLabel}
       title={titleAttribute}
       className={rowClassName}
+      onClick={contentOnClick ? (event) => {
+        if (event.target !== event.currentTarget) return;
+        event.currentTarget.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')?.focus({ preventScroll: true });
+        contentOnClick();
+      } : undefined}
     >
       {contextMenu ? (
         <>
