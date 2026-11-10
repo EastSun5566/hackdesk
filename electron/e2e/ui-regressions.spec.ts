@@ -890,6 +890,16 @@ test('rows share one hover card and one context menu, and the workspace row keep
     await expect(page.getByRole('menu')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toHaveCount(0);
+
+    // Keyboard focus shows a note row's card as hovering does, and it follows the arrow keys.
+    await page.mouse.move(0, 0);
+    await alpha.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('treeitem', { name: 'Beta', exact: true })).toBeFocused();
+    await expect(card).toContainText('Beta');
+    // Leaving the list puts the card away.
+    await page.keyboard.press('F6');
+    await expect(card).toHaveCount(0);
   } finally {
     await stopApp(app);
   }

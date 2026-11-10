@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
   type MouseEvent as ReactMouseEvent,
@@ -124,11 +125,8 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
     });
   };
 
-  const handlePointerOver = (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.pointerType !== 'mouse' || event.buttons !== 0) return;
-    const row = registeredRow(registry, event.target, event.currentTarget);
-    if (row === hoveredRow.current) return;
-    hoveredRow.current = row;
+  /** Shows the row's card after the usual delay, or at once while another row's card is open. */
+  const showCardFor = (row: HTMLElement | null) => {
     window.clearTimeout(cardTimer.current);
     const rowCard = row ? registry.get(row)?.current.card : null;
     if (!row || !rowCard) {
@@ -150,6 +148,30 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
     }, CARD_DELAY_MS);
   };
 
+  const handlePointerOver = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType !== 'mouse' || event.buttons !== 0) return;
+    const row = registeredRow(registry, event.target, event.currentTarget);
+    if (row === hoveredRow.current) return;
+    hoveredRow.current = row;
+    showCardFor(row);
+  };
+
+  // Keyboard focus on a row shows its card too, as the per-row tooltips did; a click's focus does not.
+  const handleFocus = (event: ReactFocusEvent<HTMLElement>) => {
+    if (!isFocusVisible(event.target)) return;
+    const row = registeredRow(registry, event.target, event.currentTarget);
+    hoveredRow.current = row;
+    showCardFor(row);
+  };
+
+  const handleBlur = (event: ReactFocusEvent<HTMLElement>) => {
+    const next = event.relatedTarget;
+    // Focus moving to another row is handled by its focus event.
+    if (next instanceof Node && event.currentTarget.contains(next)) return;
+    hoveredRow.current = null;
+    closeCard();
+  };
+
   const handlePointerOut = (event: ReactPointerEvent<HTMLElement>) => {
     const next = event.relatedTarget;
     if (next instanceof Node && event.currentTarget.contains(next)) return;
@@ -164,6 +186,8 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
         onContextMenu={handleContextMenu}
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         // Pressing a row (to open it or drag it) puts its card away until the pointer leaves the row.
         onPointerDown={closeCard}
       >
@@ -189,6 +213,15 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
       </TooltipRoot>
     </RowOverlayRegistryContext.Provider>
   );
+}
+
+function isFocusVisible(target: EventTarget) {
+  if (!(target instanceof Element)) return false;
+  try {
+    return target.matches(':focus-visible');
+  } catch {
+    return true;
+  }
 }
 
 function primaryControl(row: HTMLElement | null): HTMLElement | false {
