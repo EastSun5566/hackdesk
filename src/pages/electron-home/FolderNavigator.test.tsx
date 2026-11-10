@@ -261,7 +261,7 @@ describe('FolderNavigator', () => {
       workspace: { activeLocalVaultId: 'vault-a' },
     });
 
-    expect(screen.getByRole('button', { name: 'Collapse Work' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Collapse Files' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open B' })).toBeVisible();
     // B's notes are already listed; selecting one opens it through the workspace action.
     fireEvent.click(screen.getByRole('button', { name: 'B note' }));
@@ -271,7 +271,9 @@ describe('FolderNavigator', () => {
     expect(onOpenWorkspaceFolder).toHaveBeenCalledWith('vault-b', []);
   });
 
-  it('shows another folder with its sub-folders closed unless that folder left them open', () => {
+
+  it('shows another folder with its sub-folders closed unless that folder left them open', async () => {
+    const onWorkspaceFolderAction = vi.fn();
     const plans = folder({ id: 'local-folder:Plans', name: 'Plans' });
     const drafts = folder({ id: 'local-folder:Drafts', name: 'Drafts' });
     const bTree = buildHackmdFolderTree([
@@ -289,12 +291,18 @@ describe('FolderNavigator', () => {
         { id: 'vault-b', label: 'B', path: '/tmp/B', active: false, snapshotVaultId: 'B', tree: bTree, isLoading: false, error: null },
       ],
       workspace: { activeLocalVaultId: 'vault-a' },
+      actions: { onWorkspaceFolderAction },
     });
 
     expect(screen.getByRole('button', { name: 'Expand Plans' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Plan' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Collapse Drafts' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Draft' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'New note in Plans' }));
+    expect(onWorkspaceFolderAction).toHaveBeenCalledWith('vault-b', ['local-folder:Plans'], 'create-note', undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Folder actions for Plans' }));
+    fireEvent.click(await screen.findByText('Move to…'));
+    await waitFor(() => expect(onWorkspaceFolderAction).toHaveBeenCalledWith('vault-b', ['local-folder:Plans'], 'move', undefined));
 
     fireEvent.click(screen.getByRole('button', { name: 'Expand Plans' }));
     expect(screen.getByRole('button', { name: 'Plan' })).toBeVisible();
@@ -607,6 +615,36 @@ describe('FolderNavigator', () => {
     expect(tree).not.toContainElement(trashRow);
     fireEvent.click(within(trashRow).getByRole('button', { name: 'My Trash' }));
     expect(onOpenChange).toHaveBeenCalledWith(true);
+    delete window.hackdeskAPI;
+  });
+
+  it('places History beside Trash and opens the history view', () => {
+    const onScopeChange = vi.fn();
+    renderFolderNavigator({ workspace: { onScopeChange }, trash: { open: false, onOpenChange: vi.fn(), onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } } });
+    const history = screen.getByRole('button', { name: 'History' });
+    expect(screen.getByTestId('sidebar-destinations')).toContainElement(history);
+    expect(screen.getByTestId('sidebar-destinations')).toContainElement(screen.getByTestId('sidebar-trash-row'));
+    fireEvent.click(history);
+    expect(onScopeChange).toHaveBeenCalledWith({ type: 'history', label: 'History' });
+  });
+
+  it('does not show History in a local vault', () => {
+    renderFolderNavigator({ scope: { type: 'local', label: 'Notes' } });
+    expect(screen.queryByRole('button', { name: 'History' })).not.toBeInTheDocument();
+  });
+
+  it('shows History as a sidebar view with Back while keeping the workspace', async () => {
+    const onOpenChange = vi.fn();
+    window.hackdeskAPI = { hackmd: { listHistory: vi.fn(async () => ({ source: 'remote', data: [note({ id: 'recent', title: 'Recent note' }), note({ id: 'alpha', title: 'Alpha' })] })) } } as unknown as NonNullable<typeof window.hackdeskAPI>;
+    const { props } = renderFolderNavigator({ history: { open: true, onOpenChange } });
+    expect(screen.getByRole('button', { name: 'Switch workspace, current: My Workspace' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Recent note' })).toBeVisible();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'View options' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Title A-Z' }));
+    expect(within(screen.getByRole('list', { name: 'Recently opened notes' })).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['Alpha', 'Recent note']);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to notes' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(props.workspace.onScopeChange).not.toHaveBeenCalled();
     delete window.hackdeskAPI;
   });
 
@@ -1227,5 +1265,7 @@ describe('FolderNavigator', () => {
       entries: historyTree.allNotes,
     });
     expect(screen.queryByRole('treeitem', { name: 'My Notes' })).not.toBeInTheDocument();
+    expect(screen.getByText('Recent notes')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'History' })).toHaveAttribute('aria-current', 'page');
   });
 });

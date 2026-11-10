@@ -23,7 +23,7 @@ import {
   type TrashedNoteSummary,
 } from '@/lib/electron-api';
 import { EmptyState, EntityRow } from './interaction-primitives';
-import { formatCompactDate, formatDate, ICON_BUTTON_CLASS } from './ui';
+import { FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
 import {
   HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE,
   isTeamTrashForbiddenError,
@@ -64,21 +64,26 @@ function StatusMessage({ children, busy }: { children: ReactNode; busy?: boolean
 export function TrashNavigatorHeader({
   count,
   onBack,
+  title = 'Trash',
+  trailing,
 }: {
   count: number | undefined;
   onBack: () => void;
+  title?: string;
+  trailing?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-1 px-2 pb-1 pt-0.5">
+    <div className="flex min-w-0 items-center gap-1 px-2 pb-0 pt-3">
       <Tooltip content="Back to notes">
-        <Button variant="ghost" size="icon" aria-label="Back to notes" onClick={onBack}>
-          <ChevronLeft aria-hidden="true" className="size-4" />
+        <Button variant="ghost" size="icon-sm" aria-label="Back to notes" onClick={onBack}>
+          <ChevronLeft aria-hidden="true" className="size-3.5" />
         </Button>
       </Tooltip>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-default">Trash</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-text-subtle">{title}</span>
       {count === undefined ? null : (
         <span className="shrink-0 text-xs tabular-nums text-text-subtle">{count}</span>
       )}
+      {trailing}
     </div>
   );
 }
@@ -112,7 +117,7 @@ function TrashRow({
   const entity = (
     <EntityRow
       selected={selected}
-      icon={<FileText aria-hidden="true" className="h-3.5 w-3.5" />}
+      leadingControls={<span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle"><FileText className="h-3.5 w-3.5" /></span>}
       title={title}
       subtitle={subtitle}
       trailing={(
@@ -120,8 +125,7 @@ function TrashRow({
           {formatCompactDate(note.deletedAtMillis)}
         </time>
       )}
-      // Always shown, unlike the tree's edited date: here the date is what tells notes apart.
-      trailingClassName="max-w-20 truncate text-right"
+      trailingClassName="note-row-date max-w-20 truncate text-right"
       variant="compact"
       tone="quiet"
       contentAriaLabel={title}
@@ -131,7 +135,7 @@ function TrashRow({
         <Tooltip content="Restore">
           <button
             type="button"
-            className={ICON_BUTTON_CLASS}
+            className={`flex size-6 items-center justify-center rounded text-icon-subtle hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_INSET_CLASS}`}
             aria-label={`Restore ${title}`}
             disabled={busy}
             onClick={(event) => {
@@ -139,7 +143,7 @@ function TrashRow({
               onRestore();
             }}
           >
-            <RotateCcw aria-hidden="true" className="size-4" />
+            <RotateCcw aria-hidden="true" className="size-3.5" />
           </button>
         </Tooltip>
       )}

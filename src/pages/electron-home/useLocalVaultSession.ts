@@ -27,6 +27,7 @@ import { migrateLocalWorkspaceStorage } from './local-workspace-storage';
 export type LocalVaultSessionApi = Omit<HackDeskElectronAPI, 'localVault'> & {
   localVault: HackDeskElectronAPI['localVault'] & {
     switchVault: (vaultId: string) => Promise<LocalVaultActivateResult>;
+    openStandaloneVault: (vaultId: string) => Promise<LocalVaultActivateResult>;
     forgetVault: (vaultId: string) => Promise<LocalVaultForgetResult>;
     updateWorkspace: (mutation: LocalWorkspaceMutation) => Promise<LocalWorkspaceMutationResult>;
     /** Saves a new folder order for a working set without reloading the open folder. */
@@ -166,6 +167,17 @@ export function useLocalVaultSession(
           if (result.snapshot) {
             queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
           }
+          return result;
+        }),
+        openStandaloneVault: (vaultId: string) => transition(async () => {
+          const current = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+          if (getActiveLocalWorkspace(current)) {
+            const cleared = await api.localVault.updateWorkspace({ type: 'activate', id: null });
+            queryClient.setQueryData(['electron', 'settings'], cleared.settings);
+          }
+          const result = await api.localVault.activate({ vaultId });
+          queryClient.setQueryData(['electron', 'settings'], result.settings);
+          if (result.snapshot) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
           return result;
         }),
         updateWorkspace: (mutation: LocalWorkspaceMutation) => transition(async () => {

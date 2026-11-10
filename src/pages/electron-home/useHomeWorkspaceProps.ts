@@ -39,8 +39,8 @@ import type { WorkspaceFolderTree } from './FolderNavigator';
 const EMPTY_WORKSPACE_FOLDERS: WorkspaceFolderTree[] = [];
 
 type WorkspaceNavigationTarget =
-  | { kind: 'root'; vaultId: string }
-  | { kind: 'folder'; vaultId: string; folderIds: string[] }
+  | { kind: 'root'; vaultId: string; action?: 'create-note' | 'create-folder' }
+  | { kind: 'folder'; vaultId: string; folderIds: string[]; action?: 'create-note' | 'create-folder' | 'rename' | 'move' | 'edit' | 'delete' | 'reveal'; name?: string }
   | { kind: 'note'; vaultId: string; noteId: string };
 type PendingWorkspaceNavigation = WorkspaceNavigationTarget & { originSnapshotId: string | null };
 
@@ -81,6 +81,7 @@ type WorkspaceActions = {
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setShareOpen: (open: boolean) => void;
   setTrashOpen: (open: boolean) => void;
+  setHistoryOpen: (open: boolean) => void;
   setVersionsOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
   openTrashNote: (note: NoteSummary) => void;
@@ -136,6 +137,7 @@ export function useHomeWorkspaceProps({
   onNewTab,
   recentNotes,
   trashOpen,
+  historyOpen,
   workspaceFolders = EMPTY_WORKSPACE_FOLDERS,
 }: {
   api?: HackDeskElectronAPI;
@@ -188,6 +190,7 @@ export function useHomeWorkspaceProps({
   onNewTab: () => void;
   recentNotes: ElectronRecentNote[];
   trashOpen: boolean;
+  historyOpen: boolean;
   /** Every folder of the open named set, in its stored order. */
   workspaceFolders?: WorkspaceFolderTree[];
 }): ElectronHomeWorkspaceProps {
@@ -205,6 +208,7 @@ export function useHomeWorkspaceProps({
   // search stay), then moves the tree selection once its snapshot is on screen. The snapshot id
   // proves the tree now belongs to the folder.
   const pendingWorkspaceNavigation = useRef<PendingWorkspaceNavigation | null>(null);
+  const pendingSwitcherFolder = useRef<{ workspaceId: string; vaultId: string } | null>(null);
   const switchingWorkspaceFolder = useRef(false);
   useEffect(() => {
     const pending = pendingWorkspaceNavigation.current;
@@ -213,6 +217,8 @@ export function useHomeWorkspaceProps({
     if (!localVaultId || localVaultId === pending.originSnapshotId) return;
     if (pending.kind === 'root') {
       pendingWorkspaceNavigation.current = null;
+      if (pending.action === 'create-note') actions.chooseNewNoteLocation(null);
+      else if (pending.action === 'create-folder') folderCommands.handleCreateFolderInside(null);
       return;
     }
     if (pending.kind === 'note') {
@@ -230,7 +236,14 @@ export function useHomeWorkspaceProps({
     pendingWorkspaceNavigation.current = null;
     navigator.revealFolderIds(pending.folderIds);
     navigator.handleFolderSelect(leafFolderId);
-  }, [activeVaultId, folderTree, localVaultId, navigator]);
+    if (pending.action === 'create-note') actions.chooseNewNoteLocation(leafFolderId);
+    else if (pending.action === 'create-folder') folderCommands.handleCreateFolderInside(leafFolderId);
+    else if (pending.action === 'rename' && pending.name) mutations.renameFolderMutation.mutate({ folderId: leafFolderId, input: { name: pending.name } });
+    else if (pending.action === 'move') actions.moveFolderRequest(leafFolderId);
+    else if (pending.action === 'edit') folderCommands.handleRenameFolder(leafFolderId);
+    else if (pending.action === 'delete') folderCommands.handleDeleteFolderRequest(leafFolderId);
+    else if (pending.action === 'reveal') localVaultActions.revealLocalFolder(leafFolderId);
+  }, [activeVaultId, folderTree, localVaultId, navigator, actions, folderCommands, mutations.renameFolderMutation, localVaultActions]);
 
   // Clicks in other folders while one is opening only replace the target: the last click wins,
   // instead of a second switch failing because the first is still running.
@@ -243,7 +256,6 @@ export function useHomeWorkspaceProps({
       try {
         while (pendingWorkspaceNavigation.current && pendingWorkspaceNavigation.current.vaultId !== current) {
           const next = pendingWorkspaceNavigation.current.vaultId;
-          pendingWorkspaceNavigation.current = { ...pendingWorkspaceNavigation.current, originSnapshotId: current };
           await localVaultActions.switchLocalVault(next);
           current = next;
         }
@@ -265,6 +277,13 @@ export function useHomeWorkspaceProps({
     }
     requestWorkspaceFolder(folderIds.length ? { kind: 'folder', vaultId, folderIds } : { kind: 'root', vaultId });
   };
+
+  useEffect(() => {
+    const pending = pendingSwitcherFolder.current;
+    if (!pending || displayScope.type !== 'local' || activeLocalWorkspace?.id !== pending.workspaceId || !localVaultId) return;
+    pendingSwitcherFolder.current = null;
+    if (pending.vaultId !== activeVaultId) requestWorkspaceFolder({ kind: 'root', vaultId: pending.vaultId });
+  });
 
   const openWorkspaceNote = (vaultId: string, note: NoteSummary) => {
     if (vaultId === activeVaultId && !switchingWorkspaceFolder.current) {
@@ -341,6 +360,7 @@ export function useHomeWorkspaceProps({
         },
         onScopeChange: (next) => {
           actions.setTrashOpen(false);
+          actions.setHistoryOpen(false);
           actions.switchWorkspaceScope(next);
         },
         localVaults: settings?.localVault.vaults ?? [],
@@ -351,6 +371,24 @@ export function useHomeWorkspaceProps({
           setWorkspaceSwitcherOpen(false);
           void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
             toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
+          });
+        },
+        onOpenLocalWorkspaceFolder: (workspaceId, vaultId) => {
+          setWorkspaceSwitcherOpen(false);
+          if (activeLocalWorkspace?.id === workspaceId && displayScope.type === 'local') {
+            openWorkspaceFolder(vaultId, []);
+            return;
+          }
+          pendingSwitcherFolder.current = { workspaceId, vaultId };
+          void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
+            pendingSwitcherFolder.current = null;
+            toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
+          });
+        },
+        onOpenStandaloneLocalVault: (vaultId) => {
+          setWorkspaceSwitcherOpen(false);
+          void localVaultActions.openStandaloneLocalVault(vaultId).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open the local folder.');
           });
         },
         onSwitchLocalVault: (vaultId: string) => {
@@ -397,10 +435,11 @@ export function useHomeWorkspaceProps({
       status: homeStatus.navigatorStatus,
       trash: settings?.hasHackmdApiToken && (displayScope.type === 'personal' || displayScope.type === 'team') ? {
         open: trashOpen,
-        onOpenChange: actions.setTrashOpen,
+        onOpenChange: (open) => { if (open) actions.setHistoryOpen(false); actions.setTrashOpen(open); },
         onOpenNote: actions.openTrashNote,
         scope: displayScope,
       } : undefined,
+      history: { open: historyOpen, onOpenChange: (open) => { if (open) actions.setTrashOpen(false); actions.setHistoryOpen(open); } },
       actions: {
         onFolderSelect: navigator.handleFolderSelect,
         onFolderToggle: navigator.toggleFolderCollapsed,
@@ -435,6 +474,10 @@ export function useHomeWorkspaceProps({
         onNoteMove: navigator.handleNoteMove,
         onOpenNote: actions.handleOpenEditor,
         onOpenWorkspaceFolder: openWorkspaceFolder,
+        onWorkspaceFolderAction: (vaultId, folderIds, action, name) => {
+          if (!folderIds.length && (action === 'create-note' || action === 'create-folder')) requestWorkspaceFolder({ kind: 'root', vaultId, action });
+          else requestWorkspaceFolder({ kind: 'folder', vaultId, folderIds, action, name });
+        },
         onOpenWorkspaceNote: openWorkspaceNote,
         onReorderWorkspaceFolders: reorderWorkspaceFolders,
         onRevealNoteFolder: (entry: FolderTreeNote) => {

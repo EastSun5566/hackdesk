@@ -83,6 +83,19 @@ function fixture(pickFolder?: () => Promise<string | null>) {
 afterEach(() => { cleanup(); localStorage.clear(); onlineManager.setOnline(true); vi.restoreAllMocks(); });
 
 describe('Local Vault session', () => {
+  it('leaves the current workspace before opening a member as a standalone folder', async () => {
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    const current = settings('/tmp/A');
+    current.localVault.workspaces = [{ id: 'work', name: 'Work', vaultIds: [current.localVault.activeVaultId!] }];
+    current.localVault.activeWorkspaceId = 'work';
+    f.client.setQueryData(['electron', 'settings'], current);
+    vi.mocked(f.api.localVault.updateWorkspace).mockResolvedValueOnce({ settings: settings('/tmp/A'), snapshot: snapshot('A') });
+    await act(async () => { await f.result.current.session.api!.localVault.openStandaloneVault('vault-B'); });
+    expect(f.api.localVault.updateWorkspace).toHaveBeenCalledWith({ type: 'activate', id: null });
+    expect(f.api.localVault.activate).toHaveBeenCalledWith({ vaultId: 'vault-B' });
+    expect(vi.mocked(f.api.localVault.updateWorkspace).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(f.api.localVault.activate).mock.invocationCallOrder[0]);
+  });
   it('loads settings and the vault while offline', async () => {
     onlineManager.setOnline(false);
     const f = fixture();

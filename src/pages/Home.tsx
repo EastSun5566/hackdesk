@@ -113,6 +113,7 @@ export function Home() {
   const usingInitialDrafts = settingsReady && (initialDraftsPending || setupMissing);
   if (setupMissing && !initialDraftsPending) setInitialDraftsPending(true);
   const [destinationOpen, setDestinationOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const pendingInitialSave = useRef<string | null>(null);
   const folderPickerAction = useRef<{ type: 'note'; note: NoteSummary } | { type: 'folder'; id: string } | { type: 'create'; title: string } | null>(null);
   const beforeVaultChange = useRef<() => void>(() => {});
@@ -160,8 +161,10 @@ export function Home() {
   const [shortcutHelp, setShortcutHelp] = useState<{ region: ElectronFocusZone; target: HTMLElement | null } | null>(null);
   const closeTransientLayerWithHelp = useCallback(() => {
     if (shortcutHelp) { setShortcutHelp(null); return true; }
-    return closeTransientLayer();
-  }, [shortcutHelp, closeTransientLayer]);
+    if (closeTransientLayer()) return true;
+    if (historyOpen) { setHistoryOpen(false); return true; }
+    return false;
+  }, [shortcutHelp, closeTransientLayer, historyOpen]);
   // The named set the open folder belongs to: its folders share one scope (tabs, search).
   const openLocalWorkspace = getActiveLocalWorkspace(settingsQuery.data);
   const localWorkspaceId = openLocalWorkspace && settingsQuery.data?.localVault.activeVaultId
@@ -185,6 +188,7 @@ export function Home() {
     setSelectedFolderId,
     setWorkspaceScope: setWorkspaceScopeState,
   } = workspaceState;
+  useEffect(() => { setHistoryOpen(false); }, [scopeStorageKey]);
   const {
     inspectorCollapsed,
     navigatorCollapsed,
@@ -950,7 +954,7 @@ export function Home() {
     setTrashOpen,
     setVersionsOpen,
     splitActiveTab: noteWorkspace.splitActiveTab,
-    switchToHistory: () => switchWorkspaceScope({ type: 'history', label: 'History' }),
+    switchToHistory: () => { if (scope.type !== 'local') { setTrashOpen(false); setHistoryOpen(true); } },
     toggleInspector: toggleNoteDetails,
     toggleKeyHints: () => {
       const keyboardNavigation = settings?.keyboardNavigation ?? defaultSettings.keyboardNavigation;
@@ -1219,6 +1223,7 @@ export function Home() {
       setFinderState,
       setShareOpen,
       setTrashOpen,
+      setHistoryOpen,
       setVersionsOpen,
       switchWorkspaceScope,
       openTrashNote: (note) => void requestSelectNote(note, { focusEditor: true }),
@@ -1281,6 +1286,7 @@ export function Home() {
     onNewTab: () => runShortcutAction('new-tab'),
     recentNotes,
     trashOpen,
+    historyOpen,
   });
   const overlayProps = useHomeOverlayProps({
     actionContext,

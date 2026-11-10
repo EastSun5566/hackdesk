@@ -31,6 +31,7 @@ function localScopeLabel(settings: ElectronSafeSettings | undefined, vaultId?: s
 export type HomeLocalVaultActions = {
   chooseLocalVault: () => Promise<boolean>;
   switchLocalVault: (vaultId: string) => Promise<void>;
+  openStandaloneLocalVault: (vaultId: string) => Promise<void>;
   forgetLocalVault: (vaultId?: string) => Promise<void>;
   /** Creates a named working set and opens it. */
   createLocalWorkspace: (name: string, vaultIds: string[]) => Promise<void>;
@@ -98,6 +99,12 @@ export function useHomeLocalVaultActions({
     const result = await api.localVault.switchVault(vaultId);
     setWorkspaceScope({ type: 'local', label: localScopeLabel(result.settings, result.snapshot?.vaultId), vaultId: result.snapshot?.vaultId });
   }, [api, queryClient, scopeType, setWorkspaceScope]);
+
+  const openStandaloneLocalVault = useCallback(async (vaultId: string) => {
+    if (!api) throw new Error('Electron API is unavailable.');
+    const result = await api.localVault.openStandaloneVault(vaultId);
+    setWorkspaceScope({ type: 'local', label: localScopeLabel(result.settings, result.snapshot?.vaultId), vaultId: result.snapshot?.vaultId });
+  }, [api, setWorkspaceScope]);
 
   const openLocalVault = useCallback(async () => {
     if (!api) {
@@ -247,6 +254,7 @@ export function useHomeLocalVaultActions({
     chooseLocalVault,
     reorderLocalWorkspaceFolders,
     switchLocalVault,
+    openStandaloneLocalVault,
     createLocalWorkspace: createLocalWorkspaceAction,
     renameLocalWorkspace: renameLocalWorkspaceAction,
     deleteLocalWorkspace: deleteLocalWorkspaceAction,
