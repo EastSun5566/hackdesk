@@ -12,7 +12,7 @@ function useFixture(vaultId: string | null) {
   const workspace = useWorkbenchWorkspaceState({ initialWorkspaceScope: { type: 'local', label: 'Local Vault' }, localVaultId: vaultId, manualEmptyWorkspaceRef: { current: false } });
   const tabs = useNoteWorkspaceTabs(workspace.scopeStorageKey);
   const finder = useWorkbenchFinder({ initialScopeStorageKey: workspace.initialScopeStorageKey, scopeStorageKey: workspace.scopeStorageKey, selectedFolderId: workspace.selectedFolderId, setNavigatorCollapsed: () => {} });
-  useElectronHomeShellEffects({ expandedFolderIds: workspace.expandedFolderIds, scopeStorageKey: workspace.scopeStorageKey, openQuickCaptureDraft: () => ({ accepted: true }), runAction: () => {} });
+  useElectronHomeShellEffects({ expandedFolderIds: workspace.expandedFolderIds, folderStateKey: workspace.folderStateKey, openQuickCaptureDraft: () => ({ accepted: true }), runAction: () => {} });
   return { workspace, tabs, finder };
 }
 

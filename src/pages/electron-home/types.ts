@@ -8,7 +8,8 @@ import type {
 } from '@/lib/settings';
 
 export type WorkspaceScope =
-  | { type: 'local'; label: string; vaultId?: string }
+  /** workspaceId is set while the folder is open as part of a named set: the set owns the tabs. */
+  | { type: 'local'; label: string; vaultId?: string; workspaceId?: string }
   | { type: 'personal'; label: string }
   | { type: 'history'; label: string }
   | { type: 'team'; label: string; teamPath: string };

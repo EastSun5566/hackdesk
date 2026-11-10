@@ -47,6 +47,7 @@ import type {
   LocalVaultRenameNoteInput,
   LocalVaultRevealFolderInput,
   LocalVaultRevealNoteInput,
+  LocalVaultSnapshot,
   LocalVaultTrashFolderInput,
   LocalVaultVaultIdInput,
   LocalVaultTrashNoteInput,
@@ -224,6 +225,9 @@ const api: HackDeskElectronAPI = {
     ),
     disconnect: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultDisconnect),
     getSnapshot: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetSnapshot),
+    getVaultSnapshot: (input: LocalVaultVaultIdInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetVaultSnapshot, input) as Promise<LocalVaultSnapshot>
+    ),
     readNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultReadNote, noteId),
     createNote: (input: LocalVaultCreateNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateNote, input),
     writeNote: (input: LocalVaultWriteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultWriteNote, input),

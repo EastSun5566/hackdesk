@@ -36,7 +36,7 @@ import { useSplitStatusLine } from './electron-home/split-status-line-preference
 import { useStatusLineVisible } from './electron-home/status-line-preference';
 import { useElectronSettings } from './electron-home/useElectronSettings';
 import { useLocalVaultSession } from './electron-home/useLocalVaultSession';
-import { LOCAL_VAULT_TEAM_PATH, toDocumentSummary } from './electron-home/local-vault-adapter';
+import { adaptLocalVaultSnapshot, LOCAL_VAULT_TEAM_PATH, toDocumentSummary } from './electron-home/local-vault-adapter';
 import type { WorkspaceScope } from './electron-home/types';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
@@ -88,6 +88,7 @@ import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActio
 import { localVaultFolderName } from './electron-home/workspace-root-labels';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
+import { useWorkspaceFolderTrees } from './electron-home/useWorkspaceFolderTrees';
 import { getSavedTabNoteIdentity, isBlankNoteTab, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
 import { EMPTY_FOLDERS, EMPTY_NOTES, getScopeStorageKey } from './electron-home/repository';
 import {
@@ -97,6 +98,9 @@ import {
   useWorkbenchWorkspaceState,
 } from './electron-home/useWorkbenchWorkspaceState';
 import { getWorkspaceNavigationTeams } from './electron-home/workspace-navigation';
+
+const EMPTY_LOCAL_VAULTS: { id: string; path: string }[] = [];
+const EMPTY_VAULT_IDS: string[] = [];
 
 export function Home() {
   const { presets, presetId, resolvedMode, setPresetId, setTheme, theme } = useTheme();
@@ -151,9 +155,16 @@ export function Home() {
     if (shortcutHelp) { setShortcutHelp(null); return true; }
     return closeTransientLayer();
   }, [shortcutHelp, closeTransientLayer]);
+  // The named set the open folder belongs to: its folders share one scope (tabs, search).
+  const openLocalWorkspace = getActiveLocalWorkspace(settingsQuery.data);
+  const localWorkspaceId = openLocalWorkspace && settingsQuery.data?.localVault.activeVaultId
+    && openLocalWorkspace.vaultIds.includes(settingsQuery.data.localVault.activeVaultId)
+    ? openLocalWorkspace.id
+    : null;
   const workspaceState = useWorkbenchWorkspaceState({
     initialWorkspaceScope,
     localVaultId: vaultSession.vaultId,
+    localWorkspaceId,
     initialDrafts: usingInitialDrafts,
     settingsReady,
     manualEmptyWorkspaceRef: selectionRefs.manualEmptyWorkspaceRef,
@@ -335,14 +346,36 @@ export function Home() {
     selectedNote,
     activeDocumentNotes,
   });
+  // Every folder of the open set, each with its own tree; their notes open like the open folder's.
+  const workspaceFolders = useWorkspaceFolderTrees({
+    api,
+    activeSnapshot: vaultSession.snapshot,
+    activeVaultId: settingsQuery.data?.localVault.activeVaultId ?? null,
+    enabled: !!localWorkspaceId && scope.type === 'local',
+    vaultIds: localWorkspaceId && scope.type === 'local' ? openLocalWorkspace?.vaultIds ?? [] : EMPTY_VAULT_IDS,
+    vaults: settingsQuery.data?.localVault.vaults ?? EMPTY_LOCAL_VAULTS,
+  });
+  const workspaceSnapshots = useMemo(
+    () => workspaceFolders.flatMap((folder) => (folder.snapshot ? [folder.snapshot] : [])),
+    [workspaceFolders],
+  );
   const localDocuments = useElectronLocalVault({
     api,
     enabled: !!vaultSession.snapshot && !vaultSession.isChanging && scope.type === 'local',
     snapshot: vaultSession.snapshot,
+    workspaceSnapshots,
     selectedNote,
     activeDocumentNotes,
   });
   const localVault = { ...localDocuments, snapshotQuery: vaultSession.snapshotQuery };
+  const snapshotForLocalNote = localDocuments.snapshotForNote;
+  // A tab can hold a note from any folder of the set, so changes on disk are watched in all of them.
+  const workspaceLocalNotes = useMemo(() => {
+    const others = workspaceSnapshots.filter((other) => other.vaultId !== vaultSession.snapshot?.vaultId);
+    return others.length
+      ? [...localVault.currentNotes, ...others.flatMap((other) => adaptLocalVaultSnapshot(other).notes)]
+      : localVault.currentNotes;
+  }, [localVault.currentNotes, vaultSession.snapshot?.vaultId, workspaceSnapshots]);
   const localVaultActions = useHomeLocalVaultActions({
     api,
     queryClient,
@@ -397,9 +430,15 @@ export function Home() {
       });
     }
     // A new window opened onto another vault activates it so the window shows what it was opened onto.
-    if (settings.hasLocalVault && initialWorkspaceScope.type === 'local' && initialWorkspaceScope.vaultId
-      && initialWorkspaceScope.vaultId !== settings.localVault.activeVaultId && !vaultSession.isChanging) {
-      void localVaultActions.switchLocalVault(initialWorkspaceScope.vaultId).catch((error) => {
+    // Only a window URL names a stored vault id; the saved last scope holds a snapshot id, which never
+    // equals a stored one, so trusting it re-opened the folder (and left its workspace) on every launch.
+    const openedOnto = initialWorkspaceScope.type === 'local' && hasWindowWorkspaceScope()
+      ? initialWorkspaceScope.vaultId
+      : undefined;
+    if (settings.hasLocalVault && openedOnto
+      && settings.localVault.vaults.some((vault) => vault.id === openedOnto)
+      && openedOnto !== settings.localVault.activeVaultId && !vaultSession.isChanging) {
+      void localVaultActions.switchLocalVault(openedOnto).catch((error) => {
         toast.error(error instanceof Error ? error.message : 'Failed to open the vault in a new window.');
       });
     }
@@ -553,8 +592,9 @@ export function Home() {
     drafts: noteWorkspace.state.drafts,
     enabled: scope.type === 'local' && !!vaultSession.vaultId && !vaultSession.isChanging,
     getTabsMatching: noteWorkspace.getTabsMatching,
-    notes: localVault.currentNotes,
+    notes: workspaceLocalNotes,
     openNote: noteWorkspace.openNote,
+    snapshotForNote: snapshotForLocalNote,
     resetSaveMutation: mutations.updateNoteMutation.reset,
     syncNoteSummary: noteWorkspace.syncNoteSummary,
     tabs: noteWorkspace.state.tabs,
@@ -1021,7 +1061,7 @@ export function Home() {
     expandedFolderIds,
     openQuickCaptureDraft,
     runAction,
-    scopeStorageKey,
+    folderStateKey: workspaceState.folderStateKey,
   });
 
   const openHackmdTokenSetup = useCallback(() => {
@@ -1085,14 +1125,15 @@ export function Home() {
     const identity = getSavedTabNoteIdentity(tab);
     if (!api || !identity) return undefined;
     if (identity.teamPath === LOCAL_VAULT_TEAM_PATH) {
-      // Only the active vault can be read; never read a same-named note from another vault.
-      const snapshot = await api.localVault.getSnapshot();
-      if (!snapshot || originScopeKey !== `local:${snapshot.vaultId}`) return undefined;
-      return toDocumentSummary(await api.localVault.readNote(identity.id), snapshot);
+      // Only a note of the scope on screen: any folder of an open set, read from the folder that
+      // holds it. A tab left behind in another scope is never read here.
+      const owner = snapshotForLocalNote(identity);
+      if (!owner || originScopeKey !== currentScopeKeyRef.current) return undefined;
+      return toDocumentSummary(await api.localVault.readNote(identity.id), owner);
     }
     const result = await api.hackmd.getNote(identity.id, identity.teamPath);
     return result.source === 'error' ? undefined : result.data;
-  }, [api]);
+  }, [api, snapshotForLocalNote]);
   const { attachImageToTab, cancelImageUpload, uploadingTabIds } = useTabImageUploads({
     scopeKey: noteWorkspace.state.scopeKey,
     getTabDocument: workbenchDocuments.getTabDocument,
@@ -1128,6 +1169,7 @@ export function Home() {
     revealFolder,
     saveAsTemplate: () => noteTemplates.saveDocumentAsTemplate(selectedDocument, { title: documentTitle, content: documentContent }),
     localVaultId: vaultSession.vaultId,
+    workspaceFolders,
     uploadingTabIds,
     actions: {
       saveDraftNote,

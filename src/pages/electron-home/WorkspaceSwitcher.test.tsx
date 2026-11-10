@@ -110,7 +110,7 @@ describe('WorkspaceSwitcher', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull());
   });
 
-  it('lists the open set\'s folders beneath it and hides them from the loose folders', async () => {
+  it('lists a working set by name without expanding its folders', async () => {
     const props = renderSwitcher({
       scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
       localVaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-c', path: '/Users/michael/C' }],
@@ -122,11 +122,10 @@ describe('WorkspaceSwitcher', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
 
     expect(within(dialog).getByRole('button', { name: 'Work' })).toHaveAttribute('aria-current', 'page');
-    // The open folder inside the set, and a folder the set does not hold.
-    expect(within(dialog).getByRole('button', { name: 'A' })).toHaveAttribute('aria-current', 'page');
-    expect(within(dialog).getByRole('button', { name: 'C' })).not.toHaveAttribute('aria-current', 'page');
-    // A folder inside the set is not repeated as a loose folder.
-    expect(within(dialog).getAllByRole('button', { name: 'A' })).toHaveLength(1);
+    // Folders in the set are shown in the sidebar, not repeated inside the dropdown.
+    expect(within(dialog).queryByRole('button', { name: 'A' })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'B' })).toBeNull();
+    expect(within(dialog).getByRole('button', { name: 'Work' })).toHaveTextContent('1');
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'C' }));
     expect(props.onSwitchLocalVault).toHaveBeenCalledWith('vault-c');

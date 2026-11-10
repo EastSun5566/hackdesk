@@ -74,7 +74,7 @@ export type WorkspaceSidebarProps = {
   accountStatus?: WorkspaceAccountStatus;
   /** Every known vault folder; the switcher lists each one to switch between them. */
   localVaults: { id: string; path: string }[];
-  /** Named working sets; a row opens the set and lists its folders while it is open. */
+  /** Named working sets; one row each, and the sidebar shows every folder in the open set. */
   localWorkspaces?: { id: string; name: string; vaultIds: string[] }[];
   /** The open folder and set by their stored ids, which differ from a snapshot's id. */
   activeLocalVaultId?: string | null;
@@ -615,46 +615,22 @@ export function WorkspaceSwitcher({
                 <ul className="max-h-64 list-none space-y-0.5 overflow-y-auto p-0 scroll-py-1">
                   {localWorkspaces.map((workspace) => {
                     const active = scope.type === 'local' && workspace.id === activeLocalWorkspaceId;
-                    const folders = workspace.vaultIds
-                      .map((vaultId) => localVaults.find((vault) => vault.id === vaultId))
-                      .filter((vault): vault is { id: string; path: string } => Boolean(vault));
+                    const folderCount = workspace.vaultIds
+                      .filter((vaultId) => localVaults.some((vault) => vault.id === vaultId))
+                      .length;
                     return (
-                      <li key={`workspace:${workspace.id}`} className="flex flex-col">
+                      <li key={`workspace:${workspace.id}`} className="flex">
                         <WorkspaceRow
                           active={active}
                           icon={<IconBox small><Layers className="size-3.5" /></IconBox>}
                           label={workspace.name}
-                          trailing={<span className="text-xs tabular-nums text-text-subtle">{folders.length}</span>}
+                          trailing={<span className="text-xs tabular-nums text-text-subtle">{folderCount}</span>}
                           onClick={() => {
                             onSwitcherOpenChange(false);
                             onActivateLocalWorkspace?.(workspace.id);
                           }}
                           openModifierHint={openModifierHint}
                         />
-                        {/* Only the open set shows its folders: the rest stay one row each. */}
-                        {active ? (
-                          <ul className="mt-0.5 flex list-none flex-col gap-0.5 pl-6">
-                            {folders.map((vault) => {
-                              const folderName = localVaultFolderName(vault.path);
-                              const open = scope.type === 'local' && activeLocalVaultId === vault.id;
-                              return (
-                                <li key={vault.id} className="flex">
-                                  <WorkspaceRow
-                                    active={open}
-                                    icon={<IconBox small><FolderOpen className="size-3.5" /></IconBox>}
-                                    label={folderName}
-                                    onClick={() => {
-                                      onSwitcherOpenChange(false);
-                                      onSwitchLocalVault(vault.id);
-                                    }}
-                                    onOpenInNewWindow={openOut ? () => openOut({ type: 'local', label: folderName, vaultId: vault.id }) : undefined}
-                                    openModifierHint={openModifierHint}
-                                  />
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : null}
                       </li>
                     );
                   })}

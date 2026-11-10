@@ -11,6 +11,7 @@ export const ELECTRON_CHANNELS = {
   localVaultCreateDirectory: 'local-vault:create-directory',
   localVaultDisconnect: 'local-vault:disconnect',
   localVaultGetSnapshot: 'local-vault:get-snapshot',
+  localVaultGetVaultSnapshot: 'local-vault:get-vault-snapshot',
   localVaultDidChange: 'local-vault:did-change',
   localVaultReadNote: 'local-vault:read-note',
   localVaultCreateNote: 'local-vault:create-note',

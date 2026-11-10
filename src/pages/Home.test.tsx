@@ -407,6 +407,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       updateWorkspace: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
       disconnect: vi.fn(async () => createSafeSettings()),
       getSnapshot: vi.fn(async () => null),
+      getVaultSnapshot: vi.fn(async () => { throw new Error('No vault'); }),
       readNote: vi.fn(),
       createNote: vi.fn(),
       writeNote: vi.fn(),

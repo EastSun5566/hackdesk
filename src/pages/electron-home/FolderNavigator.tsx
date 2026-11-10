@@ -29,7 +29,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import type { NoteSummary } from '@/lib/electron-api';
-import type { LocalVaultSkippedFile } from '@/lib/local-vault';
+import type { LocalVaultSkippedFile, LocalVaultSnapshot } from '@/lib/local-vault';
 import {
   buildFolderDropOperation,
   flattenFolderTree,
@@ -58,6 +58,7 @@ import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
 import { useScrollOverflow } from './useScrollOverflow';
 import { RowOverlayHost } from './row-overlays';
+import { FOLDER_EXPANDED_PREFIX } from './ui-preferences';
 
 import { applyTreeGuides } from './tree-guides-preference';
 import { cn } from '@/lib/utils';
@@ -77,9 +78,12 @@ import {
   SidebarTrashRow,
   TREE_GUIDE_CLASS,
   treeItemClassName,
+  buildWorkspaceFolderDragId,
+  parseWorkspaceFolderDragId,
+  WorkspaceFolderPreview,
+  WorkspaceFolderSection,
   WorkspaceRootScopeIcon,
   WorkspaceRootTreeRow,
-  WorkspaceSiblingVaultRow,
 } from './FolderNavigatorRows';
 import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
@@ -101,7 +105,16 @@ import { trashTeamPathForScope, useTrashList } from './useTrash';
  * under it. The workspace row is checked first, since rows scroll beneath it. Keyboard drags have
  * no pointer and step through the nearest rows.
  */
-const treeCollisionDetection: CollisionDetection = (args) => {
+const treeCollisionDetection: CollisionDetection = (input) => {
+  // A workspace folder section only lands on another section, and a note or folder never lands on
+  // a section: the section wraps the whole active tree, so it would hide every row inside it.
+  const sectionDrag = parseWorkspaceFolderDragId(String(input.active.id)) !== null;
+  const args = {
+    ...input,
+    droppableContainers: input.droppableContainers.filter((container) => (
+      (parseWorkspaceFolderDragId(String(container.id)) !== null) === sectionDrag
+    )),
+  };
   const pointer = args.pointerCoordinates;
   if (!pointer) {
     return closestCenter(args).filter((collision) => collision.id !== ROOT_FOLDER_DROP_ID);
@@ -213,11 +226,32 @@ export type FolderNavigatorActions = {
   onNoteSelect: (note: NoteSummary) => void;
   onNoteRevealInFinder: (note: NoteSummary) => void;
   onOpenNote: (note: NoteSummary) => void;
+  /** Moves the selection into another folder in the open working set, switching it in first. */
+  onOpenWorkspaceFolder?: (vaultId: string, folderIds: string[]) => void;
+  /** Opens a note that lives in another folder of the open working set. */
+  onOpenWorkspaceNote?: (vaultId: string, note: NoteSummary) => void;
+  /** Saves a new order for the folders of the open working set. */
+  onReorderWorkspaceFolders?: (vaultIds: string[]) => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
   onRefresh: () => void;
   onRevealNoteFolder: (entry: FolderTreeNote) => void;
   onRenameFolder: (folderId: string) => void;
+};
+
+export type WorkspaceFolderTree = {
+  id: string;
+  label: string;
+  path: string;
+  /** The open folder: the navigator shows the live tree in its place. */
+  active: boolean;
+  /** The id its scan reports, which keys its saved state (expanded folders, tabs) like a scope. */
+  snapshotVaultId: string | null;
+  /** Its last scan; null for the open folder, whose scan the session holds. */
+  snapshot?: LocalVaultSnapshot | null;
+  tree: FolderTree;
+  isLoading: boolean;
+  error: string | null;
 };
 
 export type FolderNavigatorProps = {
@@ -232,8 +266,8 @@ export type FolderNavigatorProps = {
   vaultFolderName?: string | null;
   /** The open named working set, whose name becomes the root row. */
   localWorkspaceName?: string | null;
-  /** Folders in the working set that are not open; their rows switch to them. */
-  workspaceVaults?: { id: string; label: string; path: string }[];
+  /** Every other folder in the working set, each with its own tree. */
+  workspaceFolders?: WorkspaceFolderTree[];
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
   /** Notes whose text matched the finder query, with snippets. */
@@ -272,7 +306,7 @@ function FolderNavigatorPanel({
   scope,
   vaultFolderName,
   localWorkspaceName,
-  workspaceVaults,
+  workspaceFolders,
   selection,
   status,
   textSearch,
@@ -307,7 +341,7 @@ function FolderNavigatorPanel({
           scope={scope}
           vaultFolderName={vaultFolderName}
           localWorkspaceName={localWorkspaceName}
-          workspaceVaults={workspaceVaults}
+          workspaceFolders={workspaceFolders}
           selection={selection}
           status={status}
           textSearch={textSearch}
@@ -342,7 +376,7 @@ function ExpandedNavigator({
   scope,
   vaultFolderName,
   localWorkspaceName,
-  workspaceVaults,
+  workspaceFolders,
   selection,
   status,
   textSearch,
@@ -437,8 +471,8 @@ function ExpandedNavigator({
         scope={scope}
         vaultFolderName={vaultFolderName}
         localWorkspaceName={localWorkspaceName}
-        onSwitchLocalVault={workspace.onSwitchLocalVault}
-        workspaceVaults={workspaceVaults}
+        workspaceFolders={workspaceFolders}
+        workspace={workspace}
         status={status}
         textSearch={textSearch}
         tree={tree}
@@ -538,8 +572,8 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   scope,
   vaultFolderName,
   localWorkspaceName,
-  onSwitchLocalVault,
-  workspaceVaults,
+  workspaceFolders,
+  workspace,
   status,
   textSearch,
   tree,
@@ -560,8 +594,8 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   scope: WorkspaceScope;
   vaultFolderName?: string | null;
   localWorkspaceName?: string | null;
-  onSwitchLocalVault?: (vaultId: string) => void;
-  workspaceVaults?: { id: string; label: string; path: string }[];
+  workspaceFolders?: WorkspaceFolderTree[];
+  workspace: WorkspaceSidebarProps;
   status: FolderNavigatorStatus;
   textSearch?: NoteTextSearch;
   tree: FolderTree;
@@ -650,8 +684,9 @@ const MemoNavigatorContent = memo(function NavigatorContent({
                 scope={scope}
                 vaultFolderName={vaultFolderName}
                 localWorkspaceName={localWorkspaceName}
-                onSwitchLocalVault={onSwitchLocalVault}
-                workspaceVaults={workspaceVaults}
+                workspaceFolders={workspaceFolders}
+                activeLocalVaultId={workspace.activeLocalVaultId ?? null}
+                activeLocalWorkspaceId={workspace.activeLocalWorkspaceId ?? null}
                 selectedFolderForNoteMove={selectedFolderForNoteMove}
                 selection={selection}
                 status={status}
@@ -867,8 +902,9 @@ function NavigatorTree({
   scope,
   vaultFolderName,
   localWorkspaceName,
-  onSwitchLocalVault,
-  workspaceVaults,
+  workspaceFolders,
+  activeLocalVaultId,
+  activeLocalWorkspaceId,
   selectedFolderForNoteMove,
   selection,
   status,
@@ -880,8 +916,9 @@ function NavigatorTree({
   scope: WorkspaceScope;
   vaultFolderName?: string | null;
   localWorkspaceName?: string | null;
-  onSwitchLocalVault?: (vaultId: string) => void;
-  workspaceVaults?: { id: string; label: string; path: string }[];
+  workspaceFolders?: WorkspaceFolderTree[];
+  activeLocalVaultId?: string | null;
+  activeLocalWorkspaceId?: string | null;
   selectedFolderForNoteMove: FolderTreeNode | null;
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
@@ -920,6 +957,47 @@ function NavigatorTree({
   const [rootSectionExpanded, setRootSectionExpanded] = useState(() => (
     scopeStorageKey ? readRootSectionExpanded(scopeStorageKey) : true
   ));
+  // Every folder in the open set has its own section; collapse is per folder, not per workspace.
+  const [collapsedWorkspaceFolderIds, setCollapsedWorkspaceFolderIds] = useState<Set<string>>(new Set());
+  const [workspaceFolderKey, setWorkspaceFolderKey] = useState(activeLocalWorkspaceId ?? null);
+  if (workspaceFolderKey !== (activeLocalWorkspaceId ?? null)) {
+    setWorkspaceFolderKey(activeLocalWorkspaceId ?? null);
+    setCollapsedWorkspaceFolderIds(new Set());
+  }
+  const toggleWorkspaceFolder = (vaultId: string) => {
+    setCollapsedWorkspaceFolderIds((current) => {
+      const next = new Set(current);
+      if (next.has(vaultId)) next.delete(vaultId);
+      else next.add(vaultId);
+      return next;
+    });
+  };
+  // Sections follow the set's stored order, so opening a folder never moves it. A set of one
+  // folder is just that folder's tree.
+  // Only while a local scope is on screen: a HackMD workspace never shows the local folders, even
+  // though the set stays open for when the user comes back.
+  const localScope = scope.type === 'local';
+  const showWorkspaceFolders = Boolean(
+    localScope && localWorkspaceName && activeLocalVaultId && (workspaceFolders?.length ?? 0) > 1
+    && workspaceFolders?.some((folder) => folder.active),
+  );
+  const workspaceFolderSections = useMemo(() => {
+    if (!showWorkspaceFolders || !workspaceFolders) return [];
+    return workspaceFolders.map((folder) => (
+      folder.active ? { ...folder, label: vaultFolderName ?? folder.label, tree } : folder
+    ));
+  }, [showWorkspaceFolders, tree, vaultFolderName, workspaceFolders]);
+  const [activeWorkspaceFolderId, setActiveWorkspaceFolderId] = useState<string | null>(null);
+  const [workspaceFolderDrop, setWorkspaceFolderDrop] = useState<{ overId: string; placement: 'before' | 'after' } | null>(null);
+  const reorderWorkspaceFolders = actions.onReorderWorkspaceFolders;
+  const moveWorkspaceFolder = (vaultId: string, targetIndex: number) => {
+    const ids = workspaceFolderSections.map((section) => section.id);
+    const from = ids.indexOf(vaultId);
+    if (from === -1 || targetIndex < 0 || targetIndex >= ids.length || targetIndex === from) return;
+    ids.splice(from, 1);
+    ids.splice(targetIndex, 0, vaultId);
+    reorderWorkspaceFolders?.(ids);
+  };
   useEffect(() => {
     if (scopeStorageKey) {
       setRootSectionExpanded(readRootSectionExpanded(scopeStorageKey));
@@ -1001,6 +1079,10 @@ function NavigatorTree({
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : null;
     const pointerY = pointerYRef.current;
+    if (parseWorkspaceFolderDragId(activeId) !== null) {
+      setWorkspaceFolderDrop(getWorkspaceFolderDrop(activeId, overId, pointerY, event.over?.rect ?? null));
+      return;
+    }
     if (pointerY === null || parseNoteDragId(activeId) || !overId || overId === ROOT_FOLDER_DROP_ID) {
       showFolderDrop(null);
       return;
@@ -1022,8 +1104,45 @@ function NavigatorTree({
     showFolderDrop(valid ? { overId, placement, row } : null);
   };
 
+  const trackPointer = (event: DragStartEvent) => {
+    const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
+    if (!pointerStart) return false;
+    pointerYRef.current = pointerStart.clientY;
+    const track = (moveEvent: PointerEvent) => { pointerYRef.current = moveEvent.clientY; };
+    document.addEventListener('pointermove', track, { passive: true });
+    stopPointerTrackingRef.current = () => document.removeEventListener('pointermove', track);
+    return true;
+  };
+
+  // Where a dragged section lands: above or below the section under the pointer, or for a keyboard
+  // drag, on the side it came from.
+  const getWorkspaceFolderDrop = (
+    activeId: string,
+    overId: string | null,
+    pointerY: number | null,
+    rect: { top: number; height: number } | null,
+  ) => {
+    if (!overId || overId === activeId) return null;
+    const ids = workspaceFolderSections.map((section) => buildWorkspaceFolderDragId(section.id));
+    const from = ids.indexOf(activeId);
+    const to = ids.indexOf(overId);
+    if (from === -1 || to === -1) return null;
+    const placement: 'before' | 'after' = pointerY !== null && rect
+      ? (pointerY < rect.top + rect.height / 2 ? 'before' : 'after')
+      : (to < from ? 'before' : 'after');
+    // Dropping right next to where it already is would not move it.
+    if ((placement === 'after' && to === from - 1) || (placement === 'before' && to === from + 1)) return null;
+    return { overId, placement };
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = String(event.active.id);
+    const workspaceFolderId = parseWorkspaceFolderDragId(activeId);
+    if (workspaceFolderId !== null) {
+      setActiveWorkspaceFolderId(workspaceFolderId);
+      trackPointer(event);
+      return;
+    }
     const noteId = parseNoteDragId(activeId);
     if (noteId) {
       setActiveNoteId(noteId);
@@ -1033,23 +1152,34 @@ function NavigatorTree({
 
     setActiveFolderId(activeId);
     setActiveNoteId(null);
-    const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
-    setKeyboardFolderDrag(!pointerStart);
-    if (pointerStart) {
-      pointerYRef.current = pointerStart.clientY;
-      const track = (moveEvent: PointerEvent) => { pointerYRef.current = moveEvent.clientY; };
-      document.addEventListener('pointermove', track, { passive: true });
-      stopPointerTrackingRef.current = () => document.removeEventListener('pointermove', track);
-    }
+    setKeyboardFolderDrag(!trackPointer(event));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : null;
     const pointerFolderDrop = pointerYRef.current === null ? undefined : folderDropRef.current;
+    const sectionDrop = parseWorkspaceFolderDragId(activeId) !== null
+      ? getWorkspaceFolderDrop(activeId, overId, pointerYRef.current, event.over?.rect ?? null)
+      : null;
     endPointerFolderDrag();
     setActiveFolderId(null);
     setActiveNoteId(null);
+    setActiveWorkspaceFolderId(null);
+    setWorkspaceFolderDrop(null);
+
+    const movedWorkspaceFolderId = parseWorkspaceFolderDragId(activeId);
+    if (movedWorkspaceFolderId !== null) {
+      if (!sectionDrop) return;
+      const ids = workspaceFolderSections.map((section) => section.id);
+      const overIndex = ids.indexOf(parseWorkspaceFolderDragId(sectionDrop.overId) ?? '');
+      const fromIndex = ids.indexOf(movedWorkspaceFolderId);
+      if (overIndex === -1 || fromIndex === -1) return;
+      // The index the section ends up at once it has left its old place.
+      const insertAt = overIndex + (sectionDrop.placement === 'after' ? 1 : 0);
+      moveWorkspaceFolder(movedWorkspaceFolderId, insertAt > fromIndex ? insertAt - 1 : insertAt);
+      return;
+    }
 
     const noteOperation = buildNoteDropOperation({ tree, activeId, overId });
     if (noteOperation) {
@@ -1100,6 +1230,8 @@ function NavigatorTree({
     endPointerFolderDrag();
     setActiveFolderId(null);
     setActiveNoteId(null);
+    setActiveWorkspaceFolderId(null);
+    setWorkspaceFolderDrop(null);
   };
 
   // The rows don't depend on whether the root is open: memoized, toggling it only flips the
@@ -1164,8 +1296,8 @@ function NavigatorTree({
     </>
   ), [
     actions, activeFolderId, activeNoteId, layout.collapsedFolderIds, selectedFolderForNoteMove,
-    onSwitchLocalVault, selection.selectedFolderId, selection.selectedNoteId, showRootRow, status.isMovingFolder,
-    status.isMovingNote, tree, workspaceVaults,
+    selection.selectedFolderId, selection.selectedNoteId, showRootRow, status.isMovingFolder,
+    status.isMovingNote, tree,
   ]);
 
   return (
@@ -1195,7 +1327,7 @@ function NavigatorTree({
               <WorkspaceRootTreeRow
                 scope={scope}
                 label={rootLabel}
-                detail={localWorkspaceName ? vaultFolderName : null}
+                detail={localScope && localWorkspaceName && !showWorkspaceFolders ? vaultFolderName : null}
                 selected={rootSelected}
                 sectionExpanded={rootSectionExpanded}
                 dragActive={Boolean(activeFolderId || activeNoteId)}
@@ -1222,19 +1354,47 @@ function NavigatorTree({
                 hidden={showRootRow && !rootSectionExpanded}
                 className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && cn('relative mt-0.5', TREE_CHILDREN_INDENT_CLASS))}
               >
-                {workspaceVaults?.length ? (
-                  <li role="presentation" className="grid min-w-0 gap-0.5">
-                    {workspaceVaults.map((vault) => (
-                      <WorkspaceSiblingVaultRow
-                        key={vault.id}
-                        label={vault.label}
-                        path={vault.path}
-                        onOpen={() => onSwitchLocalVault?.(vault.id)}
-                      />
-                    ))}
-                  </li>
-                ) : null}
-                {treeRows}
+                {showWorkspaceFolders ? (
+                  workspaceFolderSections.map((section, index) => (
+                    <WorkspaceFolderSection
+                      key={section.id}
+                      id={section.id}
+                      label={section.label}
+                      path={section.path}
+                      active={section.active}
+                      expanded={!collapsedWorkspaceFolderIds.has(section.id)}
+                      noteCount={section.tree.allNotes.length}
+                      dropPlacement={workspaceFolderDrop?.overId === buildWorkspaceFolderDragId(section.id)
+                        ? workspaceFolderDrop.placement
+                        : null}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < workspaceFolderSections.length - 1}
+                      onOpen={() => {
+                        if (section.active) toggleWorkspaceFolder(section.id);
+                        else actions.onOpenWorkspaceFolder?.(section.id, []);
+                      }}
+                      onToggle={() => toggleWorkspaceFolder(section.id)}
+                      dragging={activeWorkspaceFolderId === section.id}
+                      onMove={reorderWorkspaceFolders
+                        ? (direction) => moveWorkspaceFolder(section.id, index + direction)
+                        : undefined}
+                    >
+                      {section.active ? treeRows : (
+                        <WorkspaceFolderPreview
+                          expandedStorageKey={section.snapshotVaultId
+                            ? `${FOLDER_EXPANDED_PREFIX}${getScopeStorageKey({ type: 'local', label: section.label, vaultId: section.snapshotVaultId })}`
+                            : null}
+                          error={section.error}
+                          folderLabel={section.label}
+                          isLoading={section.isLoading}
+                          onOpenFolder={(_folderId, folderIds) => actions.onOpenWorkspaceFolder?.(section.id, folderIds)}
+                          onOpenNote={(note) => actions.onOpenWorkspaceNote?.(section.id, note)}
+                          tree={section.tree}
+                        />
+                      )}
+                    </WorkspaceFolderSection>
+                  ))
+                ) : treeRows}
               </ul>
             <TreeBlankArea
               onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}

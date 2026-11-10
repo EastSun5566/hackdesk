@@ -515,6 +515,42 @@ describe('registerIpcHandlers', () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  it('scans a known workspace folder without changing the active vault', async () => {
+    settingsMock.readStoredSettings.mockResolvedValueOnce({
+      localVault: {
+        vaults: [{ id: 'vault-a', path: '/tmp/A' }, { id: 'vault-b', path: '/tmp/B' }],
+        activeVaultId: 'vault-a',
+        workspaces: [],
+        activeWorkspaceId: null,
+      },
+    });
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot);
+
+    expect(await handler?.({}, { vaultId: 'vault-b' })).toEqual(localVaultSnapshot);
+
+    expect(localVaultServiceMock.scanLocalVault).toHaveBeenCalledWith('/tmp/B');
+    expect(settingsMock.updateStoredSettings).not.toHaveBeenCalled();
+  });
+
+  it('rejects a workspace folder that is no longer configured', async () => {
+    settingsMock.readStoredSettings.mockResolvedValueOnce({
+      localVault: { vaults: [{ id: 'vault-a', path: '/tmp/A' }], activeVaultId: 'vault-a', workspaces: [], activeWorkspaceId: null },
+    });
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot);
+
+    await expect(handler?.({}, { vaultId: 'vault-gone' })).rejects.toThrow('no longer configured');
+    expect(localVaultServiceMock.scanLocalVault).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid workspace folder request', async () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot);
+
+    await expect(handler?.({}, { vaultId: '' })).rejects.toThrow('Invalid');
+  });
+
   it('sends local vault watcher changes to the main window', async () => {
     let onChange: ((snapshot: typeof localVaultSnapshot) => void) | undefined;
     localVaultServiceMock.watchLocalVault.mockImplementation((_path, callback) => {

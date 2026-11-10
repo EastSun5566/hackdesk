@@ -244,20 +244,150 @@ describe('FolderNavigator', () => {
     await waitFor(() => expect(document.activeElement).toHaveAttribute('role', 'treeitem'));
   });
 
-  it('names the root after the working set and lists its other folders as roots', () => {
-    const onSwitchLocalVault = vi.fn();
+  it('shows every folder in the working set as its own root with its own tree', () => {
+    const onOpenWorkspaceFolder = vi.fn();
+    const onOpenWorkspaceNote = vi.fn();
+    const bNote = note({ id: 'b-note', title: 'B note' });
+    const bTree = buildHackmdFolderTree([bNote]);
     renderFolderNavigator({
       scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
       localWorkspaceName: 'Work',
       vaultFolderName: 'A',
-      workspaceVaults: [{ id: 'vault-b', label: 'B', path: '/tmp/B' }],
-      workspace: { onSwitchLocalVault },
+      workspaceFolders: [
+        { id: 'vault-a', label: 'A', path: '/tmp/A', active: true, snapshotVaultId: 'A', tree: buildHackmdFolderTree([]), isLoading: false, error: null },
+        { id: 'vault-b', label: 'B', path: '/tmp/B', active: false, snapshotVaultId: 'B', tree: bTree, isLoading: false, error: null },
+      ],
+      actions: { onOpenWorkspaceFolder, onOpenWorkspaceNote },
+      workspace: { activeLocalVaultId: 'vault-a' },
     });
 
     expect(screen.getByRole('button', { name: 'Collapse Work' })).toBeVisible();
-    const sibling = screen.getByRole('button', { name: 'Open B' });
-    fireEvent.click(sibling);
-    expect(onSwitchLocalVault).toHaveBeenCalledWith('vault-b');
+    expect(screen.getByRole('button', { name: 'Open B' })).toBeVisible();
+    // B's notes are already listed; selecting one opens it through the workspace action.
+    fireEvent.click(screen.getByRole('button', { name: 'B note' }));
+    expect(onOpenWorkspaceNote).toHaveBeenCalledWith('vault-b', expect.objectContaining({ id: 'b-note' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open B' }));
+    expect(onOpenWorkspaceFolder).toHaveBeenCalledWith('vault-b', []);
+  });
+
+  it('shows another folder with its sub-folders closed unless that folder left them open', () => {
+    const plans = folder({ id: 'local-folder:Plans', name: 'Plans' });
+    const drafts = folder({ id: 'local-folder:Drafts', name: 'Drafts' });
+    const bTree = buildHackmdFolderTree([
+      note({ id: 'plan', title: 'Plan', folderPaths: [plans] }),
+      note({ id: 'draft', title: 'Draft', folderPaths: [drafts] }),
+    ], [plans, drafts]);
+    // B was open earlier with Drafts expanded; its live tree saved that under its scope.
+    localStorage.setItem('hackdesk_folder_expanded:local:B', JSON.stringify(['local-folder:Drafts']));
+    renderFolderNavigator({
+      scope: { type: 'local', label: 'Work', vaultId: 'A' },
+      localWorkspaceName: 'Work',
+      vaultFolderName: 'A',
+      workspaceFolders: [
+        { id: 'vault-a', label: 'A', path: '/tmp/A', active: true, snapshotVaultId: 'A', tree: buildHackmdFolderTree([]), isLoading: false, error: null },
+        { id: 'vault-b', label: 'B', path: '/tmp/B', active: false, snapshotVaultId: 'B', tree: bTree, isLoading: false, error: null },
+      ],
+      workspace: { activeLocalVaultId: 'vault-a' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Expand Plans' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Plan' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Collapse Drafts' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Draft' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Plans' }));
+    expect(screen.getByRole('button', { name: 'Plan' })).toBeVisible();
+    // Opening B later shows the same folders open.
+    expect(JSON.parse(localStorage.getItem('hackdesk_folder_expanded:local:B') ?? '[]'))
+      .toEqual(['local-folder:Drafts', 'local-folder:Plans']);
+    localStorage.clear();
+  });
+
+  it('leaves the local folders out of a HackMD workspace while a local set stays open', () => {
+    renderFolderNavigator({
+      scope: { type: 'personal', label: 'My Workspace' },
+      localWorkspaceName: 'Work',
+      vaultFolderName: 'A',
+      workspaceFolders: [
+        { id: 'vault-a', label: 'A', path: '/tmp/A', active: true, snapshotVaultId: 'A', tree: buildHackmdFolderTree([]), isLoading: false, error: null },
+        { id: 'vault-b', label: 'B', path: '/tmp/B', active: false, snapshotVaultId: 'B', tree: buildHackmdFolderTree([note({ id: 'b-note', title: 'B note' })]), isLoading: false, error: null },
+      ],
+      workspace: { activeLocalVaultId: 'vault-a' },
+    });
+
+    expect(document.querySelectorAll('[data-workspace-folder-id]')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Open B' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'B note' })).not.toBeInTheDocument();
+    // The HackMD notes show as usual under My Notes, with no local folder named beside it.
+    expect(screen.getByRole('treeitem', { name: /Loose note/ })).toBeInTheDocument();
+    expect(screen.queryByText('A', { exact: true })).not.toBeInTheDocument();
+  });
+
+  it('keeps the working set in its stored order whichever folder is open', () => {
+    const folders = (activeId: string) => ['vault-a', 'vault-b', 'vault-c'].map((id) => ({
+      id,
+      label: id.slice(-1).toUpperCase(),
+      path: `/tmp/${id}`,
+      active: id === activeId,
+      snapshotVaultId: null,
+      tree: buildHackmdFolderTree([]),
+      isLoading: false,
+      error: null,
+    }));
+    const sectionOrder = () => Array.from(document.querySelectorAll<HTMLElement>('[data-workspace-folder-id]'))
+      .map((section) => section.dataset.workspaceFolderId);
+    const { props, rerender } = renderFolderNavigator({
+      scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
+      localWorkspaceName: 'Work',
+      vaultFolderName: 'A',
+      workspaceFolders: folders('vault-a'),
+      workspace: { activeLocalVaultId: 'vault-a' },
+    });
+    expect(sectionOrder()).toEqual(['vault-a', 'vault-b', 'vault-c']);
+
+    rerender(
+      <TooltipProvider>
+        <FolderNavigator
+          {...props}
+          scope={{ type: 'local', label: 'Work', vaultId: 'vault-c' }}
+          vaultFolderName="C"
+          workspaceFolders={folders('vault-c')}
+          workspace={{ ...props.workspace, activeLocalVaultId: 'vault-c' }}
+        />
+      </TooltipProvider>,
+    );
+    expect(sectionOrder()).toEqual(['vault-a', 'vault-b', 'vault-c']);
+  });
+
+  it('moves a folder of the working set with Alt+Arrow keys', () => {
+    const onReorderWorkspaceFolders = vi.fn();
+    renderFolderNavigator({
+      scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
+      localWorkspaceName: 'Work',
+      vaultFolderName: 'A',
+      workspaceFolders: ['vault-a', 'vault-b', 'vault-c'].map((id) => ({
+        id,
+        label: id.slice(-1).toUpperCase(),
+        path: `/tmp/${id}`,
+        active: id === 'vault-a',
+        snapshotVaultId: null,
+        tree: buildHackmdFolderTree([]),
+        isLoading: false,
+        error: null,
+      })),
+      actions: { onReorderWorkspaceFolders },
+      workspace: { activeLocalVaultId: 'vault-a' },
+    });
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Open C' }), { key: 'ArrowUp', altKey: true });
+    expect(onReorderWorkspaceFolders).toHaveBeenLastCalledWith(['vault-a', 'vault-c', 'vault-b']);
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Hide A notes' }), { key: 'ArrowDown', altKey: true });
+    expect(onReorderWorkspaceFolders).toHaveBeenLastCalledWith(['vault-b', 'vault-a', 'vault-c']);
+    // The first folder has nowhere to go up to.
+    onReorderWorkspaceFolders.mockClear();
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Hide A notes' }), { key: 'ArrowUp', altKey: true });
+    expect(onReorderWorkspaceFolders).not.toHaveBeenCalled();
   });
 
   it('renders loading skeleton while notes load', () => {

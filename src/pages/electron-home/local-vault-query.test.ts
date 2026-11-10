@@ -1,7 +1,14 @@
 import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
-import { getLocalVaultDocumentQueryKey, invalidateMovedLocalVaultDocuments } from './local-vault-query';
+import type { ElectronSafeSettings } from '@/lib/electron-api';
+import {
+  cacheLocalVaultSnapshot,
+  getLocalVaultDocumentQueryKey,
+  getLocalVaultSnapshotQueryKey,
+  getLocalVaultVaultSnapshotQueryKey,
+  invalidateMovedLocalVaultDocuments,
+} from './local-vault-query';
 
 const document = (path: string): LocalDocument => ({
   id: 'note', title: path.slice(0, -3), content: 'Body', relativePath: path, parentPath: null,
@@ -64,5 +71,27 @@ describe('moved Local Vault document cache', () => {
     await invalidateMovedLocalVaultDocuments(client, snapshot('Same.md'), { ...snapshot('Other.md'), vaultId: 'B' });
     expect(client.getQueryState(key)?.isInvalidated).toBe(false);
     client.clear();
+  });
+});
+
+describe('cacheLocalVaultSnapshot', () => {
+  it('stores a snapshot from another folder of the set in that folder, never in the open one', () => {
+    const client = new QueryClient();
+    const settings = { localVault: { vaults: [{ id: 'vault-a', path: '/a' }, { id: 'vault-b', path: '/b' }], activeVaultId: 'vault-a', workspaces: [], activeWorkspaceId: null } } as unknown as ElectronSafeSettings;
+    client.setQueryData(['electron', 'settings'], settings);
+    const open = { vaultId: 'A', rootPath: '/a', notes: [], folders: [] } satisfies LocalVaultSnapshot;
+    const other = { vaultId: 'B', rootPath: '/b', notes: [], folders: [] } satisfies LocalVaultSnapshot;
+    client.setQueryData(getLocalVaultSnapshotQueryKey('/a'), open);
+    client.setQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'), other);
+
+    const saved = { ...other, scannedAtMillis: 2 };
+    cacheLocalVaultSnapshot(client, saved);
+
+    expect(client.getQueryData(getLocalVaultSnapshotQueryKey('/a'))).toEqual(open);
+    expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'))).toEqual(saved);
+
+    const reopened = { ...open, scannedAtMillis: 3 };
+    cacheLocalVaultSnapshot(client, reopened);
+    expect(client.getQueryData(getLocalVaultSnapshotQueryKey('/a'))).toEqual(reopened);
   });
 });

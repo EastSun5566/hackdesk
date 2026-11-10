@@ -86,10 +86,12 @@ export function createNoteIndexService({ path, readNotes, keepHackmdNotes = true
       if (opened || !enabled) open().hackmd?.setEnabled(enabled);
     },
 
-    /** Indexes the active vault and forgets any other vault's index. */
+    /**
+     * Indexes one vault. A workspace keeps several folders open, so the others stay indexed; every
+     * query names its vault, and forgetVaults clears them all when folders are forgotten.
+     */
     indexVault(snapshot: LocalVaultSnapshot) {
       return enqueue(async (store) => {
-        store.keepOnlyWorkspace('local', snapshot.vaultId);
         await indexLocalVault(store, snapshot, readNotes);
       });
     },

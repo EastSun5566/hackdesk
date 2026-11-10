@@ -9,7 +9,7 @@ import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
 import { useLocalVaultSession } from './useLocalVaultSession';
 import { useElectronSettings } from './useElectronSettings';
 import { useNoteWorkspaceTabs } from './useNoteWorkspaceTabs';
-import { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey, guardLocalVaultApi, type VaultAccess } from './local-vault-query';
+import { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey, getLocalVaultVaultSnapshotQueryKey, guardLocalVaultApi, type VaultAccess } from './local-vault-query';
 
 const snapshot = (id: string): LocalVaultSnapshot => ({ vaultId: id, rootPath: `/tmp/${id}`, folders: [], notes: [] });
 const settings = (path: string | null): ElectronSafeSettings => ({
@@ -48,6 +48,22 @@ function fixture(pickFolder?: () => Promise<string | null>) {
       disconnect: vi.fn(async () => settings(null)),
       activate: vi.fn(async () => ({ settings: settings('/tmp/B'), snapshot: snapshot('B') })),
       forget: vi.fn(async () => ({ settings: settings(null), snapshot: null })),
+      getVaultSnapshot: vi.fn(async ({ vaultId }: { vaultId: string }) => snapshot(vaultId)),
+      updateWorkspace: vi.fn(async (mutation: { id: string; vaultIds: string[] }) => {
+        const current = client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])!;
+        return {
+          settings: {
+            ...current,
+            localVault: {
+              ...current.localVault,
+              workspaces: current.localVault.workspaces.map((workspace) => (
+                workspace.id === mutation.id ? { ...workspace, vaultIds: mutation.vaultIds } : workspace
+              )),
+            },
+          },
+          snapshot: snapshot('A'),
+        };
+      }),
       readNote: vi.fn(async () => ({ content: 'A' })),
       onDidChange: vi.fn((callback) => { changed.mockImplementation(callback); return () => {}; }),
     },
@@ -96,6 +112,87 @@ describe('Local Vault session', () => {
     expect(localStorage.getItem('hackdesk_note_workspace:local:A')).toContain('Last A input');
     expect(f.result.current.tabs.state.tabs).toEqual({});
     expect(getLocalVaultDocumentQueryKey('same-note', 'A')).not.toEqual(getLocalVaultDocumentQueryKey('same-note', 'B'));
+  });
+
+  it('reads another folder of the set even while the open folder is changing', async () => {
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    const pending = deferred<Awaited<ReturnType<HackDeskElectronAPI['localVault']['activate']>>>();
+    vi.mocked(f.api.localVault.activate).mockReturnValueOnce(pending.promise);
+    const sessionApi = f.result.current.session.api!;
+    let switching!: Promise<unknown>;
+    act(() => { switching = sessionApi.localVault.switchVault('vault-B'); });
+    await waitFor(() => expect(f.result.current.session.isChanging).toBe(true));
+
+    await expect(f.result.current.session.api!.localVault.getVaultSnapshot({ vaultId: 'vault-C' }))
+      .resolves.toEqual(snapshot('vault-C'));
+
+    pending.resolve({ settings: settings('/tmp/B'), snapshot: snapshot('B') });
+    await act(async () => { await switching; });
+  });
+
+  it('opens another folder of the set without a transition, from the folder it already scanned', async () => {
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    const base = f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])!;
+    act(() => {
+      f.client.setQueryData<ElectronSafeSettings>(['electron', 'settings'], {
+        ...base,
+        localVault: {
+          ...base.localVault,
+          vaults: [...base.localVault.vaults, { id: 'vault-/tmp/B', path: '/tmp/B' }],
+          workspaces: [{ id: 'work', name: 'Work', vaultIds: ['vault-/tmp/A', 'vault-/tmp/B'] }],
+          activeWorkspaceId: 'work',
+        },
+      });
+      f.client.setQueryData(getLocalVaultVaultSnapshotQueryKey('vault-/tmp/B'), snapshot('B'));
+    });
+    const scan = deferred<Awaited<ReturnType<HackDeskElectronAPI['localVault']['activate']>>>();
+    vi.mocked(f.api.localVault.activate).mockReturnValueOnce(scan.promise);
+    const sessionApi = f.result.current.session.api!;
+    const changing: boolean[] = [];
+    let focusing!: Promise<unknown>;
+    act(() => { focusing = sessionApi.localVault.focusVault('vault-/tmp/B'); });
+
+    // B shows from its cached scan before the main process answers.
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('B'));
+    changing.push(f.result.current.session.isChanging);
+    const settled = f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])!;
+    scan.resolve({ settings: settled, snapshot: snapshot('B') });
+    await act(async () => { await focusing; });
+
+    expect(changing).toEqual([false]);
+    expect(f.result.current.session.isChanging).toBe(false);
+    await expect(f.result.current.session.api!.localVault.focusVault('vault-elsewhere')).rejects.toThrow('not in the open workspace');
+  });
+
+  it('reorders a working set without reloading the open folder', async () => {
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    const base = f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])!;
+    act(() => {
+      f.client.setQueryData<ElectronSafeSettings>(['electron', 'settings'], {
+        ...base,
+        localVault: {
+          ...base.localVault,
+          vaults: [...base.localVault.vaults, { id: 'vault-/tmp/B', path: '/tmp/B' }],
+          workspaces: [{ id: 'work', name: 'Work', vaultIds: ['vault-/tmp/A', 'vault-/tmp/B'] }],
+          activeWorkspaceId: 'work',
+        },
+      });
+    });
+    const beforeReorder = f.result.current.session.api!;
+    const reorder = beforeReorder.localVault.reorderWorkspace('work', ['vault-/tmp/B', 'vault-/tmp/A']);
+    // The new order shows before the write returns.
+    expect(f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])?.localVault.workspaces[0].vaultIds)
+      .toEqual(['vault-/tmp/B', 'vault-/tmp/A']);
+    await act(async () => { await reorder; });
+
+    expect(f.result.current.session.isChanging).toBe(false);
+    expect(f.result.current.session.vaultId).toBe('A');
+    // Calls made before the reorder still apply: the open folder did not change.
+    await expect(beforeReorder.localVault.readNote('note')).resolves.toEqual({ content: 'A' });
+    await expect(beforeReorder.localVault.reorderWorkspace('work', ['vault-/tmp/A'])).rejects.toThrow('no longer matches');
   });
 
   it('keeps the workspace on cancel; blocks Quick Hack-style submission while choosing', async () => {
@@ -189,15 +286,38 @@ describe('Local Vault session', () => {
     expect(f.result.current.session.error).toBeNull();
   });
 
-  it('rejects an operation that completes after A → B → A, even with the same vault ID', async () => {
-    const pending = deferred<string>();
-    const api = { localVault: { readNote: vi.fn(() => pending.promise) } } as unknown as HackDeskElectronAPI;
-    const access: VaultAccess = { vaultId: 'A', generation: 1, changing: false };
+  it('rejects an open-folder operation that completes after A → B → A, even with the same vault ID', async () => {
+    const pending = deferred<unknown>();
+    const api = { localVault: { createFolder: vi.fn(() => pending.promise) } } as unknown as HackDeskElectronAPI;
+    const access: VaultAccess = { vaultId: 'A', generation: 1, transitions: 0, changing: false };
     const guarded = guardLocalVaultApi(api, () => access);
-    const operation = guarded.localVault.readNote('note');
+    const operation = guarded.localVault.createFolder({ name: 'New', parentPath: null });
     const rejection = expect(operation).rejects.toThrow('changed');
     access.generation = 3;
-    pending.resolve('late A');
+    pending.resolve({});
     await rejection;
   });
+
+  it('keeps a note read across another folder of the set opening, but not across a transition', async () => {
+    const api = { localVault: { readNote: vi.fn() } } as unknown as HackDeskElectronAPI;
+    const access: VaultAccess = { vaultId: 'A', generation: 1, transitions: 0, changing: false };
+    const guarded = guardLocalVaultApi(api, () => access);
+
+    const focused = deferred<string>();
+    vi.mocked(api.localVault.readNote).mockReturnValueOnce(focused.promise as never);
+    const read = guarded.localVault.readNote('note');
+    // Opening folder B of the set changes the open folder, not the note's own folder.
+    access.vaultId = 'B';
+    access.generation = 2;
+    focused.resolve('note text');
+    await expect(read).resolves.toBe('note text');
+
+    const moved = deferred<string>();
+    vi.mocked(api.localVault.readNote).mockReturnValueOnce(moved.promise as never);
+    const stale = guardLocalVaultApi(api, () => access).localVault.readNote('note');
+    access.transitions = 1;
+    moved.resolve('late');
+    await expect(stale).rejects.toThrow('changed');
+  });
+
 });

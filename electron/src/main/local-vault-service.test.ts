@@ -164,7 +164,7 @@ describe('LocalVaultService', () => {
     }
   });
 
-  it('rejects stale note paths and vault identities, including a vault switch during a read', async () => {
+  it('rejects stale note paths and vault identities, including a vault forgotten during a read', async () => {
     const { document, snapshot } = await createLocalNote({ title: 'Note' });
     await writeFile(join(vaultPath, 'image.png'), 'image');
     const input = { vaultId: snapshot.vaultId, noteId: document.id, relativePath: document.relativePath, src: 'image.png' };
@@ -177,6 +177,39 @@ describe('LocalVaultService', () => {
       }
     });
     await expect(readLocalVaultImage(input)).rejects.toThrow('context');
+  });
+
+  it('reads, saves and renames a note in a configured folder that is not active', async () => {
+    // Create the note while B is active, then make A active again: B stays configured.
+    const otherPath = await mkdtemp(join(tmpdir(), 'hackdesk-local-other-'));
+    try {
+      const writeVaults = (activeVaultId: string) => writeFile(getSettingsPath(), JSON.stringify({
+        title: 'HackDesk',
+        hackmdApiToken: '',
+        localVault: {
+          vaults: [{ id: 'vault-a', path: vaultPath }, { id: 'vault-b', path: otherPath }],
+          activeVaultId,
+        },
+      }));
+      await writeVaults('vault-b');
+      const { document, snapshot } = await createLocalNote({ title: 'In B', content: 'B body' });
+      await writeFile(join(otherPath, 'image.png'), 'image');
+      await writeVaults('vault-a');
+
+      expect(await readLocalNote(document.id)).toMatchObject({ id: document.id, content: 'B body' });
+      const saved = await writeLocalNote({ noteId: document.id, content: 'B edited', expectedRevision: document.revision });
+      expect(saved.snapshot.vaultId).toBe(snapshot.vaultId);
+      expect(await readFile(join(otherPath, 'In B.md'), 'utf8')).toBe('B edited');
+      const renamed = await renameLocalNote({ noteId: document.id, title: 'Renamed in B' });
+      expect(renamed.document.relativePath).toBe('Renamed in B.md');
+      await expect(readLocalVaultImage({
+        vaultId: snapshot.vaultId, noteId: document.id, relativePath: 'Renamed in B.md', src: 'image.png',
+      })).resolves.toMatchObject({ mimeType: 'image/png' });
+      // A folder outside the configuration is never searched.
+      await expect(readLocalNote('missing-note')).rejects.toThrow();
+    } finally {
+      await rm(otherPath, { force: true, recursive: true });
+    }
   });
 
   it('does not return an image that changes during its read', async () => {

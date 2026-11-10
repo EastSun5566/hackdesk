@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdir, mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
@@ -20,9 +20,12 @@ async function launch(home: string) {
 }
 
 async function stop(app: ElectronApplication) {
-  if (app.process().exitCode !== null) return;
-  const exited = new Promise<void>((done) => app.process().once('exit', () => done()));
-  app.process().kill('SIGKILL');
+  // A closed app no longer has a process, and asking for it throws.
+  let child: ReturnType<ElectronApplication['process']> | undefined;
+  try { child = app.process(); } catch { return; }
+  if (!child || child.exitCode !== null) return;
+  const exited = new Promise<void>((done) => child.once('exit', () => done()));
+  child.kill('SIGKILL');
   await exited;
 }
 
@@ -69,17 +72,72 @@ test('a named local workspace groups folders under one root and survives a resta
     await expect(page.getByRole('button', { name: 'Edit workspace Work', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // The root takes the workspace name, and the other folder sits beside it as a root row.
+    // Every folder in the set sits under the workspace root with its own tree.
     await expect(page.getByRole('button', { name: 'Collapse Work', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Hide A notes', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open B', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'B note', exact: true })).toBeVisible();
     await expect(page.locator('.cm-content')).toContainText('Only in A.');
-    await page.getByRole('button', { name: 'Open B', exact: true }).click();
+    // B's note opens straight into the set's tabs: A's tab stays, and B's folder becomes the open one.
+    await page.getByRole('button', { name: 'B note', exact: true }).click();
     await expect(page.locator('.cm-content')).toContainText('Only in B.');
+    await expect(page.getByRole('tab', { name: /A note/ })).toHaveCount(1);
+    await expect(page.getByRole('tab', { name: /B note/ })).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Collapse Work', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Hide B notes', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open A', exact: true })).toBeVisible();
+    // The sidebar never fell back to a loading skeleton while B opened.
+    await expect(page.getByRole('status', { name: 'Loading notes' })).toHaveCount(0);
+
+    // B's note saves into B's folder.
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('ControlOrMeta+End');
+    await page.keyboard.type('\n\nEdited in B.');
+    await page.keyboard.press('ControlOrMeta+s');
+    await expect.poll(() => readFile(join(vaultB, 'B note.md'), 'utf8')).toContain('Edited in B.');
+    // A's note is still read from A while B is the open folder.
+    await page.getByRole('tab', { name: /A note/ }).click();
+    await expect(page.locator('.cm-content')).toContainText('Only in A.');
+    await expect(page.getByRole('button', { name: 'Hide B notes', exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: /B note/ }).click();
+    await expect(page.locator('.cm-content')).toContainText('Edited in B.');
+    // A folder header only opens the folder; the note on screen stays.
+    await page.getByRole('button', { name: 'Open A', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Hide A notes', exact: true })).toBeVisible();
+    await expect(page.locator('.cm-content')).toContainText('Edited in B.');
+    await page.getByRole('button', { name: 'Open B', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Hide B notes', exact: true })).toBeVisible();
+    // Opening B leaves the set in its stored order instead of moving B to the top.
+    const sectionOrder = () => page.locator('[data-workspace-folder-id]').evaluateAll((sections) => (
+      sections.map((section) => section.querySelector('button[aria-label^="Open "], button[aria-label^="Hide "]')?.getAttribute('aria-label'))
+    ));
+    await expect.poll(sectionOrder).toEqual(['Open A', 'Hide B notes']);
+    // Alt+Up moves B above A without reopening anything.
+    await page.getByRole('button', { name: 'Hide B notes', exact: true }).focus();
+    await page.keyboard.press('Alt+ArrowUp');
+    await expect.poll(sectionOrder).toEqual(['Hide B notes', 'Open A']);
+    await expect(page.locator('.cm-content')).toContainText('Only in B.');
+    // Dragging A's header onto the top half of B puts it back first.
+    const aHeader = await page.getByRole('button', { name: 'Open A', exact: true }).boundingBox();
+    const bHeader = await page.getByRole('button', { name: 'Hide B notes', exact: true }).boundingBox();
+    if (!aHeader || !bHeader) throw new Error('Folder headers are not on screen.');
+    await page.mouse.move(aHeader.x + 40, aHeader.y + aHeader.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(aHeader.x + 40, aHeader.y - 10, { steps: 4 });
+    await page.mouse.move(bHeader.x + 40, bHeader.y + 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(sectionOrder).toEqual(['Open A', 'Hide B notes']);
+    await expect(page.locator('.cm-content')).toContainText('Only in B.');
 
     await page.getByRole('button', { name: /^Switch workspace, current: Work/ }).click();
-    await expect(page.getByRole('dialog', { name: 'Workspaces' }).getByRole('button', { name: 'Work', exact: true }))
-      .toHaveAttribute('aria-current', 'page');
+    const switcher = page.getByRole('dialog', { name: 'Workspaces' });
+    await expect(switcher.getByRole('button', { name: 'Work', exact: true })).toHaveAttribute('aria-current', 'page');
+    // The dropdown does not repeat the set's folders; the sidebar already shows them.
+    await expect(switcher.getByRole('button', { name: 'A', exact: true })).toHaveCount(0);
+    await expect(switcher.getByRole('button', { name: 'B', exact: true })).toHaveCount(0);
     await page.keyboard.press('Escape');
+    // Quit normally: a killed app may not have written its tabs to disk yet.
+    await app.close();
   } finally {
     await stop(app);
   }
@@ -88,7 +146,10 @@ test('a named local workspace groups folders under one root and survives a resta
   ({ app, page } = await launch(home));
   try {
     await expect(page.getByRole('button', { name: 'Collapse Work', exact: true })).toBeVisible();
-    await expect(page.locator('.cm-content')).toContainText('Only in B.');
+    await expect(page.locator('.cm-content')).toContainText('Edited in B.');
+    // The set's tabs, from both folders, come back with it.
+    await expect(page.getByRole('tab', { name: /A note/ })).toHaveCount(1);
+    await expect(page.getByRole('tab', { name: /B note/ })).toHaveCount(1);
 
     // Deleting the set leaves its folders known; the root falls back to the open folder.
     await openVaultSettings(page);

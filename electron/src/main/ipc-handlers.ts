@@ -314,57 +314,51 @@ export function registerIpcHandlers(
     return noteIndex.status();
   });
 
-  let localVaultWatcher: LocalVaultWatcher | null = null;
-  let watchedLocalVaultPath: string | null = null;
+  // One watcher per folder a window reads: a workspace shows several folders at once, and each
+  // must refresh when its files change, not only the active one.
+  const localVaultWatchers = new Map<string, LocalVaultWatcher>();
   let localVaultWatcherGeneration = 0;
 
-  const closeLocalVaultWatcher = (clearPath = false) => {
-    localVaultWatcher?.close();
-    localVaultWatcher = null;
+  const closeLocalVaultWatcher = () => {
+    for (const watcher of localVaultWatchers.values()) watcher.close();
+    localVaultWatchers.clear();
     localVaultWatcherGeneration += 1;
-    if (clearPath) {
-      watchedLocalVaultPath = null;
-    }
   };
   const ensureLocalVaultWatcher = (vaultPath: string) => {
-    if (localVaultWatcher && watchedLocalVaultPath === vaultPath) {
+    if (localVaultWatchers.has(vaultPath)) {
       return;
     }
 
-    closeLocalVaultWatcher();
-    watchedLocalVaultPath = vaultPath;
-    localVaultWatcher = watchLocalVault(vaultPath, (snapshot) => {
+    localVaultWatchers.set(vaultPath, watchLocalVault(vaultPath, (snapshot) => {
       void noteIndex.indexVault(snapshot);
       windowManager.sendToAllMainWindows(ELECTRON_CHANNELS.localVaultDidChange, {
         snapshot,
       });
-    });
+    }));
   };
   const runLocalVaultMutation = async <T>(
     operation: () => Promise<T>,
     getSnapshot: (result: T) => LocalVaultSnapshot,
   ) => {
-    const watcher = localVaultWatcher;
+    // The mutated folder is only known afterwards, so every watcher holds its own events.
+    const watchers = [...localVaultWatchers.values()];
     const watcherGeneration = localVaultWatcherGeneration;
     let refreshOnResume = false;
-    watcher?.pause();
+    for (const watcher of watchers) watcher.pause();
     try {
       const result = await operation();
       if (localVaultWatcherGeneration !== watcherGeneration) {
         throw new Error('The active local vault changed while the operation was running.');
       }
       const snapshot = getSnapshot(result);
-      watchedLocalVaultPath = snapshot.rootPath;
+      ensureLocalVaultWatcher(snapshot.rootPath);
       void noteIndex.indexVault(snapshot);
       return result;
     } catch (error) {
       refreshOnResume = true;
       throw error;
     } finally {
-      watcher?.resume(refreshOnResume);
-      if (!watcher && localVaultWatcherGeneration === watcherGeneration && watchedLocalVaultPath) {
-        ensureLocalVaultWatcher(watchedLocalVaultPath);
-      }
+      for (const watcher of watchers) watcher.resume(refreshOnResume);
     }
   };
 
@@ -418,6 +412,23 @@ export function registerIpcHandlers(
     const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultChoosePath, localVaultChoosePathInputSchema, input);
     return chooseScannedVaultPath(await resolveLocalDirectory(path));
   });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultGetVaultSnapshot, async (_event, input: unknown) => {
+    const { vaultId } = validateIpcInput(
+      ELECTRON_CHANNELS.localVaultGetVaultSnapshot,
+      localVaultVaultIdInputSchema,
+      input,
+    );
+    const settings = await readStoredSettings();
+    const vault = settings.localVault.vaults.find((candidate) => candidate.id === vaultId);
+    if (!vault) {
+      throw new Error('That local folder is no longer configured.');
+    }
+    // Listing a folder in the open workspace must not change which vault is active.
+    const snapshot = await scanLocalVault(vault.path);
+    ensureLocalVaultWatcher(snapshot.rootPath);
+    void noteIndex.indexVault(snapshot);
+    return snapshot;
+  });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultBrowse, (_event, input: unknown) => {
     const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultBrowse, localVaultBrowseInputSchema, input);
     return browseLocalDirectories(path);
@@ -431,7 +442,7 @@ export function registerIpcHandlers(
     return createLocalDirectory(validated.parentPath, validated.name);
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultDisconnect, async () => {
-    closeLocalVaultWatcher(true);
+    closeLocalVaultWatcher();
     void noteIndex.forgetVaults();
     const settings = await updateStoredSettings({ localVaultPath: null });
     options.onSettingsUpdated?.(settings);
@@ -455,7 +466,7 @@ export function registerIpcHandlers(
     options.onSettingsUpdated?.(settings);
     const after = getActiveLocalVaultPath(settings);
     if (before && before !== after) {
-      closeLocalVaultWatcher(true);
+      closeLocalVaultWatcher();
       void noteIndex.forgetVaults();
     }
     const snapshot = await getActiveLocalVaultSnapshot();
@@ -472,7 +483,7 @@ export function registerIpcHandlers(
     options.onSettingsUpdated?.(settings);
     const after = getActiveLocalVaultPath(settings);
     if (before !== after) {
-      closeLocalVaultWatcher(true);
+      closeLocalVaultWatcher();
       void noteIndex.forgetVaults();
     }
     const snapshot = await getActiveLocalVaultSnapshot();
@@ -859,7 +870,7 @@ export function registerIpcHandlers(
       dictation.dispose();
       setHackmdDurableFallback(null);
       void noteIndex.close();
-      closeLocalVaultWatcher(true);
+      closeLocalVaultWatcher();
     },
   };
 }

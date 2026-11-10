@@ -45,3 +45,24 @@ export function migrateLocalWorkspaceStorage(storage: Storage, snapshot: LocalVa
   }
   storage.setItem(LOCAL_WORKSPACE_MIGRATION_KEY, snapshot.vaultId);
 }
+
+/**
+ * The first time a named set opens, it starts with the tabs and search of the folder it opened
+ * on, which until now kept them on its own. Later visits keep whatever the set saved.
+ */
+export function seedLocalWorkspaceStorage(storage: Storage, workspaceKey: string, folderKey: string) {
+  try {
+    const tabsKey = `hackdesk_note_workspace:${workspaceKey}`;
+    if (storage.getItem(tabsKey) !== null) return;
+    const folderTabs = storage.getItem(`hackdesk_note_workspace:${folderKey}`);
+    if (folderTabs !== null) {
+      const layout = JSON.parse(folderTabs);
+      if (layout && typeof layout === 'object') storage.setItem(tabsKey, JSON.stringify({ ...layout, scopeKey: workspaceKey }));
+    }
+    const finderKey = `hackdesk_note_finder:${workspaceKey}`;
+    const folderFinder = storage.getItem(`hackdesk_note_finder:${folderKey}`);
+    if (folderFinder !== null && storage.getItem(finderKey) === null) storage.setItem(finderKey, folderFinder);
+  } catch {
+    // Storage that cannot be read or written leaves the set starting empty.
+  }
+}

@@ -10,13 +10,16 @@ import {
   readWorkspaceScopeStorage,
   writeWorkspaceScopeStorage,
 } from './ui-preferences';
-import { getScopeStorageKey } from './repository';
+import { getFolderStateStorageKey, getScopeStorageKey } from './repository';
+import { seedLocalWorkspaceStorage } from './local-workspace-storage';
 import { INITIAL_DRAFT_SCOPE_KEY } from './initial-draft-workspace';
 
 export const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
 
 export type WorkbenchWorkspaceStateOptions = {
   localVaultId?: string | null;
+  /** The named set the open folder belongs to; its folders then share one scope. */
+  localWorkspaceId?: string | null;
   initialWorkspaceScope: WorkspaceScope;
   initialDrafts?: boolean;
   settingsReady?: boolean;
@@ -25,6 +28,8 @@ export type WorkbenchWorkspaceStateOptions = {
 
 export type WorkbenchWorkspaceState = {
   expandedFolderIds: Set<string>;
+  /** Where the open folder's tree state is kept; differs from the scope inside a named set. */
+  folderStateKey: string | null;
   initialScopeStorageKey: string | null;
   scope: WorkspaceScope;
   scopeStorageKey: string | null;
@@ -57,23 +62,36 @@ export function getInitialWorkspaceScope(): WorkspaceScope {
 export function useWorkbenchWorkspaceState({
   initialWorkspaceScope,
   localVaultId,
+  localWorkspaceId,
   initialDrafts = false,
   settingsReady = true,
   manualEmptyWorkspaceRef,
 }: WorkbenchWorkspaceStateOptions): WorkbenchWorkspaceState {
   const [storedScope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
-  const scope = useMemo(() => initialDrafts ? DEFAULT_WORKSPACE_SCOPE : storedScope.type === 'local'
-    ? { ...storedScope, vaultId: localVaultId ?? undefined }
-    : storedScope, [storedScope, localVaultId, initialDrafts]);
+  const scope = useMemo<WorkspaceScope>(() => initialDrafts ? DEFAULT_WORKSPACE_SCOPE : storedScope.type === 'local'
+    ? {
+      type: 'local',
+      label: storedScope.label,
+      vaultId: localVaultId ?? undefined,
+      ...(localWorkspaceId && localVaultId ? { workspaceId: localWorkspaceId } : {}),
+    }
+    : storedScope, [storedScope, localVaultId, localWorkspaceId, initialDrafts]);
   const scopeStorageKey = !settingsReady ? null : initialDrafts ? INITIAL_DRAFT_SCOPE_KEY : getScopeStorageKey(scope);
-  const [folderScopeKey, setFolderScopeKey] = useState(scopeStorageKey);
+  const folderStateKey = !settingsReady ? null : initialDrafts ? INITIAL_DRAFT_SCOPE_KEY : getFolderStateStorageKey(scope);
+  // Seeded before the tabs read their scope, in the same render.
+  if (scopeStorageKey && folderStateKey && scopeStorageKey !== folderStateKey && typeof window !== 'undefined') {
+    seedLocalWorkspaceStorage(window.localStorage, scopeStorageKey, folderStateKey);
+  }
+  // Opening another folder of a set changes only this key: the tree state follows the folder,
+  // while tabs and search stay with the set.
+  const [folderScopeKey, setFolderScopeKey] = useState(folderStateKey);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [expandedFolderIds, setExpandedFolderIds] = useState(() => scopeStorageKey
-    ? readStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${scopeStorageKey}`) : new Set<string>());
-  if (folderScopeKey !== scopeStorageKey) {
-    setFolderScopeKey(scopeStorageKey);
-    setExpandedFolderIds(scopeStorageKey
-      ? readStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${scopeStorageKey}`) : new Set<string>());
+  const [expandedFolderIds, setExpandedFolderIds] = useState(() => folderStateKey
+    ? readStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${folderStateKey}`) : new Set<string>());
+  if (folderScopeKey !== folderStateKey) {
+    setFolderScopeKey(folderStateKey);
+    setExpandedFolderIds(folderStateKey
+      ? readStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${folderStateKey}`) : new Set<string>());
     setSelectedFolderId(null);
   }
   useLayoutEffect(() => { manualEmptyWorkspaceRef.current = false; }, [scopeStorageKey, manualEmptyWorkspaceRef]);
@@ -87,6 +105,7 @@ export function useWorkbenchWorkspaceState({
 
   return {
     expandedFolderIds,
+    folderStateKey,
     initialScopeStorageKey: scopeStorageKey,
     scope,
     scopeStorageKey,

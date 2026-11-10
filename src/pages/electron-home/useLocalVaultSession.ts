@@ -4,12 +4,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
 import type {
   LocalVaultActivateResult,
+  LocalVaultSnapshot,
   LocalVaultForgetResult,
   LocalWorkspaceMutation,
   LocalWorkspaceMutationResult,
 } from '@/lib/local-vault';
 import { getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
-import { getLocalVaultSnapshotQueryKey, guardLocalVaultApi, type VaultAccess } from './local-vault-query';
+import {
+  cacheLocalVaultSnapshot,
+  getLocalVaultSnapshotQueryKey,
+  getLocalVaultVaultSnapshotQueryKey,
+  guardLocalVaultApi,
+  type VaultAccess,
+} from './local-vault-query';
 import { migrateLocalWorkspaceStorage } from './local-workspace-storage';
 
 /**
@@ -22,6 +29,13 @@ export type LocalVaultSessionApi = Omit<HackDeskElectronAPI, 'localVault'> & {
     switchVault: (vaultId: string) => Promise<LocalVaultActivateResult>;
     forgetVault: (vaultId: string) => Promise<LocalVaultForgetResult>;
     updateWorkspace: (mutation: LocalWorkspaceMutation) => Promise<LocalWorkspaceMutationResult>;
+    /** Saves a new folder order for a working set without reloading the open folder. */
+    reorderWorkspace: (id: string, vaultIds: string[]) => Promise<void>;
+    /**
+     * Opens another folder of the open working set. Tabs belong to the set, so nothing is flushed
+     * or cancelled: the tree swaps to the folder's cached snapshot and the scan only confirms it.
+     */
+    focusVault: (vaultId: string) => Promise<LocalVaultActivateResult>;
   };
 };
 
@@ -35,7 +49,8 @@ export function useLocalVaultSession(
   const queryClient = useQueryClient();
   const path = getActiveLocalVaultPath(settings);
   const [changing, setChanging] = useState(false);
-  const access = useRef<VaultAccess>({ generation: 0, vaultId: null, changing: false });
+  const access = useRef<VaultAccess>({ generation: 0, transitions: 0, vaultId: null, changing: false });
+  const [transitions, setTransitions] = useState(0);
   const [context, setContext] = useState({ path, vaultId: null as string | null, generation: 0 });
   const snapshotQuery = useQuery({
     queryKey: getLocalVaultSnapshotQueryKey(path),
@@ -50,7 +65,8 @@ export function useLocalVaultSession(
   });
   const loaded = path ? snapshotQuery.data ?? null : null;
   const [migration, setMigration] = useState<{ vaultId: string | null; error: string | null }>({ vaultId: null, error: null });
-  useEffect(() => {
+  // Before paint: a folder opened from its cached snapshot must not render one empty frame.
+  useLayoutEffect(() => {
     if (!loaded) return;
     try {
       migrateLocalWorkspaceStorage(window.localStorage, loaded);
@@ -66,29 +82,35 @@ export function useLocalVaultSession(
   }
   const generation = context.generation;
   useLayoutEffect(() => {
-    access.current = { generation, vaultId, changing };
-  }, [generation, vaultId, changing]);
+    access.current = { generation, transitions, vaultId, changing };
+  }, [generation, transitions, vaultId, changing]);
 
   useEffect(() => {
     if (!api || !path || changing) return;
     const generation = access.current.generation;
     return api.localVault.onDidChange(({ snapshot: next }) => {
       if (access.current.generation !== generation || access.current.changing) return;
-      // A queued watcher event from another vault must never select that vault.
-      if (!next || next.vaultId !== access.current.vaultId) return;
+      if (!next) return;
+      // Another folder's event refreshes only that folder's cache; it never selects the folder.
+      if (next.vaultId !== access.current.vaultId) {
+        cacheLocalVaultSnapshot(queryClient, next);
+        return;
+      }
       queryClient.setQueryData(getLocalVaultSnapshotQueryKey(path), next);
     });
   }, [api, path, changing, vaultId, queryClient]);
 
   const sessionApi = useMemo(() => {
     if (!api) return undefined;
-    const guarded = guardLocalVaultApi(api, () => access.current, { generation, vaultId, changing });
+    const guarded = guardLocalVaultApi(api, () => access.current, { generation, transitions, vaultId, changing });
     const transition = async <T,>(operation: () => Promise<T>) => {
       if (access.current.changing) throw new Error('Local Vault is already changing. Try again when it is ready.');
       beforeChange.current();
       access.current.changing = true;
       access.current.generation += 1;
+      access.current.transitions = (access.current.transitions ?? 0) + 1;
       setContext((current) => ({ ...current, generation: current.generation + 1 }));
+      setTransitions((current) => current + 1);
       setChanging(true);
       try {
         await queryClient.cancelQueries({ queryKey: ['electron', 'local-vault'] });
@@ -153,6 +175,60 @@ export function useLocalVaultSession(
           }
           return result;
         }),
+        focusVault: async (vaultId: string) => {
+          if (access.current.changing) throw new Error('Local Vault is already changing. Try again when it is ready.');
+          const current = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+          const workspace = getActiveLocalWorkspace(current);
+          const target = current?.localVault.vaults.find((vault) => vault.id === vaultId);
+          if (!current || !target || !workspace?.vaultIds.includes(vaultId)) {
+            throw new Error('That folder is not in the open workspace.');
+          }
+          // Show the folder from what the sidebar already holds, then let the scan confirm it.
+          const cached = queryClient.getQueryData<LocalVaultSnapshot>(getLocalVaultVaultSnapshotQueryKey(vaultId));
+          if (cached) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(target.path), cached);
+          queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], {
+            ...current,
+            localVault: { ...current.localVault, activeVaultId: vaultId },
+          });
+          try {
+            const result = await api.localVault.activate({ vaultId });
+            if (result.snapshot) {
+              queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
+            }
+            queryClient.setQueryData(['electron', 'settings'], result.settings);
+            return result;
+          } catch (error) {
+            queryClient.setQueryData(['electron', 'settings'], current);
+            throw error;
+          }
+        },
+        reorderWorkspace: async (id: string, vaultIds: string[]) => {
+          const current = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+          const workspace = current?.localVault.workspaces.find((candidate) => candidate.id === id);
+          // Only a pure reorder skips the transition; adding or removing folders can move the
+          // active folder, which must cancel reads like any other switch.
+          if (!current || !workspace || workspace.vaultIds.length !== vaultIds.length
+            || !workspace.vaultIds.every((vaultId) => vaultIds.includes(vaultId))) {
+            throw new Error('That folder order no longer matches the workspace.');
+          }
+          // Show the new order at once; the write only confirms it.
+          queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], {
+            ...current,
+            localVault: {
+              ...current.localVault,
+              workspaces: current.localVault.workspaces.map((candidate) => (
+                candidate.id === id ? { ...candidate, vaultIds } : candidate
+              )),
+            },
+          });
+          try {
+            const result = await api.localVault.updateWorkspace({ type: 'setVaults', id, vaultIds });
+            queryClient.setQueryData(['electron', 'settings'], result.settings);
+          } catch (error) {
+            queryClient.setQueryData(['electron', 'settings'], current);
+            throw error;
+          }
+        },
         forgetVault: (vaultId: string) => transition(async () => {
           const result = await api.localVault.forget({ vaultId });
           queryClient.setQueryData(['electron', 'settings'], result.settings);
@@ -165,7 +241,7 @@ export function useLocalVaultSession(
         }),
       },
     };
-  }, [api, beforeChange, pickFolder, queryClient, generation, vaultId, changing]);
+  }, [api, beforeChange, pickFolder, queryClient, generation, transitions, vaultId, changing]);
 
   const error = migration.vaultId === loaded?.vaultId ? migration.error : null;
   return {

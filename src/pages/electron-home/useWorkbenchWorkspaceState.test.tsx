@@ -82,4 +82,36 @@ describe('useWorkbenchWorkspaceState', () => {
     expect(manualEmptyWorkspaceRef.current).toBe(false);
     expect(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY)).toContain('design');
   });
+
+  it('keeps one scope for a named set while each of its folders keeps its own tree state', () => {
+    window.localStorage.setItem('hackdesk_note_workspace:local:snap-a', JSON.stringify({ version: 3, scopeKey: 'local:snap-a', tabs: {} }));
+    writeStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}local:snap-a`, new Set(['local-folder:Plans']));
+    writeStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}local:snap-b`, new Set(['local-folder:Drafts']));
+    const manualEmptyWorkspaceRef = { current: false };
+    const { result, rerender } = renderHook(
+      ({ localVaultId }: { localVaultId: string }) => useWorkbenchWorkspaceState({
+        initialWorkspaceScope: { type: 'local', label: 'Work' },
+        localVaultId,
+        localWorkspaceId: 'work',
+        manualEmptyWorkspaceRef,
+      }),
+      { initialProps: { localVaultId: 'snap-a' } },
+    );
+
+    expect(result.current.scopeStorageKey).toBe('local-workspace:work');
+    expect(result.current.folderStateKey).toBe('local:snap-a');
+    expect(result.current.expandedFolderIds).toEqual(new Set(['local-folder:Plans']));
+    // The set starts with the tabs its first folder had on its own.
+    expect(JSON.parse(window.localStorage.getItem('hackdesk_note_workspace:local-workspace:work') ?? 'null'))
+      .toMatchObject({ scopeKey: 'local-workspace:work' });
+
+    act(() => { result.current.setSelectedFolderId('local-folder:Plans'); });
+    rerender({ localVaultId: 'snap-b' });
+
+    expect(result.current.scopeStorageKey).toBe('local-workspace:work');
+    expect(result.current.folderStateKey).toBe('local:snap-b');
+    expect(result.current.expandedFolderIds).toEqual(new Set(['local-folder:Drafts']));
+    // Folder ids are paths, so a selection from A must not carry into B.
+    expect(result.current.selectedFolderId).toBeNull();
+  });
 });

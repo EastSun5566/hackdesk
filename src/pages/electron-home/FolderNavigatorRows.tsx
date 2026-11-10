@@ -1,4 +1,6 @@
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronRight,
   Copy,
   CopyPlus,
@@ -16,7 +18,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react';
-import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -30,7 +32,7 @@ import {
 } from '@/components/ui/context-menu';
 import type { NoteSummary } from '@/lib/electron-api';
 import { buildNoteDragId, getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
-import type { FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
+import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -43,6 +45,7 @@ import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { useRowOverlays } from './row-overlays';
+import { readStringArrayStorage, writeStringArrayStorage } from './ui-preferences';
 import { NoteKindIcon, useNoteKind, type NoteKind } from './note-kind';
 import { NoteMatchSnippet } from './NoteMatchSnippet';
 
@@ -611,29 +614,311 @@ export function WorkspaceRootScopeIcon({ scope }: { scope: WorkspaceScope }) {
   return <Lock className="h-3.5 w-3.5" />;
 }
 
+/** Drag ids for the folders of a working set, kept apart from note and folder ids in the tree. */
+export const WORKSPACE_FOLDER_DRAG_PREFIX = 'workspace-folder:';
+export function buildWorkspaceFolderDragId(vaultId: string) {
+  return `${WORKSPACE_FOLDER_DRAG_PREFIX}${vaultId}`;
+}
+export function parseWorkspaceFolderDragId(id: string) {
+  return id.startsWith(WORKSPACE_FOLDER_DRAG_PREFIX) ? id.slice(WORKSPACE_FOLDER_DRAG_PREFIX.length) : null;
+}
+
 /**
- * A folder in the open working set that is not showing its notes: the row opens it, so a named
- * workspace lists its roots without scanning every one at once.
+ * A folder in the open working set, with its notes below. The header row drags to reorder the set
+ * (the whole section is the drop target) and its menu moves it up or down; the active folder hides
+ * or shows its notes, the others open themselves.
  */
-export function WorkspaceSiblingVaultRow({ label, path, onOpen }: { label: string; path: string; onOpen: () => void }) {
+export function WorkspaceFolderSection({
+  id,
+  label,
+  path,
+  active,
+  expanded,
+  noteCount,
+  dropPlacement,
+  dragging,
+  canMoveUp,
+  canMoveDown,
+  onOpen,
+  onToggle,
+  onMove,
+  children,
+}: {
+  id: string;
+  label: string;
+  path: string;
+  active: boolean;
+  expanded: boolean;
+  noteCount: number;
+  dropPlacement: 'before' | 'after' | null;
+  /** This section is the one being dragged. */
+  dragging: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onOpen: () => void;
+  onToggle: () => void;
+  onMove?: (direction: -1 | 1) => void;
+  children: ReactNode;
+}) {
+  const dragId = buildWorkspaceFolderDragId(id);
+  const reorderable = Boolean(onMove) && (canMoveUp || canMoveDown);
+  const { setNodeRef: setDropRef } = useDroppable({ id: dragId, disabled: !reorderable });
+  const { listeners, setNodeRef: setDragRef } = useDraggable({ id: dragId, disabled: !reorderable });
+  return (
+    <li
+      ref={setDropRef}
+      data-workspace-folder-id={id}
+      data-drop-placement={dropPlacement ?? undefined}
+      className={cn('grid min-w-0 gap-0.5', FOLDER_DROP_MARK_CLASS, dragging && 'opacity-50')}
+    >
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div ref={setDragRef} onPointerDown={reorderable ? pointerDragListener(listeners) : undefined}>
+            <EntityRow
+              variant="compact"
+              tone="quiet"
+              selected={active}
+              leadingControls={(
+                <button
+                  type="button"
+                  aria-label={`${expanded ? 'Collapse' : 'Expand'} ${label}`}
+                  aria-expanded={expanded}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggle();
+                  }}
+                  className={cn(
+                    'flex h-6 w-5 shrink-0 items-center justify-center rounded-sm text-icon-subtle hover:text-text-default',
+                    FOCUS_RING_INSET_CLASS,
+                  )}
+                >
+                  <ChevronRight aria-hidden="true" className={cn('size-3.5 transition-transform', expanded && 'rotate-90')} />
+                </button>
+              )}
+              icon={<HardDrive aria-hidden="true" className="h-3.5 w-3.5" />}
+              title={label}
+              titleAttribute={path}
+              trailing={<span className="text-xs tabular-nums text-text-subtle">{noteCount}</span>}
+              contentOnClick={onOpen}
+              contentAriaLabel={active ? `Hide ${label} notes` : `Open ${label}`}
+              contentAriaCurrent={active ? 'page' : undefined}
+              contentButtonProps={reorderable ? {
+                'aria-keyshortcuts': 'Alt+ArrowUp Alt+ArrowDown',
+                onKeyDown: (event) => {
+                  if (!event.altKey || event.metaKey || event.ctrlKey) return;
+                  if (event.key === 'ArrowUp' && canMoveUp) {
+                    event.preventDefault();
+                    onMove?.(-1);
+                  } else if (event.key === 'ArrowDown' && canMoveDown) {
+                    event.preventDefault();
+                    onMove?.(1);
+                  }
+                },
+              } : undefined}
+              contentFocusTarget
+              className={TREE_ROW_FOCUS_CLASS}
+            />
+          </div>
+        </ContextMenuTrigger>
+        {reorderable ? (
+          <ContextMenuContent>
+            <ContextMenuItem disabled={!canMoveUp} onSelect={() => onMove?.(-1)}>
+              <ArrowUp aria-hidden="true" className="h-4 w-4" />
+              Move Up
+            </ContextMenuItem>
+            <ContextMenuItem disabled={!canMoveDown} onSelect={() => onMove?.(1)}>
+              <ArrowDown aria-hidden="true" className="h-4 w-4" />
+              Move Down
+            </ContextMenuItem>
+          </ContextMenuContent>
+        ) : null}
+      </ContextMenu>
+      {expanded ? (
+        <ul
+          role="group"
+          aria-label={`${label} notes`}
+          className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}
+        >
+          {children}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function previewNoteCount(node: FolderTreeNode): number {
+  return node.notes.length + node.children.reduce((total, child) => total + previewNoteCount(child), 0);
+}
+
+function PreviewNoteRow({ entry, onOpenNote }: { entry: FolderTreeNote; onOpenNote: (note: NoteSummary) => void }) {
+  const kind = useNoteKind(entry.note);
   return (
     <EntityRow
       variant="compact"
       tone="quiet"
-      // The icon takes the folder rows' arrow slot, so every row in the set lines up.
-      leadingControls={(
-        <span className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle">
-          <HardDrive aria-hidden="true" className="h-3.5 w-3.5" />
-        </span>
+      icon={<NoteKindIcon kind={kind} className="h-3.5 w-3.5" />}
+      title={entry.note.title || 'Untitled'}
+      trailing={(
+        <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
+          {formatCompactDate(entry.note.updatedAtMillis)}
+        </time>
       )}
-      title={label}
-      titleAttribute={path}
-      trailing={<ChevronRight aria-hidden="true" className="size-3.5" />}
-      trailingClassName="text-icon-subtle"
-      contentAriaLabel={`Open ${label}`}
-      contentOnClick={onOpen}
+      trailingClassName="note-row-date max-w-20 truncate text-right"
+      contentOnClick={() => onOpenNote(entry.note)}
+      contentAriaLabel={entry.note.title || 'Untitled'}
       contentFocusTarget
       className={TREE_ROW_FOCUS_CLASS}
+    />
+  );
+}
+
+function PreviewNodes({
+  expandedFolderIds,
+  depth,
+  folderLabel,
+  nodes,
+  notes,
+  onOpenFolder,
+  onOpenNote,
+  onToggleFolder,
+}: {
+  expandedFolderIds: Set<string>;
+  depth: number;
+  folderLabel: string;
+  nodes: FolderTreeNode[];
+  notes: FolderTreeNote[];
+  onOpenFolder: (folderId: string, folderIds: string[]) => void;
+  onOpenNote: (note: NoteSummary) => void;
+  onToggleFolder: (folderId: string) => void;
+}) {
+  return (
+    <>
+      {nodes.map((node) => {
+        const expanded = expandedFolderIds.has(node.id);
+        const folderIds = node.folderPath.map((folder) => folder.id);
+        const hasChildren = node.children.length > 0 || node.notes.length > 0;
+        return (
+          <li key={node.id} className="grid min-w-0 gap-0.5">
+            <div className="pl-(--preview-indent)" style={{ '--preview-indent': `${depth * 12}px` } as CSSProperties}>
+              <EntityRow
+                variant="compact"
+                tone="quiet"
+                leadingControls={hasChildren ? (
+                  <button
+                    type="button"
+                    aria-label={`${expanded ? 'Collapse' : 'Expand'} ${node.name}`}
+                    aria-expanded={expanded}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleFolder(node.id);
+                    }}
+                    className={cn(
+                      'flex h-6 w-5 shrink-0 items-center justify-center rounded-sm text-icon-subtle hover:text-text-default',
+                      FOCUS_RING_INSET_CLASS,
+                    )}
+                  >
+                    <ChevronRight aria-hidden="true" className={cn('size-3.5 transition-transform', expanded && 'rotate-90')} />
+                  </button>
+                ) : <span className="w-5 shrink-0" aria-hidden="true" />}
+                icon={<FolderGlyph icon={node.icon} color={node.color} open={expanded} />}
+                title={node.name}
+                trailing={<span className="text-xs tabular-nums text-text-subtle">{previewNoteCount(node)}</span>}
+                contentOnClick={() => onOpenFolder(node.id, folderIds)}
+                contentAriaLabel={`Open ${node.name} in ${folderLabel}`}
+                contentFocusTarget
+                className={TREE_ROW_FOCUS_CLASS}
+              />
+            </div>
+            {expanded ? (
+              <ul role="group" aria-label={node.name} className="m-0 grid min-w-0 list-none gap-0.5 p-0">
+                <PreviewNodes
+                  expandedFolderIds={expandedFolderIds}
+                  depth={depth + 1}
+                  folderLabel={folderLabel}
+                  nodes={node.children}
+                  notes={node.notes}
+                  onOpenFolder={onOpenFolder}
+                  onOpenNote={onOpenNote}
+                  onToggleFolder={onToggleFolder}
+                />
+              </ul>
+            ) : null}
+          </li>
+        );
+      })}
+      {notes.map((entry) => (
+        <li
+          key={`note:${entry.note.id}`}
+          className="grid min-w-0 gap-0.5 pl-(--preview-indent)"
+          style={{ '--preview-indent': `${depth * 12}px` } as CSSProperties}
+        >
+          <PreviewNoteRow entry={entry} onOpenNote={onOpenNote} />
+        </li>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Another folder in the open working set, shown read-only inside the navigator. Selecting anything
+ * in it activates that folder first; edits stay with the active folder's own tree.
+ */
+export function WorkspaceFolderPreview({
+  error,
+  expandedStorageKey,
+  folderLabel,
+  isLoading,
+  onOpenFolder,
+  onOpenNote,
+  tree,
+}: {
+  error: string | null;
+  /** Where the live tree keeps this folder's expanded sub-folders; the preview shares it. */
+  expandedStorageKey: string | null;
+  folderLabel: string;
+  isLoading: boolean;
+  onOpenFolder: (folderId: string, folderIds: string[]) => void;
+  onOpenNote: (note: NoteSummary) => void;
+  tree: FolderTree;
+}) {
+  // Sub-folders start closed, like the live tree, and keep whatever the folder showed while open.
+  const [expanded, setExpanded] = useState(() => ({
+    key: expandedStorageKey,
+    ids: expandedStorageKey ? readStringArrayStorage(expandedStorageKey) : new Set<string>(),
+  }));
+  if (expanded.key !== expandedStorageKey) {
+    setExpanded({
+      key: expandedStorageKey,
+      ids: expandedStorageKey ? readStringArrayStorage(expandedStorageKey) : new Set<string>(),
+    });
+  }
+  if (isLoading) {
+    return <li role="presentation" className="py-0.5 pl-1"><NoteListSkeleton /></li>;
+  }
+  if (error) {
+    return <li role="presentation" className="px-2 py-1 text-xs text-text-subtle">{error}</li>;
+  }
+  if (tree.roots.length === 0 && tree.unfiled.notes.length === 0) {
+    return <li role="presentation" className="px-2 py-1 text-xs text-text-subtle">No notes yet.</li>;
+  }
+  return (
+    <PreviewNodes
+      expandedFolderIds={expanded.ids}
+      depth={0}
+      folderLabel={folderLabel}
+      nodes={tree.roots}
+      notes={tree.unfiled.notes}
+      onOpenFolder={onOpenFolder}
+      onOpenNote={onOpenNote}
+      onToggleFolder={(folderId) => {
+        setExpanded((current) => {
+          const ids = new Set(current.ids);
+          if (ids.has(folderId)) ids.delete(folderId);
+          else ids.add(folderId);
+          if (current.key) writeStringArrayStorage(current.key, ids);
+          return { ...current, ids };
+        });
+      }}
     />
   );
 }

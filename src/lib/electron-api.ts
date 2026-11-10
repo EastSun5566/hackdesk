@@ -626,6 +626,8 @@ export type HackDeskElectronAPI = {
     createDirectory: (input: LocalVaultCreateDirectoryInput) => Promise<LocalVaultCreateDirectoryResult>;
     disconnect: () => Promise<ElectronSafeSettings>;
     getSnapshot: () => Promise<LocalVaultSnapshot | null>;
+    /** Scans one known folder without making it the active vault. */
+    getVaultSnapshot: (input: LocalVaultVaultIdInput) => Promise<LocalVaultSnapshot>;
     readNote: (noteId: string) => Promise<LocalDocument>;
     createNote: (input: LocalVaultCreateNoteInput) => Promise<LocalVaultDocumentMutationResult>;
     writeNote: (input: LocalVaultWriteInput) => Promise<LocalVaultDocumentMutationResult>;

@@ -485,6 +485,47 @@ async function requireActiveLocalVaultPath() {
   return realpath(vaultPath);
 }
 
+/** Every configured folder, the active one first, so it wins when two folders share an id. */
+async function configuredVaultRoots() {
+  const settings = await readStoredSettings();
+  const active = getActiveVaultPathFromSettings(settings);
+  return [...new Set([active, ...settings.localVault.vaults.map((vault) => vault.path)].filter(
+    (path): path is string => Boolean(path),
+  ))];
+}
+
+/** The first configured folder whose manifest matches, resolved like the active folder is. */
+async function findConfiguredVaultRoot(matches: (manifest: VaultManifest) => boolean) {
+  for (const root of await configuredVaultRoots()) {
+    try {
+      await assertVaultRootExists(root);
+      const canonicalRoot = await realpath(root);
+      if (matches(await readManifest(canonicalRoot))) return canonicalRoot;
+    } catch {
+      // A missing or unreadable folder cannot own the note; the others may.
+    }
+  }
+  return null;
+}
+
+/**
+ * The folder that holds a note. Notes carry manifest ids that are unique across folders, so a
+ * workspace can read and save a note from any of its folders without making that folder active.
+ * Without a match it falls back to the active folder, which then reports the note as missing.
+ */
+async function requireNoteVaultRoot(noteId: string) {
+  return await findConfiguredVaultRoot((manifest) => (
+    Object.values(manifest.notes).some((entry) => entry.id === noteId)
+  )) ?? requireActiveLocalVaultPath();
+}
+
+/** The configured folder whose manifest has `vaultId`, the id every snapshot and note carries. */
+async function requireVaultRootByManifestId(vaultId: string) {
+  const root = await findConfiguredVaultRoot((manifest) => manifest.vaultId === vaultId);
+  if (!root) throw new Error('Local image context is no longer available.');
+  return root;
+}
+
 async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot> {
   const manifest = await readManifest(vaultRoot);
   const files = await scanMarkdownFiles(vaultRoot);
@@ -700,7 +741,7 @@ export async function revealLocalVaultRoot(openPath: OpenPath) {
 }
 
 export async function revealLocalVaultNote(input: LocalVaultRevealNoteInput, showItemInFolder: ShowItemInFolder) {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   await enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     showItemInFolder(resolveInsideVault(vaultRoot, note.relativePath));
@@ -793,13 +834,13 @@ export async function readLocalVaultNotesForIndex(snapshot: LocalVaultSnapshot, 
 }
 
 export async function readLocalNote(noteId: string): Promise<LocalDocument> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(noteId);
   return enqueueVaultOperation(vaultRoot, () => readLocalNoteUnlocked(vaultRoot, noteId));
 }
 
-/** Resolves only images belonging to a saved note in the currently selected vault. */
+/** Resolves only images belonging to a saved note in a configured folder. */
 export async function readLocalVaultImage(input: LocalImageRequest): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireVaultRootByManifestId(input.vaultId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const manifest = await readManifest(vaultRoot);
     if (manifest.vaultId !== input.vaultId || manifest.notes[input.relativePath]?.id !== input.noteId) {
@@ -840,7 +881,8 @@ export async function readLocalVaultImage(input: LocalImageRequest): Promise<{ b
         || after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
         throw new Error('Image changed while being read.');
       }
-      if (await requireActiveLocalVaultPath() !== vaultRoot || (await readManifest(vaultRoot)).vaultId !== input.vaultId) {
+      // The folder may have been forgotten or replaced while the image was read.
+      if (await findConfiguredVaultRoot((manifest) => manifest.vaultId === input.vaultId) !== vaultRoot) {
         throw new Error('Local image context is no longer available.');
       }
       return { bytes: new Uint8Array(buffer.subarray(0, length)), mimeType };
@@ -924,7 +966,7 @@ export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise
 export async function importLocalVaultAttachment(
   input: LocalVaultImportAttachmentInput,
 ): Promise<LocalVaultAttachmentMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     if (input.bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('Attachments cannot exceed 25 MiB.');
     const note = await findNoteById(vaultRoot, input.noteId);
@@ -977,7 +1019,7 @@ function assertRevisionMatches(current: LocalRevision, expected: LocalRevision) 
 
 export async function writeLocalNote(input: LocalVaultWriteInput): Promise<LocalVaultDocumentMutationResult> {
   if (Buffer.byteLength(input.content, 'utf8') > MAX_MARKDOWN_BYTES) throw new Error('Markdown files cannot exceed 10 MiB.');
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     const filePath = resolveInsideVault(vaultRoot, note.relativePath);
@@ -1008,7 +1050,7 @@ export async function writeLocalNote(input: LocalVaultWriteInput): Promise<Local
 }
 
 export async function renameLocalNote(input: LocalVaultRenameNoteInput): Promise<LocalVaultDocumentMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     if (input.expectedRevision) {
@@ -1026,7 +1068,7 @@ export async function renameLocalNote(input: LocalVaultRenameNoteInput): Promise
 }
 
 export async function moveLocalNote(input: LocalVaultMoveNoteInput): Promise<LocalVaultDocumentMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     if (input.expectedRevision) {
@@ -1044,7 +1086,7 @@ export async function moveLocalNote(input: LocalVaultMoveNoteInput): Promise<Loc
 }
 
 export async function trashLocalNote(input: LocalVaultTrashNoteInput, trashItem: TrashItem): Promise<LocalVaultSnapshot> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     await trashItem(resolveInsideVault(vaultRoot, note.relativePath));

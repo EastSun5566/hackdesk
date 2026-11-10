@@ -39,6 +39,8 @@ export type HomeLocalVaultActions = {
   /** Opens a named working set, or returns to the single-folder view with null. */
   activateLocalWorkspace: (id: string | null) => Promise<void>;
   setLocalWorkspaceFolders: (id: string, vaultIds: string[]) => Promise<void>;
+  /** Changes only the order of a set's folders; the open folder and its tabs stay as they are. */
+  reorderLocalWorkspaceFolders: (id: string, vaultIds: string[]) => Promise<void>;
   openLocalVault: () => Promise<void>;
   refreshLocalVault: () => Promise<void>;
   revealLocalFolder: (folderId: string) => void;
@@ -84,9 +86,18 @@ export function useHomeLocalVaultActions({
       throw new Error('Electron API is unavailable.');
     }
 
+    // Another folder of the open set is a focus change: the set keeps its tabs and scope.
+    const settings = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+    const workspace = getActiveLocalWorkspace(settings);
+    if ((scopeType === undefined || scopeType === 'local') && workspace
+      && settings?.localVault.activeVaultId && workspace.vaultIds.includes(settings.localVault.activeVaultId)
+      && workspace.vaultIds.includes(vaultId)) {
+      if (vaultId !== settings.localVault.activeVaultId) await api.localVault.focusVault(vaultId);
+      return;
+    }
     const result = await api.localVault.switchVault(vaultId);
     setWorkspaceScope({ type: 'local', label: localScopeLabel(result.settings, result.snapshot?.vaultId), vaultId: result.snapshot?.vaultId });
-  }, [api, setWorkspaceScope]);
+  }, [api, queryClient, scopeType, setWorkspaceScope]);
 
   const openLocalVault = useCallback(async () => {
     if (!api) {
@@ -225,8 +236,16 @@ export function useHomeLocalVaultActions({
     await applyWorkspaceMutation({ type: 'setVaults', id, vaultIds });
   }, [applyWorkspaceMutation]);
 
+  const reorderLocalWorkspaceFolders = useCallback(async (id: string, vaultIds: string[]) => {
+    if (!api) {
+      throw new Error('Electron API is unavailable.');
+    }
+    await api.localVault.reorderWorkspace(id, vaultIds);
+  }, [api]);
+
   return {
     chooseLocalVault,
+    reorderLocalWorkspaceFolders,
     switchLocalVault,
     createLocalWorkspace: createLocalWorkspaceAction,
     renameLocalWorkspace: renameLocalWorkspaceAction,

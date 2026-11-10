@@ -7,13 +7,32 @@ export function getLocalVaultSnapshotQueryKey(path: string | null = null) {
   return ['electron', 'local-vault', 'snapshot', path] as const;
 }
 
+/** A non-active folder's snapshot, kept apart by its stored vault id. */
+export function getLocalVaultVaultSnapshotQueryKey(vaultId: string) {
+  return ['electron', 'local-vault', 'vault-snapshot', vaultId] as const;
+}
+
 export function getLocalVaultDocumentQueryKey(noteId: string, vaultId?: string) {
   return ['electron', 'local-vault', 'note', vaultId ?? null, noteId] as const;
 }
 
+/**
+ * Stores a snapshot a mutation or watcher returned. In a workspace a note can live in a folder
+ * other than the open one, so the snapshot goes to that folder's own cache and only replaces the
+ * open folder's snapshot when it is that folder.
+ */
 export function cacheLocalVaultSnapshot(queryClient: QueryClient, snapshot: LocalVaultSnapshot) {
+  for (const query of queryClient.getQueryCache().findAll({ queryKey: ['electron', 'local-vault', 'vault-snapshot'] })) {
+    if ((query.state.data as LocalVaultSnapshot | undefined)?.vaultId === snapshot.vaultId) {
+      queryClient.setQueryData(query.queryKey, snapshot);
+    }
+  }
   const settings = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
-  queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(settings)), snapshot);
+  const activeKey = getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(settings));
+  const active = queryClient.getQueryData<LocalVaultSnapshot | null>(activeKey);
+  if (!active || active.vaultId === snapshot.vaultId) {
+    queryClient.setQueryData(activeKey, snapshot);
+  }
 }
 
 export async function invalidateMovedLocalVaultDocuments(
@@ -35,24 +54,40 @@ export async function invalidateMovedLocalVaultDocuments(
   }));
 }
 
-export type VaultAccess = { generation: number; vaultId: string | null; changing: boolean };
+/**
+ * `generation` changes whenever the open folder changes; `transitions` only when the window moves
+ * to another vault or workspace (choose, disconnect, leaving a set), which also replaces its tabs.
+ */
+export type VaultAccess = { generation: number; transitions?: number; vaultId: string | null; changing: boolean };
+
+/**
+ * Calls addressed by note id. The main process finds the folder that holds the note, so in a
+ * workspace they stay valid while another of its folders is opened; only a transition stops them.
+ */
+const NOTE_ADDRESSED_METHODS = new Set(['readNote', 'writeNote', 'renameNote', 'moveNote', 'trashNote', 'revealNote', 'importAttachment']);
 
 export function guardLocalVaultApi(
   api: HackDeskElectronAPI,
   access: () => VaultAccess,
   bound: VaultAccess = { ...access() },
 ): HackDeskElectronAPI {
-  const unguarded = new Set(['choose', 'disconnect', 'onDidChange']);
+  // Reading another folder by its stored id does not touch the active vault, so a switch in
+  // flight must not fail it.
+  const unguarded = new Set(['choose', 'disconnect', 'onDidChange', 'getVaultSnapshot']);
   const localVault = Object.fromEntries(Object.entries(api.localVault).map(([name, method]) => {
     if (unguarded.has(name)) return [name, method];
+    const noteAddressed = NOTE_ADDRESSED_METHODS.has(name);
+    const sameContext = (left: VaultAccess, right: VaultAccess) => (noteAddressed
+      ? (left.transitions ?? 0) === (right.transitions ?? 0)
+      : left.generation === right.generation && left.vaultId === right.vaultId);
     return [name, async (...args: unknown[]) => {
       const start = { ...access() };
-      if (!bound.vaultId || start.generation !== bound.generation || start.vaultId !== bound.vaultId || start.changing) {
+      if (!bound.vaultId || !start.vaultId || start.changing || !sameContext(start, bound)) {
         throw new Error('Local Vault is still loading. Try again when it is ready.');
       }
       const result = await Reflect.apply(method, api.localVault, args);
       const current = access();
-      if (start.generation !== current.generation || start.vaultId !== current.vaultId || current.changing) {
+      if (current.changing || !sameContext(start, current)) {
         throw new Error('The active Local Vault changed. The previous operation was not applied to this workspace.');
       }
       return result;
