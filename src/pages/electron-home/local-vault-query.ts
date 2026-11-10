@@ -30,7 +30,7 @@ export function cacheLocalVaultSnapshot(queryClient: QueryClient, snapshot: Loca
   const settings = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
   const activeKey = getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(settings));
   const active = queryClient.getQueryData<LocalVaultSnapshot | null>(activeKey);
-  if (!active || active.vaultId === snapshot.vaultId) {
+  if ((!active && getActiveLocalVaultPath(settings) === snapshot.rootPath) || active?.vaultId === snapshot.vaultId) {
     queryClient.setQueryData(activeKey, snapshot);
   }
 }

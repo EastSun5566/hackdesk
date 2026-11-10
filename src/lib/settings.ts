@@ -267,8 +267,9 @@ export function addHackmdAccount(
   current: HackmdAccountsSettings,
   label: string,
 ): HackmdAccountsSettings {
+  if (current.accounts.length >= MAX_HACKMD_ACCOUNTS) throw new Error('Account limit reached. Remove an account before adding another.');
   const entry = { id: createHackmdAccountId(), label: normalizeAccountLabel(label) };
-  return { accounts: [...current.accounts, entry].slice(-MAX_HACKMD_ACCOUNTS), activeAccountId: entry.id };
+  return { accounts: [...current.accounts, entry], activeAccountId: entry.id };
 }
 
 export function setActiveHackmdAccount(
@@ -514,14 +515,17 @@ export function addLocalVault(
   if (existing) {
     return { ...current, activeVaultId: existing.id };
   }
+  if (current.vaults.length >= 32) throw new Error('Folder limit reached. Remove a folder before adding another.');
+  const activeWorkspace = localWorkspaceEntries(current).find((workspace) => workspace.id === current.activeWorkspaceId);
+  if (activeWorkspace && activeWorkspace.vaultIds.length >= 32) throw new Error('This workspace has reached its folder limit.');
   const entry = { id: createLocalVaultId(), path: trimmed };
-  const vaults = [...current.vaults, entry].slice(-32);
+  const vaults = [...current.vaults, entry];
   // Adding a folder while a workspace is open extends that working set.
   const existingWorkspaces = localWorkspaceEntries(current);
   const workspaces = current.activeWorkspaceId
     ? existingWorkspaces.map((workspace) => (
       workspace.id === current.activeWorkspaceId
-        ? { ...workspace, vaultIds: [...workspace.vaultIds, entry.id].slice(-32) }
+        ? { ...workspace, vaultIds: [...workspace.vaultIds, entry.id] }
         : workspace
     ))
     : existingWorkspaces;
@@ -567,7 +571,11 @@ export function removeLocalVault(
     vaults,
     workspaces,
     activeWorkspaceId,
-    activeVaultId: activeVaultId && vaults.some((vault) => vault.id === activeVaultId) ? activeVaultId : vaults[0].id,
+    activeVaultId: (() => {
+      const workspace = workspaces.find((candidate) => candidate.id === activeWorkspaceId);
+      if (workspace && (!activeVaultId || !workspace.vaultIds.includes(activeVaultId))) return workspace.vaultIds[0];
+      return activeVaultId && vaults.some((vault) => vault.id === activeVaultId) ? activeVaultId : vaults[0].id;
+    })(),
   };
 }
 
@@ -582,12 +590,13 @@ export function createLocalWorkspace(
   if (ids.length === 0) {
     return current;
   }
+  if (localWorkspaceEntries(current).length >= MAX_LOCAL_WORKSPACES) throw new Error('Workspace limit reached. Remove a workspace before creating another.');
   const workspace: LocalWorkspaceEntry = {
     id: createLocalWorkspaceId(),
     name: normalizeWorkspaceName(name) ?? 'Local workspace',
     vaultIds: ids.slice(0, 32),
   };
-  return { ...current, workspaces: [...localWorkspaceEntries(current), workspace].slice(-MAX_LOCAL_WORKSPACES) };
+  return { ...current, workspaces: [...localWorkspaceEntries(current), workspace] };
 }
 
 export function renameLocalWorkspace(
@@ -654,6 +663,7 @@ export function setLocalWorkspaceVaults(
   }
   return {
     ...current,
+    activeVaultId: current.activeWorkspaceId === id && (!current.activeVaultId || !ids.includes(current.activeVaultId)) ? ids[0] : current.activeVaultId,
     workspaces: localWorkspaceEntries(current).map((candidate) => (
       candidate.id === id ? { ...candidate, vaultIds: ids } : candidate
     )),

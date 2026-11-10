@@ -630,15 +630,15 @@ export class WindowManager {
     };
     // Later windows cascade off the focused one; the first one restores the saved bounds.
     const anchor = this.getMainWindow();
-    const fallbackBounds = anchor && !anchor.isDestroyed()
-      ? {
-        width: centeredFallback.width,
-        height: centeredFallback.height,
-        x: anchor.getBounds().x + 32,
-        y: anchor.getBounds().y + 32,
-      }
-      : centeredFallback;
-    const windowState = readWindowState(fallbackBounds);
+    const anchorBounds = anchor && !anchor.isDestroyed() ? anchor.getBounds() : null;
+    const anchorArea = anchorBounds ? screen.getDisplayMatching(anchorBounds).workArea ?? workArea : workArea;
+    const fallbackBounds = anchorBounds ? {
+      width: centeredFallback.width,
+      height: centeredFallback.height,
+      x: anchorBounds.x + 32 + 80 < anchorArea.x + anchorArea.width ? anchorBounds.x + 32 : anchorArea.x,
+      y: anchorBounds.y + 32 + 80 < anchorArea.y + anchorArea.height ? anchorBounds.y + 32 : anchorArea.y,
+    } : centeredFallback;
+    const windowState = anchorBounds ? { bounds: fallbackBounds, isMaximized: false } : readWindowState(fallbackBounds);
 
     const window = new BrowserWindow({
       ...windowState.bounds,

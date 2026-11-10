@@ -367,7 +367,7 @@ export function registerIpcHandlers(
     const update = validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings);
     const nextSettings = await updateStoredSettings(update);
     // Another token may mean another account: nothing cached for the old one may remain.
-    if (update.hackmdApiToken !== undefined) clearHackmdCache();
+    if (update.hackmdApiToken !== undefined || update.hackmdActiveAccountId !== undefined || update.hackmdRemoveAccountId !== undefined) clearHackmdCache();
     if (update.offline) noteIndex.setKeepHackmdNotes(update.offline.keepHackmdNotes);
     if (nextSettings.ai) ai.applySettings(nextSettings.ai);
     options.onSettingsUpdated?.(nextSettings);

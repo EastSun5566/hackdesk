@@ -908,12 +908,15 @@ export function WorkspaceFolderPreview({
     key: expandedStorageKey,
     ids: expandedStorageKey ? readStringArrayStorage(expandedStorageKey) : new Set<string>(),
   }));
+  const appliedCommand = useRef<{ key: string | null; sequence: number } | null>(null);
   useEffect(() => {
-    if (!expandCommand) return;
+    if (!expandCommand || isLoading || error) return;
+    if (appliedCommand.current?.key === expandedStorageKey && appliedCommand.current.sequence === expandCommand.sequence) return;
     const ids = new Set(expandCommand.expanded ? tree.nodesById.keys() : []);
     if (expandedStorageKey) writeStringArrayStorage(expandedStorageKey, ids);
+    appliedCommand.current = { key: expandedStorageKey, sequence: expandCommand.sequence };
     setExpanded({ key: expandedStorageKey, ids });
-  }, [expandCommand, expandedStorageKey, tree]);
+  }, [expandCommand, expandedStorageKey, tree, isLoading, error]);
   if (expanded.key !== expandedStorageKey) {
     setExpanded({
       key: expandedStorageKey,

@@ -458,7 +458,7 @@ function activateNavigationTarget(state: NoteWorkspaceState, target: NoteNavigat
       if (pane) return activateNavigationTarget(state, { paneId: pane.paneId, tabId: elsewhere.tabId });
     }
     if (!state.drafts[target.tabId] && target.note) {
-      state = { ...state, tabs: { ...state.tabs, [target.tabId]: { ...target.note, tabId: target.tabId } } };
+      state = { ...state, tabs: { ...state.tabs, [target.tabId]: { ...target.note, tabId: target.tabId, preview: false } } };
     }
   }
   return normalizeState({
@@ -586,8 +586,13 @@ export function openNoteInPlace(state: NoteWorkspaceState, note: NoteSummary, pa
       : candidate);
   }
 
-  // A note open in another tab moves here, with any edits it has.
-  const other = Object.values(tabs).find((candidate) => candidate.tabId !== tabId && noteIdentityMatches(getSavedTabNoteIdentity(candidate), note));
+  // A note open in another tab moves here, with any edits it has. Blank and draft tabs carry no
+  // saved identity, so only a saved tab can match; naming the exclusions narrows the type.
+  const other = Object.values(tabs).find((candidate): candidate is SavedOpenNoteTab =>
+    candidate.tabId !== tabId
+    && candidate.kind !== 'blank'
+    && candidate.kind !== 'draft'
+    && noteIdentityMatches(getSavedTabNoteIdentity(candidate), note));
   const carriedDraft = other ? drafts[other.tabId] : undefined;
   if (other) {
     delete tabs[other.tabId];
@@ -604,7 +609,7 @@ export function openNoteInPlace(state: NoteWorkspaceState, note: NoteSummary, pa
     });
   }
 
-  tabs = { ...tabs, [tabId]: other ? { ...other, tabId } : createTabFromNote(note, tabId) };
+  tabs = { ...tabs, [tabId]: other ? { ...other, tabId, preview: false } : createTabFromNote(note, tabId) };
   if (carriedDraft) drafts = { ...drafts, [tabId]: carriedDraft };
   const next = normalizeState({
     ...state,

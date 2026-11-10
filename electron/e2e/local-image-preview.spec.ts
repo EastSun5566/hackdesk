@@ -109,7 +109,7 @@ for (const renderer of ['production', 'development'] as const) {
       await writeFile(join(nextVault, 'image.png'), LOCAL_IMAGE_PNG);
       await page.keyboard.press(`${primary}+,`);
       await page.getByRole('tab', { name: 'Vault', exact: true }).click();
-      await page.getByRole('button', { name: 'Change Vault', exact: true }).click();
+      await page.getByRole('button', { name: 'Add Folder', exact: true }).click();
       await chooseFolderInPicker(page, 'next-vault', basename(home));
       await expect(page.getByRole('dialog', { name: 'Settings' }).getByText(nextVault, { exact: true })).toBeVisible();
       await page.keyboard.press('Escape');

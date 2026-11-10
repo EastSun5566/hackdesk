@@ -208,10 +208,15 @@ export function useLocalVaultSession(
             if (result.snapshot) {
               queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
             }
-            queryClient.setQueryData(['electron', 'settings'], result.settings);
+            queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest ? {
+              ...latest,
+              localVault: { ...latest.localVault, activeVaultId: latest.localVault.activeVaultId === vaultId ? result.settings.localVault.activeVaultId : latest.localVault.activeVaultId },
+            } : result.settings);
             return result;
           } catch (error) {
-            queryClient.setQueryData(['electron', 'settings'], current);
+            queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest && latest.localVault.activeVaultId === vaultId ? {
+              ...latest, localVault: { ...latest.localVault, activeVaultId: current.localVault.activeVaultId },
+            } : latest);
             throw error;
           }
         },
@@ -236,9 +241,14 @@ export function useLocalVaultSession(
           });
           try {
             const result = await api.localVault.updateWorkspace({ type: 'setVaults', id, vaultIds });
-            queryClient.setQueryData(['electron', 'settings'], result.settings);
+            queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest ? {
+              ...latest, localVault: { ...latest.localVault, workspaces: latest.localVault.workspaces.map((candidate) => candidate.id === id && candidate.vaultIds.join() === vaultIds.join() ? result.settings.localVault.workspaces.find((saved) => saved.id === id) ?? candidate : candidate) },
+            } : result.settings);
           } catch (error) {
-            queryClient.setQueryData(['electron', 'settings'], current);
+            queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest ? {
+              ...latest,
+              localVault: { ...latest.localVault, workspaces: latest.localVault.workspaces.map((candidate) => candidate.id === id && candidate.vaultIds.join() === vaultIds.join() ? { ...candidate, vaultIds: workspace.vaultIds } : candidate) },
+            } : latest);
             throw error;
           }
         },
