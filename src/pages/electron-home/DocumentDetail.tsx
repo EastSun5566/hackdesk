@@ -3,7 +3,7 @@ import { ConflictComparison } from './ConflictComparison';
 import { rememberNoteSlideType } from './note-kind';
 import { LocalVaultNameContext, useTeamNameLookup } from './NoteSummaryCard';
 import { ActionMenuShortcut } from './ActionShortcutContext';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, CSSProperties } from 'react';
 import { toast } from '@/components/ui/toast';
 import {
   AlertCircle,
@@ -66,6 +66,7 @@ import { useBookSessionContext, usePaneTabId } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { RenameNoteDialog } from './RenameNoteDialog';
+import { EDITOR_CONTENT_MAX_WIDTH, EDITOR_CONTENT_WIDTH, EDITOR_SIDE_PADDING } from '@/components/hackmd-live-preview/editor-content-layout';
 import { ShareDialog } from './ShareDialog';
 import {
   FOCUS_RING_INSET_CLASS,
@@ -413,7 +414,7 @@ function LoadingDocumentDetail({
           titleElement="div"
         />
       ) : null}
-      {selectedNote?.teamPath !== LOCAL_VAULT_TEAM_PATH && summary?.teamPath !== LOCAL_VAULT_TEAM_PATH ? <div role="status" aria-busy="true" aria-label="Loading note" className="flex min-h-0 flex-1 flex-col gap-4 p-6">
+      {selectedNote?.teamPath !== LOCAL_VAULT_TEAM_PATH && summary?.teamPath !== LOCAL_VAULT_TEAM_PATH ? <div role="status" aria-busy="true" aria-label="Loading note" className="mx-auto box-border flex min-h-0 w-(--placeholder-width) max-w-(--placeholder-max-width) flex-1 flex-col gap-4 px-(--placeholder-padding) pt-6 text-(length:--font-size-editor)" style={{ '--placeholder-width': EDITOR_CONTENT_WIDTH, '--placeholder-max-width': EDITOR_CONTENT_MAX_WIDTH, '--placeholder-padding': EDITOR_SIDE_PADDING } as CSSProperties}>
         <div className="h-4 w-2/3 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         <div className="h-4 w-1/2 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         <div className="mt-4 space-y-3">
