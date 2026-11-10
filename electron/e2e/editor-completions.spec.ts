@@ -24,7 +24,7 @@ test('completing an existing fence preserves its body, closing marker and undo h
   const body = '\n\nprint(1)\n```\n\nAfter the block\n';
   await writeFile(notePath, `\`\`\`py${body}`);
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;
@@ -63,7 +63,7 @@ test('typing HackMD syntax suggests emoji, code languages, containers and embeds
   await mkdir(vault);
   await writeFile(join(vault, 'Draft.md'), '# Draft\n');
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;
@@ -130,7 +130,7 @@ test('typing suggests front matter, alerts, metadata and slide attributes', asyn
   const original = '---\nbreaks: tr  # Keep this explanation\n---\n# Deck\n';
   await writeFile(notePath, original);
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;

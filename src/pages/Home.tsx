@@ -1,5 +1,5 @@
 import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
-import { NoteSummaryLookupContext, TeamNameLookupContext } from '@/pages/electron-home/NoteSummaryCard';
+import { LocalVaultNameContext, NoteSummaryLookupContext, TeamNameLookupContext } from '@/pages/electron-home/NoteSummaryCard';
 import { ConfirmDialogHost } from '@/components/ConfirmDialogHost';
 import { getElectronAction, getResolvedActionShortcut } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
@@ -28,7 +28,7 @@ import type { ElectronSafeSettings, FolderSummary, NoteSummary } from '@/lib/ele
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
-import { defaultSettings } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace, NOTE_NAVIGATOR_PANEL_ID } from './electron-home/ElectronHomeWorkspace';
@@ -36,7 +36,7 @@ import { useSplitStatusLine } from './electron-home/split-status-line-preference
 import { useStatusLineVisible } from './electron-home/status-line-preference';
 import { useElectronSettings } from './electron-home/useElectronSettings';
 import { useLocalVaultSession } from './electron-home/useLocalVaultSession';
-import { LOCAL_VAULT_TEAM_PATH, toDocumentSummary } from './electron-home/local-vault-adapter';
+import { adaptLocalVaultSnapshot, LOCAL_VAULT_TEAM_PATH, toDocumentSummary } from './electron-home/local-vault-adapter';
 import type { WorkspaceScope } from './electron-home/types';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
@@ -44,6 +44,7 @@ import { useElectronHomeCommandPalette } from './electron-home/useElectronHomeCo
 import { useElectronHomeModel } from './electron-home/useElectronHomeModel';
 import { useElectronHomeRecentNotes } from './electron-home/useElectronHomeRecentNotes';
 import { useElectronHomeRefresh } from './electron-home/useElectronHomeRefresh';
+import { useFolderPicker } from './electron-home/FolderPickerDialog';
 import { useElectronLocalVault } from './electron-home/useElectronLocalVault';
 import {
   useElectronHomeSelection,
@@ -84,16 +85,22 @@ import { useWorkbenchPanelState } from './electron-home/useWorkbenchPanelState';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
 import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActions';
+import { localVaultFolderName } from './electron-home/workspace-root-labels';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
+import { useWorkspaceFolderTrees } from './electron-home/useWorkspaceFolderTrees';
 import { getSavedTabNoteIdentity, isBlankNoteTab, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
 import { EMPTY_FOLDERS, EMPTY_NOTES, getScopeStorageKey } from './electron-home/repository';
 import {
   DEFAULT_WORKSPACE_SCOPE,
   getInitialWorkspaceScope,
+  hasWindowWorkspaceScope,
   useWorkbenchWorkspaceState,
 } from './electron-home/useWorkbenchWorkspaceState';
 import { getWorkspaceNavigationTeams } from './electron-home/workspace-navigation';
+
+const EMPTY_LOCAL_VAULTS: { id: string; path: string }[] = [];
+const EMPTY_VAULT_IDS: string[] = [];
 
 export function Home() {
   const { presets, presetId, resolvedMode, setPresetId, setTheme, theme } = useTheme();
@@ -106,9 +113,12 @@ export function Home() {
   const usingInitialDrafts = settingsReady && (initialDraftsPending || setupMissing);
   if (setupMissing && !initialDraftsPending) setInitialDraftsPending(true);
   const [destinationOpen, setDestinationOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const pendingInitialSave = useRef<string | null>(null);
+  const folderPickerAction = useRef<{ type: 'note'; note: NoteSummary } | { type: 'folder'; id: string } | { type: 'create'; title: string } | null>(null);
   const beforeVaultChange = useRef<() => void>(() => {});
-  const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange);
+  const folderPicker = useFolderPicker(rawApi);
+  const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange, folderPicker.pickFolder);
   const api = vaultSession.api;
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
   const { recentNotes, removeRecentNoteEntry, trackRecentNote, syncLocalRecentNotes } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId);
@@ -134,6 +144,12 @@ export function Home() {
     setTrashOpen,
     setVersionsOpen,
   } = dialogState;
+  useEffect(() => {
+    if (palette.open) return;
+    const action = folderPickerAction.current;
+    folderPickerAction.current = null;
+    if (action?.type === 'create') setCreateDialog({ open: true, title: action.title });
+  }, [palette.open, setCreateDialog]);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const setSettingsOpen = useCallback((open: boolean) => {
     if (open) setSettingsInitialTab('general');
@@ -145,11 +161,20 @@ export function Home() {
   const [shortcutHelp, setShortcutHelp] = useState<{ region: ElectronFocusZone; target: HTMLElement | null } | null>(null);
   const closeTransientLayerWithHelp = useCallback(() => {
     if (shortcutHelp) { setShortcutHelp(null); return true; }
-    return closeTransientLayer();
-  }, [shortcutHelp, closeTransientLayer]);
+    if (closeTransientLayer()) return true;
+    if (historyOpen) { setHistoryOpen(false); return true; }
+    return false;
+  }, [shortcutHelp, closeTransientLayer, historyOpen]);
+  // The named set the open folder belongs to: its folders share one scope (tabs, search).
+  const openLocalWorkspace = getActiveLocalWorkspace(settingsQuery.data);
+  const localWorkspaceId = openLocalWorkspace && settingsQuery.data?.localVault.activeVaultId
+    && openLocalWorkspace.vaultIds.includes(settingsQuery.data.localVault.activeVaultId)
+    ? openLocalWorkspace.id
+    : null;
   const workspaceState = useWorkbenchWorkspaceState({
     initialWorkspaceScope,
     localVaultId: vaultSession.vaultId,
+    localWorkspaceId,
     initialDrafts: usingInitialDrafts,
     settingsReady,
     manualEmptyWorkspaceRef: selectionRefs.manualEmptyWorkspaceRef,
@@ -163,6 +188,7 @@ export function Home() {
     setSelectedFolderId,
     setWorkspaceScope: setWorkspaceScopeState,
   } = workspaceState;
+  useEffect(() => { setHistoryOpen(false); }, [scopeStorageKey]);
   const {
     inspectorCollapsed,
     navigatorCollapsed,
@@ -218,17 +244,20 @@ export function Home() {
     } : null,
   );
   // Stable, so the selection, palette and book callbacks built on it are not rebuilt every render.
-  const { openNote: openNoteTab, showNoteInActiveTab } = noteWorkspace;
-  const openNoteInWorkspace = useCallback((note: NoteSummary, options?: { inPlace?: InPlaceTarget }) => {
+  const { openNote: openNoteTab, openNoteAsPreview, showNoteInActiveTab } = noteWorkspace;
+  const openNoteInWorkspace = useCallback((note: NoteSummary, options?: { inPlace?: InPlaceTarget; preview?: boolean }) => {
     const inPlace = options?.inPlace;
-    if (!inPlace) {
+    if (inPlace) {
+      showNoteInActiveTab(note, typeof inPlace === 'object' ? inPlace.tabId : undefined);
+    } else if (options?.preview) {
+      openNoteAsPreview(note);
+    } else {
       openNoteTab(note);
-      return;
     }
-    showNoteInActiveTab(note, typeof inPlace === 'object' ? inPlace.tabId : undefined);
-  }, [openNoteTab, showNoteInActiveTab]);
+  }, [openNoteAsPreview, openNoteTab, showNoteInActiveTab]);
   const {
     autoSelectSuppressionRef,
+    handleNoteKeep,
     handleNoteSelect,
     manualEmptyWorkspaceRef,
     requestSelectNote,
@@ -243,6 +272,7 @@ export function Home() {
     requestEditorFocus,
     scopeStorageKey,
     openNoteInWorkspace,
+    keepNoteInWorkspace: noteWorkspace.keepNote,
     selectionRefs,
     trackRecentNote,
   });
@@ -341,17 +371,41 @@ export function Home() {
     selectedNote,
     activeDocumentNotes,
   });
+  // Every folder of the open set, each with its own tree; their notes open like the open folder's.
+  const workspaceFolders = useWorkspaceFolderTrees({
+    api,
+    activeSnapshot: vaultSession.snapshot,
+    activeSnapshotPath: vaultSession.snapshotPath,
+    activeVaultId: settingsQuery.data?.localVault.activeVaultId ?? null,
+    enabled: !!localWorkspaceId && scope.type === 'local',
+    vaultIds: localWorkspaceId && scope.type === 'local' ? openLocalWorkspace?.vaultIds ?? [] : EMPTY_VAULT_IDS,
+    vaults: settingsQuery.data?.localVault.vaults ?? EMPTY_LOCAL_VAULTS,
+  });
+  const workspaceSnapshots = useMemo(
+    () => workspaceFolders.flatMap((folder) => (folder.snapshot ? [folder.snapshot] : [])),
+    [workspaceFolders],
+  );
   const localDocuments = useElectronLocalVault({
     api,
     enabled: !!vaultSession.snapshot && !vaultSession.isChanging && scope.type === 'local',
     snapshot: vaultSession.snapshot,
+    workspaceSnapshots,
     selectedNote,
     activeDocumentNotes,
   });
   const localVault = { ...localDocuments, snapshotQuery: vaultSession.snapshotQuery };
+  const snapshotForLocalNote = localDocuments.snapshotForNote;
+  // A tab can hold a note from any folder of the set, so changes on disk are watched in all of them.
+  const workspaceLocalNotes = useMemo(() => {
+    const others = workspaceSnapshots.filter((other) => other.vaultId !== vaultSession.snapshot?.vaultId);
+    return others.length
+      ? [...localVault.currentNotes, ...others.flatMap((other) => adaptLocalVaultSnapshot(other).notes)]
+      : localVault.currentNotes;
+  }, [localVault.currentNotes, vaultSession.snapshot?.vaultId, workspaceSnapshots]);
   const localVaultActions = useHomeLocalVaultActions({
     api,
     queryClient,
+    scopeType: scope.type,
     refetchLocalVault: async () => {
       if (vaultSession.isChanging) throw new Error('Local Vault is still loading. Try again when it is ready.');
       await localVault.snapshotQuery.refetch();
@@ -374,10 +428,17 @@ export function Home() {
   const hasConfiguredLocalVault = settings?.hasLocalVault === true;
   const canUseCurrentWorkspace = !usingInitialDrafts && (scope.type === 'local' ? !!vaultSession.snapshot && !vaultSession.isChanging : hasToken);
   const handleHackmdDisconnected = useCallback(() => {
-    setWorkspaceScope(hasConfiguredLocalVault
-      ? { type: 'local', label: 'Local Vault' }
-      : DEFAULT_WORKSPACE_SCOPE);
-  }, [hasConfiguredLocalVault, setWorkspaceScope]);
+    if (settings?.hasLocalVault) {
+      const activePath = getActiveLocalVaultPath(settings);
+      setWorkspaceScope({
+        type: 'local',
+        label: activePath ? localVaultFolderName(activePath) : 'Local Vault',
+        vaultId: settings.localVault.activeVaultId ?? undefined,
+      });
+      return;
+    }
+    setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
+  }, [settings, setWorkspaceScope]);
 
   useEffect(() => {
     if (settings === undefined || usingInitialDrafts || initialWorkspaceResolvedRef.current) {
@@ -385,15 +446,46 @@ export function Home() {
     }
 
     initialWorkspaceResolvedRef.current = true;
-    if (settings.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal') {
-      setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+    // A window opened onto an explicit workspace keeps it; the local preference is only for fresh boots.
+    if (settings.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal' && !hasWindowWorkspaceScope()) {
+      const activePath = getActiveLocalVaultPath(settings);
+      setWorkspaceScope({
+        type: 'local',
+        label: activePath ? localVaultFolderName(activePath) : 'Local Vault',
+        vaultId: settings.localVault.activeVaultId ?? undefined,
+      });
     }
-  }, [initialWorkspaceScope.type, scope.type, setWorkspaceScope, settings, usingInitialDrafts]);
+    // A new window opened onto another vault or a named workspace activates it so the window shows
+    // what it was opened onto. Only a window URL names a stored vault or workspace id; the saved
+    // last scope holds a snapshot id, which never equals a stored one, so trusting it re-opened the
+    // folder (and left its workspace) on every launch.
+    const openedOnto = initialWorkspaceScope.type === 'local' && hasWindowWorkspaceScope()
+      ? initialWorkspaceScope.vaultId
+      : undefined;
+    if (settings.hasLocalVault && openedOnto
+      && settings.localVault.vaults.some((vault) => vault.id === openedOnto)
+      && openedOnto !== settings.localVault.activeVaultId && !vaultSession.isChanging) {
+      void localVaultActions.switchLocalVault(openedOnto).catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to open the vault in a new window.');
+      });
+    }
+    const openedWorkspaceId = initialWorkspaceScope.type === 'local' && hasWindowWorkspaceScope()
+      ? initialWorkspaceScope.workspaceId
+      : undefined;
+    if (settings.hasLocalVault && openedWorkspaceId
+      && settings.localVault.workspaces.some((workspace) => workspace.id === openedWorkspaceId)
+      && openedWorkspaceId !== settings.localVault.activeWorkspaceId && !vaultSession.isChanging) {
+      void localVaultActions.activateLocalWorkspace(openedWorkspaceId).catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to open the workspace in a new window.');
+      });
+    }
+  }, [initialWorkspaceScope, scope.type, setWorkspaceScope, settings, usingInitialDrafts, vaultSession.isChanging]);
 
   useEffect(() => {
     if (!usingInitialDrafts || vaultSession.isChanging) return;
+    const activePath = settings ? getActiveLocalVaultPath(settings) : null;
     const target: WorkspaceScope | null = settings?.hasLocalVault
-      ? vaultSession.vaultId ? { type: 'local', label: 'Local Vault', vaultId: vaultSession.vaultId } : null
+      ? vaultSession.vaultId ? { type: 'local', label: activePath ? localVaultFolderName(activePath) : 'Local Vault', vaultId: vaultSession.vaultId } : null
       : hasToken ? DEFAULT_WORKSPACE_SCOPE : null;
     if (!target) return;
     try { setWorkspaceScope(target); }
@@ -409,6 +501,12 @@ export function Home() {
     currentFolders,
     currentNotes,
     scope,
+    localVaultPath: settingsQuery.data ? getActiveLocalVaultPath(settingsQuery.data) : null,
+    localWorkspaceName: (() => {
+      const workspace = getActiveLocalWorkspace(settingsQuery.data);
+      const activeVaultId = settingsQuery.data?.localVault.activeVaultId;
+      return workspace && activeVaultId && workspace.vaultIds.includes(activeVaultId) ? workspace.name : null;
+    })(),
     selectedFolderId,
     syncOpenNoteSummaries: noteWorkspace.syncNoteSummaries,
     teams,
@@ -531,8 +629,9 @@ export function Home() {
     drafts: noteWorkspace.state.drafts,
     enabled: scope.type === 'local' && !!vaultSession.vaultId && !vaultSession.isChanging,
     getTabsMatching: noteWorkspace.getTabsMatching,
-    notes: localVault.currentNotes,
+    notes: workspaceLocalNotes,
     openNote: noteWorkspace.openNote,
+    snapshotForNote: snapshotForLocalNote,
     resetSaveMutation: mutations.updateNoteMutation.reset,
     syncNoteSummary: noteWorkspace.syncNoteSummary,
     tabs: noteWorkspace.state.tabs,
@@ -720,6 +819,13 @@ export function Home() {
     switchWorkspaceScope,
   } = useElectronHomeCommandPalette({
     localVaultId: vaultSession.vaultId,
+    localVaultEntryId: settingsQuery.data?.localVault.activeVaultId ?? null,
+    localVaults: settingsQuery.data?.localVault.vaults ?? [],
+    onSwitchLocalVault: (vaultId: string) => {
+      void localVaultActions.switchLocalVault(vaultId).catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to switch local vault.');
+      });
+    },
     displayScope,
     expandNavigator,
     focusNavigator: () => focusZone('navigator'),
@@ -786,7 +892,7 @@ export function Home() {
     copyNoteLink: handleCopyNoteLink,
     copyNoteMarkdownLink: handleCopyNoteMarkdownLink,
     duplicateNote: handleDuplicateNote,
-    openMoveNotePicker: () => setPalette({ mode: 'move-note', open: true, search: '' }),
+    openMoveNotePicker: () => { folderPickerAction.current = null; setPalette({ mode: 'move-note', open: true, search: '' }); },
     openShare: () => setShareOpen(true),
     reorderTab: noteWorkspace.reorderTab,
     revealLocalNote: localVaultActions.revealLocalNote,
@@ -870,7 +976,7 @@ export function Home() {
     setTrashOpen,
     setVersionsOpen,
     splitActiveTab: noteWorkspace.splitActiveTab,
-    switchToHistory: () => switchWorkspaceScope({ type: 'history', label: 'History' }),
+    switchToHistory: () => { if (scope.type !== 'local') { setTrashOpen(false); setHistoryOpen(true); } },
     toggleInspector: toggleNoteDetails,
     toggleKeyHints: () => {
       const keyboardNavigation = settings?.keyboardNavigation ?? defaultSettings.keyboardNavigation;
@@ -992,7 +1098,7 @@ export function Home() {
     expandedFolderIds,
     openQuickCaptureDraft,
     runAction,
-    scopeStorageKey,
+    folderStateKey: workspaceState.folderStateKey,
   });
 
   const openHackmdTokenSetup = useCallback(() => {
@@ -1004,14 +1110,24 @@ export function Home() {
   }, [setSettingsOpenState]);
   const { handleNoteMove } = workbenchNavigator;
   const moveSelectedNoteToFolder = useCallback((folder: QuickOpenFolderResult) => {
-    const entry = folderTree.allNotes.find(candidate => candidate.note.id === selectedNote?.id);
+    const action = folderPickerAction.current;
+    const targetFolderId = folder.id === UNFILED_FOLDER_ID ? null : folder.id;
+    if (action?.type === 'create') { setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID); return; }
+    folderPickerAction.current = null;
+    if (action?.type === 'folder') {
+      const node = folderTree.nodesById.get(action.id);
+      const destination = targetFolderId ? folderTree.nodesById.get(targetFolderId) : null;
+      if (!node || targetFolderId === node.id || destination?.folderPath.some((part) => part.id === node.id)) { toast.error('Choose a folder outside the folder being moved.'); return; }
+      if (node.parentId !== targetFolderId) mutations.moveFolderMutation.mutate({ folderId: node.id, parentFolderId: targetFolderId, order: {}, parentChanged: true, orderChanged: false, changed: true });
+      return;
+    }
+    const entry = folderTree.allNotes.find(candidate => candidate.note.id === (action?.type === 'note' ? action.note.id : selectedNote?.id));
     if (!entry) {
       toast.info('Select a note in this workspace first.');
       return;
     }
-    const targetFolderId = folder.id === UNFILED_FOLDER_ID ? null : folder.id;
     handleNoteMove({ note: entry, targetFolderId, changed: getNoteCurrentFolderId(entry) !== targetFolderId });
-  }, [folderTree.allNotes, handleNoteMove, selectedNote?.id]);
+  }, [folderCommands, folderTree, handleNoteMove, mutations.moveFolderMutation, selectedNote?.id]);
 
   const workspaceNavigation = useMemo(() => getWorkspaceNavigationTeams(
     teams,
@@ -1056,14 +1172,15 @@ export function Home() {
     const identity = getSavedTabNoteIdentity(tab);
     if (!api || !identity) return undefined;
     if (identity.teamPath === LOCAL_VAULT_TEAM_PATH) {
-      // Only the active vault can be read; never read a same-named note from another vault.
-      const snapshot = await api.localVault.getSnapshot();
-      if (!snapshot || originScopeKey !== `local:${snapshot.vaultId}`) return undefined;
-      return toDocumentSummary(await api.localVault.readNote(identity.id), snapshot);
+      // Only a note of the scope on screen: any folder of an open set, read from the folder that
+      // holds it. A tab left behind in another scope is never read here.
+      const owner = snapshotForLocalNote(identity);
+      if (!owner || originScopeKey !== currentScopeKeyRef.current) return undefined;
+      return toDocumentSummary(await api.localVault.readNote(identity.id), owner);
     }
     const result = await api.hackmd.getNote(identity.id, identity.teamPath);
     return result.source === 'error' ? undefined : result.data;
-  }, [api]);
+  }, [api, snapshotForLocalNote]);
   const { attachImageToTab, cancelImageUpload, uploadingTabIds } = useTabImageUploads({
     scopeKey: noteWorkspace.state.scopeKey,
     getTabDocument: workbenchDocuments.getTabDocument,
@@ -1099,6 +1216,7 @@ export function Home() {
     revealFolder,
     saveAsTemplate: () => noteTemplates.saveDocumentAsTemplate(selectedDocument, { title: documentTitle, content: documentContent }),
     localVaultId: vaultSession.vaultId,
+    workspaceFolders,
     uploadingTabIds,
     actions: {
       saveDraftNote,
@@ -1117,6 +1235,7 @@ export function Home() {
       handleImportMarkdownNote,
       handleCreateNoteFromTemplate: folderCommands.handleCreateNoteFromTemplate,
       handleHackmdDisconnected,
+      handleNoteKeep,
       handleNoteSelect,
       handleOpenEditor,
       handleOpenExternal,
@@ -1126,9 +1245,28 @@ export function Home() {
       setFinderState,
       setShareOpen,
       setTrashOpen,
+      setHistoryOpen,
       setVersionsOpen,
       switchWorkspaceScope,
       openTrashNote: (note) => void requestSelectNote(note, { focusEditor: true }),
+      renameNoteInline: (note, name) => {
+        if (!api) return;
+        void (async () => {
+          const owner = snapshotForLocalNote(note);
+          if (note.teamPath === LOCAL_VAULT_TEAM_PATH && !owner) throw new Error('The local vault is no longer available.');
+          // A rename writes only the title: a HackMD note renames straight from its summary, while
+          // a local write needs the file's content and revision, so only that fetches the document.
+          const result = note.teamPath === LOCAL_VAULT_TEAM_PATH && owner
+            ? toDocumentSummary(await api.localVault.readNote(note.id), owner)
+            : note;
+          mutations.updateNoteMutation.mutate({ note: result, input: { title: name }, intent: 'metadata' });
+        })().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to rename note.'));
+      },
+      moveNoteRequest: (note) => { folderPickerAction.current = { type: 'note', note }; setPalette({ mode: 'move-note', open: true, search: '' }); },
+      moveFolderRequest: (id) => { folderPickerAction.current = { type: 'folder', id }; setPalette({ mode: 'move-folder', open: true, search: '' }); },
+      chooseNewNoteLocation: (folderId) => {
+        folderCommands.handleCreateNoteInside(folderId);
+      },
     },
     activeFinderState,
     collapsedFolderIds,
@@ -1140,7 +1278,6 @@ export function Home() {
     folderCommands,
     folderTree,
     getTabSyncState,
-    hasConfiguredLocalVault,
     homeStatus,
     inspectorCollapsed,
     localDocumentRecovery,
@@ -1173,11 +1310,22 @@ export function Home() {
     onNewTab: () => runShortcutAction('new-tab'),
     recentNotes,
     trashOpen,
+    historyOpen,
   });
   const overlayProps = useHomeOverlayProps({
     actionContext,
     api,
-    commandPaletteProps,
+    commandPaletteProps: {
+      ...commandPaletteProps,
+      onStateChange: (next) => {
+        if (!next.open && folderPickerAction.current?.type === 'create') {
+          const { title } = folderPickerAction.current;
+          folderPickerAction.current = null;
+          setCreateDialog({ open: true, title });
+        }
+        setPalette(next);
+      },
+    },
     commandPaletteTheme: {
       themeMode: theme,
       themePresetId: presetId,
@@ -1187,7 +1335,6 @@ export function Home() {
     },
     commandPaletteUtilities: {
       hasHackmdApiToken: settings?.hasHackmdApiToken === true,
-      hasLocalVault: hasConfiguredLocalVault,
       onConnectHackmd: openHackmdTokenSetup,
       onMoveNoteToFolder: moveSelectedNoteToFolder,
       onOpenSettingsTab: openSettingsTab,
@@ -1201,6 +1348,11 @@ export function Home() {
     localVaultSnapshot: localVault.snapshot,
     mutations,
     onHackmdDisconnected: handleHackmdDisconnected,
+    onChooseNoteLocation: () => {
+      folderPickerAction.current = { type: 'create', title: dialogState.createDialog.title };
+      setCreateDialog({ ...dialogState.createDialog, open: false });
+      setPalette({ mode: 'choose-note-folder', open: true, search: '' });
+    },
     onboardingOpen,
     runAction: runPaletteAction,
     selectedFolderLabel,
@@ -1225,7 +1377,8 @@ export function Home() {
         if (hasToken) setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
         else setOnboardingOpen(true);
       } else if (settings?.hasLocalVault && vaultSession.vaultId && !vaultSession.isChanging) {
-        setWorkspaceScope({ type: 'local', label: 'Local Vault', vaultId: vaultSession.vaultId });
+        const activePath = getActiveLocalVaultPath(settings);
+        setWorkspaceScope({ type: 'local', label: activePath ? localVaultFolderName(activePath) : 'Local Vault', vaultId: vaultSession.vaultId });
       } else if (!await localVaultActions.chooseLocalVault()) {
         pendingInitialSave.current = null;
         requestEditorFocus();
@@ -1251,9 +1404,14 @@ export function Home() {
         <div data-hack-mode={hackMode || undefined} className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
           <BookSessionContext.Provider value={bookSession}>
             <TeamNameLookupContext.Provider value={lookupTeamName}>
+            <LocalVaultNameContext.Provider value={(() => {
+              const activePath = settings ? getActiveLocalVaultPath(settings) : null;
+              return activePath ? localVaultFolderName(activePath) : null;
+            })()}>
             <NoteSummaryLookupContext.Provider value={lookupNoteSummary}>
               <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
             </NoteSummaryLookupContext.Provider>
+            </LocalVaultNameContext.Provider>
             </TeamNameLookupContext.Provider>
           </BookSessionContext.Provider>
           {leaderLevel ? (
@@ -1309,6 +1467,7 @@ export function Home() {
             onChoose={noteTemplates.chooseTemplate}
           />
           <AskNotesDialog askNotes={askNotes} onOpenNote={note => openNoteTarget(toRecentNote(note))} />
+          {folderPicker.dialog}
           <ConfirmDialogHost />
           {shortcutHelp ? <KeyboardShortcutsDialog
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}

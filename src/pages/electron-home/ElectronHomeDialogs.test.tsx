@@ -92,6 +92,7 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
       editor: defaultSettings.editor,
       hasAppearanceSettings: true,
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
       hasLocalVault: false,
       localVault: defaultSettings.localVault,
@@ -119,6 +120,7 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
     onDisconnectHackmd: vi.fn(),
     onOnboardingConnected: vi.fn(),
     onForgetLocalVault: vi.fn(async () => undefined),
+    onSwitchLocalVault: vi.fn(async () => undefined),
     onImportHackmdCliToken: vi.fn(async () => ({
       settings: {
         title: 'HackDesk',
@@ -127,6 +129,7 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
         editor: defaultSettings.editor,
         hasAppearanceSettings: true,
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,

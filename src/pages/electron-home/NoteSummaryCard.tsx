@@ -44,6 +44,9 @@ export function useNoteSummaryLookup() {
 /** Team names by team path, so surfaces such as the note breadcrumb can name a team workspace. */
 export const TeamNameLookupContext = createContext<(teamPath: string) => string | undefined>(() => undefined);
 
+/** The active vault's folder name, so surfaces such as the note breadcrumb can name a local workspace. */
+export const LocalVaultNameContext = createContext<string | null>(null);
+
 export function useTeamNameLookup() {
   return useContext(TeamNameLookupContext);
 }

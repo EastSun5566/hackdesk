@@ -13,7 +13,6 @@ type WorkbenchActions = ReturnType<typeof useWorkbenchActions>;
 type CommandPaletteInjectedProps =
   | 'context'
   | 'hasHackmdApiToken'
-  | 'hasLocalVault'
   | 'onConnectHackmd'
   | 'onMoveNoteToFolder'
   | 'onOpenSettingsTab'
@@ -39,6 +38,7 @@ export function useHomeOverlayProps({
   localVaultSnapshot,
   mutations,
   onHackmdDisconnected,
+  onChooseNoteLocation,
   onboardingOpen,
   runAction,
   selectedFolderLabel,
@@ -57,7 +57,6 @@ export function useHomeOverlayProps({
   commandPaletteUtilities: Pick<
     ElectronHomeOverlaysProps['commandPalette'],
     | 'hasHackmdApiToken'
-    | 'hasLocalVault'
     | 'onConnectHackmd'
     | 'onMoveNoteToFolder'
     | 'onOpenSettingsTab'
@@ -69,6 +68,7 @@ export function useHomeOverlayProps({
   localVaultSnapshot: ElectronHomeOverlaysProps['dialogs']['localVaultSnapshot'];
   mutations: NoteMutations;
   onHackmdDisconnected: () => void;
+  onChooseNoteLocation?: () => void;
   onboardingOpen: boolean;
   runAction: WorkbenchActions['runAction'];
   selectedFolderLabel: string | null;
@@ -114,6 +114,7 @@ export function useHomeOverlayProps({
       onCreateFolder: (input) => mutations.createFolderMutation.mutate(input),
       onCreateFolderStateChange: dialogState.setCreateFolderDialog,
       onCreateNote: (title) => mutations.createNoteMutation.mutate(title),
+      onChooseNoteLocation,
       onCreateNoteStateChange: dialogState.setCreateDialog,
       onChooseLocalVault: localVaultActions.chooseLocalVault,
       onDisconnectHackmd: () => {
@@ -130,6 +131,14 @@ export function useHomeOverlayProps({
       onDeleteNoteCancel: () => dialogState.setDeleteTarget(null),
       onImportHackmdCliToken: () => mutations.importHackmdCliTokenMutation.mutateAsync(),
       onForgetLocalVault: localVaultActions.forgetLocalVault,
+      onSwitchLocalVault: localVaultActions.switchLocalVault,
+      localWorkspaceActions: {
+        create: localVaultActions.createLocalWorkspace,
+        rename: localVaultActions.renameLocalWorkspace,
+        remove: localVaultActions.deleteLocalWorkspace,
+        activate: localVaultActions.activateLocalWorkspace,
+        setVaults: localVaultActions.setLocalWorkspaceFolders,
+      },
       onOpenLocalVault: localVaultActions.openLocalVault,
       onOnboardingConnected,
       onOnboardingOpenChange: setOnboardingOpen,
@@ -137,10 +146,11 @@ export function useHomeOverlayProps({
       onRenameFolder: (folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input }),
       onRenameFolderStateChange: dialogState.setRenameFolderDialog,
       onSaveSettings: (input) => { void mutations.submitSettings(input); },
-      onSaveToken: async (token) => {
+      onSaveToken: async (token, label) => {
         await mutations.updateSettingsMutation.mutateAsync({
           title: settings?.title ?? 'HackDesk',
           hackmdApiToken: token,
+          ...(label ? { hackmdAccountLabel: label } : {}),
         });
       },
       onSettingsOpenChange: dialogState.setSettingsOpen,

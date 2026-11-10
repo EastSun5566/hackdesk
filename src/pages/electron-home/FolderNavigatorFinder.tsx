@@ -25,6 +25,7 @@ import type { ElectronNoteTag } from '@/lib/electron-note-tags';
 import { cn } from '@/lib/utils';
 
 import { FOCUS_RING_CLASS, FOCUS_RING_INSET_CLASS } from './ui';
+import { setShowHiddenFiles, useShowHiddenFiles } from './hidden-files-preference';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -229,6 +230,7 @@ export function NoteViewOptionsMenu({
   className,
   tabIndex,
   treeControl = false,
+  showLocalOptions = false,
 }: {
   state: NoteFinderState;
   selectedFolderId: string | null;
@@ -240,7 +242,9 @@ export function NoteViewOptionsMenu({
   tabIndex?: number;
   /** On a tree row: the tree's arrow keys leave it alone, like the row's other controls. */
   treeControl?: boolean;
+  showLocalOptions?: boolean;
 }) {
+  const showHidden = useShowHiddenFiles();
   const viewOptionCount = getViewOptionCount(state);
   const currentFolderDisabled = !selectedFolderId;
   const updateState = (patch: Partial<NoteFinderState>) => onChange({ ...state, ...patch });
@@ -283,6 +287,11 @@ export function NoteViewOptionsMenu({
         <TooltipContent side="bottom">{viewOptionCount ? `View options · ${viewOptionCount} changed` : 'View options'}</TooltipContent>
       </TooltipRoot>
       <DropdownMenuContent align="end" className="max-h-96 min-w-56 overflow-auto">
+        {showLocalOptions ? <>
+          <DropdownMenuLabel>Folders</DropdownMenuLabel>
+          {showLocalOptions ? <DropdownMenuCheckboxItem checked={showHidden} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setShowHiddenFiles(checked === true)}>Show hidden files and folders</DropdownMenuCheckboxItem> : null}
+          <DropdownMenuSeparator />
+        </> : null}
         <DropdownMenuLabel>Search In</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => updateState({ searchScope: 'workspace' })}>
           <CheckedIcon checked={state.searchScope === 'workspace'} />

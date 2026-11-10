@@ -102,7 +102,8 @@ function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: st
 export type SaveIntent = 'content' | 'metadata' | 'sharing';
 
 export type UpdateNoteMutationVariables = {
-  note: DocumentSummary;
+  /** A full document for content writes; a sidebar summary suffices for metadata-only updates. */
+  note: NoteSummary;
   input: UpdateNoteInput;
   intent: SaveIntent;
   tabId?: string;
@@ -306,7 +307,7 @@ export function useElectronNoteMutations({
     },
     onSuccess: (nextSettings, input) => {
       queryClient.setQueryData(['electron', 'settings'], nextSettings);
-      if (input.hackmdApiToken !== undefined) {
+      if (input.hackmdApiToken !== undefined || input.hackmdActiveAccountId !== undefined || input.hackmdRemoveAccountId !== undefined) {
         if (nextSettings.hasHackmdApiToken) {
           void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd'] });
         } else {
@@ -672,7 +673,9 @@ export function useElectronNoteMutations({
       }
 
       if (payload.content !== undefined) {
-        await assertRemoteNoteUnchanged(api.hackmd, note, variables.submittedDraft?.baseContent ?? note.content);
+        // Only content writes assert against the note's text, so only they need a full document.
+        const document = note as DocumentSummary;
+        await assertRemoteNoteUnchanged(api.hackmd, document, variables.submittedDraft?.baseContent ?? document.content);
       }
 
       return note.teamPath

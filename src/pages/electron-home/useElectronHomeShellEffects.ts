@@ -41,7 +41,8 @@ export type ElectronHomeShellEffectsOptions = {
   expandedFolderIds: Set<string>;
   openQuickCaptureDraft: (content: string) => QuickCaptureDraftResult;
   runAction: (actionId: ElectronActionId, options?: { quiet?: boolean }) => unknown;
-  scopeStorageKey: string | null;
+  /** Where the open folder keeps its expanded folders (see getFolderStateStorageKey). */
+  folderStateKey: string | null;
 };
 
 export function useElectronHomeShellEffects({
@@ -49,12 +50,12 @@ export function useElectronHomeShellEffects({
   expandedFolderIds,
   openQuickCaptureDraft,
   runAction,
-  scopeStorageKey,
+  folderStateKey,
 }: ElectronHomeShellEffectsOptions) {
   useEffect(() => {
-    if (!scopeStorageKey) return;
-    writeStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${scopeStorageKey}`, expandedFolderIds);
-  }, [expandedFolderIds, scopeStorageKey]);
+    if (!folderStateKey) return;
+    writeStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${folderStateKey}`, expandedFolderIds);
+  }, [expandedFolderIds, folderStateKey]);
 
   useEffect(() => {
     return api?.app.onCommand((command) => {

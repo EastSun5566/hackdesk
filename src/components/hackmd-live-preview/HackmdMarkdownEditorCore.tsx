@@ -31,6 +31,8 @@ import { registerEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
 import type { EditorMode } from '@/lib/settings';
 import type { ResolvedThemeMode } from '@/lib/themes';
 import type { LocalImageContext } from '@/lib/local-image';
+import { readFocusEditorOnOpen } from '@/pages/electron-home/note-focus-preference';
+import { hideInitialSelection } from './hfm-decoration-ranges';
 
 import { aiInline, formatAiShortcut, openAiInlineMenu, type AiInlineHost } from './ai-inline/extension';
 import { getAiInlineTarget, IDLE_AI_INLINE, type AiInlineState } from './ai-inline/state';
@@ -278,6 +280,7 @@ function createHackmdEditorView({
     state: EditorState.create({
       doc: runtime.value,
       extensions: [
+        ...(!readFocusEditorOnOpen() ? hideInitialSelection : []),
         runtime.editorModeCompartment.of(createEditorModeBaseExtension(runtime.editorMode)),
         hackmdLinkOpenAffordance(onOpenLinkRef),
         ...editorExtensions,

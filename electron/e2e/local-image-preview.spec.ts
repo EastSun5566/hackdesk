@@ -1,10 +1,11 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdir, mkdtemp, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
 import { LOCAL_IMAGE_PNG } from './fixtures/local-image';
 import { definedEnvironment } from './fixtures/environment';
+import { chooseFolderInPicker } from './fixtures/folder-picker';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const primary = process.platform === 'darwin' ? 'Meta' : 'Control';
@@ -53,10 +54,10 @@ for (const renderer of ['production', 'development'] as const) {
     await writeFile(join(vault, 'alpha', 'image.svg'), svg(41));
     await writeFile(join(vault, 'beta', 'image.svg'), svg(73));
     await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-      ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+      ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
     }));
 
-    const env = { ...definedEnvironment(process.env) };
+    const env: Record<string, string> = { ...definedEnvironment(process.env), HOME: home };
     delete env.ELECTRON_RUN_AS_NODE;
     delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
     let server: import('vite').ViteDevServer | undefined;
@@ -101,17 +102,17 @@ for (const renderer of ['production', 'development'] as const) {
       await expect(leftEditor).toContainText('Draft preserved');
       expect(await page.locator('.cm-hackmd-image-preview img[alt="Other"]').getAttribute('src')).toBe(otherUrl);
 
-      const nextVault = join(home, 'next-vault');
-      await mkdir(nextVault);
+      await mkdir(join(home, 'next-vault'));
+      // The picker resolves symlinks (/var → /private/var on macOS), so compare canonical paths.
+      const nextVault = await realpath(join(home, 'next-vault'));
       await writeFile(join(nextVault, 'Next.md'), '# Next\n\n![Next](image.png)');
       await writeFile(join(nextVault, 'image.png'), LOCAL_IMAGE_PNG);
-      await app.evaluate(({ dialog }, path) => {
-        dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
-      }, nextVault);
       await page.keyboard.press(`${primary}+,`);
       await page.getByRole('tab', { name: 'Vault', exact: true }).click();
-      await page.getByRole('button', { name: 'Change Vault', exact: true }).click();
-      await expect(page.getByRole('dialog', { name: 'Settings' }).getByText(nextVault, { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Add Folder', exact: true }).click();
+      await chooseFolderInPicker(page, 'next-vault', basename(home));
+      // The added folder is listed (and, being the open one, also shown above the list).
+      await expect(page.getByRole('dialog', { name: 'Settings' }).getByRole('list').getByText(nextVault, { exact: true })).toBeVisible();
       await page.keyboard.press('Escape');
       await page.getByRole('treeitem', { name: /Next/ }).first().click();
       await loadImage(page, 'Next', 1);

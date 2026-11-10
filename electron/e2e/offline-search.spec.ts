@@ -63,7 +63,7 @@ test('Search notes finds Local Vault notes by their text', async () => {
   await writeFile(join(vault, 'Planning.md'), '# Planning\n\nWe agreed on the 離線閱讀 milestone and a budget review.\n');
   await writeFile(join(vault, 'Other.md'), '# Other\n\nNothing related.\n');
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(home, 'user-data')}`, `--hackdesk-home=${home}`], cwd: repoRoot, env: environment() });
   try {

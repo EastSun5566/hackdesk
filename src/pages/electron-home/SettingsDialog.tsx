@@ -44,7 +44,7 @@ import { SettingsTabs } from './SettingsTabs';
 import type { SettingsSearchResult } from './settings-search';
 import { ShortcutsSettingsPanel } from './ShortcutsSettingsPanel';
 import type { SettingsFormInput } from './types';
-import { VaultSettingsPanel } from './VaultSettingsPanel';
+import { VaultSettingsPanel, type LocalWorkspaceSettingsActions } from './VaultSettingsPanel';
 import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
 import { setNewTabOpens } from './new-tab-preference';
 import { setSplitStatusLine } from './split-status-line-preference';
@@ -112,7 +112,9 @@ type SettingsDialogProps = {
   onDisconnectHackmd: () => void;
   onOpenChange: (open: boolean) => void;
   onChooseLocalVault: () => Promise<void | boolean>;
-  onForgetLocalVault: () => Promise<void>;
+  onForgetLocalVault: (vaultId?: string) => Promise<void>;
+  onSwitchLocalVault: (vaultId: string) => Promise<void>;
+  localWorkspaceActions?: LocalWorkspaceSettingsActions;
   onOpenLocalVault: () => Promise<void>;
   onRefreshLocalVault: () => Promise<void>;
   onSave: (input: SettingsFormInput) => void;
@@ -142,6 +144,8 @@ function SettingsDialogContent({
   onDisconnectHackmd,
   onChooseLocalVault,
   onForgetLocalVault,
+  onSwitchLocalVault,
+  localWorkspaceActions,
   onOpenLocalVault,
   onRefreshLocalVault,
   onOpenChange,
@@ -160,6 +164,7 @@ function SettingsDialogContent({
     editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
     token: '',
     tokenVisible: false,
+    addingAccount: false,
     tokenTest: {
       status: 'idle',
       message: '',
@@ -178,7 +183,7 @@ function SettingsDialogContent({
     if (!open) cancelAppearanceDraftRef.current();
   }, [open]);
   useEffect(() => cancelPreview, [cancelPreview]);
-  const { editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible } = formState;
+  const { editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible, addingAccount } = formState;
 
   // Every change saves at once; the footer is gone. Text fields debounce so typing saves once it pauses.
   const titleSaveTimer = useRef<number | undefined>(undefined);
@@ -288,6 +293,7 @@ function SettingsDialogContent({
         ...current,
         token: '',
         tokenTest: { status: 'idle', message: '' },
+        addingAccount: false,
       }));
       onDisconnectHackmd();
     } else if (tab === 'ai' || tab === 'dictation') {
@@ -357,8 +363,9 @@ function SettingsDialogContent({
             status: 'success',
             message: `Token works for ${user.name} @${user.username}.`,
           },
+          addingAccount: false,
         }));
-        onSave({ title: titleForSave, hackmdApiToken: normalizedToken });
+        onSave({ title: titleForSave, hackmdApiToken: normalizedToken, hackmdAccountLabel: `@${user.username}`, ...(addingAccount ? { hackmdAddAccount: true } : {}) });
       })
       .catch((error: unknown) => {
         if (requestId !== tokenValidationRequestRef.current) {
@@ -382,6 +389,7 @@ function SettingsDialogContent({
       editorMode: defaultSettings.editor.mode,
       token: '',
       tokenVisible: false,
+      addingAccount: false,
       tokenTest: { status: 'idle', message: '' },
       shortcuts: defaultSettings.shortcuts,
       characterShortcutsEnabled: true,
@@ -538,8 +546,10 @@ function SettingsDialogContent({
                     error={localVaultError}
                     settings={settings}
                     snapshot={localVaultSnapshot}
-                    onChooseLocalVault={onChooseLocalVault}
+                    onAddVault={onChooseLocalVault}
                     onForgetLocalVault={onForgetLocalVault}
+                    onSwitchLocalVault={onSwitchLocalVault}
+                    workspaceActions={localWorkspaceActions}
                     onOpenLocalVault={onOpenLocalVault}
                     onRefreshLocalVault={onRefreshLocalVault}
                   />
@@ -547,12 +557,18 @@ function SettingsDialogContent({
 
                 <TabsContent data-settings-tab="hackmd" value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <HackmdSettingsPanel
+                    accounts={settings?.hackmdAccounts?.accounts ?? []}
+                    activeAccountId={settings?.hackmdAccounts?.activeAccountId ?? null}
                     hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
                     tokenStorageError={settings?.hackmdTokenStorageError}
                     isBusy={isSaving}
                     token={token}
                     tokenVisible={tokenVisible}
+                    addingAccount={addingAccount}
+                    onAddingAccountChange={(adding) => setFormState((current) => ({ ...current, addingAccount: adding }))}
                     tokenTest={tokenTest}
+                    onSwitchAccount={(id) => onSave({ title: titleForSave, hackmdActiveAccountId: id })}
+                    onRemoveAccount={(id) => onSave({ title: titleForSave, hackmdRemoveAccountId: id })}
                     onDisconnect={() => {
                       invalidateTokenValidation();
                       onDisconnectHackmd();

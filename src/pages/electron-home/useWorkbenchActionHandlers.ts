@@ -267,6 +267,11 @@ export function useWorkbenchActionHandlers({
     focusNextRegion,
     openPalette,
     openQuickOpen,
+    openNewWindow: () => {
+      void api?.app.newWindow?.().catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to open a new window.');
+      });
+    },
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
     openSettings: () => setSettingsOpen(true),
     createNoteFromTemplate,

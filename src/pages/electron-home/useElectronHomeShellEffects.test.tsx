@@ -47,7 +47,7 @@ describe('useElectronHomeShellEffects', () => {
       expandedFolderIds: new Set(['folder-a']),
       openQuickCaptureDraft: vi.fn(() => ({ accepted: true as const })),
       runAction: vi.fn(),
-      scopeStorageKey,
+      folderStateKey: scopeStorageKey,
     }));
 
     expect(readStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${scopeStorageKey}`)).toEqual(new Set(['folder-a']));
@@ -61,7 +61,7 @@ describe('useElectronHomeShellEffects', () => {
       expandedFolderIds: new Set(),
       openQuickCaptureDraft: vi.fn(() => ({ accepted: true as const })),
       runAction,
-      scopeStorageKey: 'personal',
+      folderStateKey: 'personal',
     }));
 
     act(() => {
@@ -88,7 +88,7 @@ describe('useElectronHomeShellEffects', () => {
       expandedFolderIds: new Set(),
       openQuickCaptureDraft,
       runAction,
-      scopeStorageKey: 'personal',
+      folderStateKey: 'personal',
     }));
 
     act(() => {
@@ -111,7 +111,7 @@ describe('useElectronHomeShellEffects', () => {
       expandedFolderIds: new Set(),
       openQuickCaptureDraft,
       runAction: vi.fn(),
-      scopeStorageKey: 'personal',
+      folderStateKey: 'personal',
     }));
 
     act(() => {

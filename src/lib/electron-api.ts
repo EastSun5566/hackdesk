@@ -1,9 +1,16 @@
 import type {
   ChooseLocalVaultResult,
+  LocalDirectoryBrowseResult,
   LocalDocument,
+  LocalVaultActivateResult,
   LocalVaultAttachmentMutationResult,
   LocalVaultChangeEvent,
+  LocalVaultChoosePathInput,
+  LocalVaultCreateDirectoryInput,
+  LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
+  LocalVaultForgetResult,
+  LocalVaultVaultIdInput,
   LocalVaultCreateNoteInput,
   LocalVaultDocumentMutationResult,
   LocalVaultFolderMutationResult,
@@ -18,6 +25,8 @@ import type {
   LocalVaultTrashFolderInput,
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
+  LocalWorkspaceMutation,
+  LocalWorkspaceMutationResult,
 } from './local-vault';
 import type { AiProviderId, AiProviderStatus, AiTurnInput, AskNotesInput } from './ai';
 import type { DictationEvent, DictationInstallInput, DictationStartInput, DictationStatus } from './dictation';
@@ -39,6 +48,10 @@ export type HackmdRequestOptions = { requestId: string };
 
 export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'workspaceNavigation'> & {
   hasHackmdApiToken: boolean;
+  hackmdAccounts: {
+    accounts: HackmdAccountSummary[];
+    activeAccountId: string | null;
+  };
   hackmdTokenStorageError?: string | null;
   hasAppearanceSettings?: boolean;
   hackmdCliConfig: HackmdCliConfigStatus;
@@ -55,6 +68,20 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
 
 export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline'>> & {
   hackmdApiToken?: string;
+  /** Labels a newly connected account; also renames the active one when replacing its token. */
+  hackmdAccountLabel?: string;
+  /** Connects the token as a new account instead of replacing the active one. */
+  hackmdAddAccount?: boolean;
+  /** Switches the active account; unknown ids keep the current one. */
+  hackmdActiveAccountId?: string;
+  /** Forgets one account and its token. */
+  hackmdRemoveAccountId?: string;
+};
+
+export type HackmdAccountSummary = {
+  id: string;
+  label: string;
+  hasToken: boolean;
 };
 
 export type HackmdCliConfigStatus = {
@@ -436,6 +463,7 @@ export type ElectronActionId =
   | 'reveal-vault-in-finder'
   | 'clear-offline-copies'
   | 'new-note-from-template'
+  | 'new-window'
   | 'save-as-template'
   | 'previous-chapter'
   | 'next-chapter'
@@ -585,8 +613,21 @@ export type HackDeskElectronAPI = {
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;
+    /** Lists folders for the in-app picker; no path starts at the home folder. */
+    browse: (path?: string) => Promise<LocalDirectoryBrowseResult>;
+    /** Chooses a vault from the in-app picker without the native dialog. */
+    choosePath: (input: LocalVaultChoosePathInput) => Promise<ChooseLocalVaultResult>;
+    /** Switches the active vault, returning the new settings and snapshot. */
+    activate: (input: LocalVaultVaultIdInput) => Promise<LocalVaultActivateResult>;
+    /** Forgets one vault, falling back when it was active. */
+    forget: (input: LocalVaultVaultIdInput) => Promise<LocalVaultForgetResult>;
+    /** Creates, renames, deletes, activates or re-scopes a named working set of folders. */
+    updateWorkspace: (mutation: LocalWorkspaceMutation) => Promise<LocalWorkspaceMutationResult>;
+    createDirectory: (input: LocalVaultCreateDirectoryInput) => Promise<LocalVaultCreateDirectoryResult>;
     disconnect: () => Promise<ElectronSafeSettings>;
     getSnapshot: () => Promise<LocalVaultSnapshot | null>;
+    /** Scans one known folder without making it the active vault. */
+    getVaultSnapshot: (input: LocalVaultVaultIdInput) => Promise<LocalVaultSnapshot>;
     readNote: (noteId: string) => Promise<LocalDocument>;
     createNote: (input: LocalVaultCreateNoteInput) => Promise<LocalVaultDocumentMutationResult>;
     writeNote: (input: LocalVaultWriteInput) => Promise<LocalVaultDocumentMutationResult>;
@@ -621,6 +662,8 @@ export type HackDeskElectronAPI = {
     /** The window is asking the user about unsaved changes, so the close request is not stuck. */
     holdClose?: () => Promise<void>;
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
+    /** Optional for renderer hot reloads against an older preload. */
+    newWindow?: (input?: NewWindowInput) => Promise<void>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;
     getWindowPresentationState?: () => Promise<WindowPresentationState>;
@@ -641,6 +684,19 @@ export type PresentationDeck = {
 
 /** The deck being presented, and whether its window is in full screen as the slides start. */
 export type PresentedDeck = PresentationDeck & { fullScreen: boolean };
+
+/** A workspace a new window boots into. A local scope may name a vault or a named workspace to activate; without either it means the active vault. */
+export type NewWindowWorkspaceScope = {
+  type: 'local' | 'personal' | 'history' | 'team';
+  label: string;
+  teamPath?: string;
+  vaultId?: string;
+  workspaceId?: string;
+};
+
+export type NewWindowInput = {
+  workspace?: NewWindowWorkspaceScope;
+};
 
 export type HackDeskPresentationAPI = {
   getDeck: () => Promise<PresentedDeck | null>;

@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { readComparisonSource } from './read-comparison-source';
@@ -7,12 +8,15 @@ import type {
   DocumentSummary,
   HackDeskElectronAPI,
   ElectronSafeSettings,
+  NewWindowWorkspaceScope,
   NoteSummary,
   TeamSummary,
   UserSummary,
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
-import { defaultSettings } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace, getLocalWorkspaces } from '@/lib/settings';
+import { localVaultFolderName } from './workspace-root-labels';
+import { toast } from '@/components/ui/toast';
 
 import type { ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
 import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
@@ -30,6 +34,15 @@ import type { useWorkbenchNavigator } from './useWorkbenchNavigator';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 
 import type { OpenNoteTarget } from './useNoteLinkOpener';
+import type { WorkspaceFolderTree } from './FolderNavigator';
+
+const EMPTY_WORKSPACE_FOLDERS: WorkspaceFolderTree[] = [];
+
+type WorkspaceNavigationTarget =
+  | { kind: 'root'; vaultId: string; action?: 'create-note' | 'create-folder' }
+  | { kind: 'folder'; vaultId: string; folderIds: string[]; action?: 'create-note' | 'create-folder' | 'rename' | 'move' | 'edit' | 'delete' | 'reveal'; name?: string }
+  | { kind: 'note'; vaultId: string; noteId: string };
+type PendingWorkspaceNavigation = WorkspaceNavigationTarget & { originSnapshotId: string | null };
 
 type HomeStatus = ReturnType<typeof useElectronHomeStatus>;
 type NoteMutations = ReturnType<typeof useElectronNoteMutations>;
@@ -59,6 +72,7 @@ type WorkspaceActions = {
   handleCreateNoteFromTemplate: () => void;
   handleHackmdDisconnected: () => void;
   handleNoteSelect: ElectronHomeWorkspaceProps['navigator']['actions']['onNoteSelect'];
+  handleNoteKeep: NonNullable<ElectronHomeWorkspaceProps['navigator']['actions']['onNoteKeep']>;
   handleOpenEditor: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenNote'];
   handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
   openHackmdTokenSetup: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenSettings'];
@@ -67,9 +81,14 @@ type WorkspaceActions = {
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setShareOpen: (open: boolean) => void;
   setTrashOpen: (open: boolean) => void;
+  setHistoryOpen: (open: boolean) => void;
   setVersionsOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
   openTrashNote: (note: NoteSummary) => void;
+  renameNoteInline: (note: NoteSummary, name: string) => void;
+  moveNoteRequest: (note: NoteSummary) => void;
+  moveFolderRequest: (folderId: string) => void;
+  chooseNewNoteLocation: (folderId: string | null) => void;
 };
 
 export function useHomeWorkspaceProps({
@@ -89,7 +108,6 @@ export function useHomeWorkspaceProps({
   folderCommands,
   folderTree,
   getTabSyncState,
-  hasConfiguredLocalVault,
   homeStatus,
   inspectorCollapsed,
   localDocumentRecovery,
@@ -119,6 +137,8 @@ export function useHomeWorkspaceProps({
   onNewTab,
   recentNotes,
   trashOpen,
+  historyOpen,
+  workspaceFolders = EMPTY_WORKSPACE_FOLDERS,
 }: {
   api?: HackDeskElectronAPI;
   openNoteTarget?: OpenNoteTarget;
@@ -138,7 +158,6 @@ export function useHomeWorkspaceProps({
   folderCommands: WorkbenchFolderCommands;
   folderTree: FolderTree;
   getTabSyncState: ElectronHomeWorkspaceProps['titlebar']['getTabSyncState'];
-  hasConfiguredLocalVault: boolean;
   homeStatus: HomeStatus;
   inspectorCollapsed: boolean;
   localDocumentRecovery: LocalDocumentRecovery;
@@ -171,7 +190,120 @@ export function useHomeWorkspaceProps({
   onNewTab: () => void;
   recentNotes: ElectronRecentNote[];
   trashOpen: boolean;
+  historyOpen: boolean;
+  /** Every folder of the open named set, in its stored order. */
+  workspaceFolders?: WorkspaceFolderTree[];
 }): ElectronHomeWorkspaceProps {
+  const localVaultPathName = (() => {
+    const activePath = settings ? getActiveLocalVaultPath(settings) : null;
+    return activePath ? localVaultFolderName(activePath) : null;
+  })();
+  const activeLocalWorkspace = getActiveLocalWorkspace(settings);
+  const localWorkspaceName = activeLocalWorkspace && settings?.localVault.activeVaultId
+    && activeLocalWorkspace.vaultIds.includes(settings.localVault.activeVaultId)
+    ? activeLocalWorkspace.name
+    : null;
+  const activeVaultId = settings?.localVault.activeVaultId ?? null;
+  // Opening a row in another folder's tree opens that folder of the set (a focus change: tabs and
+  // search stay), then moves the tree selection once its snapshot is on screen. The snapshot id
+  // proves the tree now belongs to the folder.
+  const pendingWorkspaceNavigation = useRef<PendingWorkspaceNavigation | null>(null);
+  const pendingSwitcherFolder = useRef<{ workspaceId: string; vaultId: string } | null>(null);
+  const switchingWorkspaceFolder = useRef(false);
+  useEffect(() => {
+    const pending = pendingWorkspaceNavigation.current;
+    if (!pending) return;
+    if (activeVaultId !== pending.vaultId) return;
+    if (!localVaultId || localVaultId === pending.originSnapshotId) return;
+    if (pending.kind === 'root') {
+      pendingWorkspaceNavigation.current = null;
+      if (pending.action === 'create-note') actions.chooseNewNoteLocation(null);
+      else if (pending.action === 'create-folder') folderCommands.handleCreateFolderInside(null);
+      return;
+    }
+    if (pending.kind === 'note') {
+      const entry = folderTree.allNotes.find((candidate) => candidate.note.id === pending.noteId);
+      if (!entry) return;
+      pendingWorkspaceNavigation.current = null;
+      // The note is already open; only show where it lives.
+      const folderIds = entry.folderPath.map((folder) => folder.id);
+      navigator.revealFolderIds(folderIds);
+      navigator.handleFolderSelect(folderIds.at(-1) ?? UNFILED_FOLDER_ID);
+      return;
+    }
+    const leafFolderId = pending.folderIds.at(-1);
+    if (!leafFolderId || !folderTree.nodesById.has(leafFolderId)) return;
+    pendingWorkspaceNavigation.current = null;
+    navigator.revealFolderIds(pending.folderIds);
+    navigator.handleFolderSelect(leafFolderId);
+    if (pending.action === 'create-note') actions.chooseNewNoteLocation(leafFolderId);
+    else if (pending.action === 'create-folder') folderCommands.handleCreateFolderInside(leafFolderId);
+    else if (pending.action === 'rename' && pending.name) mutations.renameFolderMutation.mutate({ folderId: leafFolderId, input: { name: pending.name } });
+    else if (pending.action === 'move') actions.moveFolderRequest(leafFolderId);
+    else if (pending.action === 'edit') folderCommands.handleRenameFolder(leafFolderId);
+    else if (pending.action === 'delete') folderCommands.handleDeleteFolderRequest(leafFolderId);
+    else if (pending.action === 'reveal') localVaultActions.revealLocalFolder(leafFolderId);
+  }, [activeVaultId, folderTree, localVaultId, navigator, actions, folderCommands, mutations.renameFolderMutation, localVaultActions]);
+
+  // Clicks in other folders while one is opening only replace the target: the last click wins,
+  // instead of a second switch failing because the first is still running.
+  const requestWorkspaceFolder = (target: WorkspaceNavigationTarget) => {
+    pendingWorkspaceNavigation.current = { ...target, originSnapshotId: localVaultId ?? null } as PendingWorkspaceNavigation;
+    if (switchingWorkspaceFolder.current) return;
+    switchingWorkspaceFolder.current = true;
+    void (async () => {
+      let current = activeVaultId;
+      try {
+        while (pendingWorkspaceNavigation.current && pendingWorkspaceNavigation.current.vaultId !== current) {
+          const next = pendingWorkspaceNavigation.current.vaultId;
+          await localVaultActions.switchLocalVault(next);
+          current = next;
+        }
+      } catch (error) {
+        pendingWorkspaceNavigation.current = null;
+        toast.error(error instanceof Error ? error.message : 'Failed to open that folder.');
+      } finally {
+        switchingWorkspaceFolder.current = false;
+      }
+    })();
+  };
+
+  const openWorkspaceFolder = (vaultId: string, folderIds: string[]) => {
+    if (vaultId === activeVaultId && !switchingWorkspaceFolder.current) {
+      navigator.revealFolderIds(folderIds);
+      const leafFolderId = folderIds.at(-1);
+      if (leafFolderId) navigator.handleFolderSelect(leafFolderId);
+      return;
+    }
+    requestWorkspaceFolder(folderIds.length ? { kind: 'folder', vaultId, folderIds } : { kind: 'root', vaultId });
+  };
+
+  useEffect(() => {
+    const pending = pendingSwitcherFolder.current;
+    if (!pending || displayScope.type !== 'local' || activeLocalWorkspace?.id !== pending.workspaceId || !localVaultId) return;
+    pendingSwitcherFolder.current = null;
+    if (pending.vaultId !== activeVaultId) requestWorkspaceFolder({ kind: 'root', vaultId: pending.vaultId });
+  });
+
+  const openWorkspaceNote = (vaultId: string, note: NoteSummary) => {
+    if (vaultId === activeVaultId && !switchingWorkspaceFolder.current) {
+      const entry = folderTree.allNotes.find((candidate) => candidate.note.id === note.id);
+      if (entry) void navigator.revealNoteEntry(entry);
+      return;
+    }
+    // Every folder of the set can be read, so the note opens now, in the set's tabs; its folder
+    // opens in the sidebar alongside.
+    actions.handleNoteSelect(note);
+    requestWorkspaceFolder({ kind: 'note', vaultId, noteId: note.id });
+  };
+
+  const reorderWorkspaceFolders = (vaultIds: string[]) => {
+    if (!activeLocalWorkspace) return;
+    void localVaultActions.reorderLocalWorkspaceFolders(activeLocalWorkspace.id, vaultIds).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to reorder folders.');
+    });
+  };
+
   return {
     titlebar: {
       getPaneTabs: documents.getPaneTabs,
@@ -198,6 +330,7 @@ export function useHomeWorkspaceProps({
         requestCloseTab: tabLifecycle.requestCloseTab,
         requestCloseTabsToRight: tabLifecycle.requestCloseTabsToRight,
         selectTab: noteWorkspace.selectTab,
+        keepTab: noteWorkspace.keepTab,
         reorderTab: noteWorkspace.reorderTab,
         splitActiveTab: noteWorkspace.splitActiveTab,
         splitActivePaneDown: noteWorkspace.splitActivePaneDown,
@@ -210,6 +343,9 @@ export function useHomeWorkspaceProps({
     navigator: {
       scope: displayScope,
       tree: folderTree,
+      vaultFolderName: localVaultPathName,
+      localWorkspaceName,
+      workspaceFolders,
       workspace: {
         scope: displayScope,
         user,
@@ -217,7 +353,6 @@ export function useHomeWorkspaceProps({
         platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
         pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
         accountStatus: homeStatus.accountStatus,
-        localVaultConfigured: hasConfiguredLocalVault,
         switcherOpen: workspaceSwitcherOpen,
         onSwitcherOpenChange: setWorkspaceSwitcherOpen,
         onChooseLocalVault: () => {
@@ -225,8 +360,54 @@ export function useHomeWorkspaceProps({
         },
         onScopeChange: (next) => {
           actions.setTrashOpen(false);
+          actions.setHistoryOpen(false);
           actions.switchWorkspaceScope(next);
         },
+        localVaults: settings?.localVault.vaults ?? [],
+        localWorkspaces: getLocalWorkspaces(settings).map(({ id, name, vaultIds }) => ({ id, name, vaultIds })),
+        activeLocalVaultId: settings?.localVault.activeVaultId ?? null,
+        activeLocalWorkspaceId: settings?.localVault.activeWorkspaceId ?? null,
+        onActivateLocalWorkspace: (workspaceId: string | null) => {
+          setWorkspaceSwitcherOpen(false);
+          void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
+          });
+        },
+        onOpenLocalWorkspaceFolder: (workspaceId, vaultId) => {
+          setWorkspaceSwitcherOpen(false);
+          if (activeLocalWorkspace?.id === workspaceId && displayScope.type === 'local') {
+            openWorkspaceFolder(vaultId, []);
+            return;
+          }
+          pendingSwitcherFolder.current = { workspaceId, vaultId };
+          void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
+            pendingSwitcherFolder.current = null;
+            toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
+          });
+        },
+        onOpenStandaloneLocalVault: (vaultId) => {
+          setWorkspaceSwitcherOpen(false);
+          void localVaultActions.openStandaloneLocalVault(vaultId).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open the local folder.');
+          });
+        },
+        onSwitchLocalVault: (vaultId: string) => {
+          setWorkspaceSwitcherOpen(false);
+          void localVaultActions.switchLocalVault(vaultId).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to switch local vault.');
+          });
+        },
+        onOpenInNewWindow: api?.app.newWindow ? (scope: WorkspaceScope) => {
+          setWorkspaceSwitcherOpen(false);
+          const workspace: NewWindowWorkspaceScope = scope.type === 'team'
+            ? { type: scope.type, label: scope.label, teamPath: scope.teamPath }
+            : scope.type === 'local'
+              ? { type: scope.type, label: scope.label, vaultId: scope.vaultId, workspaceId: scope.workspaceId }
+              : { type: scope.type, label: scope.label };
+          void api?.app.newWindow?.({ workspace }).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open a new window.');
+          });
+        } : undefined,
         onOpenSettings: () => setSettingsOpen(true),
         onSignOut: settings?.hasHackmdApiToken
           ? () => mutations.disconnectHackmdMutation.mutate(undefined, { onSuccess: actions.handleHackmdDisconnected })
@@ -254,16 +435,20 @@ export function useHomeWorkspaceProps({
       status: homeStatus.navigatorStatus,
       trash: settings?.hasHackmdApiToken && (displayScope.type === 'personal' || displayScope.type === 'team') ? {
         open: trashOpen,
-        onOpenChange: actions.setTrashOpen,
+        onOpenChange: (open) => { if (open) actions.setHistoryOpen(false); actions.setTrashOpen(open); },
         onOpenNote: actions.openTrashNote,
         scope: displayScope,
       } : undefined,
+      history: { open: historyOpen, onOpenChange: (open) => { if (open) actions.setTrashOpen(false); actions.setHistoryOpen(open); } },
       actions: {
         onFolderSelect: navigator.handleFolderSelect,
         onFolderToggle: navigator.toggleFolderCollapsed,
+        onExpandAllFolders: navigator.expandAllFolders,
+        onCollapseAllFolders: navigator.collapseAllFolders,
         onFolderRevealInFinder: localVaultActions.revealLocalFolder,
         // Opening a note from the sidebar makes its folder the selection, so the tree highlights
         // one row (the note) and new notes go beside it.
+        onNoteKeep: actions.handleNoteKeep,
         onNoteSelect: (note) => {
           const entry = folderTree.allNotes.find((candidate) => candidate.note.id === note.id);
           if (entry) navigator.handleFolderSelect(entry.folderPath.at(-1)?.id ?? UNFILED_FOLDER_ID);
@@ -272,18 +457,29 @@ export function useHomeWorkspaceProps({
         onNoteRevealInFinder: localVaultActions.revealLocalNote,
         onFinderStateChange: actions.setFinderState,
         onRefresh: refreshWorkspace,
-        onCreate: folderCommands.handleCreateNote,
+        onCreate: () => actions.chooseNewNoteLocation(selectedFolderId),
         onCreateFolder: folderCommands.handleCreateFolder,
         onCreateFolderInside: folderCommands.handleCreateFolderInside,
-        onCreateNoteInside: folderCommands.handleCreateNoteInside,
+        onCreateNoteInside: actions.chooseNewNoteLocation,
         onChooseLocalVault: () => {
           void localVaultActions.chooseLocalVault();
         },
         onRenameFolder: folderCommands.handleRenameFolder,
+        onRenameNoteInline: actions.renameNoteInline,
+        onRenameFolderInline: (folderId, name) => mutations.renameFolderMutation.mutate({ folderId, input: { name } }),
+        onMoveNoteRequest: actions.moveNoteRequest,
+        onMoveFolderRequest: actions.moveFolderRequest,
         onDeleteFolder: folderCommands.handleDeleteFolderRequest,
         onFolderDrop: folderCommands.handleFolderDrop,
         onNoteMove: navigator.handleNoteMove,
         onOpenNote: actions.handleOpenEditor,
+        onOpenWorkspaceFolder: openWorkspaceFolder,
+        onWorkspaceFolderAction: (vaultId, folderIds, action, name) => {
+          if (!folderIds.length && (action === 'create-note' || action === 'create-folder')) requestWorkspaceFolder({ kind: 'root', vaultId, action });
+          else requestWorkspaceFolder({ kind: 'folder', vaultId, folderIds, action, name });
+        },
+        onOpenWorkspaceNote: openWorkspaceNote,
+        onReorderWorkspaceFolders: reorderWorkspaceFolders,
         onRevealNoteFolder: (entry: FolderTreeNote) => {
           void navigator.revealNoteEntry(entry);
         },

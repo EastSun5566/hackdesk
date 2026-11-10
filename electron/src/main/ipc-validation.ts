@@ -224,6 +224,10 @@ export const settingsUpdateSchema = z.strictObject({
   offline: z.strictObject({
     keepHackmdNotes: z.boolean(),
   }).optional(),
+  hackmdAccountLabel: z.string().trim().min(1).max(200).optional(),
+  hackmdAddAccount: z.boolean().optional(),
+  hackmdActiveAccountId: z.string().trim().min(1).max(200).optional(),
+  hackmdRemoveAccountId: z.string().trim().min(1).max(200).optional(),
 });
 
 export const aiProviderIdInputSchema = aiProviderIdSchema;
@@ -373,6 +377,37 @@ export const localVaultRevealFolderInputSchema = z.strictObject({
   relativePath: nonEmptyStringSchema,
 });
 
+const absolutePathSchema = z.string().trim().min(1).max(4096);
+
+export const localVaultBrowseInputSchema = z.strictObject({
+  path: absolutePathSchema.optional(),
+}).default({});
+
+export const localVaultChoosePathInputSchema = z.strictObject({
+  path: absolutePathSchema,
+});
+
+export const localVaultVaultIdInputSchema = z.strictObject({
+  vaultId: nonEmptyStringSchema,
+});
+
+const localWorkspaceNameSchema = z.string().trim().min(1).max(200);
+const localWorkspaceVaultIdsSchema = z.array(nonEmptyStringSchema).max(32);
+
+/** One edit to a named working set; folders stay in the vault list either way. */
+export const localVaultWorkspaceInputSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('create'), name: localWorkspaceNameSchema, vaultIds: localWorkspaceVaultIdsSchema }),
+  z.strictObject({ type: z.literal('rename'), id: nonEmptyStringSchema, name: localWorkspaceNameSchema }),
+  z.strictObject({ type: z.literal('delete'), id: nonEmptyStringSchema }),
+  z.strictObject({ type: z.literal('activate'), id: nonEmptyStringSchema.nullable() }),
+  z.strictObject({ type: z.literal('setVaults'), id: nonEmptyStringSchema, vaultIds: localWorkspaceVaultIdsSchema }),
+]);
+
+export const localVaultCreateDirectoryInputSchema = z.strictObject({
+  parentPath: absolutePathSchema,
+  name: z.string().trim().min(1).max(255),
+});
+
 export const createNoteInputSchema = z.strictObject({
   title: optionalStringSchema,
   description: optionalStringSchema,
@@ -520,6 +555,20 @@ export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }
 
 /** `null` lists personal trash; otherwise a team path segment. */
 export const listTrashTeamPathSchema = z.string().min(1).max(200).nullable();
+
+/** A workspace a new window boots into; a team scope must name its team, and only a local scope may name a vault. */
+export const newWindowInputSchema = z.strictObject({
+  workspace: z.strictObject({
+    type: z.enum(['local', 'personal', 'history', 'team']),
+    label: z.string().trim().min(1).max(200),
+    teamPath: z.string().trim().min(1).max(500).optional(),
+    vaultId: z.string().trim().min(1).max(200).optional(),
+  }).refine((scope) => scope.type !== 'team' || scope.teamPath !== undefined, {
+    message: 'A team workspace must name its team.',
+  }).refine((scope) => scope.vaultId === undefined || scope.type === 'local', {
+    message: 'Only a local workspace may name a vault.',
+  }).optional(),
+}).default({});
 
 export const openHackmdEditorInputSchema = z.strictObject({
   publishType: z.enum(['edit', 'view', 'slide', 'book']),

@@ -67,10 +67,22 @@ export function getFolderOrderQueryKey(scope: WorkspaceScope) {
 }
 
 export function getScopeStorageKey(scope: WorkspaceScope) {
-  if (scope.type === 'local') return scope.vaultId ? `local:${scope.vaultId}` : null;
+  if (scope.type === 'local') {
+    if (!scope.vaultId) return null;
+    // Every folder of a named set shares its tabs, search and pending edits.
+    return scope.workspaceId ? `local-workspace:${scope.workspaceId}` : `local:${scope.vaultId}`;
+  }
   return scope.type === 'team' ? `team:${scope.teamPath}` : scope.type;
 }
 
 export function isTokenConfigured(settings?: ElectronSafeSettings) {
   return settings?.hasHackmdApiToken === true;
+}
+
+/**
+ * Where one folder keeps its own tree state (expanded folders), even inside a named set: folder
+ * ids are paths, so two folders of a set would otherwise share them.
+ */
+export function getFolderStateStorageKey(scope: WorkspaceScope) {
+  return scope.type === 'local' && scope.vaultId ? `local:${scope.vaultId}` : getScopeStorageKey(scope);
 }

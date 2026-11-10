@@ -73,6 +73,7 @@ function createOptions(overrides: Partial<WorkbenchQuickOpenOptions> = {}): Work
 
   return {
     localVaultId: 'vault-a',
+    localVaultEntryId: 'vault-a',
     expandNavigator: vi.fn(),
     focusNavigator: vi.fn(),
     isWorkspaceFetching: false,
@@ -152,6 +153,41 @@ describe('useWorkbenchQuickOpen', () => {
     expect(options.setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
     expect(toast.info).toHaveBeenCalledWith('Loading Local Vault before opening “Local note”.');
     expect(options.focusNavigator).toHaveBeenCalledOnce();
+  });
+
+  it('activates another vault when its workspace result is picked', () => {
+    const onSwitchLocalVault = vi.fn();
+    const options = createOptions({ onSwitchLocalVault });
+    const { result } = renderHook(() => useWorkbenchQuickOpen(options));
+
+    result.current.handleQuickOpenWorkspace({
+      description: '/Users/michael/B',
+      id: 'local:vault-b',
+      label: 'B',
+      type: 'local',
+      vaultId: 'vault-b',
+    });
+
+    expect(onSwitchLocalVault).toHaveBeenCalledWith('vault-b');
+    expect(options.setWorkspaceScope).not.toHaveBeenCalled();
+    expect(options.focusNavigator).toHaveBeenCalledOnce();
+  });
+
+  it('switches scope directly when the picked vault is already active', () => {
+    const onSwitchLocalVault = vi.fn();
+    const options = createOptions({ onSwitchLocalVault });
+    const { result } = renderHook(() => useWorkbenchQuickOpen(options));
+
+    result.current.handleQuickOpenWorkspace({
+      description: '/Users/michael/Notes',
+      id: 'local:vault-a',
+      label: 'Notes',
+      type: 'local',
+      vaultId: 'vault-a',
+    });
+
+    expect(onSwitchLocalVault).not.toHaveBeenCalled();
+    expect(options.setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Notes', vaultId: 'vault-a' });
   });
 
   it('opens workspace and folder quick-open results through navigator focus', () => {

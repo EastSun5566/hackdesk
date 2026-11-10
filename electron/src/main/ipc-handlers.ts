@@ -85,17 +85,21 @@ import {
   setHackmdDurableFallback,
 } from './hackmd-service';
 import { getSafeSettings, readHackmdCliAccessToken, readStoredSettings, updateStoredSettings } from './settings';
+import { getActiveLocalVaultPath } from '../../../src/lib/settings';
 import { createAiService } from './ai/ai-service';
 import { createDictationService, locateSpeechHelper } from './dictation/dictation-service';
 import { createNoteIndexService } from './note-index/note-index-service';
 import { getHackDeskRootPath } from './paths';
 import {
+  browseLocalDirectories,
+  createLocalDirectory,
   createLocalFolder,
   createLocalNote,
   getActiveLocalVaultSnapshot,
   importLocalVaultAttachment,
   readLocalNote,
   readLocalVaultNotesForIndex,
+  resolveLocalDirectory,
   revealLocalVaultFolder,
   revealLocalVaultNote,
   revealLocalVaultRoot,
@@ -143,8 +147,13 @@ import {
   localVaultRevealFolderInputSchema,
   localVaultRevealNoteInputSchema,
   localVaultTrashFolderInputSchema,
+  localVaultVaultIdInputSchema,
+  localVaultWorkspaceInputSchema,
   localVaultTrashNoteInputSchema,
   localVaultWriteInputSchema,
+  localVaultBrowseInputSchema,
+  localVaultChoosePathInputSchema,
+  localVaultCreateDirectoryInputSchema,
   openHackmdEditorInputSchema,
   openTextFileInputSchema,
   presentationDeckSchema,
@@ -164,6 +173,7 @@ import {
   noteCommentsQuerySchema,
   noteCommentIdSchema,
   noteVersionsQuerySchema,
+  newWindowInputSchema,
   hackmdRequestOptionsSchema,
   validateIpcInput,
   validateBoolean,
@@ -175,9 +185,10 @@ import {
 
 export function registerIpcHandlers(
   windowManager: Pick<WindowManager,
-    | 'cancelClose' | 'confirmClose' | 'holdClose' | 'getMainWindow' | 'getTargetWindow'
-    | 'getWindowPresentationState' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
-    | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface'
+    | 'cancelClose' | 'cancelCloseForSender' | 'confirmClose' | 'confirmCloseForSender' | 'holdClose' | 'holdCloseForSender'
+    | 'getMainWindow' | 'getMainWindows' | 'getMainWindowForWebContents' | 'getTargetWindow' | 'sendToAllMainWindows'
+    | 'getWindowPresentationState' | 'getWindowPresentationStateForSender' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
+    | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface' | 'newMainWindow'
     | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
   >,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
@@ -303,57 +314,51 @@ export function registerIpcHandlers(
     return noteIndex.status();
   });
 
-  let localVaultWatcher: LocalVaultWatcher | null = null;
-  let watchedLocalVaultPath: string | null = null;
+  // One watcher per folder a window reads: a workspace shows several folders at once, and each
+  // must refresh when its files change, not only the active one.
+  const localVaultWatchers = new Map<string, LocalVaultWatcher>();
   let localVaultWatcherGeneration = 0;
 
-  const closeLocalVaultWatcher = (clearPath = false) => {
-    localVaultWatcher?.close();
-    localVaultWatcher = null;
+  const closeLocalVaultWatcher = () => {
+    for (const watcher of localVaultWatchers.values()) watcher.close();
+    localVaultWatchers.clear();
     localVaultWatcherGeneration += 1;
-    if (clearPath) {
-      watchedLocalVaultPath = null;
-    }
   };
   const ensureLocalVaultWatcher = (vaultPath: string) => {
-    if (localVaultWatcher && watchedLocalVaultPath === vaultPath) {
+    if (localVaultWatchers.has(vaultPath)) {
       return;
     }
 
-    closeLocalVaultWatcher();
-    watchedLocalVaultPath = vaultPath;
-    localVaultWatcher = watchLocalVault(vaultPath, (snapshot) => {
+    localVaultWatchers.set(vaultPath, watchLocalVault(vaultPath, (snapshot) => {
       void noteIndex.indexVault(snapshot);
-      windowManager.getMainWindow()?.webContents.send(ELECTRON_CHANNELS.localVaultDidChange, {
+      windowManager.sendToAllMainWindows(ELECTRON_CHANNELS.localVaultDidChange, {
         snapshot,
       });
-    });
+    }));
   };
   const runLocalVaultMutation = async <T>(
     operation: () => Promise<T>,
     getSnapshot: (result: T) => LocalVaultSnapshot,
   ) => {
-    const watcher = localVaultWatcher;
+    // The mutated folder is only known afterwards, so every watcher holds its own events.
+    const watchers = [...localVaultWatchers.values()];
     const watcherGeneration = localVaultWatcherGeneration;
     let refreshOnResume = false;
-    watcher?.pause();
+    for (const watcher of watchers) watcher.pause();
     try {
       const result = await operation();
       if (localVaultWatcherGeneration !== watcherGeneration) {
         throw new Error('The active local vault changed while the operation was running.');
       }
       const snapshot = getSnapshot(result);
-      watchedLocalVaultPath = snapshot.rootPath;
+      ensureLocalVaultWatcher(snapshot.rootPath);
       void noteIndex.indexVault(snapshot);
       return result;
     } catch (error) {
       refreshOnResume = true;
       throw error;
     } finally {
-      watcher?.resume(refreshOnResume);
-      if (!watcher && localVaultWatcherGeneration === watcherGeneration && watchedLocalVaultPath) {
-        ensureLocalVaultWatcher(watchedLocalVaultPath);
-      }
+      for (const watcher of watchers) watcher.resume(refreshOnResume);
     }
   };
 
@@ -362,7 +367,7 @@ export function registerIpcHandlers(
     const update = validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings);
     const nextSettings = await updateStoredSettings(update);
     // Another token may mean another account: nothing cached for the old one may remain.
-    if (update.hackmdApiToken !== undefined) clearHackmdCache();
+    if (update.hackmdApiToken !== undefined || update.hackmdActiveAccountId !== undefined || update.hackmdRemoveAccountId !== undefined) clearHackmdCache();
     if (update.offline) noteIndex.setKeepHackmdNotes(update.offline.keepHackmdNotes);
     if (nextSettings.ai) ai.applySettings(nextSettings.ai);
     options.onSettingsUpdated?.(nextSettings);
@@ -371,11 +376,20 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.settingsImportHackmdCliToken, async () => {
     const token = await readHackmdCliAccessToken();
     const user = await validateToken(token);
-    const settings = await updateStoredSettings({ hackmdApiToken: token });
+    const settings = await updateStoredSettings({ hackmdApiToken: token, hackmdAccountLabel: `@${user.username}` });
     clearHackmdCache();
     options.onSettingsUpdated?.(settings);
     return { settings, user };
   });
+  /** Scans a vault folder, activates it and starts watching it. Shared by both pickers. */
+  const chooseScannedVaultPath = async (rootPath: string) => {
+    const snapshot = await scanLocalVault(rootPath);
+    const settings = await updateStoredSettings({ localVaultPath: rootPath });
+    options.onSettingsUpdated?.(settings);
+    ensureLocalVaultWatcher(snapshot.rootPath);
+    void noteIndex.indexVault(snapshot);
+    return { canceled: false, settings, snapshot };
+  };
   ipcMain.handle(ELECTRON_CHANNELS.localVaultChoose, async () => {
     const targetWindow = windowManager.getTargetWindow();
     const result = targetWindow
@@ -392,20 +406,92 @@ export function registerIpcHandlers(
       return { canceled: true };
     }
 
-    const rootPath = result.filePaths[0];
-    const snapshot = await scanLocalVault(rootPath);
-    const settings = await updateStoredSettings({ localVaultPath: rootPath });
-    options.onSettingsUpdated?.(settings);
+    return chooseScannedVaultPath(result.filePaths[0]);
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultChoosePath, async (_event, input: unknown) => {
+    const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultChoosePath, localVaultChoosePathInputSchema, input);
+    return chooseScannedVaultPath(await resolveLocalDirectory(path));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultGetVaultSnapshot, async (_event, input: unknown) => {
+    const { vaultId } = validateIpcInput(
+      ELECTRON_CHANNELS.localVaultGetVaultSnapshot,
+      localVaultVaultIdInputSchema,
+      input,
+    );
+    const settings = await readStoredSettings();
+    const vault = settings.localVault.vaults.find((candidate) => candidate.id === vaultId);
+    if (!vault) {
+      throw new Error('That local folder is no longer configured.');
+    }
+    // Listing a folder in the open workspace must not change which vault is active.
+    const snapshot = await scanLocalVault(vault.path);
     ensureLocalVaultWatcher(snapshot.rootPath);
     void noteIndex.indexVault(snapshot);
-    return { canceled: false, settings, snapshot };
+    return snapshot;
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultBrowse, (_event, input: unknown) => {
+    const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultBrowse, localVaultBrowseInputSchema, input);
+    return browseLocalDirectories(path);
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateDirectory, (_event, input: unknown) => {
+    const validated = validateIpcInput(
+      ELECTRON_CHANNELS.localVaultCreateDirectory,
+      localVaultCreateDirectoryInputSchema,
+      input,
+    );
+    return createLocalDirectory(validated.parentPath, validated.name);
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultDisconnect, async () => {
-    closeLocalVaultWatcher(true);
+    closeLocalVaultWatcher();
     void noteIndex.forgetVaults();
     const settings = await updateStoredSettings({ localVaultPath: null });
     options.onSettingsUpdated?.(settings);
     return settings;
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultActivate, async (_event, input: unknown) => {
+    const { vaultId } = validateIpcInput(ELECTRON_CHANNELS.localVaultActivate, localVaultVaultIdInputSchema, input);
+    const settings = await updateStoredSettings({ localVaultActivateId: vaultId });
+    options.onSettingsUpdated?.(settings);
+    const snapshot = await getActiveLocalVaultSnapshot();
+    if (snapshot) {
+      ensureLocalVaultWatcher(snapshot.rootPath);
+      void noteIndex.indexVault(snapshot);
+    }
+    return { settings, snapshot };
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultForget, async (_event, input: unknown) => {
+    const { vaultId } = validateIpcInput(ELECTRON_CHANNELS.localVaultForget, localVaultVaultIdInputSchema, input);
+    const before = getActiveLocalVaultPath(await readStoredSettings());
+    const settings = await updateStoredSettings({ localVaultRemoveId: vaultId });
+    options.onSettingsUpdated?.(settings);
+    const after = getActiveLocalVaultPath(settings);
+    if (before && before !== after) {
+      closeLocalVaultWatcher();
+      void noteIndex.forgetVaults();
+    }
+    const snapshot = await getActiveLocalVaultSnapshot();
+    if (snapshot) {
+      ensureLocalVaultWatcher(snapshot.rootPath);
+      void noteIndex.indexVault(snapshot);
+    }
+    return { settings, snapshot };
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultWorkspace, async (_event, input: unknown) => {
+    const mutation = validateIpcInput(ELECTRON_CHANNELS.localVaultWorkspace, localVaultWorkspaceInputSchema, input);
+    const before = getActiveLocalVaultPath(await readStoredSettings());
+    const settings = await updateStoredSettings({ localWorkspace: mutation });
+    options.onSettingsUpdated?.(settings);
+    const after = getActiveLocalVaultPath(settings);
+    if (before !== after) {
+      closeLocalVaultWatcher();
+      void noteIndex.forgetVaults();
+    }
+    const snapshot = await getActiveLocalVaultSnapshot();
+    if (snapshot) {
+      ensureLocalVaultWatcher(snapshot.rootPath);
+      void noteIndex.indexVault(snapshot);
+    }
+    return { settings, snapshot };
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultGetSnapshot, async () => {
     const snapshot = await getActiveLocalVaultSnapshot();
@@ -693,14 +779,14 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appRecordFatalRendererError, (_event, error: FatalRendererError) => (
     recordFatalRendererError(validateIpcInput(ELECTRON_CHANNELS.appRecordFatalRendererError, fatalRendererErrorSchema, error))
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.appConfirmClose, () => {
-    windowManager.confirmClose();
+  ipcMain.handle(ELECTRON_CHANNELS.appConfirmClose, (event) => {
+    windowManager.confirmCloseForSender(event.sender);
   });
-  ipcMain.handle(ELECTRON_CHANNELS.appCancelClose, () => {
-    windowManager.cancelClose();
+  ipcMain.handle(ELECTRON_CHANNELS.appCancelClose, (event) => {
+    windowManager.cancelCloseForSender(event.sender);
   });
-  ipcMain.handle(ELECTRON_CHANNELS.appHoldClose, () => {
-    windowManager.holdClose();
+  ipcMain.handle(ELECTRON_CHANNELS.appHoldClose, (event) => {
+    windowManager.holdCloseForSender(event.sender);
   });
   ipcMain.handle(ELECTRON_CHANNELS.appWriteClipboardText, (_event, text: string) => (
     clipboard.writeText(validateString(ELECTRON_CHANNELS.appWriteClipboardText, text))
@@ -712,6 +798,9 @@ export function registerIpcHandlers(
     openTextFile(validateIpcInput(ELECTRON_CHANNELS.appOpenTextFile, openTextFileInputSchema, input), windowManager.getTargetWindow())
   ));
   ipcMain.handle(ELECTRON_CHANNELS.appCheckForUpdates, () => checkForElectronUpdates(windowManager.getTargetWindow()));
+  ipcMain.handle(ELECTRON_CHANNELS.appNewWindow, (_event, input: unknown) => {
+    windowManager.newMainWindow(validateIpcInput(ELECTRON_CHANNELS.appNewWindow, newWindowInputSchema, input));
+  });
   ipcMain.handle(ELECTRON_CHANNELS.appSetThemeSurface, (_event, input: ThemeSurfaceInput) => {
     const themeSurface = validateIpcInput(ELECTRON_CHANNELS.appSetThemeSurface, themeSurfaceInputSchema, input);
     windowManager.setThemeSurface(themeSurface.background);
@@ -721,8 +810,8 @@ export function registerIpcHandlers(
       validateBoolean(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore),
     );
   });
-  ipcMain.handle(ELECTRON_CHANNELS.appGetWindowPresentationState, () => (
-    windowManager.getWindowPresentationState()
+  ipcMain.handle(ELECTRON_CHANNELS.appGetWindowPresentationState, (event) => (
+    windowManager.getWindowPresentationStateForSender(event.sender)
   ));
   ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus, () => getQuickCaptureShortcutStatus());
   ipcMain.handle(ELECTRON_CHANNELS.appSubmitQuickCapture, (_event, content: string) => (
@@ -781,7 +870,7 @@ export function registerIpcHandlers(
       dictation.dispose();
       setHackmdDurableFallback(null);
       void noteIndex.close();
-      closeLocalVaultWatcher(true);
+      closeLocalVaultWatcher();
     },
   };
 }

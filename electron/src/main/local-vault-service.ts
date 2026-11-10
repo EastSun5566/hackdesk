@@ -12,9 +12,21 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
+import { homedir } from 'node:os';
 
 import type {
+  LocalDirectoryBrowseResult,
+  LocalDirectoryEntry,
   LocalDocument,
   LocalFolder,
   LocalVaultAttachmentMutationResult,
@@ -38,6 +50,7 @@ import type {
 } from '../../../src/lib/local-vault';
 import { LOCAL_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
 import type { LocalImageRequest } from '../../../src/lib/local-image';
+import { getActiveLocalVaultPath as getActiveVaultPathFromSettings } from '../../../src/lib/settings';
 import { readStoredSettings } from './settings';
 import { writeLog } from './logging';
 
@@ -419,7 +432,7 @@ function createNoteSummary(
 
 export async function getActiveLocalVaultPath() {
   const settings = await readStoredSettings();
-  return settings.localVault.path?.trim() || null;
+  return getActiveVaultPathFromSettings(settings);
 }
 
 async function assertVaultRootExists(vaultRoot: string) {
@@ -470,6 +483,47 @@ async function requireActiveLocalVaultPath() {
 
   await assertVaultRootExists(vaultPath);
   return realpath(vaultPath);
+}
+
+/** Every configured folder, the active one first, so it wins when two folders share an id. */
+async function configuredVaultRoots() {
+  const settings = await readStoredSettings();
+  const active = getActiveVaultPathFromSettings(settings);
+  return [...new Set([active, ...settings.localVault.vaults.map((vault) => vault.path)].filter(
+    (path): path is string => Boolean(path),
+  ))];
+}
+
+/** The first configured folder whose manifest matches, resolved like the active folder is. */
+async function findConfiguredVaultRoot(matches: (manifest: VaultManifest) => boolean) {
+  for (const root of await configuredVaultRoots()) {
+    try {
+      await assertVaultRootExists(root);
+      const canonicalRoot = await realpath(root);
+      if (matches(await readManifest(canonicalRoot))) return canonicalRoot;
+    } catch {
+      // A missing or unreadable folder cannot own the note; the others may.
+    }
+  }
+  return null;
+}
+
+/**
+ * The folder that holds a note. Notes carry manifest ids that are unique across folders, so a
+ * workspace can read and save a note from any of its folders without making that folder active.
+ * Without a match it falls back to the active folder, which then reports the note as missing.
+ */
+async function requireNoteVaultRoot(noteId: string) {
+  return await findConfiguredVaultRoot((manifest) => (
+    Object.values(manifest.notes).some((entry) => entry.id === noteId)
+  )) ?? requireActiveLocalVaultPath();
+}
+
+/** The configured folder whose manifest has `vaultId`, the id every snapshot and note carries. */
+async function requireVaultRootByManifestId(vaultId: string) {
+  const root = await findConfiguredVaultRoot((manifest) => manifest.vaultId === vaultId);
+  if (!root) throw new Error('Local image context is no longer available.');
+  return root;
 }
 
 async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot> {
@@ -558,6 +612,126 @@ export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnaps
   return enqueueVaultOperation(resolvedRoot, () => scanLocalVaultUnlocked(resolvedRoot));
 }
 
+const MAX_BROWSE_ENTRIES = 1000;
+
+/** Resolves a picker path to a real directory, following symlinks like the native dialog does. */
+export async function resolveLocalDirectory(inputPath: string): Promise<string> {
+  const trimmed = inputPath.trim();
+  if (!trimmed || !isAbsolute(trimmed)) {
+    throw new Error('Choose an absolute folder path.');
+  }
+  const target = resolve(trimmed);
+  let itemStat;
+  try {
+    itemStat = await stat(target);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      throw new Error('That folder no longer exists.');
+    }
+    throw new Error('That folder cannot be opened.');
+  }
+  if (!itemStat.isDirectory()) {
+    throw new Error('That path is not a folder.');
+  }
+  return realpath(target);
+}
+
+async function hasVisibleSubdirectory(directory: string): Promise<boolean> {
+  try {
+    const children = await readdir(directory, { withFileTypes: true });
+    for (const child of children) {
+      if (child.isDirectory()) {
+        return true;
+      }
+      if (child.isSymbolicLink()) {
+        try {
+          if ((await stat(join(directory, child.name))).isDirectory()) {
+            return true;
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Lists the folders inside `inputPath` (the home folder by default) for the in-app folder picker.
+ * Read-only: unreadable entries are left out rather than failing the whole listing.
+ */
+export async function browseLocalDirectories(inputPath?: string | null): Promise<LocalDirectoryBrowseResult> {
+  const home = homedir();
+  const canonical = await resolveLocalDirectory(inputPath?.trim() ? inputPath : home);
+  let dirents;
+  try {
+    dirents = await readdir(canonical, { withFileTypes: true });
+  } catch {
+    throw new Error('That folder cannot be opened.');
+  }
+
+  const candidates = dirents.slice(0, MAX_BROWSE_ENTRIES);
+  const entries = await mapScanItems(candidates, async (dirent): Promise<LocalDirectoryEntry | null> => {
+    if (!dirent.isDirectory() && !dirent.isSymbolicLink()) {
+      return null;
+    }
+    const path = join(canonical, dirent.name);
+    try {
+      if (!(await stat(path)).isDirectory()) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    return { name: dirent.name, path, hasSubdirectories: await hasVisibleSubdirectory(path) };
+  });
+
+  const listed = entries.filter((entry): entry is LocalDirectoryEntry => entry !== null);
+  listed.sort((left, right) => {
+    // Dotted folders sort after visible ones, like the native picker.
+    const leftHidden = left.name.startsWith('.') ? 1 : 0;
+    const rightHidden = right.name.startsWith('.') ? 1 : 0;
+    return leftHidden - rightHidden || left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
+  });
+
+  return {
+    path: canonical,
+    parent: dirname(canonical) === canonical ? null : dirname(canonical),
+    home,
+    entries: listed,
+  };
+}
+
+const MAX_DIRECTORY_NAME_LENGTH = 255;
+
+function sanitizeDirectoryName(input: string) {
+  const name = input.trim();
+  if (!name || name === '.' || name === '..' || name.length > MAX_DIRECTORY_NAME_LENGTH
+    || name.includes('/') || name.includes('\\') || name.includes('\0') || IGNORED_DIRS.has(name)) {
+    throw new Error(`Folder name "${input.trim() || input}" cannot be used here.`);
+  }
+  return name;
+}
+
+/** Creates one folder inside an existing directory for the in-app folder picker. */
+export async function createLocalDirectory(parentPath: string, name: string): Promise<{ path: string }> {
+  const parent = await resolveLocalDirectory(parentPath);
+  const folderName = sanitizeDirectoryName(name);
+  const path = join(parent, folderName);
+  try {
+    await mkdir(path, { recursive: false });
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST') {
+      throw new Error('A folder with that name already exists.');
+    }
+    throw new Error('That folder could not be created.');
+  }
+  return { path };
+}
+
 export async function revealLocalVaultRoot(openPath: OpenPath) {
   const vaultRoot = await requireActiveLocalVaultPath();
   const error = await openPath(vaultRoot);
@@ -567,7 +741,7 @@ export async function revealLocalVaultRoot(openPath: OpenPath) {
 }
 
 export async function revealLocalVaultNote(input: LocalVaultRevealNoteInput, showItemInFolder: ShowItemInFolder) {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   await enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     showItemInFolder(resolveInsideVault(vaultRoot, note.relativePath));
@@ -660,13 +834,13 @@ export async function readLocalVaultNotesForIndex(snapshot: LocalVaultSnapshot, 
 }
 
 export async function readLocalNote(noteId: string): Promise<LocalDocument> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(noteId);
   return enqueueVaultOperation(vaultRoot, () => readLocalNoteUnlocked(vaultRoot, noteId));
 }
 
-/** Resolves only images belonging to a saved note in the currently selected vault. */
+/** Resolves only images belonging to a saved note in a configured folder. */
 export async function readLocalVaultImage(input: LocalImageRequest): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireVaultRootByManifestId(input.vaultId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const manifest = await readManifest(vaultRoot);
     if (manifest.vaultId !== input.vaultId || manifest.notes[input.relativePath]?.id !== input.noteId) {
@@ -707,7 +881,8 @@ export async function readLocalVaultImage(input: LocalImageRequest): Promise<{ b
         || after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
         throw new Error('Image changed while being read.');
       }
-      if (await requireActiveLocalVaultPath() !== vaultRoot || (await readManifest(vaultRoot)).vaultId !== input.vaultId) {
+      // The folder may have been forgotten or replaced while the image was read.
+      if (await findConfiguredVaultRoot((manifest) => manifest.vaultId === input.vaultId) !== vaultRoot) {
         throw new Error('Local image context is no longer available.');
       }
       return { bytes: new Uint8Array(buffer.subarray(0, length)), mimeType };
@@ -791,7 +966,7 @@ export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise
 export async function importLocalVaultAttachment(
   input: LocalVaultImportAttachmentInput,
 ): Promise<LocalVaultAttachmentMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     if (input.bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('Attachments cannot exceed 25 MiB.');
     const note = await findNoteById(vaultRoot, input.noteId);
@@ -844,7 +1019,7 @@ function assertRevisionMatches(current: LocalRevision, expected: LocalRevision) 
 
 export async function writeLocalNote(input: LocalVaultWriteInput): Promise<LocalVaultDocumentMutationResult> {
   if (Buffer.byteLength(input.content, 'utf8') > MAX_MARKDOWN_BYTES) throw new Error('Markdown files cannot exceed 10 MiB.');
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     const filePath = resolveInsideVault(vaultRoot, note.relativePath);
@@ -875,7 +1050,7 @@ export async function writeLocalNote(input: LocalVaultWriteInput): Promise<Local
 }
 
 export async function renameLocalNote(input: LocalVaultRenameNoteInput): Promise<LocalVaultDocumentMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     if (input.expectedRevision) {
@@ -893,7 +1068,7 @@ export async function renameLocalNote(input: LocalVaultRenameNoteInput): Promise
 }
 
 export async function moveLocalNote(input: LocalVaultMoveNoteInput): Promise<LocalVaultDocumentMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     if (input.expectedRevision) {
@@ -911,7 +1086,7 @@ export async function moveLocalNote(input: LocalVaultMoveNoteInput): Promise<Loc
 }
 
 export async function trashLocalNote(input: LocalVaultTrashNoteInput, trashItem: TrashItem): Promise<LocalVaultSnapshot> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireNoteVaultRoot(input.noteId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const note = await findNoteById(vaultRoot, input.noteId);
     await trashItem(resolveInsideVault(vaultRoot, note.relativePath));

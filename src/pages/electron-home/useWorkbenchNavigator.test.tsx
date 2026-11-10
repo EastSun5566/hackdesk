@@ -69,6 +69,17 @@ function createOptions(overrides: Partial<WorkbenchNavigatorOptions> = {}): Work
 }
 
 describe('useWorkbenchNavigator', () => {
+  it('selects an empty folder without expanding it', () => {
+    const empty = folder('empty', 'Empty');
+    const setCollapsedFolderIds = vi.fn();
+    const setSelectedFolderId = vi.fn();
+    const { result } = renderHook(() => useWorkbenchNavigator(createOptions({
+      tree: buildHackmdFolderTree([], [empty]), setCollapsedFolderIds, setSelectedFolderId,
+    })));
+    result.current.handleFolderSelect('empty');
+    expect(setSelectedFolderId).toHaveBeenCalledWith('empty');
+    expect(setCollapsedFolderIds).not.toHaveBeenCalled();
+  });
   it('uses finder results when finder is active and selected folder entries otherwise', () => {
     const folderA = folder('folder-a', 'Folder A');
     const tree = buildHackmdFolderTree([

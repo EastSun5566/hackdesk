@@ -48,6 +48,59 @@ export type ChooseLocalVaultResult = {
   snapshot?: LocalVaultSnapshot;
 };
 
+export type LocalDirectoryEntry = {
+  name: string;
+  path: string;
+  hasSubdirectories: boolean;
+};
+
+export type LocalDirectoryBrowseResult = {
+  path: string;
+  parent: string | null;
+  home: string;
+  entries: LocalDirectoryEntry[];
+};
+
+export type LocalVaultChoosePathInput = {
+  path: string;
+};
+
+export type LocalVaultVaultIdInput = {
+  vaultId: string;
+};
+
+/** Edits a named working set of vault folders; folders themselves stay in the vault list. */
+export type LocalWorkspaceMutation =
+  | { type: 'create'; name: string; vaultIds: string[] }
+  | { type: 'rename'; id: string; name: string }
+  | { type: 'delete'; id: string }
+  | { type: 'activate'; id: string | null }
+  | { type: 'setVaults'; id: string; vaultIds: string[] };
+
+export type LocalWorkspaceMutationResult = {
+  settings: import('./electron-api').ElectronSafeSettings;
+  snapshot: LocalVaultSnapshot | null;
+};
+
+export type LocalVaultActivateResult = {
+  settings: import('./electron-api').ElectronSafeSettings;
+  snapshot: LocalVaultSnapshot | null;
+};
+
+export type LocalVaultForgetResult = {
+  settings: import('./electron-api').ElectronSafeSettings;
+  snapshot: LocalVaultSnapshot | null;
+};
+
+export type LocalVaultCreateDirectoryInput = {
+  parentPath: string;
+  name: string;
+};
+
+export type LocalVaultCreateDirectoryResult = {
+  path: string;
+};
+
 export type LocalVaultWriteInput = {
   noteId: string;
   title?: string;

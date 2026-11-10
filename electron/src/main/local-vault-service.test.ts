@@ -44,7 +44,10 @@ vi.mock('electron', () => ({
 
 import { getSettingsPath } from './paths';
 import {
+  browseLocalDirectories,
+  createLocalDirectory,
   createLocalFolder,
+  resolveLocalDirectory,
   createLocalNote,
   importLocalVaultAttachment,
   moveLocalNote,
@@ -161,7 +164,7 @@ describe('LocalVaultService', () => {
     }
   });
 
-  it('rejects stale note paths and vault identities, including a vault switch during a read', async () => {
+  it('rejects stale note paths and vault identities, including a vault forgotten during a read', async () => {
     const { document, snapshot } = await createLocalNote({ title: 'Note' });
     await writeFile(join(vaultPath, 'image.png'), 'image');
     const input = { vaultId: snapshot.vaultId, noteId: document.id, relativePath: document.relativePath, src: 'image.png' };
@@ -174,6 +177,39 @@ describe('LocalVaultService', () => {
       }
     });
     await expect(readLocalVaultImage(input)).rejects.toThrow('context');
+  });
+
+  it('reads, saves and renames a note in a configured folder that is not active', async () => {
+    // Create the note while B is active, then make A active again: B stays configured.
+    const otherPath = await mkdtemp(join(tmpdir(), 'hackdesk-local-other-'));
+    try {
+      const writeVaults = (activeVaultId: string) => writeFile(getSettingsPath(), JSON.stringify({
+        title: 'HackDesk',
+        hackmdApiToken: '',
+        localVault: {
+          vaults: [{ id: 'vault-a', path: vaultPath }, { id: 'vault-b', path: otherPath }],
+          activeVaultId,
+        },
+      }));
+      await writeVaults('vault-b');
+      const { document, snapshot } = await createLocalNote({ title: 'In B', content: 'B body' });
+      await writeFile(join(otherPath, 'image.png'), 'image');
+      await writeVaults('vault-a');
+
+      expect(await readLocalNote(document.id)).toMatchObject({ id: document.id, content: 'B body' });
+      const saved = await writeLocalNote({ noteId: document.id, content: 'B edited', expectedRevision: document.revision });
+      expect(saved.snapshot.vaultId).toBe(snapshot.vaultId);
+      expect(await readFile(join(otherPath, 'In B.md'), 'utf8')).toBe('B edited');
+      const renamed = await renameLocalNote({ noteId: document.id, title: 'Renamed in B' });
+      expect(renamed.document.relativePath).toBe('Renamed in B.md');
+      await expect(readLocalVaultImage({
+        vaultId: snapshot.vaultId, noteId: document.id, relativePath: 'Renamed in B.md', src: 'image.png',
+      })).resolves.toMatchObject({ mimeType: 'image/png' });
+      // A folder outside the configuration is never searched.
+      await expect(readLocalNote('missing-note')).rejects.toThrow();
+    } finally {
+      await rm(otherPath, { force: true, recursive: true });
+    }
   });
 
   it('does not return an image that changes during its read', async () => {
@@ -822,5 +858,49 @@ describe('LocalVaultService', () => {
 
     await expect(scanLocalVault(vaultPath)).rejects.toThrow();
     await expect(createLocalNote({ title: 'Nope' })).rejects.toThrow();
+  });
+
+  it('browses folders for the in-app picker, resolving links and sorting dotfiles last', async () => {
+    await mkdir(join(vaultPath, 'Projects'), { recursive: true });
+    await mkdir(join(vaultPath, '.hidden'), { recursive: true });
+    await writeFile(join(vaultPath, 'note.md'), '# Note');
+    await symlink(join(vaultPath, 'Projects'), join(vaultPath, 'Alias'));
+
+    const listing = await browseLocalDirectories(vaultPath);
+    expect(listing.path).toBe(await realpath(vaultPath));
+    expect(listing.parent).toBe(await realpath(join(vaultPath, '..')));
+    expect(listing.entries.map((entry) => entry.name)).toEqual(['Alias', 'Projects', '.hidden']);
+    expect(listing.entries.find((entry) => entry.name === 'Projects')).toMatchObject({ hasSubdirectories: false });
+    expect(listing.entries.find((entry) => entry.name === 'Alias')).toMatchObject({ hasSubdirectories: false });
+
+    await writeFile(join(vaultPath, 'Projects', 'Plan.md'), '# Plan');
+    expect((await browseLocalDirectories(join(vaultPath, 'Projects'))).entries).toEqual([]);
+    const nested = await browseLocalDirectories(join(vaultPath, 'Projects', '..', 'Projects'));
+    expect(nested.path).toBe(await realpath(join(vaultPath, 'Projects')));
+    expect(nested.entries).toEqual([]);
+
+    const withChild = await browseLocalDirectories(vaultPath);
+    expect(withChild.entries.find((entry) => entry.name === 'Projects')).toMatchObject({ hasSubdirectories: false });
+    await mkdir(join(vaultPath, 'Projects', 'Deep'));
+    expect((await browseLocalDirectories(vaultPath)).entries.find((entry) => entry.name === 'Projects')).toMatchObject({ hasSubdirectories: true });
+  });
+
+  it('rejects picker paths that are not openable folders', async () => {
+    await expect(resolveLocalDirectory('relative/path')).rejects.toThrow('absolute');
+    await expect(resolveLocalDirectory(join(vaultPath, 'missing'))).rejects.toThrow('no longer exists');
+    await writeFile(join(vaultPath, 'note.md'), '# Note');
+    await expect(resolveLocalDirectory(join(vaultPath, 'note.md'))).rejects.toThrow('not a folder');
+    await expect(browseLocalDirectories(join(vaultPath, 'note.md'))).rejects.toThrow('not a folder');
+  });
+
+  it('creates one folder for the in-app picker and rejects the rest', async () => {
+    const { path } = await createLocalDirectory(vaultPath, 'New Vault');
+    expect(path).toBe(join(await realpath(vaultPath), 'New Vault'));
+    expect((await browseLocalDirectories(vaultPath)).entries.some((entry) => entry.name === 'New Vault')).toBe(true);
+
+    await expect(createLocalDirectory(vaultPath, 'New Vault')).rejects.toThrow('already exists');
+    await expect(createLocalDirectory(vaultPath, '')).rejects.toThrow('cannot be used');
+    await expect(createLocalDirectory(vaultPath, '../escape')).rejects.toThrow('cannot be used');
+    await expect(createLocalDirectory(join(vaultPath, 'missing'), 'New')).rejects.toThrow('no longer exists');
   });
 });

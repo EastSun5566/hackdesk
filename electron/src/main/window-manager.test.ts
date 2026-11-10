@@ -80,6 +80,7 @@ const mockState = vi.hoisted(() => {
       if (state.loadError) throw state.loadError;
     });
     maximize = vi.fn();
+    setBackgroundColor = vi.fn();
     getBounds = vi.fn(() => ({ x: 0, y: 0, width: 1180, height: 760 }));
     show = vi.fn(() => { this.visibleValue = true; });
     focus = vi.fn(() => {
@@ -188,7 +189,7 @@ vi.mock('./window-state', () => ({
   readWindowState: (fallback: unknown) => ({ bounds: fallback, isMaximized: false }),
 }));
 
-import { app, dialog } from 'electron';
+import { app, dialog, type BrowserWindow } from 'electron';
 import { exportDebugLogs } from './logging';
 import { isGrantedRendererPermission, WindowManager } from './window-manager';
 
@@ -634,6 +635,24 @@ describe('WindowManager close intent', () => {
     expect(mockState.state.appHide).not.toHaveBeenCalled();
   });
 
+  it('returns to the window Quick Hack opened from, even after another window closes', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const manager = new WindowManager();
+    const other = getMockWindow(manager.createMainWindow());
+    const opener = getMockWindow(manager.createMainWindow());
+    opener.focus();
+    manager.showQuickCaptureWindow();
+    other.destroy();
+    opener.show.mockClear();
+    opener.focus.mockClear();
+
+    manager.hideQuickCaptureWindow();
+
+    expect(opener.show).toHaveBeenCalledOnce();
+    expect(opener.focus).toHaveBeenCalledOnce();
+    expect(mockState.state.appHide).not.toHaveBeenCalled();
+  });
+
   it('keeps quick capture recoverable while quit is still unconfirmed', () => {
     const { manager } = createManagerWithWindow();
     const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
@@ -817,5 +836,219 @@ describe('WindowManager close intent', () => {
     expect(window.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, expect.objectContaining({
       type: 'quick-capture:create-draft',
     }));
+  });
+});
+
+describe('WindowManager multi-window', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockState.state.lastWindow = null;
+    mockState.state.windows = [];
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it('tracks every created main window and keeps the focused one current', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+
+    expect(manager.getMainWindows()).toHaveLength(2);
+    second.focus();
+    expect(manager.getMainWindow()).toBe(second);
+    first.focus();
+    expect(manager.getMainWindow()).toBe(first);
+  });
+
+  it('cascades a new window off the focused one', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    first.getBounds.mockReturnValue({ x: 100, y: 100, width: 1180, height: 760 });
+    const second = getMockWindow(manager.newMainWindow());
+
+    expect(second.options).toEqual(expect.objectContaining({ x: 132, y: 132 }));
+    expect(manager.getMainWindows()).toHaveLength(2);
+  });
+
+  it('closes one window without disturbing the other', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+
+    manager.closeMainWindow(first as unknown as BrowserWindow);
+    expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'window-button' });
+    expect(second.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, expect.anything());
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    expect(first.destroy).toHaveBeenCalledOnce();
+    expect(second.destroy).not.toHaveBeenCalled();
+    expect(manager.getMainWindows()).toHaveLength(1);
+  });
+
+  it('quits only after every window confirms during app quit', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    const event = { preventDefault: vi.fn(), defaultPrevented: false };
+
+    manager.handleBeforeQuit(event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
+    expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
+
+    // A clean window answers at once; the app must wait for the window still asking.
+    manager.confirmClose(first as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    manager.confirmClose(second as unknown as BrowserWindow);
+    expect(app.quit).toHaveBeenCalledOnce();
+  });
+
+  it('stops the app quit when any window keeps its unsaved changes', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    manager.handleBeforeQuit({ preventDefault: vi.fn(), defaultPrevented: false });
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    manager.cancelClose(second as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    // A late answer from a window after the quit stopped changes nothing.
+    manager.confirmClose(second as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    expect(first.destroy).not.toHaveBeenCalled();
+    expect(second.destroy).not.toHaveBeenCalled();
+  });
+
+  it('finishes the app quit when the last window it waited for goes away', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    manager.handleBeforeQuit({ preventDefault: vi.fn(), defaultPrevented: false });
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    second.destroy();
+    expect(app.quit).toHaveBeenCalledOnce();
+  });
+
+  it('trusts IPC senders from any main window', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+
+    for (const window of [first, second]) {
+      expect(manager.isTrustedIpcSender(
+        { sender: window.webContents, senderFrame: window.webContents.mainFrame } as never,
+        ELECTRON_CHANNELS.settingsGet,
+      )).toBe(true);
+      expect(manager.isTrustedIpcSender(
+        { sender: window.webContents, senderFrame: window.webContents.mainFrame } as never,
+        ELECTRON_CHANNELS.appSubmitQuickCapture,
+      )).toBe(false);
+    }
+  });
+
+  it('broadcasts theme and vault events to every main window', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+
+    manager.setThemeSurface('#fff');
+    expect(first.setBackgroundColor).toHaveBeenCalledWith('#fff');
+    expect(second.setBackgroundColor).toHaveBeenCalledWith('#fff');
+    manager.sendToAllMainWindows(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
+    expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
+    expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
+  });
+
+  it('reports presentation state for the requesting window', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    second.isFullScreenValue = true;
+
+    expect(manager.getWindowPresentationStateForSender(first.webContents as never)).toEqual({ fullScreen: false });
+    expect(manager.getWindowPresentationStateForSender(second.webContents as never)).toEqual({ fullScreen: true });
+  });
+
+  it('resolves close-targeted IPC against the sending window', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    getMockWindow(manager.createMainWindow());
+    emitClose(first);
+
+    manager.cancelCloseForSender(first.webContents as never);
+    manager.confirmClose(first as unknown as BrowserWindow);
+    expect(first.destroy).not.toHaveBeenCalled();
+  });
+
+  it('routes menu commands to the clicked window and falls back to the focused one', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    second.focus();
+
+    manager.sendCommandToWindow({ type: 'refresh' }, first as unknown as BrowserWindow);
+    expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, { type: 'refresh' });
+    expect(second.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, { type: 'refresh' });
+
+    manager.sendCommandToWindow({ type: 'refresh' }, null);
+    expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, { type: 'refresh' });
+  });
+
+  it('focuses a window from the Window menu, restoring it when minimized', () => {
+    const manager = new WindowManager();
+    getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    second.isMinimized.mockReturnValue(true);
+    second.show.mockClear();
+    second.focus.mockClear();
+
+    manager.focusMainWindow(second as unknown as BrowserWindow);
+    expect(second.restore).toHaveBeenCalledOnce();
+    expect(second.show).toHaveBeenCalledOnce();
+    expect(second.focus).toHaveBeenCalledOnce();
+  });
+
+  it('notifies menu listeners on open, focus, title change and close', () => {
+    const manager = new WindowManager();
+    const listener = vi.fn();
+    manager.onMenuStateChanged(listener);
+
+    const first = getMockWindow(manager.createMainWindow());
+    expect(listener).toHaveBeenCalledTimes(2);
+    first.emit('focus');
+    expect(listener).toHaveBeenCalledTimes(3);
+    first.emit('page-title-updated');
+    expect(listener).toHaveBeenCalledTimes(4);
+
+    const unsubscribe = manager.onMenuStateChanged(vi.fn());
+    unsubscribe();
+    emitClose(first);
+    manager.confirmClose(first as unknown as BrowserWindow);
+    expect(listener).toHaveBeenCalledTimes(5);
+  });
+
+  it('boots a new window into the requested workspace via its URL', () => {
+    const manager = new WindowManager();
+    const window = getMockWindow(manager.newMainWindow({
+      workspace: { type: 'team', label: 'Atlas', teamPath: 'atlas' },
+    }));
+
+    const calls = window.loadURL.mock.calls as unknown[][];
+    const url = calls[0][0] as string;
+    expect(url.startsWith('hackdesk://renderer/index.html?workspace=')).toBe(true);
+    expect(decodeURIComponent(url)).toContain('"team"');
+    expect(decodeURIComponent(url)).toContain('atlas');
+  });
+
+  it('opens a plain window without a workspace param by default', () => {
+    const manager = new WindowManager();
+    const window = getMockWindow(manager.newMainWindow());
+
+    expect(window.loadURL).toHaveBeenCalledWith('hackdesk://renderer/index.html');
   });
 });

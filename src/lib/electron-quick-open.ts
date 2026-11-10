@@ -28,10 +28,11 @@ export type QuickOpenWorkspaceResult =
     description: string;
   }
   | {
-    id: 'local';
+    id: `local:${string}`;
     type: 'local';
     label: string;
     description: string;
+    vaultId: string;
   }
   | {
     id: `team:${string}`;
@@ -159,7 +160,7 @@ export function getQuickOpenWorkspaceResults(
   teams: TeamSummary[],
   query: string,
   limit = QUICK_OPEN_RESULT_LIMIT,
-  hasLocalVault = false,
+  localVaults: { id: string; path: string }[] = [],
 ): QuickOpenWorkspaceResult[] {
   const workspaces: QuickOpenWorkspaceResult[] = [
     {
@@ -174,12 +175,13 @@ export function getQuickOpenWorkspaceResults(
       label: 'History',
       description: 'Recently visited HackMD notes',
     },
-    ...(hasLocalVault ? [{
-      id: 'local',
+    ...localVaults.map((vault): QuickOpenWorkspaceResult => ({
+      id: `local:${vault.id}`,
       type: 'local',
-      label: 'Local Vault',
-      description: 'Markdown files in your local folder',
-    } satisfies QuickOpenWorkspaceResult] : []),
+      label: vault.path.split(/[\\/]/).filter(Boolean).at(-1) ?? vault.path,
+      description: vault.path,
+      vaultId: vault.id,
+    })),
     ...teams.map((team): QuickOpenWorkspaceResult => ({
       id: `team:${team.path}`,
       type: 'team',

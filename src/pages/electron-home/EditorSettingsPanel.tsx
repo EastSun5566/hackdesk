@@ -2,6 +2,7 @@ import { defaultSettings, type EditorMode } from '@/lib/settings';
 
 import { SettingsPage, SettingsRadioList, SettingsSection } from './SettingsPrimitives';
 import { setNewTabOpens, useNewTabOpens, type NewTabOpens } from './new-tab-preference';
+import { setFocusEditorOnOpen, useFocusEditorOnOpen } from './note-focus-preference';
 
 const EDITOR_MODE_OPTIONS: {
   value: EditorMode;
@@ -33,9 +34,23 @@ export function EditorSettingsPanel({
   onRevertMode: () => void;
 }) {
   const newTabOpens = useNewTabOpens();
+  const focusEditorOnOpen = useFocusEditorOnOpen();
 
   return (
     <SettingsPage>
+      <SettingsSection title="When opening a note" onRevert={() => setFocusEditorOnOpen(true)} revertLabel="Reset note focus behavior">
+        <SettingsRadioList
+          name="note-open-focus"
+          legend="When opening a note"
+          value={focusEditorOnOpen ? 'editor' : 'current'}
+          options={[
+            { value: 'editor', label: 'Focus the editor' },
+            { value: 'current', label: 'Keep current focus' },
+          ]}
+          onValueChange={(value) => setFocusEditorOnOpen(value === 'editor')}
+        />
+      </SettingsSection>
+
       <SettingsSection
         title="Mode"
         description="How keys move and edit in the editor."

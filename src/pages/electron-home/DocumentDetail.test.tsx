@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { EDITOR_CONTENT_MAX_WIDTH, EDITOR_SIDE_PADDING } from '@/components/hackmd-live-preview/editor-content-layout';
 import type { DocumentSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 import {
@@ -269,6 +270,7 @@ describe('DocumentDetail', () => {
     });
     expect(screen.getByRole('navigation', { name: 'Note location' })).toHaveTextContent('@team/Specs/Plan');
     expect(screen.getByRole('status', { name: 'Loading note' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading note' })).toHaveStyle({ '--placeholder-max-width': EDITOR_CONTENT_MAX_WIDTH, '--placeholder-padding': EDITOR_SIDE_PADDING });
   });
 
   it('renders loading and empty branches explicitly', () => {

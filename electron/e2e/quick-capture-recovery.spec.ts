@@ -38,7 +38,7 @@ test('recovers an accepted Quick Hack after restart and clears recovery after sa
   await mkdir(vault, { recursive: true });
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
-    localVault: { path: vault },
+    localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
   }));
 
   const capturedText = `Recovered capture ${Date.now()}`;
@@ -53,7 +53,7 @@ test('recovers an accepted Quick Hack after restart and clears recovery after sa
     const firstMain = firstApp.windows().find((page) => page.url().includes('#/electron'))!;
     const quickCapture = firstApp.windows().find((page) => page.url().includes('#/quick-capture'))!;
 
-    await expect(firstMain.getByText('Local Vault', { exact: true }).first()).toBeVisible();
+    await expect(firstMain.getByRole('button', { name: 'Switch workspace, current: vault', exact: true })).toBeVisible();
     await quickCapture.getByLabel('Quick Hack note').fill(capturedText);
     await quickCapture.getByRole('button', { name: 'Capture' }).click();
     await expect(firstMain.locator('.cm-content')).toContainText(capturedText);
@@ -94,7 +94,7 @@ test('renderer recovery targets the failing window and keeps Quick Hack text on 
   await mkdir(join(home, '.hackdesk'), { recursive: true });
   await mkdir(vault);
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const app = await launchApp(home, join(home, 'user-data'), true);
   try {
@@ -103,7 +103,7 @@ test('renderer recovery targets the failing window and keeps Quick Hack text on 
     ]));
     const main = app.windows().find(page => page.url().includes('#/electron'))!;
     const capture = app.windows().find(page => page.url().includes('#/quick-capture'))!;
-    await expect(main.getByText('Local Vault', { exact: true }).first()).toBeVisible();
+    await expect(main.getByRole('button', { name: 'Switch workspace, current: vault', exact: true })).toBeVisible();
     await capture.getByLabel('Quick Hack note').fill('Recover this Quick Hack');
     await expect.poll(() => capture.evaluate(() => JSON.parse(localStorage.getItem('hackdesk_quick_capture_buffer') ?? 'null')?.content)).toBe('Recover this Quick Hack');
 
@@ -124,7 +124,7 @@ test('renderer recovery targets the failing window and keeps Quick Hack text on 
     }).recoveryCalls);
     // Playwright's Page remains marked crashed; inspect the recovered renderer through Electron.
     const rendererState = (id: number) => app.evaluate(({ BrowserWindow }, id) => (
-      BrowserWindow.fromId(id)!.webContents.executeJavaScript('({ url: location.href, text: document.body.textContent, input: document.querySelector("textarea")?.value ?? null })')
+      BrowserWindow.fromId(id)!.webContents.executeJavaScript('({ url: location.href, text: document.body.textContent, input: document.querySelector("textarea")?.value ?? null, workspace: document.querySelector("[aria-label^=\'Switch workspace, current: \']")?.getAttribute("aria-label") ?? null })')
     ), id);
 
     // Crashes one renderer while the other window has focus. The polls that follow wait for the
@@ -137,7 +137,8 @@ test('renderer recovery targets the failing window and keeps Quick Hack text on 
 
     await crash(mainId, captureId);
     await expect.poll(recoveryCalls, recovery).toEqual([{ windowId: mainId, message: 'HackDesk renderer stopped' }]);
-    await expect.poll(async () => (await rendererState(mainId)).text, recovery).toContain('Local Vault');
+    // The recovered window is back on the folder it showed.
+    await expect.poll(async () => (await rendererState(mainId)).workspace, recovery).toBe('Switch workspace, current: vault');
     await expect(capture).toHaveURL(/#\/quick-capture$/);
     await expect(capture.getByLabel('Quick Hack note')).toHaveValue('Recover this Quick Hack');
 

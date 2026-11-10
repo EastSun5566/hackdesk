@@ -15,7 +15,7 @@ test('keeps a Local Vault usable when one Markdown file is over 10 MiB', async (
   await writeFile(join(vault, 'Normal.md'), '# Normal\n\nNormal body');
   await writeFile(join(vault, 'Archive', 'Huge.md'), 'x'.repeat(10 * 1024 * 1024 + 1));
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;

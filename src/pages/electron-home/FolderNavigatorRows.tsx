@@ -1,5 +1,9 @@
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Copy,
   CopyPlus,
   Download,
@@ -8,15 +12,16 @@ import {
   FolderPen,
   FolderPlus,
   GripVertical,
-  HardDrive,
+  History,
   LayoutTemplate,
+  MoreVertical,
   Lock,
   Plus,
   Trash2,
   Upload,
   Users,
 } from 'lucide-react';
-import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -29,9 +34,8 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import type { NoteSummary } from '@/lib/electron-api';
-import { buildNoteDragId, getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
-import type { FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
-import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import { buildNoteDragId } from '@/lib/hackmd-note-dnd';
+import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -43,12 +47,32 @@ import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { useRowOverlays } from './row-overlays';
+import { readStringArrayStorage, writeStringArrayStorage } from './ui-preferences';
 import { NoteKindIcon, useNoteKind, type NoteKind } from './note-kind';
 import { NoteMatchSnippet } from './NoteMatchSnippet';
 
 import { WORKSPACE_ROOT_FOCUS_ID } from './folder-tree-focus';
 import { useFolderTreeControlId, useFolderTreeGroupId, useFolderTreeItem } from './FolderTreeFocusContext';
 import type { WorkspaceScope } from './types';
+
+export const RowOperationsContext = createContext<{
+  renameNote?: (note: NoteSummary, name: string) => void;
+  renameFolder?: (id: string, name: string) => void;
+  moveNote?: (note: NoteSummary) => void;
+  moveFolder?: (id: string) => void;
+}>({});
+
+function InlineName({ value, label, icon, height, onCancel, onSave }: { value: string; label: string; icon: ReactNode; height: 'folder' | 'note' | 'detail'; onCancel: () => void; onSave: (name: string) => void }) {
+  const [name, setName] = useState(value);
+  return <form className={cn('flex min-w-0 items-center gap-1.5 rounded bg-background-primary-subtler px-2 py-1 text-sm leading-5 ring-2 ring-inset ring-focus-ring/80', height === 'folder' || height === 'note' ? 'h-8' : 'h-13 px-2.5 py-1.5')} onSubmit={(event) => { event.preventDefault(); const next = name.trim(); if (next && next !== value) onSave(next); else onCancel(); }}>
+    <span aria-hidden="true" className="flex w-3.5 shrink-0 items-center justify-center text-icon-subtle">{icon}</span>
+    <input aria-label={label} autoFocus value={name} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setName(event.target.value)} onBlur={onCancel} onKeyDown={(event) => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); onCancel(); } }} className="min-w-0 flex-1 bg-transparent p-0 text-sm leading-5 text-text-default outline-none" />
+  </form>;
+}
+
+function RowMenuButton({ label, tabIndex }: { label: string; tabIndex?: number }) {
+  return <Tooltip content="Folder actions"><button type="button" aria-label={label} tabIndex={tabIndex} data-folder-tree-ignore-keyboard="true" className={cn('flex size-6 items-center justify-center rounded text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: rect.left, clientY: rect.bottom })); }}><MoreVertical aria-hidden="true" className="size-3.5" /></button></Tooltip>;
+}
 
 // The search box keeps focus, so its highlighted result shows only while the box is focused.
 const SEARCH_HIGHLIGHT_CLASS = '[.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-2 [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-inset [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-focus-ring/80';
@@ -251,8 +275,6 @@ function NoteRowView({
   onDelete,
   onRevealFolder,
   onRevealInFinder,
-  onMoveToSelectedFolder,
-  selectedFolder,
   showInFolderAction = false,
   draggable = false,
   disabledDrag = false,
@@ -285,17 +307,13 @@ function NoteRowView({
   /** Where the note's text matched the search, shown in place of its folder and tags. */
   snippet?: string;
 }) {
+  const operations = useContext(RowOperationsContext);
+  const [renaming, setRenaming] = useState(false);
   // In the tree a note already sits under its folder, so only search results name it.
   const metadata = [
     compact ? '' : entry.folderLabel,
     entry.note.tags.slice(0, 2).join(', '),
   ].filter(Boolean).join(' · ');
-  const canMoveToSelectedFolder = Boolean(
-    selectedFolder
-    && (selectedFolder.id === UNFILED_FOLDER_ID
-      ? getNoteCurrentFolderId(entry) !== null
-      : selectedFolder.id !== getNoteCurrentFolderId(entry)),
-  );
   const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
   const rowId = `note:${entry.note.id}`;
   const [dragArmed, setDragArmed] = useState(false);
@@ -345,16 +363,10 @@ function NoteRowView({
             Show in Folder
           </ContextMenuItem>
         ) : null}
-        <ContextMenuItem
-          disabled={!canMoveToSelectedFolder}
-          onSelect={() => {
-            if (canMoveToSelectedFolder) {
-              runAfterMenuClose(rowId, () => onMoveToSelectedFolder?.(entry));
-            }
-          }}
-        >
+        {operations.renameNote ? <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => setRenaming(true))}><FolderPen aria-hidden="true" className="h-4 w-4" />Rename</ContextMenuItem> : null}
+        <ContextMenuItem disabled={!operations.moveNote} onSelect={() => runAfterMenuClose(rowId, () => operations.moveNote?.(entry.note))}>
           <FolderOpen aria-hidden="true" className="h-4 w-4" />
-          Move to Selected Folder
+          Move to…
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDelete(entry.note))}>
@@ -390,9 +402,9 @@ function NoteRowView({
       {/* Hovering a row for a moment shows a card with the full title and what the one-line row
           leaves out: folder, tags and the edited date (see the RowOverlayHost). */}
       <div className="min-w-0">
-        <EntityRow
+        {renaming ? <InlineName value={entry.note.title || 'Untitled'} label="Rename note" height={compact ? 'note' : 'detail'} icon={<NoteKindIcon kind={kind} className="size-3.5" />} onCancel={() => setRenaming(false)} onSave={(name) => { setRenaming(false); operations.renameNote?.(entry.note, name); }} /> : <EntityRow
           selected={selected}
-          icon={draggable ? undefined : <NoteKindIcon kind={kind} className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
+          icon={draggable || compact ? undefined : <NoteKindIcon kind={kind} className="h-4 w-4" />}
           leadingControls={draggable ? (
             <NoteDragHandle
               armed={dragArmed}
@@ -406,7 +418,7 @@ function NoteRowView({
               kind={kind}
               onSelect={() => onSelect(entry.note)}
             />
-          ) : null}
+          ) : compact ? <span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle"><NoteKindIcon kind={kind} className="size-3.5" /></span> : null}
           title={entry.note.title || 'Untitled'}
           // In the tree a note is one line: its title, with the edited date as quiet trailing meta.
           // Search results add a second line for where the note lives or where the text matched.
@@ -427,7 +439,7 @@ function NoteRowView({
           // The tree steps back from the editor: subtle text, full strength on hover and selection.
           tone="quiet"
           className={cn(TREE_ROW_FOCUS_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
-        />
+        />}
       </div>
     </div>
   );
@@ -464,6 +476,8 @@ function FolderButtonView({
   onDeleteFolder: (folderId: string) => void;
   onRevealInFinder?: (folderId: string) => void;
 }) {
+  const operations = useContext(RowOperationsContext);
+  const [renaming, setRenaming] = useState(false);
   const hasChildren = node.children.length > 0 || node.notes.length > 0;
   const isLocalFolder = node.id.startsWith('local-folder:');
   const {
@@ -480,7 +494,7 @@ function FolderButtonView({
     transition,
   };
   const rowId = `folder:${node.id}`;
-  const treeItemProps = useFolderTreeItem(rowId, selected, !collapsed, hasChildren ? ['toggle', 'drag'] : ['drag']);
+  const treeItemProps = useFolderTreeItem(rowId, selected, hasChildren ? !collapsed : undefined, hasChildren ? ['toggle', 'drag'] : ['drag']);
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const toggleControlId = useFolderTreeControlId(rowId, 'toggle');
 
@@ -495,10 +509,12 @@ function FolderButtonView({
         New Folder Inside
       </ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRenameFolder(node.id))}>
+      {operations.renameFolder ? <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => setRenaming(true))}>
         <FolderPen aria-hidden="true" className="h-4 w-4" />
-        Edit Folder
-      </ContextMenuItem>
+        Rename
+      </ContextMenuItem> : null}
+      <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRenameFolder(node.id))}><FolderPen aria-hidden="true" className="h-4 w-4" />Edit Folder</ContextMenuItem>
+      {operations.moveFolder ? <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => operations.moveFolder?.(node.id))}><FolderOpen aria-hidden="true" className="h-4 w-4" />Move to…</ContextMenuItem> : null}
       {isLocalFolder && onRevealInFinder ? (
         <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealInFinder(node.id))}>
           <FolderOpen aria-hidden="true" className="h-4 w-4" />
@@ -530,7 +546,7 @@ function FolderButtonView({
       onPointerDown={disabledDrag ? undefined : pointerDragListener(listeners)}
       className={cn('min-w-0', FOLDER_DROP_MARK_CLASS, (isDragging || active) && 'opacity-40')}
     >
-      <EntityRow
+      {renaming ? <InlineName value={node.name} label="Rename folder" height="folder" icon={<FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />} onCancel={() => setRenaming(false)} onSave={(name) => { setRenaming(false); operations.renameFolder?.(node.id, name); }} /> : <EntityRow
         selected={selected}
         active={noteDropTarget && isOver}
         variant="compact"
@@ -594,8 +610,9 @@ function FolderButtonView({
         contentFocusTarget={focusTarget}
         contentButtonProps={treeItemProps}
         tone="quiet"
+        menu={<span className="flex"><Tooltip content="New Note"><button type="button" aria-label={`New note in ${node.name}`} data-folder-tree-ignore-keyboard="true" tabIndex={treeItemProps?.tabIndex} className={cn('flex size-6 items-center justify-center rounded text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onCreateNoteInside(node.id); }}><Plus aria-hidden="true" className="size-3.5" /></button></Tooltip><Tooltip content="New Folder"><button type="button" aria-label={`New folder in ${node.name}`} data-folder-tree-ignore-keyboard="true" tabIndex={treeItemProps?.tabIndex} className={cn('flex size-6 items-center justify-center rounded text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onCreateFolderInside(node.id); }}><FolderPlus aria-hidden="true" className="size-3.5" /></button></Tooltip><RowMenuButton label={`Folder actions for ${node.name}`} tabIndex={treeItemProps?.tabIndex} /></span>}
         className={TREE_ROW_FOCUS_CLASS}
-      />
+      />}
     </div>
   );
 }
@@ -607,8 +624,335 @@ function NewNoteTooltip() {
 
 export function WorkspaceRootScopeIcon({ scope }: { scope: WorkspaceScope }) {
   if (scope.type === 'team') return <Users className="h-3.5 w-3.5" />;
-  if (scope.type === 'local') return <HardDrive className="h-3.5 w-3.5" />;
+  if (scope.type === 'local') return <FolderOpen className="h-3.5 w-3.5" />;
   return <Lock className="h-3.5 w-3.5" />;
+}
+
+/** Drag ids for the folders of a working set, kept apart from note and folder ids in the tree. */
+export const WORKSPACE_FOLDER_DRAG_PREFIX = 'workspace-folder:';
+export function buildWorkspaceFolderDragId(vaultId: string) {
+  return `${WORKSPACE_FOLDER_DRAG_PREFIX}${vaultId}`;
+}
+export function parseWorkspaceFolderDragId(id: string) {
+  return id.startsWith(WORKSPACE_FOLDER_DRAG_PREFIX) ? id.slice(WORKSPACE_FOLDER_DRAG_PREFIX.length) : null;
+}
+
+/**
+ * A folder in the open working set, with its notes below. The header row drags to reorder the set
+ * (the whole section is the drop target) and its menu moves it up or down; the active folder hides
+ * or shows its notes, the others open themselves.
+ */
+export function WorkspaceFolderSection({
+  id,
+  label,
+  path,
+  active,
+  expanded,
+  dropPlacement,
+  dragging,
+  canMoveUp,
+  canMoveDown,
+  onOpen,
+  onToggle,
+  onMove,
+  onCreateNote,
+  onCreateFolder,
+  children,
+}: {
+  id: string;
+  label: string;
+  path: string;
+  active: boolean;
+  expanded: boolean;
+  dropPlacement: 'before' | 'after' | null;
+  /** This section is the one being dragged. */
+  dragging: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onOpen: () => void;
+  onToggle: () => void;
+  onMove?: (direction: -1 | 1) => void;
+  onCreateNote?: () => void;
+  onCreateFolder?: () => void;
+  children: ReactNode;
+}) {
+  const dragId = buildWorkspaceFolderDragId(id);
+  const reorderable = Boolean(onMove) && (canMoveUp || canMoveDown);
+  const { setNodeRef: setDropRef } = useDroppable({ id: dragId, disabled: !reorderable });
+  const { listeners, setNodeRef: setDragRef } = useDraggable({ id: dragId, disabled: !reorderable });
+  return (
+    <li
+      ref={setDropRef}
+      data-workspace-folder-id={id}
+      data-drop-placement={dropPlacement ?? undefined}
+      className={cn('grid min-w-0 gap-0.5', FOLDER_DROP_MARK_CLASS, dragging && 'opacity-50')}
+    >
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div ref={setDragRef} onPointerDown={reorderable ? pointerDragListener(listeners) : undefined}>
+            <EntityRow
+              variant="compact"
+              tone="quiet"
+              selected={active}
+              leadingControls={(
+                <button
+                  type="button"
+                  aria-label={`${expanded ? 'Collapse' : 'Expand'} ${label}`}
+                  aria-expanded={expanded}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggle();
+                  }}
+                  className={cn(
+                    'flex h-6 w-5 shrink-0 items-center justify-center rounded-sm text-icon-subtle hover:text-text-default',
+                    FOCUS_RING_INSET_CLASS,
+                  )}
+                >
+                  <ChevronRight aria-hidden="true" className={cn('size-3.5 transition-transform', expanded && 'rotate-90')} />
+                </button>
+              )}
+              icon={<FolderOpen aria-hidden="true" className="h-3.5 w-3.5" />}
+              title={label}
+              titleAttribute={path}
+              contentOnClick={onOpen}
+              contentAriaLabel={active ? `Hide ${label} notes` : `Open ${label}`}
+              contentAriaCurrent={active ? 'page' : undefined}
+              contentButtonProps={reorderable ? {
+                'aria-keyshortcuts': 'Alt+ArrowUp Alt+ArrowDown',
+                onKeyDown: (event) => {
+                  if (!event.altKey || event.metaKey || event.ctrlKey) return;
+                  if (event.key === 'ArrowUp' && canMoveUp) {
+                    event.preventDefault();
+                    onMove?.(-1);
+                  } else if (event.key === 'ArrowDown' && canMoveDown) {
+                    event.preventDefault();
+                    onMove?.(1);
+                  }
+                },
+              } : undefined}
+              contentFocusTarget
+              menu={<span className="flex">{onCreateNote ? <Tooltip content="New Note"><button type="button" aria-label={`New note in ${label}`} className={cn('flex size-6 items-center justify-center rounded text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onCreateNote(); }}><Plus className="size-3.5" /></button></Tooltip> : null}{onCreateFolder ? <Tooltip content="New Folder"><button type="button" aria-label={`New folder in ${label}`} className={cn('flex size-6 items-center justify-center rounded text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onCreateFolder(); }}><FolderPlus className="size-3.5" /></button></Tooltip> : null}</span>}
+              className={TREE_ROW_FOCUS_CLASS}
+            />
+          </div>
+        </ContextMenuTrigger>
+        {reorderable ? (
+          <ContextMenuContent>
+            <ContextMenuItem disabled={!canMoveUp} onSelect={() => onMove?.(-1)}>
+              <ArrowUp aria-hidden="true" className="h-4 w-4" />
+              Move Up
+            </ContextMenuItem>
+            <ContextMenuItem disabled={!canMoveDown} onSelect={() => onMove?.(1)}>
+              <ArrowDown aria-hidden="true" className="h-4 w-4" />
+              Move Down
+            </ContextMenuItem>
+          </ContextMenuContent>
+        ) : null}
+      </ContextMenu>
+      {expanded ? (
+        <ul
+          role="group"
+          aria-label={`${label} notes`}
+          className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}
+        >
+          {children}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function PreviewNoteRow({ entry, onOpenNote }: { entry: FolderTreeNote; onOpenNote: (note: NoteSummary) => void }) {
+  const kind = useNoteKind(entry.note);
+  return (
+    <EntityRow
+      variant="compact"
+      tone="quiet"
+      leadingControls={<span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle"><NoteKindIcon kind={kind} className="h-3.5 w-3.5" /></span>}
+      title={entry.note.title || 'Untitled'}
+      trailing={(
+        <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
+          {formatCompactDate(entry.note.updatedAtMillis)}
+        </time>
+      )}
+      trailingClassName="note-row-date max-w-20 truncate text-right"
+      contentOnClick={() => onOpenNote(entry.note)}
+      contentAriaLabel={entry.note.title || 'Untitled'}
+      contentFocusTarget
+      className={TREE_ROW_FOCUS_CLASS}
+    />
+  );
+}
+
+type PreviewFolderAction = 'create-note' | 'create-folder' | 'rename' | 'move' | 'edit' | 'delete' | 'reveal';
+
+function PreviewFolderRow({ node, expanded, folderLabel, onOpen, onToggle, onAction }: {
+  node: FolderTreeNode; expanded: boolean; folderLabel: string; onOpen: () => void; onToggle: () => void;
+  onAction: (action: PreviewFolderAction, name?: string) => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const hasChildren = node.children.length > 0 || node.notes.length > 0;
+  const rowId = `preview-folder:${folderLabel}:${node.id}`;
+  const overlayRef = useRowOverlays(() => <>
+    <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onAction('create-note'))}><FileText className="size-4" />New Note Inside</ContextMenuItem>
+    <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onAction('create-folder'))}><FolderPlus className="size-4" />New Folder Inside</ContextMenuItem>
+    <ContextMenuSeparator />
+    <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => setRenaming(true))}><FolderPen className="size-4" />Rename</ContextMenuItem>
+    <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onAction('move'))}><FolderOpen className="size-4" />Move to…</ContextMenuItem>
+    <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onAction('edit'))}><FolderPen className="size-4" />Edit Folder</ContextMenuItem>
+    <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onAction('reveal'))}><FolderOpen className="size-4" />Reveal in Finder</ContextMenuItem>
+    <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onAction('delete'))}><Trash2 className="size-4" />Move to Trash</ContextMenuItem>
+  </>);
+  return <div ref={overlayRef} data-folder-tree-row-id={rowId}>
+    {renaming ? <InlineName value={node.name} label="Rename folder" height="folder" icon={<FolderGlyph icon={node.icon} color={node.color} open={expanded} />} onCancel={() => setRenaming(false)} onSave={(name) => { setRenaming(false); onAction('rename', name); }} /> : <EntityRow
+      variant="compact" tone="quiet"
+      leadingControls={hasChildren ? <button type="button" aria-label={`${expanded ? 'Collapse' : 'Expand'} ${node.name}`} aria-expanded={expanded} onClick={(event) => { event.stopPropagation(); onToggle(); }} className={cn('flex h-6 w-5 shrink-0 items-center justify-center rounded-sm text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)}><ChevronRight aria-hidden="true" className={cn('size-3.5 transition-transform', expanded && 'rotate-90')} /></button> : <span className="h-6 w-5 shrink-0" aria-hidden="true" />}
+      icon={<FolderGlyph icon={node.icon} color={node.color} open={expanded} />} title={node.name}
+      contentOnClick={onOpen} contentAriaLabel={`Open ${node.name} in ${folderLabel}`} contentFocusTarget className={TREE_ROW_FOCUS_CLASS}
+      menu={<span className="flex"><Tooltip content="New Note"><button type="button" aria-label={`New note in ${node.name}`} className={cn('flex size-6 items-center justify-center rounded text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)} onClick={(event) => { event.stopPropagation(); onAction('create-note'); }}><Plus className="size-3.5" /></button></Tooltip><Tooltip content="New Folder"><button type="button" aria-label={`New folder in ${node.name}`} className={cn('flex size-6 items-center justify-center rounded text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)} onClick={(event) => { event.stopPropagation(); onAction('create-folder'); }}><FolderPlus className="size-3.5" /></button></Tooltip><RowMenuButton label={`Folder actions for ${node.name}`} /></span>}
+    />}
+  </div>;
+}
+
+function PreviewNodes({
+  expandedFolderIds,
+  depth,
+  folderLabel,
+  nodes,
+  notes,
+  onOpenFolder,
+  onOpenNote,
+  onToggleFolder,
+  onFolderAction,
+}: {
+  expandedFolderIds: Set<string>;
+  depth: number;
+  folderLabel: string;
+  nodes: FolderTreeNode[];
+  notes: FolderTreeNote[];
+  onOpenFolder: (folderId: string, folderIds: string[]) => void;
+  onOpenNote: (note: NoteSummary) => void;
+  onToggleFolder: (folderId: string) => void;
+  onFolderAction: (folderIds: string[], action: PreviewFolderAction, name?: string) => void;
+}) {
+  return (
+    <>
+      {nodes.map((node) => {
+        const expanded = expandedFolderIds.has(node.id);
+        const folderIds = node.folderPath.map((folder) => folder.id);
+        return (
+          <li key={node.id} className="grid min-w-0 gap-0.5">
+            <div className="pl-(--preview-indent)" style={{ '--preview-indent': `${depth * 12}px` } as CSSProperties}>
+              <PreviewFolderRow node={node} expanded={expanded} folderLabel={folderLabel} onOpen={() => onOpenFolder(node.id, folderIds)} onToggle={() => onToggleFolder(node.id)} onAction={(action, name) => onFolderAction(folderIds, action, name)} />
+            </div>
+            {expanded ? (
+              <ul role="group" aria-label={node.name} className="m-0 grid min-w-0 list-none gap-0.5 p-0">
+                <PreviewNodes
+                  expandedFolderIds={expandedFolderIds}
+                  depth={depth + 1}
+                  folderLabel={folderLabel}
+                  nodes={node.children}
+                  notes={node.notes}
+                  onOpenFolder={onOpenFolder}
+                  onOpenNote={onOpenNote}
+                  onToggleFolder={onToggleFolder}
+                  onFolderAction={onFolderAction}
+                />
+              </ul>
+            ) : null}
+          </li>
+        );
+      })}
+      {notes.map((entry) => (
+        <li
+          key={`note:${entry.note.id}`}
+          data-workspace-note-id={entry.note.id}
+          className="grid min-w-0 gap-0.5 pl-(--preview-indent)"
+          style={{ '--preview-indent': `${depth * 12}px` } as CSSProperties}
+        >
+          <PreviewNoteRow entry={entry} onOpenNote={onOpenNote} />
+        </li>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Another folder in the open working set, shown read-only inside the navigator. Selecting anything
+ * in it activates that folder first; edits stay with the active folder's own tree.
+ */
+export function WorkspaceFolderPreview({
+  error,
+  expandedStorageKey,
+  expandCommand,
+  folderLabel,
+  isLoading,
+  onOpenFolder,
+  onOpenNote,
+  onFolderAction,
+  tree,
+}: {
+  error: string | null;
+  /** Where the live tree keeps this folder's expanded sub-folders; the preview shares it. */
+  expandedStorageKey: string | null;
+  expandCommand?: { sequence: number; expanded: boolean };
+  folderLabel: string;
+  isLoading: boolean;
+  onOpenFolder: (folderId: string, folderIds: string[]) => void;
+  onOpenNote: (note: NoteSummary) => void;
+  onFolderAction: (folderIds: string[], action: PreviewFolderAction, name?: string) => void;
+  tree: FolderTree;
+}) {
+  // Sub-folders start closed, like the live tree, and keep whatever the folder showed while open.
+  const [expanded, setExpanded] = useState(() => ({
+    key: expandedStorageKey,
+    ids: expandedStorageKey ? readStringArrayStorage(expandedStorageKey) : new Set<string>(),
+  }));
+  const appliedCommand = useRef<{ key: string | null; sequence: number } | null>(null);
+  useEffect(() => {
+    if (!expandCommand || isLoading || error) return;
+    if (appliedCommand.current?.key === expandedStorageKey && appliedCommand.current.sequence === expandCommand.sequence) return;
+    const ids = new Set(expandCommand.expanded ? tree.nodesById.keys() : []);
+    if (expandedStorageKey) writeStringArrayStorage(expandedStorageKey, ids);
+    appliedCommand.current = { key: expandedStorageKey, sequence: expandCommand.sequence };
+    setExpanded({ key: expandedStorageKey, ids });
+  }, [expandCommand, expandedStorageKey, tree, isLoading, error]);
+  if (expanded.key !== expandedStorageKey) {
+    setExpanded({
+      key: expandedStorageKey,
+      ids: expandedStorageKey ? readStringArrayStorage(expandedStorageKey) : new Set<string>(),
+    });
+  }
+  if (isLoading) {
+    return <li role="presentation" className="py-0.5 pl-1"><NoteListSkeleton /></li>;
+  }
+  if (error) {
+    return <li role="presentation" className="px-2 py-1 text-xs text-text-subtle">{error}</li>;
+  }
+  if (tree.roots.length === 0 && tree.unfiled.notes.length === 0) {
+    return <li role="presentation" className="px-2 py-1 text-xs text-text-subtle">No notes yet.</li>;
+  }
+  return (
+    <PreviewNodes
+      expandedFolderIds={expanded.ids}
+      depth={0}
+      folderLabel={folderLabel}
+      nodes={tree.roots}
+      notes={tree.unfiled.notes}
+      onOpenFolder={onOpenFolder}
+      onOpenNote={onOpenNote}
+      onFolderAction={onFolderAction}
+      onToggleFolder={(folderId) => {
+        setExpanded((current) => {
+          const ids = new Set(current.ids);
+          if (ids.has(folderId)) ids.delete(folderId);
+          else ids.add(folderId);
+          if (current.key) writeStringArrayStorage(current.key, ids);
+          return { ...current, ids };
+        });
+      }}
+    />
+  );
 }
 
 /**
@@ -618,11 +962,15 @@ export function WorkspaceRootScopeIcon({ scope }: { scope: WorkspaceScope }) {
 export function WorkspaceRootTreeRow({
   scope,
   label,
+  /** The open folder inside a named working set, shown beside the set's name. */
+  detail,
   selected,
   sectionExpanded,
   dragActive,
   onSelectTopLevel,
   onSectionToggle,
+  onToggleAll,
+  allExpanded,
   onCreateFolder,
   onCreateNote,
   canCreate = true,
@@ -632,11 +980,14 @@ export function WorkspaceRootTreeRow({
 }: {
   scope: WorkspaceScope;
   label: string;
+  detail?: string | null;
   selected: boolean;
   sectionExpanded: boolean;
   dragActive: boolean;
   onSelectTopLevel: () => void;
   onSectionToggle: () => void;
+  onToggleAll?: () => void;
+  allExpanded?: boolean;
   onCreateFolder: () => void;
   onCreateNote: () => void;
   /** Off where this workspace can't take new notes: the create actions hide. */
@@ -647,6 +998,11 @@ export function WorkspaceRootTreeRow({
   viewOptions?: (control: { tabIndex?: number }) => ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ID });
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const setRowRef = useCallback((node: HTMLDivElement | null) => {
+    rowRef.current = node;
+    setNodeRef(node);
+  }, [setNodeRef]);
   const treeItemProps = useFolderTreeItem(WORKSPACE_ROOT_FOCUS_ID, selected, sectionExpanded, ['toggle']);
   const toggleControlId = useFolderTreeControlId(WORKSPACE_ROOT_FOCUS_ID, 'toggle');
 
@@ -654,7 +1010,7 @@ export function WorkspaceRootTreeRow({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          ref={setNodeRef}
+          ref={setRowRef}
           data-folder-tree-row-id={WORKSPACE_ROOT_FOCUS_ID}
           data-folder-tree-kind="root"
           // Sticks to the scroll area's very top, covering its 8px padding too, so rows scrolling
@@ -695,7 +1051,12 @@ export function WorkspaceRootTreeRow({
                 />
               </button>
             )}
-            title={label}
+            title={detail ? (
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate">{label}</span>
+                <span aria-hidden="true" className="truncate text-xs font-normal text-text-subtle">{detail}</span>
+              </span>
+            ) : label}
             contentAriaLabel={label}
             contentOnClick={() => {
               onSelectTopLevel();
@@ -705,6 +1066,11 @@ export function WorkspaceRootTreeRow({
             contentButtonProps={treeItemProps}
             menu={(
               <span className="flex items-center">
+              {onToggleAll ? <Tooltip content={allExpanded ? 'Collapse all folders' : 'Expand all folders'}>
+                <button type="button" aria-label={allExpanded ? 'Collapse all folders' : 'Expand all folders'} data-folder-tree-ignore-keyboard="true" tabIndex={treeItemProps?.tabIndex} className={cn('flex size-7 items-center justify-center rounded text-icon-subtle hover:text-text-default', FOCUS_RING_INSET_CLASS)} onClick={(event) => { event.stopPropagation(); onToggleAll(); }}>
+                  {allExpanded ? <ChevronsDownUp aria-hidden="true" className="size-3.5" /> : <ChevronsUpDown aria-hidden="true" className="size-3.5" />}
+                </button>
+              </Tooltip> : null}
               {viewOptions?.({ tabIndex: treeItemProps?.tabIndex })}
               <Tooltip content="New Folder">
               <button
@@ -750,11 +1116,17 @@ export function WorkspaceRootTreeRow({
               ) : null}
               </span>
             )}
-            className={TREE_ROW_FOCUS_CLASS}
+            className={cn(TREE_ROW_FOCUS_CLASS, 'workspace-root-row')}
           />
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent>
+      {/* The trigger is the row's wrapper, which can't take focus: Escape returns to the row itself,
+          as a note row's menu does; a click elsewhere keeps focus there. */}
+      <ContextMenuContent
+        finalFocus={(closeType) => (closeType === 'keyboard'
+          ? rowRef.current?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]') ?? false
+          : false)}
+      >
         <ContextMenuItem disabled={!canCreate} onSelect={onCreateNote}>
           <FileText aria-hidden="true" className="h-4 w-4" />
           New Note
@@ -811,6 +1183,10 @@ export function SidebarTrashRow({
       />
     </div>
   );
+}
+
+export function SidebarHistoryRow({ selected, onOpen }: { selected: boolean; onOpen: () => void }) {
+  return <div className="min-w-0"><EntityRow selected={selected} leadingControls={<span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle"><History className="h-3.5 w-3.5" /></span>} title="History" variant="compact" tone="quiet" contentAriaLabel="History" contentOnClick={onOpen} contentAriaCurrent={selected ? 'page' : undefined} className={TREE_ROW_FOCUS_CLASS} /></div>;
 }
 
 /**

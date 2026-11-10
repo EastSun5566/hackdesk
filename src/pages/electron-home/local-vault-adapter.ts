@@ -1,6 +1,7 @@
 import type { DocumentSummary, FolderSummary, NoteSummary, RepositoryValue } from '@/lib/electron-api';
 import type { LocalDocument, LocalFolder, LocalNoteSummary, LocalRevision, LocalVaultSnapshot } from '@/lib/local-vault';
 import type { LocalImageContext } from '@/lib/local-image';
+import { isHiddenLocalPath } from './hidden-files-preference';
 
 export const LOCAL_VAULT_TEAM_PATH = '__hackdesk_local_vault__';
 
@@ -96,9 +97,9 @@ export function toDocumentSummary(document: LocalDocument, snapshot: LocalVaultS
   };
 }
 
-export function adaptLocalVaultSnapshot(snapshot: LocalVaultSnapshot | null) {
-  const folders = snapshot?.folders.map(toFolderSummary) ?? [];
-  const notes = snapshot?.notes.map((note) => toNoteSummary(note, snapshot)) ?? [];
+export function adaptLocalVaultSnapshot(snapshot: LocalVaultSnapshot | null, showHidden = true) {
+  const folders = snapshot?.folders.filter((folder) => showHidden || !isHiddenLocalPath(folder.relativePath)).map(toFolderSummary) ?? [];
+  const notes = snapshot?.notes.filter((note) => showHidden || !isHiddenLocalPath(note.relativePath)).map((note) => toNoteSummary(note, snapshot)) ?? [];
   return { folders, notes };
 }
 

@@ -21,7 +21,7 @@ async function launch(customCommands: AiCustomCommand[] = []) {
   const fake = await createFakeCli('claude');
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
-    localVault: { path: vault },
+    localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
     onboarding: { hackmdTokenSetupDeferred: true },
     ai: {
       ...defaultSettings.ai,

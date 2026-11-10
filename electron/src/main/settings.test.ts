@@ -108,12 +108,19 @@ describe('Electron settings', () => {
   });
 
   it('stores only ciphertext with private permissions and restores it without an in-memory token cache', async () => {
-    await updateStoredSettings({ hackmdApiToken: 'private-secret', title: 'Workspace' });
+    await updateStoredSettings({ hackmdApiToken: 'private-secret', title: 'Workspace', hackmdAccountLabel: '@ada' });
     const stored = JSON.parse(await readFile(getSettingsPath(), 'utf8'));
-    expect(stored).toMatchObject({ hackmdApiToken: '', hackmdApiTokenEncrypted: { version: 1, ciphertext: expect.any(String) } });
+    expect(stored.hackmdApiToken).toBe('');
+    expect(stored).not.toHaveProperty('hackmdApiTokenEncrypted');
+    expect(Object.values(stored.hackmdAccountTokensEncrypted)).toEqual([{ version: 1, ciphertext: expect.any(String) }]);
     expect(JSON.stringify(stored)).not.toContain('private-secret');
+    expect(JSON.stringify(stored)).toContain('@ada');
     expect(await readHackmdApiToken()).toBe('private-secret');
     expect(await readStoredSettings()).toMatchObject({ title: 'Workspace', hackmdApiToken: '' });
+    expect(await getSafeSettings()).toMatchObject({
+      hasHackmdApiToken: true,
+      hackmdAccounts: { accounts: [{ label: '@ada', hasToken: true }], activeAccountId: expect.any(String) },
+    });
     expect(await readdir(join(electronMock.homePath, '.hackdesk'))).toEqual(['settings.json']);
     if (process.platform !== 'win32') expect((await stat(getSettingsPath())).mode & 0o777).toBe(0o600);
   });
@@ -122,7 +129,7 @@ describe('Electron settings', () => {
     await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
     await writeFile(getSettingsPath(), JSON.stringify({ title: 'Old', hackmdApiToken: 'legacy-secret' }));
     await Promise.all([getSafeSettings(), updateStoredSettings({ title: 'New', localVaultPath: '/tmp/vault' })]);
-    expect(await readStoredSettings()).toMatchObject({ title: 'New', localVault: { path: '/tmp/vault' } });
+    expect(await readStoredSettings()).toMatchObject({ title: 'New', localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) } });
     expect(await readHackmdApiToken()).toBe('legacy-secret');
     expect(await readFile(getSettingsPath(), 'utf8')).not.toContain('legacy-secret');
     expect(electronMock.encrypt).toHaveBeenCalledOnce();
@@ -134,7 +141,7 @@ describe('Electron settings', () => {
     await writeFile(getSettingsPath(), original);
     fsMock.failRename = true;
     expect(await getSafeSettings()).toMatchObject({ hasHackmdApiToken: true, hackmdTokenStorageError: expect.stringContaining('could not be protected') });
-    expect(await readStoredSettings()).toMatchObject({ title: 'Workspace', localVault: { path: '/tmp/vault' } });
+    expect(await readStoredSettings()).toMatchObject({ title: 'Workspace', localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) } });
     expect(await readFile(getSettingsPath(), 'utf8')).toBe(original);
     expect(await readdir(join(electronMock.homePath, '.hackdesk'))).toEqual(['settings.json']);
     fsMock.failRename = false;
@@ -147,7 +154,7 @@ describe('Electron settings', () => {
     await writeFile(getSettingsPath(), JSON.stringify({ hackmdApiToken: 'legacy-secret' }));
     electronMock.available = false;
     expect(await updateStoredSettings({ title: 'Still local', localVaultPath: '/tmp/vault' })).toMatchObject({
-      title: 'Still local', localVault: { path: '/tmp/vault' },
+      title: 'Still local', localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) },
       hackmdTokenStorageError: expect.stringContaining('could not be protected'),
     });
     expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdApiToken).toBe('legacy-secret');
@@ -156,23 +163,24 @@ describe('Electron settings', () => {
     await updateStoredSettings({ localVaultPath: null });
     electronMock.available = true;
     expect(await readHackmdApiToken()).toBe('legacy-secret');
-    expect(await readStoredSettings()).toMatchObject({ title: 'Still local', localVault: { path: null } });
+    expect(await readStoredSettings()).toMatchObject({ title: 'Still local', localVault: { vaults: [], activeVaultId: null } });
     expect(await readFile(getSettingsPath(), 'utf8')).not.toContain('legacy-secret');
   });
 
   it('preserves encrypted tokens and local settings when the keyring is unavailable, but allows explicit clearing', async () => {
     await updateStoredSettings({ hackmdApiToken: 'saved-secret', localVaultPath: '/tmp/vault' });
-    const encrypted = JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdApiTokenEncrypted;
+    const blobs = JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdAccountTokensEncrypted;
     electronMock.available = false;
-    expect(await readStoredSettings()).toMatchObject({ localVault: { path: '/tmp/vault' } });
+    expect(await readStoredSettings()).toMatchObject({ localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) } });
     expect(await getSafeSettings()).toMatchObject({ hasHackmdApiToken: true, hackmdTokenStorageError: expect.stringContaining('unavailable') });
     await expect(readHackmdApiToken()).rejects.toThrow('unavailable');
     await updateStoredSettings({ title: 'Still local' });
     await expect(updateStoredSettings({ hackmdApiToken: 'new-secret' })).rejects.toThrow('unavailable');
-    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8'))).toMatchObject({ title: 'Still local', hackmdApiTokenEncrypted: encrypted });
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8'))).toMatchObject({ title: 'Still local', hackmdAccountTokensEncrypted: blobs });
     await updateStoredSettings({ hackmdApiToken: '' });
     expect((await getSafeSettings()).hasHackmdApiToken).toBe(false);
-    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8'))).not.toHaveProperty('hackmdApiTokenEncrypted');
+    expect((await getSafeSettings()).hackmdAccounts).toEqual({ accounts: [], activeAccountId: null });
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdAccountTokensEncrypted ?? {}).toEqual({});
   });
 
   it.each(['basic_text', 'unknown'])('refuses Linux %s storage without storing a new plaintext token', async (backend) => {
@@ -191,11 +199,78 @@ describe('Electron settings', () => {
       await expect(readHackmdApiToken()).rejects.toThrow('Could not unlock');
       expect(await getSafeSettings()).toMatchObject({ hasHackmdApiToken: true, hackmdTokenStorageError: expect.stringContaining('Could not unlock') });
       await updateStoredSettings({ title: 'Updated' });
-      expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdApiTokenEncrypted).toEqual(encrypted);
+      // The legacy blob migrates into the account list untouched.
+      expect(Object.values(JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdAccountTokensEncrypted)).toEqual([encrypted]);
       await updateStoredSettings({ hackmdApiToken: 'replacement' });
       expect(await readHackmdApiToken()).toBe('replacement');
     },
   );
+
+  it('migrates a legacy encrypted token file into an unnamed account', async () => {
+    const { encryptHackmdToken } = await import('./token-storage');
+    await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
+    await writeFile(getSettingsPath(), JSON.stringify({ title: 'Workspace', hackmdApiTokenEncrypted: encryptHackmdToken('migrated-secret') }));
+    const settings = await getSafeSettings();
+    expect(settings.hasHackmdApiToken).toBe(true);
+    expect(settings.hackmdTokenStorageError).toBeNull();
+    expect(settings.hackmdAccounts.accounts).toHaveLength(1);
+    expect(settings.hackmdAccounts.accounts[0]).toMatchObject({ label: '', hasToken: true });
+    expect(settings.hackmdAccounts.activeAccountId).toBe(settings.hackmdAccounts.accounts[0].id);
+    expect(await readHackmdApiToken()).toBe('migrated-secret');
+    // The legacy key is gone after the next write.
+    await updateStoredSettings({ title: 'Renamed' });
+    const stored = JSON.parse(await readFile(getSettingsPath(), 'utf8'));
+    expect(stored).not.toHaveProperty('hackmdApiTokenEncrypted');
+    expect(Object.keys(stored.hackmdAccountTokensEncrypted)).toHaveLength(1);
+  });
+
+  it('upserts the active token, adds a second account on request, and switches and forgets', async () => {
+    const first = await updateStoredSettings({ hackmdApiToken: 'token-a', hackmdAccountLabel: '@ada' });
+    const accountA = first.hackmdAccounts.accounts[0].id;
+    expect(first.hackmdAccounts).toMatchObject({ accounts: [{ id: accountA, label: '@ada', hasToken: true }], activeAccountId: accountA });
+    expect(await readHackmdApiToken()).toBe('token-a');
+
+    // Replacing the active token keeps the one account.
+    const replaced = await updateStoredSettings({ hackmdApiToken: 'token-a2', hackmdAccountLabel: '@ada-new' });
+    expect(replaced.hackmdAccounts).toMatchObject({ accounts: [{ id: accountA, label: '@ada-new', hasToken: true }], activeAccountId: accountA });
+    expect(await readHackmdApiToken()).toBe('token-a2');
+
+    // Connecting another account adds and activates it without touching the first token.
+    const second = await updateStoredSettings({ hackmdApiToken: 'token-b', hackmdAccountLabel: '@grace', hackmdAddAccount: true });
+    const accountB = second.hackmdAccounts.activeAccountId;
+    if (accountB === null || accountB === accountA) {
+      throw new Error('expected a second active account');
+    }
+    expect(accountB).not.toBe(accountA);
+    expect(second.hackmdAccounts.accounts).toHaveLength(2);
+    expect(await readHackmdApiToken()).toBe('token-b');
+
+    // Re-saving the active token refreshes its label instead of duplicating the account.
+    const same = await updateStoredSettings({ hackmdApiToken: 'token-b', hackmdAccountLabel: '@grace-hopper', hackmdAddAccount: true });
+    expect(same.hackmdAccounts.accounts).toHaveLength(2);
+    expect(same.hackmdAccounts.activeAccountId).toBe(accountB);
+
+    // Switching reads the other account's token.
+    const switched = await updateStoredSettings({ hackmdActiveAccountId: accountA });
+    expect(switched.hackmdAccounts.activeAccountId).toBe(accountA);
+    expect(await readHackmdApiToken()).toBe('token-a2');
+
+    // Switching to an unknown account keeps the current one.
+    expect((await updateStoredSettings({ hackmdActiveAccountId: 'missing' })).hackmdAccounts.activeAccountId).toBe(accountA);
+
+    // Forgetting the active account falls back to the next one and drops its token.
+    const forgotten = await updateStoredSettings({ hackmdRemoveAccountId: accountA });
+    expect(forgotten.hackmdAccounts).toMatchObject({ accounts: [{ id: accountB, hasToken: true }], activeAccountId: accountB });
+    expect(await readHackmdApiToken()).toBe('token-b');
+    const stored = JSON.parse(await readFile(getSettingsPath(), 'utf8'));
+    expect(Object.keys(stored.hackmdAccountTokensEncrypted)).toEqual([accountB]);
+
+    // Forgetting the last account leaves no accounts behind.
+    const emptied = await updateStoredSettings({ hackmdRemoveAccountId: accountB });
+    expect(emptied.hackmdAccounts).toEqual({ accounts: [], activeAccountId: null });
+    expect(emptied.hasHackmdApiToken).toBe(false);
+    await expect(readHackmdApiToken()).rejects.toThrow('not configured');
+  });
 
   it('encrypts the HackDesk copy of an imported CLI token and leaves the CLI configuration alone', async () => {
     await mkdir(join(electronMock.homePath, '.hackmd'), { recursive: true });
@@ -225,7 +300,7 @@ describe('Electron settings', () => {
     expect(settings).toMatchObject({
       title: 'Workspace',
       hackmdApiToken: '',
-      localVault: { path: '/tmp/vault' },
+      localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) },
       editor: { mode: 'standard' },
       shortcuts: { 'open-command-palette': 'mod+shift+p' },
     });
@@ -235,7 +310,7 @@ describe('Electron settings', () => {
     expect(stored).toMatchObject({
       title: 'Updated workspace',
       hackmdApiToken: '',
-      localVault: { path: '/tmp/vault' },
+      localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) },
       editor: { mode: 'standard' },
       shortcuts: { 'open-command-palette': 'mod+shift+p' },
     });
@@ -261,13 +336,94 @@ describe('Electron settings', () => {
     expect(first.hasHackmdApiToken).toBe(true);
     expect(second).toMatchObject({
       hasHackmdApiToken: true,
-      localVault: { path: '/tmp/vault' },
+      localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) },
     });
     expect(stored).toMatchObject({
       hackmdApiToken: '',
-      localVault: { path: '/tmp/vault' },
+      localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) },
     });
     expect(await readHackmdApiToken()).toBe('token-123');
+  });
+
+  it('choosing folders accumulates vaults and activates the latest one', async () => {
+    const first = await updateStoredSettings({ localVaultPath: '/tmp/vault-a' });
+    expect(first.localVault.vaults.map((vault) => vault.path)).toEqual(['/tmp/vault-a']);
+    expect(first.hasLocalVault).toBe(true);
+
+    const second = await updateStoredSettings({ localVaultPath: '/tmp/vault-b' });
+    expect(second.localVault.vaults.map((vault) => vault.path)).toEqual(['/tmp/vault-a', '/tmp/vault-b']);
+    expect(second.localVault.activeVaultId).toBe(second.localVault.vaults[1].id);
+
+    // Re-choosing a known folder only activates it instead of duplicating it.
+    const reselected = await updateStoredSettings({ localVaultPath: '/tmp/vault-a' });
+    expect(reselected.localVault.vaults).toHaveLength(2);
+    expect(reselected.localVault.activeVaultId).toBe(reselected.localVault.vaults[0].id);
+    expect(await readStoredSettings()).toMatchObject({
+      localVault: {
+        vaults: [{ path: '/tmp/vault-a' }, { path: '/tmp/vault-b' }],
+      },
+    });
+  });
+
+  it('forgetting the active vault falls back to the first remaining one', async () => {
+    await updateStoredSettings({ localVaultPath: '/tmp/vault-a' });
+    await updateStoredSettings({ localVaultPath: '/tmp/vault-b' });
+
+    const afterForget = await updateStoredSettings({ localVaultPath: null });
+    expect(afterForget.localVault.vaults.map((vault) => vault.path)).toEqual(['/tmp/vault-a']);
+    expect(afterForget.localVault.activeVaultId).toBe(afterForget.localVault.vaults[0].id);
+    expect(afterForget.hasLocalVault).toBe(true);
+
+    const emptied = await updateStoredSettings({ localVaultPath: null });
+    expect(emptied.localVault).toEqual({ vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null });
+    expect(emptied.hasLocalVault).toBe(false);
+  });
+
+  it('persists named workspaces and opens one as it is created', async () => {
+    const first = await updateStoredSettings({ localVaultPath: '/tmp/vault-a' });
+    await updateStoredSettings({ localVaultPath: '/tmp/vault-b' });
+    const vaultA = first.localVault.vaults[0].id;
+
+    const created = await updateStoredSettings({
+      localWorkspace: { type: 'create', name: '  Work  ', vaultIds: [vaultA] },
+    });
+    expect(created.localVault.workspaces).toMatchObject([{ name: 'Work', vaultIds: [vaultA] }]);
+    // Creating opens the set, and with it one of its folders.
+    expect(created.localVault.activeWorkspaceId).toBe(created.localVault.workspaces[0].id);
+    expect(created.localVault.activeVaultId).toBe(vaultA);
+
+    const renamed = await updateStoredSettings({
+      localWorkspace: { type: 'rename', id: created.localVault.workspaces[0].id, name: 'Studio' },
+    });
+    expect(renamed.localVault.workspaces[0].name).toBe('Studio');
+
+    const widened = await updateStoredSettings({
+      localWorkspace: { type: 'setVaults', id: created.localVault.workspaces[0].id, vaultIds: [vaultA, created.localVault.vaults[1].id] },
+    });
+    expect(widened.localVault.workspaces[0].vaultIds).toHaveLength(2);
+
+    const closed = await updateStoredSettings({ localWorkspace: { type: 'activate', id: null } });
+    expect(closed.localVault.activeWorkspaceId).toBeNull();
+
+    const reopened = await updateStoredSettings({ localWorkspace: { type: 'activate', id: created.localVault.workspaces[0].id } });
+    expect(reopened.localVault.activeWorkspaceId).toBe(created.localVault.workspaces[0].id);
+
+    const deleted = await updateStoredSettings({ localWorkspace: { type: 'delete', id: created.localVault.workspaces[0].id } });
+    expect(deleted.localVault.workspaces).toEqual([]);
+    expect(deleted.localVault.activeWorkspaceId).toBeNull();
+    // The folders stay known and openable after their set is gone.
+    expect(deleted.localVault.vaults).toHaveLength(2);
+    expect(await readStoredSettings()).toMatchObject({
+      localVault: { workspaces: [], activeWorkspaceId: null },
+    });
+  });
+
+  it('rejects an unknown workspace mutation without touching settings', async () => {
+    await updateStoredSettings({ localVaultPath: '/tmp/vault-a' });
+    const before = await readStoredSettings();
+    const after = await updateStoredSettings({ localWorkspace: { type: 'rename', id: 'missing', name: 'X' } });
+    expect(after.localVault.workspaces).toEqual([]);
+    expect(after.localVault.vaults).toEqual(before.localVault.vaults);
   });
 
   it.each(['emacs', 'kakoune'] as const)('persists and returns the %s editor mode', async (mode) => {
@@ -493,7 +649,7 @@ describe('Electron settings', () => {
       expect(result?.backupPath).toMatch(/settings\.json\.damaged-/);
       expect(await readFile(result!.backupPath, 'utf8')).toBe(damaged);
       await expect(inspectSettingsFile()).resolves.toBeNull();
-      expect(await readStoredSettings()).toMatchObject({ title: defaultSettings.title, localVault: { path: null } });
+      expect(await readStoredSettings()).toMatchObject({ title: defaultSettings.title, localVault: { vaults: [], activeVaultId: null } });
       if (process.platform !== 'win32') expect((await stat(getSettingsPath())).mode & 0o777).toBe(0o600);
     });
 

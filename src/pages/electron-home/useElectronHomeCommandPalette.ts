@@ -5,6 +5,7 @@ import { recentNoteMatches, type ElectronRecentNote } from '@/lib/electron-recen
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { readFocusEditorOnOpen } from './note-focus-preference';
 import type { InPlaceTarget, OpenNoteTargetOptions } from './useNoteLinkOpener';
 import type { RevealNoteOptions } from './useWorkbenchNavigator';
 import type { CommandPaletteState, WorkspaceScope } from './types';
@@ -13,6 +14,9 @@ import { useWorkbenchQuickOpen } from './useWorkbenchQuickOpen';
 
 export type ElectronHomeCommandPaletteOptions = {
   localVaultId?: string | null;
+  localVaultEntryId?: string | null;
+  localVaults?: { id: string; path: string }[];
+  onSwitchLocalVault?: (vaultId: string) => void;
   displayScope: WorkspaceScope;
   expandNavigator: () => void;
   focusNavigator: () => void;
@@ -37,6 +41,9 @@ export type ElectronHomeCommandPaletteOptions = {
 
 export function useElectronHomeCommandPalette({
   localVaultId,
+  localVaultEntryId,
+  localVaults,
+  onSwitchLocalVault,
   displayScope,
   expandNavigator,
   focusNavigator,
@@ -92,6 +99,8 @@ export function useElectronHomeCommandPalette({
     handleQuickOpenWorkspace,
   } = useWorkbenchQuickOpen({
     localVaultId,
+    localVaultEntryId,
+    onSwitchLocalVault,
     expandNavigator,
     focusNavigator,
     isWorkspaceFetching,
@@ -118,11 +127,12 @@ export function useElectronHomeCommandPalette({
       handleQuickOpenRecentNote(entry, { expandNavigator: false, inPlace: options.inPlace });
       return;
     }
-    void requestSelectNote(linkedNoteSummary(entry), { focusEditor: true, trackRecent: true, inPlace: options.inPlace });
+    void requestSelectNote(linkedNoteSummary(entry), { focusEditor: readFocusEditorOnOpen(), trackRecent: true, inPlace: options.inPlace });
   }, [handleQuickOpenRecentNote, requestSelectNote, tree.allNotes]);
 
   return {
     commandPaletteProps: {
+      localVaults,
       folderTree: tree,
       onSelectFolder: handleQuickOpenFolder,
       onSelectNote: handleQuickOpenNote,

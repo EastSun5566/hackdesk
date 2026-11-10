@@ -1,5 +1,5 @@
 import { ActionMenuShortcut } from './ActionShortcutContext';
-import { NOTE_CARD_CLASS, NoteSummaryCard, useNoteSummaryLookup } from './NoteSummaryCard';
+import { useNoteSummaryLookup } from './NoteSummaryCard';
 import { NoteIcon, NoteKindIcon } from './note-kind';
 import { useBookSessionContext } from './useBookSession';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import { isBlankNoteTab, isDraftNoteTab, type OpenNoteTab } from './note-workspace';
+import { isBlankNoteTab, isDraftNoteTab, isPreviewNoteTab, type OpenNoteTab } from './note-workspace';
 import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
@@ -66,6 +66,7 @@ function DocumentTab({
   draggedRef,
   onSelect,
   onClose,
+  onKeep,
   focused,
   paneId,
   onFocus,
@@ -78,12 +79,16 @@ function DocumentTab({
   draggedRef: MutableRefObject<boolean>;
   onSelect: () => void;
   onClose: () => void;
+  /** Keeps a preview tab open; double-clicking the tab asks for it. */
+  onKeep?: () => void;
   focused: boolean;
   paneId?: string;
   onFocus: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   const title = tab.title || 'Untitled';
+  // A preview tab is replaced by the next note opened from the sidebar; italics say so.
+  const preview = isPreviewNoteTab(tab);
   const lookupNoteSummary = useNoteSummaryLookup();
   const summary = isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : lookupNoteSummary(tab.noteId);
   // A tab on the open book or one of its chapters is the book's tab: it turns chapters in place,
@@ -108,15 +113,14 @@ function DocumentTab({
       ref={setTabNode}
       style={{ transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null), transition }}
       className={cn(
-        'group/tab app-region-no-drag relative flex h-8 min-w-0 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
+        'group/tab app-region-no-drag relative flex h-8 min-w-40 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
         isDragging && 'z-10 opacity-70',
         selected
           ? 'border-border-subtle bg-background-default text-text-default'
           : 'border-transparent bg-transparent text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
       )}
     >
-      {/* Hovering a tab for a moment opens the note's card beneath it: the full title (tabs
-          truncate), then its folder, tags and edited date when the sidebar knows the note. */}
+      {/* The full title remains available when the tab truncates it. */}
       <TooltipRoot>
         <TooltipTrigger delay={300} render={<span className="flex min-w-0 flex-1" />}>
       <button
@@ -127,7 +131,11 @@ function DocumentTab({
         tabIndex={focused ? 0 : -1}
         aria-selected={selected}
         aria-controls={paneId ? documentPaneId(paneId) : undefined}
-        aria-label={isBlankNoteTab(tab) || syncState === 'saved' ? title : `${title}, ${DOCUMENT_SYNC_STATE_LABELS[syncState]}`}
+        aria-label={[
+          title,
+          preview ? 'preview' : null,
+          isBlankNoteTab(tab) || syncState === 'saved' ? null : DOCUMENT_SYNC_STATE_LABELS[syncState],
+        ].filter(Boolean).join(', ')}
         className="app-region-no-drag flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         ref={setActivatorNodeRef}
         {...listeners}
@@ -139,6 +147,7 @@ function DocumentTab({
         onClick={(event) => {
           if (!draggedRef.current || event.detail === 0) onSelect();
         }}
+        onDoubleClick={preview ? () => onKeep?.() : undefined}
       >
         {bookPosition
           ? <NoteKindIcon kind="book" className="h-3.5 w-3.5" />
@@ -146,18 +155,11 @@ function DocumentTab({
         {book && bookPosition && !bookPosition.isBook ? (
           <span aria-hidden="true" data-tab-book className="max-w-24 shrink truncate text-text-subtle">{book.title} ›</span>
         ) : null}
-        <span data-tab-title className="min-w-0 truncate">{title}</span>
+        <span data-tab-title data-tab-preview={preview || undefined} className={cn('min-w-0 truncate', preview && 'italic')}>{title}</span>
         {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={8} className={NOTE_CARD_CLASS}>
-          {summary ? <NoteSummaryCard entry={{ ...summary, note: { ...summary.note, title } }} /> : (
-            <div className="space-y-1.5">
-              <p className="font-medium text-text-emphasize text-pretty">{title}</p>
-              <p className="text-xs text-text-subtle">{isBlankNoteTab(tab) ? 'New tab page' : isDraftNoteTab(tab) ? 'Unsaved draft' : DOCUMENT_SYNC_STATE_LABELS[syncState]}</p>
-            </div>
-          )}
-        </TooltipContent>
+        <TooltipContent side="bottom" sideOffset={8}>{title}</TooltipContent>
       </TooltipRoot>
       <Button
         variant="ghost"
@@ -200,6 +202,7 @@ export function DocumentTabs({
   onReopenLastClosedTab,
   onReorderTab,
   onSelectTab,
+  onKeepTab,
   onSplitPane,
   onNewTab,
   paneLayout,
@@ -219,6 +222,8 @@ export function DocumentTabs({
   onReopenLastClosedTab: () => void;
   onReorderTab: (tabId: string, overTabId: string) => void;
   onSelectTab: (tabId: string) => void;
+  /** Keeps a preview tab open (see isPreviewNoteTab). */
+  onKeepTab?: (tabId: string) => void;
   /** Splitting down, zoom and equal sizes for the pane layout. */
   paneLayout: PaneLayoutMenuActions;
   onSplitPane: () => void;
@@ -322,6 +327,7 @@ export function DocumentTabs({
                       activeTabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
                       onSelect={() => onSelectTab(tab.tabId)}
                       onClose={() => onCloseTab(tab.tabId)}
+                      onKeep={onKeepTab ? () => onKeepTab(tab.tabId) : undefined}
                     />
                   ))}
                 </ul>

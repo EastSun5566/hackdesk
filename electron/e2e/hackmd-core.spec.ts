@@ -13,9 +13,14 @@ test('@core connects HackMD, stays connected after restart, and saves, creates a
   // Validating and storing the token are two main-process round trips.
   await expect(connect).toBeHidden({ timeout: 15_000 });
 
+  // Each HackMD account keeps its own encrypted token; the plaintext token is never written.
   const stored = await first.readSettings();
   expect(stored.hackmdApiToken).toBe('');
-  expect(stored.hackmdApiTokenEncrypted).toMatchObject({ version: 1, ciphertext: expect.any(String) });
+  const accounts = stored.hackmdAccounts as { accounts: { id: string }[]; activeAccountId: string | null };
+  const activeAccountId = accounts.activeAccountId ?? accounts.accounts[0]?.id;
+  expect(activeAccountId).toEqual(expect.any(String));
+  const encryptedTokens = stored.hackmdAccountTokensEncrypted as Record<string, unknown>;
+  expect(encryptedTokens[activeAccountId!]).toMatchObject({ version: 1, ciphertext: expect.any(String) });
   expect(JSON.stringify(stored)).not.toContain(token);
 
   // The token is read back from encrypted storage after a restart.

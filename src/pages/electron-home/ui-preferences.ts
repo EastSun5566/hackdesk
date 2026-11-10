@@ -114,7 +114,11 @@ export function readWorkspaceScopeStorage(key: string, fallback: WorkspaceScope)
     }
 
     if (value.type === 'local') {
-      return { type: 'local', label: typeof value.label === 'string' && value.label ? value.label : 'Local Vault' };
+      const stored: WorkspaceScope = { type: 'local', label: typeof value.label === 'string' && value.label ? value.label : 'Local Vault' };
+      if (typeof value.vaultId === 'string' && value.vaultId.trim()) {
+        stored.vaultId = value.vaultId;
+      }
+      return stored;
     }
 
     if (value.type === 'history') {

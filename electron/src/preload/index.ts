@@ -11,6 +11,7 @@ import type {
   HackDeskCommandPaletteCommand,
   HackDeskElectronAPI,
   HackmdRequestOptions,
+  NewWindowInput,
   ThemeSurfaceInput,
   OpenTextFileInput,
   OpenHackmdEditorInput,
@@ -28,8 +29,16 @@ import type {
   WindowPresentationState,
 } from '../../../src/lib/electron-api';
 import type {
+  LocalDirectoryBrowseResult,
+  LocalVaultActivateResult,
   LocalVaultChangeEvent,
+  LocalVaultChoosePathInput,
+  LocalVaultCreateDirectoryInput,
+  LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
+  LocalVaultForgetResult,
+  LocalWorkspaceMutation,
+  LocalWorkspaceMutationResult,
   LocalVaultCreateNoteInput,
   LocalVaultImportAttachmentInput,
   LocalVaultMoveFolderInput,
@@ -38,7 +47,9 @@ import type {
   LocalVaultRenameNoteInput,
   LocalVaultRevealFolderInput,
   LocalVaultRevealNoteInput,
+  LocalVaultSnapshot,
   LocalVaultTrashFolderInput,
+  LocalVaultVaultIdInput,
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
 } from '../../../src/lib/local-vault';
@@ -196,8 +207,27 @@ const api: HackDeskElectronAPI = {
   },
   localVault: {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),
+    browse: (path?: string) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultBrowse, { path }) as Promise<LocalDirectoryBrowseResult>
+    ),
+    choosePath: (input: LocalVaultChoosePathInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoosePath, input),
+    activate: (input: LocalVaultVaultIdInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultActivate, input) as Promise<LocalVaultActivateResult>
+    ),
+    forget: (input: LocalVaultVaultIdInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultForget, input) as Promise<LocalVaultForgetResult>
+    ),
+    updateWorkspace: (mutation: LocalWorkspaceMutation) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultWorkspace, mutation) as Promise<LocalWorkspaceMutationResult>
+    ),
+    createDirectory: (input: LocalVaultCreateDirectoryInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateDirectory, input) as Promise<LocalVaultCreateDirectoryResult>
+    ),
     disconnect: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultDisconnect),
     getSnapshot: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetSnapshot),
+    getVaultSnapshot: (input: LocalVaultVaultIdInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetVaultSnapshot, input) as Promise<LocalVaultSnapshot>
+    ),
     readNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultReadNote, noteId),
     createNote: (input: LocalVaultCreateNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateNote, input),
     writeNote: (input: LocalVaultWriteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultWriteNote, input),
@@ -241,6 +271,7 @@ const api: HackDeskElectronAPI = {
     saveTextFile: (input: SaveTextFileInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSaveTextFile, input),
     openTextFile: (input: OpenTextFileInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appOpenTextFile, input),
     checkForUpdates: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appCheckForUpdates),
+    newWindow: (input?: NewWindowInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appNewWindow, input),
     setThemeSurface: (input: ThemeSurfaceInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSetThemeSurface, input),
     setMenuShortcutsIgnored: (ignore: boolean) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore)

@@ -32,6 +32,7 @@ import {
   Keyboard,
   MessagesSquare,
   Mic,
+  AppWindow,
   Moon,
   PanelLeft,
   Focus,
@@ -116,7 +117,6 @@ import { NoteIcon } from './note-kind';
 const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-command-item-meta';
 const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-command-item-title';
 const COMMAND_ITEM_META_CLASS = 'block truncate text-xs text-command-item-meta';
-const MOVE_NOTE_FOLDER_LIMIT = 200;
 
 const THEME_MODE_COMMANDS: Array<{
   mode: ThemeMode;
@@ -229,6 +229,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'open-as-book': <BookOpen className="h-4 w-4" />,
   'present-note': <Presentation className="h-4 w-4" />,
   'new-note-from-template': <LayoutTemplate className="h-4 w-4" />,
+  'new-window': <AppWindow className="h-4 w-4" />,
   'save-as-template': <LayoutTemplate className="h-4 w-4" />,
   'previous-chapter': <StepBack className="h-4 w-4" />,
   'next-chapter': <StepForward className="h-4 w-4" />,
@@ -302,7 +303,7 @@ export function CommandPaletteDialog({
   selectedNoteId,
   selectedFolderId,
   hasHackmdApiToken,
-  hasLocalVault,
+  localVaults = [],
   themeMode,
   themePresetId,
   themePresets,
@@ -332,7 +333,7 @@ export function CommandPaletteDialog({
   selectedNoteId: string | null;
   selectedFolderId: string | null;
   hasHackmdApiToken: boolean;
-  hasLocalVault: boolean;
+  localVaults?: { id: string; path: string }[];
   themeMode: ThemeMode;
   themePresetId: ThemePresetId;
   themePresets: ThemePreset[];
@@ -355,7 +356,7 @@ export function CommandPaletteDialog({
   const { characterShortcutsEnabled } = useContext(ActionShortcutContext);
   const pendingContextAction = useRef<ElectronActionId | null>(null);
   const isQuickOpen = state.mode === 'quick-open';
-  const isMoveNote = state.mode === 'move-note';
+  const isMoveNote = state.mode === 'move-note' || state.mode === 'move-folder' || state.mode === 'choose-note-folder';
   // Searches beyond notes, folders and workspaces belong to the full palette.
   const isCommands = state.mode === 'commands';
   const trimmedSearch = state.search.trim();
@@ -371,11 +372,11 @@ export function CommandPaletteDialog({
   const noteResults = useMemo(() => noteSearch?.(state.search) ?? [], [noteSearch, state.search]);
   // Moving lists every folder; searching shows the best few.
   const folderResults = useMemo(
-    () => folderSearch?.(state.search, isMoveNote ? MOVE_NOTE_FOLDER_LIMIT : undefined) ?? [],
-    [folderSearch, isMoveNote, state.search],
+    () => folderSearch?.(state.search, isMoveNote ? folderTree.nodesById.size + 1 : undefined) ?? [],
+    [folderSearch, folderTree.nodesById.size, isMoveNote, state.search],
   );
   const recentResults = state.open && !isMoveNote ? getQuickOpenRecentNoteResults(recentNotes, state.search) : [];
-  const workspaceResults = state.open && !isMoveNote ? getQuickOpenWorkspaceResults(teams, state.search, undefined, hasLocalVault) : [];
+  const workspaceResults = state.open && !isMoveNote ? getQuickOpenWorkspaceResults(teams, state.search, undefined, localVaults) : [];
   const actionResults = state.open && isCommands
     ? getQuickOpenActionResults(getCommandPaletteActions(), state.search, undefined, (action) => getActionLabel(action, context))
     : [];
@@ -388,11 +389,11 @@ export function CommandPaletteDialog({
   const hasAccountResults = accountResults.length > 0;
   const hasAppearanceResults = themeModeResults.length > 0 || themePresetResults.length > 0;
   const showFinderAction = isCommands && shouldShowFinderQuickAction(state.search);
-  const dialogTitle = isQuickOpen ? 'Quick Open' : isMoveNote ? 'Move Note to Folder' : 'Command Palette';
+  const dialogTitle = isQuickOpen ? 'Quick Open' : state.mode === 'choose-note-folder' ? 'Choose Note Location' : state.mode === 'move-folder' ? 'Move Folder' : isMoveNote ? 'Move Note to Folder' : 'Command Palette';
   const dialogDescription = isQuickOpen
     ? 'Search notes, folders, and workspaces.'
     : isMoveNote
-      ? 'Choose the folder to move the selected note to.'
+      ? 'Choose a destination folder.'
       : 'Search notes, folders, workspaces, and commands.';
   const searchLabel = isQuickOpen
     ? 'Search notes, folders, and workspaces'
@@ -421,7 +422,7 @@ export function CommandPaletteDialog({
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
-        <Command label={searchLabel} shouldFilter={false}>
+        <Command key={`${state.mode}:${state.open}`} label={searchLabel} shouldFilter={false} defaultValue={state.mode === 'choose-note-folder' ? `folder ${folderResults.find((folder) => folder.id === selectedFolderId)?.label ?? ''}` : undefined}>
           <CommandInput
             autoFocus
             value={state.search}
@@ -478,7 +479,7 @@ export function CommandPaletteDialog({
                     ? 'History'
                     : scope.type === 'team'
                       ? scope.label
-                      : scope.type === 'local' ? 'Local Vault' : 'My Workspace';
+                      : scope.type === 'local' ? scope.label : 'My Workspace';
                   const metadata = [
                     workspaceLabel,
                     context.scopeType === 'history' ? null : entry.folderLabel || 'Root',
@@ -512,7 +513,7 @@ export function CommandPaletteDialog({
             ) : null}
 
             {(hasQuery || isMoveNote) && folderResults.length > 0 ? (
-              <CommandGroup heading={isMoveNote ? 'Move to' : 'Folders'}>
+              <CommandGroup heading={state.mode === 'choose-note-folder' ? 'Choose folder' : isMoveNote ? 'Move to' : 'Folders'}>
                 {folderResults.map((folder) => (
                   <CommandItem
                     key={`folder:${folder.id}`}
@@ -530,7 +531,7 @@ export function CommandPaletteDialog({
                         {folder.label}{folder.noteCount > 0 ? ` · ${folder.noteCount} ${folder.noteCount === 1 ? 'note' : 'notes'}` : ''}
                       </span>
                     </span>
-                    {!isMoveNote && selectedFolderId === folder.id ? (
+                    {(!isMoveNote || state.mode === 'choose-note-folder') && selectedFolderId === folder.id ? (
                       <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
                         <Check aria-hidden="true" className="h-4 w-4" />
                         <span className="sr-only">Current folder</span>
