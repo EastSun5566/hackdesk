@@ -5,7 +5,7 @@ import 'katex/dist/katex.min.css';
 import Reveal from 'reveal.js';
 import RevealHighlight from 'reveal.js/plugin/highlight';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { parseSlides, type SlideTheme } from '@/lib/slides';
 
@@ -52,6 +52,19 @@ export default function Presentation() {
     fullScreenRef.current = next;
     setFullScreen(next);
   }), []);
+
+  // The window reports full screen only once it has switched. Until then, the state asked for
+  // decides what Esc does, so F followed at once by Esc leaves full screen instead of closing.
+  const toggleFullScreen = useCallback(() => {
+    const api = window.hackdeskPresentationAPI;
+    if (!api) return;
+    fullScreenRef.current = !fullScreenRef.current;
+    setFullScreen(fullScreenRef.current);
+    void api.toggleFullScreen().then((next) => {
+      fullScreenRef.current = next;
+      setFullScreen(next);
+    });
+  }, []);
 
   useEffect(() => {
     let timer = window.setTimeout(() => setControlsShown(false), CONTROLS_IDLE_MS);
@@ -107,9 +120,9 @@ export default function Presentation() {
         keyboard: {
           ...keyboard,
           // Esc steps back: out of full screen first, then out of the presentation.
-          [ESCAPE_KEY]: () => void (fullScreenRef.current ? api.toggleFullScreen() : api.close()),
+          [ESCAPE_KEY]: () => (fullScreenRef.current ? toggleFullScreen() : void api.close()),
           // reveal.js's own F asks the page for full screen; this one is the window's, like the button.
-          [F_KEY]: () => void api.toggleFullScreen(),
+          [F_KEY]: toggleFullScreen,
         },
         plugins: [RevealHighlight],
       });
@@ -132,7 +145,7 @@ export default function Presentation() {
       window.removeEventListener('click', keepRoute);
       reveal?.destroy();
     };
-  }, []);
+  }, [toggleFullScreen]);
 
   return (
     <div className="fixed inset-0 bg-zinc-900">
@@ -146,7 +159,7 @@ export default function Presentation() {
           onClick={(event) => {
             // A clicked button keeps focus, and Space would press it again instead of moving on a slide.
             if (event.detail > 0) event.currentTarget.blur();
-            void window.hackdeskPresentationAPI?.toggleFullScreen();
+            toggleFullScreen();
           }}
           aria-label={fullScreen ? 'Exit Full Screen' : 'Full Screen'}
           title={fullScreen ? 'Exit Full Screen (F)' : 'Full Screen (F)'}

@@ -535,6 +535,17 @@ describe('WindowManager close intent', () => {
     expect(presentation.webContents.send).toHaveBeenLastCalledWith(ELECTRON_CHANNELS.appPresentationFullScreenChanged, { fullScreen: false });
   });
 
+  it('steps back out of full screen when asked again before the window has switched', () => {
+    const { manager } = createManagerWithWindow();
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
+    // The window switches (and reports it) later, as macOS does after its animation.
+    presentation.setFullScreen.mockImplementation(() => undefined);
+
+    expect(manager.togglePresentationFullScreen()).toBe(true);
+    expect(manager.togglePresentationFullScreen()).toBe(false);
+    expect(presentation.setFullScreen.mock.calls).toEqual([[true], [false]]);
+  });
+
   it('lets each window call only its own IPC channels', () => {
     const { manager, window } = createManagerWithWindow();
     const capture = getMockWindow(manager.showQuickCaptureWindow());

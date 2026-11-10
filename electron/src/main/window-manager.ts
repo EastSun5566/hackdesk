@@ -474,10 +474,12 @@ export class WindowManager {
     const window = this.getPresentationWindow();
     if (!window) return false;
     const next = !this.presentationFullScreen;
+    // The window's events confirm the switch later; the state asked for decides the next toggle,
+    // so F or Esc pressed again before they arrive still steps the right way.
+    this.presentationFullScreen = next;
     if (isE2EBackgroundRun()) {
       // Full screen opens a Space of its own and takes over the screen; background e2e runs only
       // report the change, so the slides' button and keys can still be checked.
-      this.presentationFullScreen = next;
       window.webContents.send(ELECTRON_CHANNELS.appPresentationFullScreenChanged, { fullScreen: next });
       return next;
     }
