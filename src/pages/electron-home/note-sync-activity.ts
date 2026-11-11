@@ -37,6 +37,11 @@ export type SyncActivityEvent =
   | { type: 'save_failed'; key: SyncKey; requestId: number; error: unknown }
   /** The person resolved a failed save another way, such as reloading or saving a copy. */
   | { type: 'save_failure_cleared'; key: SyncKey }
+  /**
+   * Nothing shows the note any more (its last tab closed, or it was deleted), so its save no longer
+   * matters: drop a failure, and let a save still in flight settle without marking the note.
+   */
+  | { type: 'save_abandoned'; key: SyncKey }
   | { type: 'delete_started'; key: SyncKey; requestId: number }
   | { type: 'delete_settled'; key: SyncKey; requestId: number }
   | { type: 'upload_started'; key: SyncKey }
@@ -90,6 +95,8 @@ function nextActivity(current: SyncActivity, event: SyncActivityEvent): SyncActi
         : current;
     case 'save_failure_cleared':
       return current.save?.status === 'failed' ? { ...current, save: undefined } : current;
+    case 'save_abandoned':
+      return current.save ? { ...current, save: undefined } : current;
     case 'delete_started':
       return { ...current, deleting: event.requestId };
     case 'delete_settled':

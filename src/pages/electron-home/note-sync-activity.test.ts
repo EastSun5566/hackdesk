@@ -42,6 +42,8 @@ describe('syncActivityReducer', () => {
     ['a late failure of a superseded save is ignored', [started(a, 1), started(a, 2), succeeded(a, 2), failed(a, 1)], a, 'none'],
     ['clearing removes a failure', [started(a, 1), failed(a, 1), { type: 'save_failure_cleared', key: a }], a, 'none'],
     ['clearing leaves a save in flight', [started(a, 1), { type: 'save_failure_cleared', key: a }], a, 'saving'],
+    ['abandoning drops a failure', [started(a, 1), failed(a, 1), { type: 'save_abandoned', key: a }], a, 'none'],
+    ['a save abandoned in flight cannot fail later', [started(a, 1), { type: 'save_abandoned', key: a }, failed(a, 1)], a, 'none'],
   ] as const)('%s', (_name, events, key, expected) => {
     expect(saveStatus(run([...events]), key)).toBe(expected);
   });

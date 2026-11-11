@@ -80,3 +80,25 @@ test('a failed save does not mark the note again after its tab is closed without
   await expect(page.locator('[data-active-pane="true"] .cm-content')).toContainText('Alpha body');
   await expect(tabState(page, 'Alpha')).toHaveAttribute('data-sync-state', 'saved');
 });
+
+test('a save that fails after its tab closed does not mark the note when it opens again', async ({ hackdesk }) => {
+  const { page, hackmdRequests, setHackmdFaults } = await hackdesk({ settings: { hackmdApiToken: 'fake-hackmd-token' }, fakeHackmd: true, hackmdNotes: notes });
+  await expect(page.getByRole('treeitem', { name: /^Alpha\b/ })).toBeVisible();
+
+  await editInTab(page, 'Alpha', 'Alpha edit');
+  await setHackmdFaults({ failPatch: ['note-alpha'], delayPatchMs: { 'note-alpha': 3000 } });
+  await page.keyboard.press(`${primary}+s`);
+  await expect(tabState(page, 'Alpha')).toHaveAttribute('data-sync-state', 'saving');
+
+  // Close the tab while the save is still waiting on HackMD, discarding the edit.
+  await page.keyboard.press(`${primary}+w`);
+  await page.getByRole('alertdialog', { name: /Close/ }).getByRole('button', { name: 'Close Tab' }).click();
+  await expect(page.getByRole('tab', { name: /^Alpha\b/ })).toHaveCount(0);
+  // Let the save fail.
+  await expect.poll(async () => (await hackmdRequests()).some(request => request.method === 'PATCH')).toBe(true);
+  await page.waitForTimeout(3500);
+
+  await page.getByRole('treeitem', { name: /^Alpha\b/ }).dblclick();
+  await expect(page.locator('[data-active-pane="true"] .cm-content')).toContainText('Alpha body');
+  await expect(tabState(page, 'Alpha')).toHaveAttribute('data-sync-state', 'saved');
+});

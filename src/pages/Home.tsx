@@ -541,8 +541,9 @@ export function Home() {
   const clearSaveFailure = useCallback((identity: NoteIdentity) => {
     dispatchSyncActivity({ type: 'save_failure_cleared', key: noteSyncKey(identity) });
   }, []);
-  // When a note's or draft's last tab closes, its failed save is over: the edits were discarded or
-  // saved another way. Switching workspace swaps the tabs without closing them, so it keeps them.
+  // When a note's or draft's last tab closes, its save is over: the edits were discarded or saved
+  // another way, and a save still in flight must not mark the note when it settles. Switching
+  // workspace swaps the tabs without closing them, so it keeps them.
   const { scopeKey: tabsScopeKey, tabs: openTabs } = noteWorkspace.state;
   const previousTabsRef = useRef({ scope: tabsScopeKey, tabs: openTabs });
   useEffect(() => {
@@ -550,7 +551,7 @@ export function Home() {
     previousTabsRef.current = { scope: tabsScopeKey, tabs: openTabs };
     if (previous.scope !== tabsScopeKey) return;
     for (const key of closedSyncKeys(previous.tabs, openTabs)) {
-      dispatchSyncActivity({ type: 'save_failure_cleared', key });
+      dispatchSyncActivity({ type: 'save_abandoned', key });
     }
   }, [openTabs, tabsScopeKey]);
   // Save commands wait only for the active tab's own save, not for another tab's.
@@ -611,7 +612,7 @@ export function Home() {
       setSelectedFolderId(parentFolderId ?? UNFILED_FOLDER_ID);
     },
     onNoteDeleted: (note) => {
-      clearSaveFailure(note);
+      dispatchSyncActivity({ type: 'save_abandoned', key: noteSyncKey(note) });
       removeRecentNoteEntry(note.id, note.teamPath ?? null);
       noteWorkspace.closeByNoteIdentity(note);
       if (currentScopeKeyRef.current === scopeStorageKey) setDeleteTarget(null);
