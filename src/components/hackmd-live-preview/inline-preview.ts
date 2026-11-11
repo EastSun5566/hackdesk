@@ -15,7 +15,7 @@ import {
 } from '@codemirror/view';
 
 import {
-  addFrontmatterRanges,
+  getFrontmatterRange,
   addHackmdLineSyntaxRanges,
   addHfmBlockRanges,
   expandActiveHfmBlockLines,
@@ -256,16 +256,21 @@ function buildPreviewDocument(state: EditorState) {
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
   const codeFences = getCodeFences(state, tree);
   const fencedCodeLines = getCodeFenceLines(codeFences);
+  const frontmatter = getFrontmatterRange(state.doc);
+  // Front matter is YAML: no markdown or HackMD syntax is decorated inside it.
+  const sourceOnlyLines = new Set(fencedCodeLines);
+  for (let lineNumber = 1; frontmatter && lineNumber <= frontmatter.endLine; lineNumber += 1) sourceOnlyLines.add(lineNumber);
   const hfmBlockRanges = getHfmDocumentIndex(state).blockRanges
-    .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, fencedCodeLines));
+    .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, sourceOnlyLines));
   const orderedListMarkers = getOrderedListMarkerPreviews(state);
-  return { doc: state.doc, sourceTree, tree, codeFences, fencedCodeLines, hfmBlockRanges, orderedListMarkers };
+  return { doc: state.doc, sourceTree, tree, codeFences, fencedCodeLines, frontmatter, sourceOnlyLines, hfmBlockRanges, orderedListMarkers };
 }
 
 type PreviewDocument = ReturnType<typeof buildPreviewDocument>;
 
 function buildDecorations(view: EditorView, state: EditorState, document: PreviewDocument): DecorationSet {
-  const { tree, codeFences, fencedCodeLines, hfmBlockRanges, orderedListMarkers } = document;
+  const { tree, codeFences, frontmatter, sourceOnlyLines, hfmBlockRanges, orderedListMarkers } = document;
+  const frontmatterEnd = frontmatter ? state.doc.line(frontmatter.endLine).to : -1;
   // Opening fence lines that show a language label in place of their source.
   const labelledFenceLines = new Set<number>();
   const ranges: PreviewRange[] = [];
@@ -275,14 +280,14 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
 
   expandActiveHfmBlockLines(activeHfmBlocks, activeLines);
 
-  addFrontmatterRanges(state, ranges);
+  if (frontmatter) addFrontmatterPanel(state, ranges, frontmatter.endLine, activeLines);
   addHfmBlockRanges(state, hfmBlockRanges, activeHfmBlocks, ranges);
   const visibleLines = new Set<number>();
   for (const { from, to } of view.visibleRanges) {
     const startLine = state.doc.lineAt(from).number;
     const endLine = state.doc.lineAt(to).number;
     for (let number = startLine; number <= endLine; number++) visibleLines.add(number);
-    addHackmdLineSyntaxRanges(state, activeLines, ranges, fencedCodeLines, startLine, endLine);
+    addHackmdLineSyntaxRanges(state, activeLines, ranges, sourceOnlyLines, startLine, endLine);
   }
 
   // Block replacements stay in StateFields. Only this plugin's inline/line
@@ -293,6 +298,8 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
       from,
       to,
       enter(node) {
+        // The markdown parser reads YAML as paragraphs, links and setext headings; leave it alone.
+        if (node.to <= frontmatterEnd && node.name !== 'Document') return false;
         const key = `${node.name}:${node.from}:${node.to}`;
         if (visited.has(key)) return;
         visited.add(key);
@@ -376,6 +383,44 @@ function getListDepth(node: SyntaxNodeLike['node']): number {
     if (parent.name === 'BulletList' || parent.name === 'OrderedList') depth += 1;
   }
   return Math.max(0, depth);
+}
+
+/**
+ * Front matter is shown as a quiet panel like a code fence: away from the cursor its `---` lines
+ * become a slim "Metadata" header and the bottom padding, and keys are set apart from values.
+ */
+function addFrontmatterPanel(state: EditorState, ranges: PreviewRange[], endLine: number, activeLines: ReadonlySet<number>) {
+  let active = false;
+  for (let lineNumber = 1; lineNumber <= endLine; lineNumber += 1) {
+    if (activeLines.has(lineNumber)) active = true;
+  }
+
+  for (let lineNumber = 1; lineNumber <= endLine; lineNumber += 1) {
+    const line = state.doc.line(lineNumber);
+    const classes = ['cm-hackmd-fenced-code', 'cm-hackmd-frontmatter'];
+    if (lineNumber === 1) {
+      classes.push('cm-hackmd-code-header');
+      if (!active) {
+        classes.push('cm-hackmd-code-header-collapsed');
+        pushReplace(ranges, state.doc, line.from, line.to, { widget: new CodeLanguageLabelWidget('Metadata') });
+      }
+    } else if (lineNumber === endLine) {
+      classes.push('cm-hackmd-code-footer');
+      if (!active) {
+        classes.push('cm-hackmd-code-footer-collapsed');
+        pushReplace(ranges, state.doc, line.from, line.to);
+      }
+    } else {
+      const key = line.text.match(/^(\s*-?\s*)([^\s:#][^:#]*?:)(?=\s|$)/);
+      if (key) {
+        const from = line.from + key[1].length;
+        ranges.push(Decoration.mark({ class: 'cm-hackmd-frontmatter-key' }).range(from, from + key[2].length));
+      } else if (/^\s*#/.test(line.text)) {
+        ranges.push(Decoration.mark({ class: 'cm-hackmd-frontmatter-comment' }).range(line.from, line.to));
+      }
+    }
+    ranges.push(Decoration.line({ attributes: { class: classes.join(' ') } }).range(line.from));
+  }
 }
 
 /**

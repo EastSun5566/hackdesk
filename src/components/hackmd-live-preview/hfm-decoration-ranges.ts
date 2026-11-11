@@ -158,21 +158,29 @@ export function expandActiveHfmBlockLines(
   }
 }
 
-export function addFrontmatterRanges(state: EditorState, ranges: PreviewRange[]) {
-  if (state.doc.lines < 3 || state.doc.line(1).text.trim() !== '---') {
-    return;
+/**
+ * Where a newly opened note puts the cursor: the start of the first line after any front matter,
+ * so the metadata panel stays collapsed until it is clicked, else the start of the note.
+ */
+export function getInitialCursor(doc: EditorState['doc']): number {
+  const frontmatter = getFrontmatterRange(doc);
+  if (!frontmatter) return 0;
+  return frontmatter.endLine < doc.lines ? doc.line(frontmatter.endLine + 1).from : doc.line(frontmatter.endLine).to;
+}
+
+/** The YAML front matter block at the top of a note: `---` on line 1 through the next `---`. */
+export function getFrontmatterRange(doc: EditorState['doc']): { endLine: number; startLine: 1 } | null {
+  if (doc.lines < 2 || doc.line(1).text.trim() !== '---') {
+    return null;
   }
 
-  for (let lineNumber = 2; lineNumber <= state.doc.lines; lineNumber += 1) {
-    const line = state.doc.line(lineNumber);
-    if (line.text.trim() === '---') {
-      for (let frontmatterLine = 1; frontmatterLine <= lineNumber; frontmatterLine += 1) {
-        const targetLine = state.doc.line(frontmatterLine);
-        ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-frontmatter' } }).range(targetLine.from));
-      }
-      return;
+  for (let lineNumber = 2; lineNumber <= doc.lines; lineNumber += 1) {
+    if (doc.line(lineNumber).text.trim() === '---') {
+      return { startLine: 1, endLine: lineNumber };
     }
   }
+
+  return null;
 }
 
 export function addHfmBlockRanges(

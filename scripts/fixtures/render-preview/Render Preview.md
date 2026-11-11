@@ -1,6 +1,16 @@
+---
+title: Render Preview
+tags: [hackdesk, sample]
+lang: zh-tw
+---
+
 # Render Preview
 
 A sample note for `pnpm render:preview`. It covers each live-preview feature, so a styling change can be checked in one shot. Paragraph with **bold**, *italic*, ~~strike~~, `inline code`, ==mark==, and a [link](https://hackmd.io).
+
+Icons as HackMD writes them (Font Awesome 4.7): <i class="fa fa-pencil"></i> edit, <i class="fa fa-file-text-o"></i> note, <i class="fa fa-github"></i> GitHub, <i class="fa fa-star fa-fw"></i> star.
+
+A line with [one link](https://hackmd.io) and [another link](https://hackmd.io/s/features) and **bold** text.
 
 ## Lists
 

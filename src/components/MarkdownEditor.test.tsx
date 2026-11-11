@@ -1686,6 +1686,25 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
   });
 
+  it('shows front matter as a metadata panel without reading its YAML as markdown', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = ['---', 'title: Hello', 'tags: [a, b] :smile:', '---', '', 'Body'].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    const lines = () => Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'));
+
+    await waitFor(() => expect(lines()[0]).toHaveTextContent('Metadata'));
+    expect(lines().slice(0, 4).every((line) => line.classList.contains('cm-hackmd-frontmatter'))).toBe(true);
+    expect(lines()[1].querySelector('.cm-hackmd-frontmatter-key')).toHaveTextContent('title:');
+    // Not a link, not an emoji, and the closing --- does not make the line above a heading.
+    expect(lines()[2]).toHaveTextContent('tags: [a, b] :smile:');
+    expect(lines()[2].querySelector('.cm-hackmd-link, .cm-hackmd-rich-emoji')).toBeNull();
+    expect(editor.querySelector('.cm-hackmd-h2')).toBeNull();
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
   it('reveals only the link under the cursor, not every link on its line', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = 'See [one](https://one.example) and [two](https://two.example) here.';

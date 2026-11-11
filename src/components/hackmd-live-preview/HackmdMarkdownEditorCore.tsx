@@ -6,7 +6,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
 import { bracketMatching, foldKeymap, indentOnInput } from '@codemirror/language';
 import { searchKeymap, highlightSelectionMatches, openSearchPanel, search } from '@codemirror/search';
-import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, Prec, Text, type Extension } from '@codemirror/state';
 import {
   crosshairCursor,
   drawSelection,
@@ -32,7 +32,7 @@ import type { EditorMode } from '@/lib/settings';
 import type { ResolvedThemeMode } from '@/lib/themes';
 import type { LocalImageContext } from '@/lib/local-image';
 import { readFocusEditorOnOpen } from '@/pages/electron-home/note-focus-preference';
-import { hideInitialSelection } from './hfm-decoration-ranges';
+import { getInitialCursor, hideInitialSelection } from './hfm-decoration-ranges';
 
 import { aiInline, formatAiShortcut, openAiInlineMenu, type AiInlineHost } from './ai-inline/extension';
 import { getAiInlineTarget, IDLE_AI_INLINE, type AiInlineState } from './ai-inline/state';
@@ -277,10 +277,12 @@ function createHackmdEditorView({
   onChangeRef,
   onOpenLinkRef,
 }: CreateEditorViewOptions) {
+  const doc = Text.of(runtime.value.split(/\r\n?|\n/));
   return new EditorView({
     parent,
     state: EditorState.create({
-      doc: runtime.value,
+      doc,
+      selection: { anchor: getInitialCursor(doc) },
       extensions: [
         ...(!readFocusEditorOnOpen() ? hideInitialSelection : []),
         runtime.editorModeCompartment.of(createEditorModeBaseExtension(runtime.editorMode)),

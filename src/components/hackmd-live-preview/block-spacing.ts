@@ -2,6 +2,7 @@ import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { StateField, type EditorState, type Extension, type Range } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view';
 
+import { getFrontmatterRange } from './hfm-decoration-ranges';
 import { hfmDocumentIndexExtension, getHfmDocumentIndex } from './hfm-document-index';
 import { treeGrowthEffect } from './tree-progress';
 
@@ -41,10 +42,13 @@ export function getPanelLineRanges(state: EditorState): Array<{ endLine: number;
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
   const panels: Array<{ endLine: number; startLine: number }> = [];
   const fencedLines = new Set<number>();
+  const frontmatter = getFrontmatterRange(state.doc);
+  if (frontmatter) panels.push({ startLine: frontmatter.startLine, endLine: frontmatter.endLine });
 
   tree.iterate({
     enter(node) {
       if (node.name !== 'FencedCode' && node.name !== 'Blockquote') return;
+      if (frontmatter && state.doc.lineAt(node.from).number <= frontmatter.endLine) return false;
       const startLine = state.doc.lineAt(node.from).number;
       const endLine = state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
       if (node.name === 'FencedCode') {

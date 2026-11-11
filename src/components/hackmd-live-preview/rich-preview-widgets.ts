@@ -12,7 +12,7 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 
-import { activeLinesChanged, getActiveLines, revealInitialSelection } from './hfm-decoration-ranges';
+import { activeLinesChanged, getActiveLines, getFrontmatterRange, revealInitialSelection } from './hfm-decoration-ranges';
 import { fenceOpenPattern } from './hfm-patterns';
 import {
   ensureFontAwesomeCss,
@@ -329,6 +329,10 @@ function buildRichPreviewDecorations(state: EditorState): DecorationSet {
       return false;
     },
   });
+
+  // Front matter is YAML: `:name:` or `$x$` in it is data, not an emoji or math.
+  const frontmatter = getFrontmatterRange(state.doc);
+  for (let lineNumber = 1; frontmatter && lineNumber <= frontmatter.endLine; lineNumber += 1) fencedLineNumbers.add(lineNumber);
 
   addDollarMathBlocks(state, activeLines, fencedLineNumbers, ranges);
   addInlineWidgets(state, activeLines, fencedLineNumbers, ranges);

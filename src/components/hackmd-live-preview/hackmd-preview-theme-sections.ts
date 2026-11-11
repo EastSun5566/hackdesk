@@ -314,11 +314,21 @@ export const proseTheme = {
     borderLeft: '3px solid var(--border-bold)',
     paddingLeft: '0.75rem',
   },
-  '.cm-hackmd-frontmatter': {
+  // Front matter shares the code panel's classes. The markdown highlighter still reads its YAML as
+  // markdown (`[a, b]` as a link), so its token styles are neutralised; keys read quieter than values.
+  '.cm-hackmd-frontmatter span': {
+    color: 'inherit',
+    fontStyle: 'inherit',
+    fontWeight: 'inherit',
+    fontSize: 'inherit',
+    textDecoration: 'none',
+  },
+  '.cm-hackmd-frontmatter .cm-hackmd-frontmatter-key, .cm-hackmd-frontmatter .cm-hackmd-code-label': {
     color: 'var(--text-subtle)',
-    backgroundColor: 'var(--background-muted)',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '0.88em',
+  },
+  '.cm-hackmd-frontmatter .cm-hackmd-frontmatter-comment': {
+    color: 'var(--code-comment, var(--text-subtle))',
+    fontStyle: 'italic',
   },
   '.cm-hackmd-hr': {
     color: 'transparent',
