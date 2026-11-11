@@ -169,7 +169,16 @@ describe('HackMD preview widget theme', () => {
     // An inset box-shadow on a line with border-radius bleeds a hairline across each line edge.
     for (const [selector, style] of Object.entries(codeAndBlockTheme)) {
       if (!/alert-block|container-block|table-block|blockquote-meta/.test(selector)) continue;
-      expect(style, selector).not.toHaveProperty('boxShadow');
+      expect(String((style as { boxShadow?: string }).boxShadow ?? ''), selector).not.toContain('inset');
+    }
+  });
+
+  it('draws containers as rounded panels without an edge bar', () => {
+    // A bar beside a rounded tinted panel reads as a stray stroke.
+    for (const [selector, style] of Object.entries(codeAndBlockTheme)) {
+      if (!/container-block/.test(selector)) continue;
+      expect(style, selector).not.toHaveProperty('borderLeft');
+      expect(style, selector).not.toHaveProperty('borderLeftColor');
     }
   });
 

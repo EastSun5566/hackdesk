@@ -406,12 +406,15 @@ export const codeAndBlockTheme = {
     paddingInlineStart: '1rem',
     paddingInlineEnd: '0.75rem',
   },
+  // A container is a tinted panel like a code block: rounded ends and no edge bar, since a bar
+  // beside rounded corners reads as a stray stroke. Each line paints a 1px shadow of its own tint
+  // below it to close the anti-aliased seam between fractionally tall lines.
   '.cm-hackmd-container-block': {
+    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
     color: 'var(--text-default)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
-    borderLeft: '3px solid color-mix(in oklch, var(--primary-default) 72%, var(--border-bold) 28%)',
-    paddingInlineStart: '1rem',
-    paddingInlineEnd: '0.75rem',
+    backgroundColor: 'var(--cm-container-tint)',
+    boxShadow: '0 1px 0 var(--cm-container-tint)',
+    paddingInline: '1rem',
   },
   '.cm-hackmd-alert-block-start, .cm-hackmd-container-block-start': {
     paddingTop: '0.12rem',
@@ -419,12 +422,14 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-alert-block-end, .cm-hackmd-container-block-end': {
     paddingBottom: '0.12rem',
   },
-  // Only the tinted container has a surface to round, and only on the side away from its border.
   '.cm-hackmd-container-block-start': {
+    borderStartStartRadius: '6px',
     borderStartEndRadius: '6px',
   },
   '.cm-hackmd-container-block-end': {
+    borderEndStartRadius: '6px',
     borderEndEndRadius: '6px',
+    boxShadow: 'none',
   },
   '.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo': {
     borderLeftColor: 'var(--link-text-default)',
@@ -442,20 +447,16 @@ export const codeAndBlockTheme = {
     borderLeftColor: 'var(--destructive-default)',
   },
   '.cm-hackmd-container-block-success': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--success-default) 8%)',
-    borderLeftColor: 'var(--success-default)',
+    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 90%, var(--success-default) 10%)',
   },
   '.cm-hackmd-container-block-warning': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 90%, var(--warning-default) 10%)',
-    borderLeftColor: 'var(--warning-default)',
+    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 88%, var(--warning-default) 12%)',
   },
   '.cm-hackmd-container-block-danger': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 90%, var(--destructive-default) 10%)',
-    borderLeftColor: 'var(--destructive-default)',
+    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 90%, var(--destructive-default) 10%)',
   },
   '.cm-hackmd-container-block-spoiler': {
-    backgroundColor: 'var(--background-muted)',
-    borderLeftColor: 'var(--border-bold)',
+    '--cm-container-tint': 'var(--background-muted)',
   },
   '.cm-hackmd-table-block': {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
