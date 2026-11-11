@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { definedEnvironment } from './fixtures/environment';
@@ -17,11 +17,18 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
   const vault = join(testHome, 'vault');
   await mkdir(join(testHome, '.hackdesk'), { recursive: true });
   await mkdir(vault);
-  await writeFile(join(vault, 'UI fixture.md'), '# UI fixture\n\nTest note for layout checks.\n');
+  // The tree lists notes newest first, then by title. Every fixture note gets the same time, so
+  // they list by title (Alpha, Beta, …) however far apart a slow machine wrote them.
+  const fixtureTime = new Date(Date.UTC(2026, 0, 1));
+  const writeFixtureNote = async (name: string, content: string) => {
+    await writeFile(join(vault, `${name}.md`), content);
+    await utimes(join(vault, `${name}.md`), fixtureTime, fixtureTime);
+  };
+  await writeFixtureNote('UI fixture', '# UI fixture\n\nTest note for layout checks.\n');
   if (navigationFixtures) {
     for (const folder of ['Projects/Sub', 'Folders only/Last']) await mkdir(join(vault, folder), { recursive: true });
     for (const name of ['Alpha', 'Beta', 'Gamma', ...Array.from({ length: 8 }, (_, i) => `Long document title number ${i}`), 'Projects/Sub/One', 'Projects/Sub/Two', 'Projects/Direct', 'Folders only/Last/Deep']) {
-      await writeFile(join(vault, `${name}.md`), `# ${name.split('/').at(-1)}\n\nFixture content.\n`);
+      await writeFixtureNote(name, `# ${name.split('/').at(-1)}\n\nFixture content.\n`);
     }
   }
   const settings = {
