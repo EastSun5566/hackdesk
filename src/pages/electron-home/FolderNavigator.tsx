@@ -56,6 +56,8 @@ import {
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
 import { buildNoteTagIndex } from '@/lib/electron-note-tags';
+import { createTagGroupFocusId, groupNotesByFirstTag, type TagGroup } from '@/lib/electron-tag-groups';
+import { useCollapsedTagGroups, toggleCollapsedTagGroup, useTagGroupingEnabled, useTagGroupOrder } from './tag-group-preference';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
@@ -74,9 +76,11 @@ import {
   FolderDragOverlay,
   RowOperationsContext,
   FolderTreeView,
+  KeepMountedOnceOpen,
   NoteDragOverlay,
   NoteListSkeleton,
   NoteRow,
+  TagGroupRow,
   TREE_CHILDREN_INDENT_CLASS,
   TreeBlankArea,
   SidebarTrashRow,
@@ -175,6 +179,30 @@ function TrashNavigatorTitleBar({ trash }: { trash: TrashNavigatorViewProps }) {
   const list = useTrashList(trash.open && teamPath !== undefined, teamPath ?? null);
   const count = list.isSuccess ? list.data?.length : undefined;
   return <TrashNavigatorHeader count={count} onBack={() => trash.onOpenChange(false)} />;
+}
+
+/**
+ * Where the sidebar groups its folder-less notes under each note's first tag (the pre-folder
+ * legacy view). Null keeps the root notes flat under the workspace row.
+ */
+export type FolderTagGrouping = {
+  collapsed: Set<string>;
+  groups: TagGroup[];
+  onToggle: (tag: string) => void;
+};
+
+function useFolderTagGrouping(unfiledNotes: FolderTreeNote[]): FolderTagGrouping | null {
+  const enabled = useTagGroupingEnabled();
+  const order = useTagGroupOrder();
+  const collapsed = useCollapsedTagGroups();
+  const groups = useMemo(
+    () => enabled && unfiledNotes.length > 0 ? groupNotesByFirstTag(unfiledNotes, order) : null,
+    [enabled, order, unfiledNotes],
+  );
+  return useMemo(
+    () => groups ? { collapsed, groups, onToggle: toggleCollapsedTagGroup } : null,
+    [collapsed, groups],
+  );
 }
 
 export type FolderNavigatorSelection = {
@@ -289,6 +317,8 @@ export type FolderNavigatorProps = {
   tree: FolderTree;
   trash?: TrashNavigatorViewProps;
   history?: { open: boolean; onOpenChange: (open: boolean) => void };
+  /** How the tree's root notes group by first tag while the view option is on. */
+  tagGrouping?: FolderTagGrouping | null;
   /** The workspace switcher in the title and the account row at the bottom. */
   workspace: WorkspaceSidebarProps;
 };
@@ -304,7 +334,9 @@ export function FolderNavigator(props: FolderNavigatorProps) {
   const workspace = useStableCallbacks(props.workspace);
   // Its callbacks are rebuilt each render too (openTrashNote is inline), which would defeat the memo.
   const trash = useStableCallbacks(props.trash ?? NO_TRASH);
-  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashNavigatorViewProps : undefined} />;
+  // Read in the top component: the memoized panels below would miss a preference change.
+  const tagGrouping = useFolderTagGrouping(props.tree.unfiled.notes);
+  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashNavigatorViewProps : undefined} tagGrouping={tagGrouping} />;
 }
 
 const NO_TRASH = {};
@@ -329,6 +361,7 @@ function FolderNavigatorPanel({
   trash,
   history,
   workspace,
+  tagGrouping,
 }: FolderNavigatorProps) {
   return (
     <PanelShell
@@ -365,6 +398,7 @@ function FolderNavigatorPanel({
           trash={trash}
           history={history}
           workspace={workspace}
+          tagGrouping={tagGrouping}
         /></RowOperationsContext.Provider>
         {/* Pinned above the account row rather than at the end of the tree, so a long workspace
             never pushes it out of reach. Search hides it with the tree. */}
@@ -402,6 +436,7 @@ function ExpandedNavigator({
   trash,
   history,
   workspace,
+  tagGrouping,
 }: Omit<FolderNavigatorProps, 'id'>) {
   const [historyFinder, setHistoryFinder] = useState(DEFAULT_NOTE_FINDER_STATE);
   const historyQuery = useQuery({
@@ -514,6 +549,7 @@ function ExpandedNavigator({
         historyLoading={historyQuery.isLoading}
         historyError={historyQuery.error instanceof Error ? historyQuery.error.message : historyQuery.data?.source === 'error' && !historyQuery.data.data ? historyQuery.data.error : null}
         treeFocusRequestId={treeFocusRequestId}
+        tagGrouping={tagGrouping}
       />
     </>
   );
@@ -618,6 +654,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   historyLoading,
   historyError,
   treeFocusRequestId,
+  tagGrouping,
 }: {
   actions: FolderNavigatorActions;
   emptyState: FolderNavigatorEmptyState;
@@ -644,6 +681,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   historyLoading: boolean;
   historyError: string | null;
   treeFocusRequestId: number;
+  tagGrouping?: FolderTagGrouping | null;
 }) {
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0
     || Boolean(workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length));
@@ -750,6 +788,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
                 status={status}
                 tree={tree}
                 treeFocusRequestId={treeFocusRequestId}
+                tagGrouping={tagGrouping}
               />
             </TreeViewOptionsContext.Provider>
           </div>
@@ -968,6 +1007,7 @@ function NavigatorTree({
   status,
   tree,
   treeFocusRequestId,
+  tagGrouping,
 }: {
   actions: FolderNavigatorActions;
   layout: FolderNavigatorLayout;
@@ -982,6 +1022,7 @@ function NavigatorTree({
   status: FolderNavigatorStatus;
   tree: FolderTree;
   treeFocusRequestId: number;
+  tagGrouping?: FolderTagGrouping | null;
 }) {
   const treeRef = useRef<HTMLDivElement | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
@@ -1101,6 +1142,7 @@ function NavigatorTree({
     rootSectionExpanded,
     rootLabel,
     onRootSectionToggle: toggleRootSection,
+    tagGrouping: tagGrouping ?? null,
   });
 
   // Keep the open note in view, so opening it from a tab, link or the palette shows where it lives.
@@ -1339,7 +1381,57 @@ function NavigatorTree({
     isMovingFolder={status.isMovingFolder}
     topLevelGuides={showRootRow}
   />
-  {tree.unfiled.notes.map((entry, index) => (
+  {tagGrouping ? tagGrouping.groups.map((group, groupIndex) => {
+    const groupId = createTagGroupFocusId(group.tag);
+    // Same shape useFolderTreeGroupId builds, so aria-owns reaches the group's children.
+    const childrenGroupId = `${treeId}-children-${encodeURIComponent(groupId)}`;
+    const expanded = !tagGrouping.collapsed.has(group.tag);
+    const isLastGroup = groupIndex === tagGrouping.groups.length - 1;
+    return (
+      // A group row opens and closes like a folder — but owns no selection, drops or actions.
+      <li role="presentation" key={groupId} className={treeItemClassName(showRootRow, true)}>
+        {showRootRow ? <span aria-hidden="true" data-tree-guide={isLastGroup ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
+        <div className="relative min-w-0">
+          <TagGroupRow
+            tag={group.tag}
+            label={group.label}
+            expanded={expanded}
+            count={group.entries.length}
+            onToggle={() => tagGrouping.onToggle(group.tag)}
+          />
+        </div>
+        <KeepMountedOnceOpen open={expanded}>
+          <ul id={childrenGroupId} role="group" data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
+          {group.entries.map((entry, noteIndex) => (
+            <li role="presentation" key={entry.note.id} className={treeItemClassName(true, true)}>
+              {showRootRow ? <span aria-hidden="true" data-tree-guide={noteIndex === group.entries.length - 1 ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
+              <NoteRow
+                entry={entry}
+                selected={entry.note.id === selection.selectedNoteId && (!selection.selectedFolderId || selection.selectedFolderId === UNFILED_FOLDER_ID)}
+                focusTarget={entry.note.id === selection.selectedNoteId}
+                onSelect={actions.onNoteSelect}
+                onOpen={actions.onOpenNote}
+                onCopyLink={actions.onCopyNoteLink}
+                onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+                onDuplicate={actions.onDuplicateNote}
+                onExportMarkdown={actions.onExportNoteMarkdown}
+                onDelete={actions.onDeleteNote}
+                onRevealFolder={actions.onRevealNoteFolder}
+                onRevealInFinder={actions.onNoteRevealInFinder}
+                onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
+                selectedFolder={selectedFolderForNoteMove}
+                draggable
+                disabledDrag={status.isMovingNote}
+                active={activeNoteId === entry.note.id}
+                compact
+              />
+            </li>
+          ))}
+          </ul>
+        </KeepMountedOnceOpen>
+      </li>
+    );
+  }) : tree.unfiled.notes.map((entry, index) => (
     <li role="presentation" key={`root:${entry.note.id}`} className={treeItemClassName(showRootRow, true)}>
       {showRootRow ? <span aria-hidden="true" data-tree-guide={index === tree.unfiled.notes.length - 1 ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
       <NoteRow
@@ -1368,7 +1460,7 @@ function NavigatorTree({
   ), [
     actions, activeFolderId, activeNoteId, layout.collapsedFolderIds, selectedFolderForNoteMove,
     selection.selectedFolderId, selection.selectedNoteId, showRootRow, status.isMovingFolder,
-    status.isMovingNote, tree,
+    status.isMovingNote, tagGrouping, tree,
   ]);
 
   return (

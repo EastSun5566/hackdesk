@@ -104,7 +104,8 @@ export function KeyHintBar({
   leader,
   onOpenShortcuts,
   splitStatusLine = false,
-  sidebarWidth = 0,
+  sidebarWidth: suppliedSidebarWidth,
+  sidebarPanelId,
   navigatorCollapsed = false,
   keyHintsVisible = true,
 }: {
@@ -117,12 +118,27 @@ export function KeyHintBar({
   onOpenShortcuts: () => void;
   splitStatusLine?: boolean;
   sidebarWidth?: number;
+  sidebarPanelId?: string;
   navigatorCollapsed?: boolean;
   keyHintsVisible?: boolean;
 }) {
   const editorStatus = useEditorStatus();
   const [context, setContext] = useState<KeyHintContext>('navigator');
   const [typing, setTyping] = useState(false);
+  const [measuredSidebarWidth, setMeasuredSidebarWidth] = useState(0);
+
+  useEffect(() => {
+    if (!splitStatusLine || !sidebarPanelId) return undefined;
+    const panel = document.getElementById(sidebarPanelId);
+    if (!panel) return undefined;
+    const measure = () => setMeasuredSidebarWidth(panel.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [splitStatusLine, sidebarPanelId, navigatorCollapsed]);
+
+  const sidebarWidth = suppliedSidebarWidth ?? measuredSidebarWidth;
 
   useEffect(() => {
     let timer: number | undefined;
