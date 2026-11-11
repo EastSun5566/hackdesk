@@ -11,8 +11,12 @@ import {
   WidgetType,
   type DecorationSet,
 } from '@codemirror/view';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 
+import { activeLinesChanged, getActiveLines, getFrontmatterRange, revealInitialSelection } from './hfm-decoration-ranges';
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
+import { formatImageSize, getImageCaption } from './hfm-images';
+import type { ImageSize } from './hfm-types';
 import { treeGrowthEffect } from './tree-progress';
 import { resolvePreviewImageSource, type LocalImageContext } from '@/lib/local-image';
 
@@ -35,9 +39,10 @@ class ImagePreviewWidget extends WidgetType {
   constructor(
     private readonly src: string | null,
     private readonly alt: string,
+    private readonly caption: string,
     private readonly lineTo: number,
-    private readonly width?: number,
-    private readonly height?: number,
+    private readonly width?: ImageSize,
+    private readonly height?: ImageSize,
   ) {
     super();
   }
@@ -45,14 +50,15 @@ class ImagePreviewWidget extends WidgetType {
   eq(other: ImagePreviewWidget): boolean {
     return other.src === this.src
       && other.alt === this.alt
+      && other.caption === this.caption
       && other.lineTo === this.lineTo
-      && other.width === this.width
-      && other.height === this.height;
+      && sameSize(other.width, this.width)
+      && sameSize(other.height, this.height);
   }
 
   get estimatedHeight(): number {
-    if (this.height) {
-      return this.height + 48;
+    if (this.height?.unit === 'px') {
+      return this.height.value + 48;
     }
 
     const cached = this.src ? imageDimensionCache.get(this.src) : undefined;
@@ -73,20 +79,7 @@ class ImagePreviewWidget extends WidgetType {
     image.alt = this.alt;
     image.loading = 'lazy';
 
-    const cached = this.src ? imageDimensionCache.get(this.src) : undefined;
-    const stableWidth = this.width ?? cached?.width;
-    const stableHeight = this.height ?? cached?.height;
-    if (stableWidth && stableHeight) {
-      image.width = stableWidth;
-      image.height = stableHeight;
-    }
-
-    if (this.width) {
-      image.style.maxWidth = `${this.width}px`;
-    }
-    if (this.height) {
-      image.style.maxHeight = `${this.height}px`;
-    }
+    applyImageSize(image, this.width, this.height, this.src ? imageDimensionCache.get(this.src) : undefined);
 
     image.addEventListener('load', () => {
       if (!this.src || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
@@ -107,6 +100,7 @@ class ImagePreviewWidget extends WidgetType {
     wrap.appendChild(image);
 
     const unavailable = document.createElement('span');
+    unavailable.className = 'cm-hackmd-image-unavailable';
     unavailable.textContent = 'Image unavailable';
     unavailable.hidden = Boolean(this.src);
     image.hidden = !this.src;
@@ -117,9 +111,9 @@ class ImagePreviewWidget extends WidgetType {
     });
     wrap.appendChild(unavailable);
 
-    if (this.alt) {
+    if (this.caption) {
       const caption = document.createElement('figcaption');
-      caption.textContent = this.alt;
+      caption.textContent = this.caption;
       wrap.appendChild(caption);
     }
 
@@ -142,16 +136,39 @@ class ImagePreviewWidget extends WidgetType {
   }
 }
 
+/** Code and front matter show their source as written: an image-looking line there is text. */
+function isSourceOnlyLine(state: EditorState, tree: ReturnType<typeof syntaxTree>, lineTo: number) {
+  const frontmatter = getFrontmatterRange(state.doc);
+  if (frontmatter && state.doc.lineAt(lineTo).number <= frontmatter.endLine) return true;
+  // From the line's end: an indented code block's node starts after its indentation.
+  for (let node: ReturnType<typeof tree.resolveInner> | null = tree.resolveInner(lineTo, -1); node; node = node.parent) {
+    if (node.name === 'FencedCode' || node.name === 'CodeBlock') return true;
+  }
+  return false;
+}
+
 function buildHfmBlocks(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
   const context = state.field(localImageContextField);
+  const activeLines = getActiveLines(state);
+  const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
 
   for (const image of getHfmDocumentIndex(state).images) {
-    ranges.push(Decoration.widget({
-      block: true,
-      side: 1,
-      widget: new ImagePreviewWidget(resolvePreviewImageSource(image.src, context), image.alt, image.lineTo, image.width, image.height),
-    }).range(image.lineTo));
+    if (isSourceOnlyLine(state, tree, image.lineTo)) continue;
+    const widget = new ImagePreviewWidget(
+      resolvePreviewImageSource(image.src, context),
+      image.alt,
+      getImageCaption(image),
+      image.lineTo,
+      image.width,
+      image.height,
+    );
+    // Away from the cursor the figure stands in for its source line, like math and diagrams do.
+    // With the cursor on the line, the source is shown for editing and the figure stays below it.
+    const lineIsActive = activeLines.has(state.doc.lineAt(image.lineTo).number);
+    ranges.push(lineIsActive
+      ? Decoration.widget({ block: true, side: 1, widget }).range(image.lineTo)
+      : Decoration.replace({ block: true, widget }).range(image.lineFrom, image.lineTo));
   }
 
   return Decoration.set(ranges, true);
@@ -161,20 +178,51 @@ const hfmBlocksField = StateField.define<DecorationSet>({
   create: (state) => buildHfmBlocks(state),
   update(decorations, transaction) {
     for (const effect of transaction.effects) {
-      if (effect.is(treeGrowthEffect) || effect.is(setLocalImageContext)) {
+      if (effect.is(treeGrowthEffect) || effect.is(setLocalImageContext) || effect.is(revealInitialSelection)) {
         return buildHfmBlocks(transaction.state);
       }
     }
 
-    if (!transaction.docChanged) {
-      return decorations;
+    if (transaction.docChanged || (transaction.selection && activeLinesChanged(transaction.startState, transaction.state))) {
+      return buildHfmBlocks(transaction.state);
     }
 
-    return buildHfmBlocks(transaction.state);
+    return decorations;
   },
   provide: (field) => EditorView.decorations.from(field),
 });
 
 export function hfmBlocks(context: LocalImageContext | null = null): Extension {
   return [hfmDocumentIndexExtension, localImageContextField.init(() => context), hfmBlocksField];
+}
+
+function sameSize(left?: ImageSize, right?: ImageSize): boolean {
+  return left?.value === right?.value && left?.unit === right?.unit;
+}
+
+/**
+ * Sizes the image the way HackMD does: a given width or height is the rendered size (so a small
+ * image scales up), a missing side follows the aspect ratio, and the theme caps the width at the
+ * column. A percentage height has no box to resolve against in the editor, so it is ignored.
+ */
+export function applyImageSize(
+  image: HTMLImageElement,
+  width: ImageSize | undefined,
+  height: ImageSize | undefined,
+  natural: { height: number; width: number } | undefined,
+) {
+  // Pixel sizes also go on the attributes, which reserve the box (and its aspect ratio) before load.
+  if (width) {
+    image.style.width = formatImageSize(width);
+    if (width.unit === 'px') image.width = width.value;
+  }
+  if (height?.unit === 'px') {
+    image.style.height = formatImageSize(height);
+    image.height = height.value;
+  }
+  if (natural && !width && !height) {
+    // Reserve the natural box before the image loads, so the editor's height map stays stable.
+    image.width = natural.width;
+    image.height = natural.height;
+  }
 }

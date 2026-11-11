@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorView } from '@codemirror/view';
 import { redo, undo } from '@codemirror/commands';
 
+import { revealInitialSelection } from './hackmd-live-preview/hfm-decoration-ranges';
 import { hfmFixtures } from './hackmd-live-preview/hfm-fixtures';
 import { formatMarkdownImage } from './hackmd-live-preview/markdown-image';
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
@@ -381,13 +382,13 @@ describe('MarkdownEditor', () => {
     expect(within(searchPanel).getByRole('button', { name: 'Previous match' })).toHaveAttribute('type', 'button');
     expect(within(searchPanel).getByRole('button', { name: 'Next match' })).toHaveAttribute('type', 'button');
     expect(within(searchPanel).getByRole('button', { name: 'Close search' })).toHaveAttribute('type', 'button');
+    expect(getComputedStyle(searchPanel)).toMatchObject({ position: 'absolute', borderRadius: '6px' });
     expect(getComputedStyle(within(searchPanel).getByRole('textbox', { name: 'Find in note' }))).toMatchObject({
-      height: '32px',
-      borderRadius: '6px',
+      height: '26px',
     });
     expect(getComputedStyle(within(searchPanel).getByRole('button', { name: 'Next match' }))).toMatchObject({
-      height: '32px',
-      width: '32px',
+      height: '26px',
+      width: '26px',
     });
     expect(searchPanel).not.toHaveTextContent(/replace/i);
     expect(searchPanel).not.toHaveTextContent(/match case/i);
@@ -900,7 +901,9 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
     const marker = await waitFor(() => {
       const node = editor.querySelector<HTMLElement>('.cm-hackmd-list-marker:not(.cm-hackmd-ordered-list-marker)');
-      expect(node?.textContent).toBe('•');
+      // The dot is drawn in CSS, so the marker has no text of its own.
+      expect(node).toHaveClass('cm-hackmd-bullet', 'cm-hackmd-bullet-disc');
+      expect(node?.textContent).toBe('');
       return node;
     });
     const listLine = marker?.closest<HTMLElement>('.cm-hackmd-list-line');
@@ -1681,6 +1684,47 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
     await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
+  });
+
+  it('shows front matter as a metadata panel without reading its YAML as markdown', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = ['---', 'title: Hello', 'tags: [a, b] :smile:', '---', '', 'Body'].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    const lines = () => Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'));
+
+    await waitFor(() => expect(lines()[0]).toHaveTextContent('Metadata'));
+    expect(lines().slice(0, 4).every((line) => line.classList.contains('cm-hackmd-frontmatter'))).toBe(true);
+    expect(lines()[1].querySelector('.cm-hackmd-frontmatter-key')).toHaveTextContent('title:');
+    // Not a link, not an emoji, and the closing --- does not make the line above a heading.
+    expect(lines()[2]).toHaveTextContent('tags: [a, b] :smile:');
+    expect(lines()[2].querySelector('.cm-hackmd-link, .cm-hackmd-rich-emoji')).toBeNull();
+    expect(editor.querySelector('.cm-hackmd-h2')).toBeNull();
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('reveals only the link under the cursor, not every link on its line', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = 'See [one](https://one.example) and [two](https://two.example) here.';
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor')!)!;
+    const line = () => editor.querySelector('.cm-line')!.textContent;
+
+    act(() => view.dispatch({ effects: revealInitialSelection.of(), selection: { anchor: markdown.indexOf('two') + 1 } }));
+    await waitFor(() => expect(line()).toContain('(https://two.example)'));
+    expect(line()).not.toContain('https://one.example');
+    // The other link keeps its open button; the one being edited drops it.
+    expect(editor.querySelectorAll('.cm-hackmd-link-open')).toHaveLength(1);
+
+    act(() => view.dispatch({ selection: { anchor: markdown.indexOf('here') } }));
+    await waitFor(() => expect(line()).not.toContain('https://two.example'));
+    expect(line()).toContain('See one and two here.');
+    await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-link-open')).toHaveLength(2));
   });
 
   it('decorates active autolinks as source-safe links', async () => {

@@ -4,7 +4,7 @@ import {
 } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 
-import { parseMarkdownImage } from './hfm-recognizers';
+import { parseImageLine } from './hfm-recognizers';
 import { fenceOpenPattern } from './hfm-patterns';
 
 export type RichPreviewRangeKind = 'fence' | 'image' | 'math-block' | 'table';
@@ -131,7 +131,7 @@ function isMarkdownTableRow(text: string): boolean {
 function addImageRanges(state: EditorState, ranges: RichPreviewSourceRange[]) {
   for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
     const line = state.doc.line(lineNumber);
-    const image = parseMarkdownImage(line.text, line.to);
+    const image = parseImageLine(line.text, line.to);
     if (!image) {
       continue;
     }

@@ -45,10 +45,8 @@ export const hackmdMarkdownHighlightStyle = HighlightStyle.define([
     tag: tags.quote,
     color: 'var(--text-subtle)',
   },
-  {
-    tag: tags.monospace,
-    color: 'var(--primary-default)',
-  },
+  // No colour for tags.monospace: it covers fenced code text too, which would paint every character
+  // the language leaves unstyled. Inline code takes its colour from .cm-hackmd-inline-code.
   {
     tag: tags.contentSeparator,
     color: 'var(--border-default)',

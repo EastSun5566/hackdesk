@@ -224,7 +224,12 @@ class TableWidget extends WidgetType {
     caption.className = 'cm-hackmd-table-caption';
     caption.textContent = 'Markdown table';
     table.appendChild(caption);
-    wrap.appendChild(table);
+    // The block holds the spacing around the table; the frame inside it draws the border, so the
+    // rows meet the border with no gap.
+    const frame = document.createElement('div');
+    frame.className = 'cm-hackmd-table-frame';
+    frame.appendChild(table);
+    wrap.appendChild(frame);
 
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');

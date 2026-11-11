@@ -3,7 +3,16 @@ export { EDITOR_LINE_WIDTH } from './editor-content-layout';
 
 const EDITOR_CONTROL_HEIGHT = '32px';
 const EDITOR_CONTROL_RADIUS = '6px';
+const SEARCH_CONTROL_HEIGHT = '26px';
 const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)';
+/** Set per mode by createHackmdPreviewTheme: the muted surface in light, a lifted one in dark. */
+const CODE_PANEL_BACKGROUND = 'var(--cm-code-panel)';
+export const CODE_PANEL_BACKGROUNDS = {
+  // Light: the theme's own muted surface, a clean tint of the page instead of a grey wash.
+  light: 'var(--background-muted)',
+  // Dark: --background-muted sits below the page, so lift the panel a step toward the text instead.
+  dark: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
+} as const;
 export const EDITOR_SELECTION_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 24%, transparent)';
 const EDITOR_BLOCK_CURSOR_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 55%, transparent)';
 
@@ -175,43 +184,58 @@ export const searchPanelTheme = {
     backgroundColor: 'var(--background-selected)',
     color: 'var(--text-default)',
   },
+  // Find floats over the top right of the note like the app's other popovers, instead of a bar
+  // that pushes the note down. The top panel container keeps no height of its own, so opening it
+  // never moves the text.
   '.cm-panel.cm-search.cm-hackdesk-search-panel': {
-    borderBottom: '1px solid var(--border-subtle)',
-    backgroundColor: 'var(--background-default)',
-    padding: '8px',
+    position: 'absolute',
+    top: '10px',
+    right: '16px',
+    width: 'min(320px, calc(100% - 32px))',
+    boxSizing: 'border-box',
+    border: '1px solid var(--border-default)',
+    borderRadius: EDITOR_CONTROL_RADIUS,
+    backgroundColor: 'var(--background-raised, var(--background-default))',
+    boxShadow: '0 3px 15px 0 rgba(0, 0, 0, 0.15)',
+    padding: '4px',
   },
   '.cm-hackdesk-search-form': {
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    gap: '2px',
   },
   '.cm-hackdesk-search-input': {
     minWidth: '0',
     flex: '1 1 auto',
-    height: EDITOR_CONTROL_HEIGHT,
-    border: '1px solid var(--border-default)',
-    borderRadius: EDITOR_CONTROL_RADIUS,
-    backgroundColor: 'var(--background-default)',
+    height: SEARCH_CONTROL_HEIGHT,
+    border: '1px solid transparent',
+    borderRadius: '4px',
+    backgroundColor: 'transparent',
     color: 'var(--text-default)',
     fontFamily: 'var(--font-sans)',
-    fontSize: 'var(--font-size-ui)',
+    fontSize: 'calc(var(--font-size-ui) - 1px)',
     outline: 'none',
-    padding: '0 9px',
+    padding: '0 6px',
     transition: 'border-color 120ms ease, box-shadow 120ms ease',
   },
   '.cm-hackdesk-search-input:focus': {
+    borderColor: 'transparent',
+  },
+  // The whole card shows focus, so the field itself stays borderless.
+  '.cm-panel.cm-search.cm-hackdesk-search-panel:focus-within': {
     borderColor: 'var(--focus-ring)',
-    boxShadow: EDITOR_FOCUS_RING,
+    boxShadow: `${EDITOR_FOCUS_RING}, 0 3px 15px 0 rgba(0, 0, 0, 0.15)`,
   },
   '.cm-hackdesk-search-input::placeholder': {
     color: 'var(--text-subtle)',
   },
   '.cm-hackdesk-search-count': {
     flex: '0 0 auto',
-    minWidth: '42px',
+    minWidth: '20px',
+    paddingInline: '4px',
     color: 'var(--text-subtle)',
     fontFamily: 'var(--font-sans)',
-    fontSize: '0.875em',
+    fontSize: 'calc(var(--font-size-ui) - 2px)',
     fontVariantNumeric: 'tabular-nums',
     textAlign: 'right',
     userSelect: 'none',
@@ -221,12 +245,12 @@ export const searchPanelTheme = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: EDITOR_CONTROL_HEIGHT,
-    height: EDITOR_CONTROL_HEIGHT,
+    width: SEARCH_CONTROL_HEIGHT,
+    height: SEARCH_CONTROL_HEIGHT,
     flex: '0 0 auto',
-    border: '1px solid var(--border-default)',
-    borderRadius: EDITOR_CONTROL_RADIUS,
-    backgroundColor: 'var(--background-default)',
+    border: '1px solid transparent',
+    borderRadius: '4px',
+    backgroundColor: 'transparent',
     color: 'var(--icon-subtle)',
     cursor: 'default',
     padding: '0',
@@ -247,8 +271,8 @@ export const searchPanelTheme = {
     boxShadow: EDITOR_FOCUS_RING,
   },
   '.cm-hackdesk-search-button svg': {
-    width: '15px',
-    height: '15px',
+    width: '14px',
+    height: '14px',
   },
   '.cm-searchMatch': {
     borderRadius: '3px',
@@ -306,11 +330,21 @@ export const proseTheme = {
     borderLeft: '3px solid var(--border-bold)',
     paddingLeft: '0.75rem',
   },
-  '.cm-hackmd-frontmatter': {
+  // Front matter shares the code panel's classes. The markdown highlighter still reads its YAML as
+  // markdown (`[a, b]` as a link), so its token styles are neutralised; keys read quieter than values.
+  '.cm-hackmd-frontmatter span': {
+    color: 'inherit',
+    fontStyle: 'inherit',
+    fontWeight: 'inherit',
+    fontSize: 'inherit',
+    textDecoration: 'none',
+  },
+  '.cm-hackmd-frontmatter .cm-hackmd-frontmatter-key, .cm-hackmd-frontmatter .cm-hackmd-code-label': {
     color: 'var(--text-subtle)',
-    backgroundColor: 'var(--background-muted)',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '0.88em',
+  },
+  '.cm-hackmd-frontmatter .cm-hackmd-frontmatter-comment': {
+    color: 'var(--code-comment, var(--text-subtle))',
+    fontStyle: 'italic',
   },
   '.cm-hackmd-hr': {
     color: 'transparent',
@@ -328,71 +362,135 @@ export const proseTheme = {
 };
 
 export const codeAndBlockTheme = {
+  // A fence is one quiet panel: a flat tint with rounded ends, no stripe. Text the language does not
+  // colour stays in the body colour; the token colours come from the theme's --code-* palette.
   '.cm-hackmd-fenced-code': {
     fontFamily: 'var(--font-mono)',
     fontSize: '0.88em',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
-    paddingInline: '0.875rem',
+    color: 'var(--text-default)',
+    backgroundColor: CODE_PANEL_BACKGROUND,
+    paddingInline: '1rem',
   },
+  // Code lines are a fractional number of pixels tall, so neighbouring line backgrounds can leave an
+  // anti-aliased seam. A 1px shadow of the panel colour under each line but the last fills it.
+  '.cm-hackmd-fenced-code:not(.cm-hackmd-code-footer, .cm-hackmd-code-last), .cm-hackmd-indented-code': {
+    boxShadow: `0 1px 0 ${CODE_PANEL_BACKGROUND}`,
+  },
+  // Measured space between a panel and a line that touches it (see block-spacing.ts). 12px matches
+  // the widget's estimated height, so the height map needs no correction.
+  '.cm-hackmd-panel-spacer': {
+    height: '12px',
+  },
+  '.cm-hackmd-code-header': {
+    borderStartStartRadius: '6px',
+    borderStartEndRadius: '6px',
+    paddingTop: '0.2em',
+  },
+  // Away from the cursor, the opening fence is a slim header carrying the language on the right.
+  '.cm-hackmd-code-header-collapsed': {
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.75em',
+    lineHeight: '1.5',
+    paddingTop: '0.45em',
+    textAlign: 'right',
+  },
+  '.cm-hackmd-code-label': {
+    color: 'var(--text-subtle)',
+    letterSpacing: '0.01em',
+    userSelect: 'none',
+  },
+  '.cm-hackmd-code-footer, .cm-hackmd-code-last': {
+    borderEndStartRadius: '6px',
+    borderEndEndRadius: '6px',
+    paddingBottom: '0.2em',
+  },
+  // ...and the closing fence is just the panel's bottom padding.
+  '.cm-hackmd-code-footer-collapsed': {
+    fontSize: '0.5em',
+    lineHeight: '1',
+    paddingBottom: '0.6em',
+  },
+  // HackMD's `=`, `=N` and `=+` fences number their lines in a gutter inside the panel.
+  '.cm-hackmd-code-numbered': {
+    position: 'relative',
+    paddingInlineStart: 'calc(1rem + var(--cm-code-gutter, 2ch) + 1.5ch)',
+  },
+  '.cm-hackmd-code-numbered::before': {
+    content: 'attr(data-line-number)',
+    position: 'absolute',
+    left: '1rem',
+    width: 'var(--cm-code-gutter, 2ch)',
+    color: 'var(--text-subtle)',
+    opacity: '0.7',
+    textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums',
+    pointerEvents: 'none',
+    userSelect: 'none',
+  },
+  // Alerts and containers mark their edge with a real left border, as HackMD and GitHub do. An inset
+  // box-shadow on a rounded line bleeds a hairline across every line edge, and alert lines are also
+  // blockquote lines, whose own border would double the bar; this border replaces it.
   '.cm-hackmd-alert-block': {
     color: 'var(--text-default)',
     backgroundColor: 'transparent',
-    boxShadow: 'inset .25em 0 0 var(--border-bold)',
+    borderLeft: '0.25em solid var(--border-bold)',
     paddingInlineStart: '1rem',
     paddingInlineEnd: '0.75rem',
   },
+  // A container is a tinted panel like a code block: rounded ends and no edge bar, since a bar
+  // beside rounded corners reads as a stray stroke. Each line paints a 1px shadow of its own tint
+  // below it to close the anti-aliased seam between fractionally tall lines.
   '.cm-hackmd-container-block': {
+    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
     color: 'var(--text-default)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
-    boxShadow: 'inset 4px 0 0 color-mix(in oklch, var(--primary-default) 72%, var(--border-bold) 28%)',
-    paddingInlineStart: '1.15rem',
-    paddingInlineEnd: '0.75rem',
+    backgroundColor: 'var(--cm-container-tint)',
+    boxShadow: '0 1px 0 var(--cm-container-tint)',
+    paddingInline: '1rem',
   },
   '.cm-hackmd-alert-block-start, .cm-hackmd-container-block-start': {
-    borderStartStartRadius: '6px',
-    borderStartEndRadius: '6px',
     paddingTop: '0.12rem',
   },
   '.cm-hackmd-alert-block-end, .cm-hackmd-container-block-end': {
-    borderEndStartRadius: '6px',
-    borderEndEndRadius: '6px',
     paddingBottom: '0.12rem',
   },
+  '.cm-hackmd-container-block-start': {
+    borderStartStartRadius: '6px',
+    borderStartEndRadius: '6px',
+  },
+  '.cm-hackmd-container-block-end': {
+    borderEndStartRadius: '6px',
+    borderEndEndRadius: '6px',
+    boxShadow: 'none',
+  },
   '.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo': {
-    boxShadow: 'inset .25em 0 0 var(--link-text-default)',
+    borderLeftColor: 'var(--link-text-default)',
   },
   '.cm-hackmd-alert-block-tip': {
-    boxShadow: 'inset .25em 0 0 var(--success-default)',
+    borderLeftColor: 'var(--success-default)',
   },
   '.cm-hackmd-alert-block-important': {
-    boxShadow: 'inset .25em 0 0 var(--primary-default)',
+    borderLeftColor: 'var(--primary-default)',
   },
   '.cm-hackmd-alert-block-warning': {
-    boxShadow: 'inset .25em 0 0 var(--warning-default)',
+    borderLeftColor: 'var(--warning-default)',
   },
   '.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger': {
-    boxShadow: 'inset .25em 0 0 var(--destructive-default)',
+    borderLeftColor: 'var(--destructive-default)',
   },
   '.cm-hackmd-container-block-success': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--success-default) 8%)',
-    boxShadow: 'inset 4px 0 0 var(--success-default)',
+    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 90%, var(--success-default) 10%)',
   },
   '.cm-hackmd-container-block-warning': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 90%, var(--warning-default) 10%)',
-    boxShadow: 'inset 4px 0 0 var(--warning-default)',
+    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 88%, var(--warning-default) 12%)',
   },
   '.cm-hackmd-container-block-danger': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 90%, var(--destructive-default) 10%)',
-    boxShadow: 'inset 4px 0 0 var(--destructive-default)',
+    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 90%, var(--destructive-default) 10%)',
   },
   '.cm-hackmd-container-block-spoiler': {
-    backgroundColor: 'var(--background-muted)',
-    boxShadow: 'inset 3px 0 0 var(--border-bold)',
+    '--cm-container-tint': 'var(--background-muted)',
   },
   '.cm-hackmd-table-block': {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 76%, var(--primary-default) 24%)',
     paddingInlineStart: '0.75rem',
     paddingInlineEnd: '0.75rem',
   },
@@ -406,39 +504,34 @@ export const codeAndBlockTheme = {
     borderEndEndRadius: '6px',
     paddingBottom: '0.1rem',
   },
+  // `[name=]`, `[time=]` and `[color=]` lines belong to the blockquote around them; they take its
+  // border and colour instead of a tinted band of their own.
   '.cm-hackmd-blockquote-meta-block': {
     color: 'var(--text-subtle)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 3px 0 0 color-mix(in oklch, var(--primary-default) 52%, var(--border-bold) 48%)',
-    paddingInlineStart: '0.85rem',
   },
-  '.cm-hackmd-blockquote-meta-block-start': {
-    borderStartStartRadius: '6px',
-    borderStartEndRadius: '6px',
-    paddingTop: '0.1rem',
-  },
-  '.cm-hackmd-blockquote-meta-block-end': {
-    borderEndStartRadius: '6px',
-    borderEndEndRadius: '6px',
-    paddingBottom: '0.1rem',
-  },
-  '.cm-hackmd-tags-line, .cm-hackmd-toc-line, .cm-hackmd-blockquote-meta': {
+  '.cm-hackmd-tags-line, .cm-hackmd-toc-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'var(--background-muted)',
   },
-  '.cm-hackmd-hfm-fence, .cm-hackmd-code-fence-options, .cm-hackmd-math-block-line, .cm-hackmd-external-line': {
+  '.cm-hackmd-blockquote-meta': {
+    color: 'var(--text-subtle)',
+  },
+  // `$$` delimiters while editing math: quiet source text, no band or edge bar.
+  '.cm-hackmd-math-block-line': {
+    color: 'var(--text-subtle)',
+  },
+  '.cm-hackmd-external-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 55%, var(--border-bold) 45%)',
+    borderLeft: '2px solid color-mix(in oklch, var(--primary-default) 55%, var(--border-bold) 45%)',
     paddingInlineStart: '0.75rem',
   },
   '.cm-hackmd-indented-code': {
     fontFamily: 'var(--font-mono)',
     fontSize: '0.88em',
     color: 'var(--text-subtle)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
-    boxShadow: 'inset 2px 0 0 var(--border-bold)',
-    paddingInlineStart: '0.875rem',
+    backgroundColor: CODE_PANEL_BACKGROUND,
+    paddingInline: '1rem',
   },
   '.cm-hackmd-table-line': {
     color: 'var(--text-subtle)',
@@ -550,11 +643,54 @@ export const inlineMarksTheme = {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 70%, transparent)',
     borderRadius: '3px',
   },
-  '.cm-hackmd-typographer': {
-    color: 'var(--text-subtle)',
+  // Inline HTML that HackMD renders as formatting. <b>, <i>, <del>, <ins>, <mark>, <sub> and <sup>
+  // reuse the classes of their markdown equivalents.
+  '.cm-hackmd-html-kbd': {
+    display: 'inline-block',
+    border: '1px solid var(--border-default)',
+    borderBottomWidth: '2px',
+    borderRadius: '4px',
+    backgroundColor: 'var(--background-muted)',
+    color: 'var(--text-default)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.8em',
+    lineHeight: '1.3',
+    padding: '0 0.35em',
+    verticalAlign: '0.06em',
+  },
+  '.cm-hackmd-html-u': {
     textDecoration: 'underline',
-    textDecorationColor: 'color-mix(in oklch, var(--text-subtle) 35%, transparent)',
-    textUnderlineOffset: '0.16em',
+    textUnderlineOffset: '0.15em',
+  },
+  '.cm-hackmd-html-small': {
+    fontSize: '0.85em',
+  },
+  '.cm-hackmd-html-abbr': {
+    textDecoration: 'underline dotted',
+    textUnderlineOffset: '0.15em',
+    cursor: 'help',
+  },
+  '.cm-hackmd-html-q::before': {
+    content: '"\u201C"',
+  },
+  '.cm-hackmd-html-q::after': {
+    content: '"\u201D"',
+  },
+  '.cm-hackmd-html-summary': {
+    fontWeight: '600',
+  },
+  '.cm-hackmd-html-disclosure::before': {
+    content: '"\u25B8"',
+    display: 'inline-block',
+    width: '1em',
+    color: 'var(--text-subtle)',
+  },
+  '.cm-hackmd-html-br': {
+    color: 'var(--text-subtle)',
+    fontSize: '0.85em',
+    opacity: '0.7',
+    paddingInline: '0.15em',
+    userSelect: 'none',
   },
   '.cm-hackmd-list-marker': {
     display: 'inline-block',
@@ -563,6 +699,31 @@ export const inlineMarksTheme = {
     color: 'var(--text-subtle)',
     fontVariantNumeric: 'tabular-nums',
     textAlign: 'right',
+  },
+  // A drawn dot, centred on the x-height: about a third of an em, the size of a browser's disc at
+  // body text size. Deeper levels switch to a ring, then a square, like nested HTML lists.
+  '.cm-hackmd-bullet': {
+    // Centred in the marker slot, the dot keeps about half an em from the text, as a browser's does.
+    textAlign: 'center',
+  },
+  '.cm-hackmd-bullet::before': {
+    content: '""',
+    display: 'inline-block',
+    boxSizing: 'border-box',
+    width: '0.36em',
+    height: '0.36em',
+    borderRadius: '50%',
+    backgroundColor: 'currentColor',
+    verticalAlign: '0.16em',
+  },
+  '.cm-hackmd-bullet-circle::before': {
+    backgroundColor: 'transparent',
+    border: '0.075em solid currentColor',
+  },
+  '.cm-hackmd-bullet-square::before': {
+    width: '0.32em',
+    height: '0.32em',
+    borderRadius: '1px',
   },
   '.cm-hackmd-ordered-list-marker': {
     color: 'var(--text-subtle)',
@@ -616,16 +777,21 @@ export const inlineMarksTheme = {
 };
 
 export const widgetTheme = {
+  // The widget block carries the vertical spacing; the frame inside it draws the border, so the
+  // header and the last row meet the border with no gap and column rules run its full height.
   '.cm-hackmd-table': {
     maxWidth: '100%',
-    overflowX: 'auto',
     contentVisibility: 'auto',
     containIntrinsicSize: 'auto none auto 180px',
+    fontFamily: 'var(--font-sans)',
+    padding: '0.5rem 0',
+  },
+  '.cm-hackmd-table-frame': {
+    maxWidth: '100%',
+    overflowX: 'auto',
     border: '1px solid var(--border-default)',
     borderRadius: '6px',
     backgroundColor: 'var(--background-default)',
-    fontFamily: 'var(--font-sans)',
-    padding: '0.45rem 0 0.75rem 0',
   },
   '.cm-hackmd-table table': {
     width: '100%',
@@ -707,42 +873,55 @@ export const widgetTheme = {
   '.cm-hackmd-csv-preview td': {
     color: 'var(--text-subtle)',
   },
+  // A figure is the image itself: no frame, tint or padding around it. Vertical rhythm comes from
+  // padding (not margin), which CodeMirror's height map measures.
   '.cm-hackmd-image-preview': {
-    maxWidth: 'min(100%, 720px)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    margin: '0',
+    padding: '0.5em 0',
     contentVisibility: 'auto',
     containIntrinsicSize: 'auto none auto 220px',
-    borderRadius: '6px',
-    border: '1px solid var(--border-default)',
-    backgroundColor: 'var(--background-muted)',
-    padding: '0.5rem',
   },
   '.cm-hackmd-image-preview img': {
     display: 'block',
     maxWidth: '100%',
     height: 'auto',
-    borderRadius: '4px',
+    borderRadius: '6px',
+    cursor: 'text',
   },
   '.cm-hackmd-image-preview img[hidden]': {
     display: 'none',
   },
   '.cm-hackmd-image-preview figcaption': {
-    marginTop: '0.35rem',
+    maxWidth: '100%',
+    marginTop: '0.5em',
     color: 'var(--text-subtle)',
-    fontFamily: 'var(--font-sans)',
-    fontSize: '12px',
+    fontSize: '0.875em',
+    lineHeight: '1.45',
+    textWrap: 'pretty',
   },
+  '.cm-hackmd-image-unavailable': {
+    display: 'inline-block',
+    borderRadius: '6px',
+    backgroundColor: 'var(--background-muted)',
+    color: 'var(--text-subtle)',
+    fontSize: '0.875em',
+    padding: '0.35em 0.65em',
+  },
+  '.cm-hackmd-image-unavailable[hidden]': {
+    display: 'none',
+  },
+  // Rendered math and diagrams stand on the page like the images do: no frame, tint or accent stripe.
   '.cm-hackmd-rich-block': {
     maxWidth: 'min(100%, 820px)',
     contentVisibility: 'auto',
     containIntrinsicSize: 'auto none auto 220px',
-    border: '1px solid var(--border-default)',
-    borderRadius: '6px',
-    backgroundColor: 'var(--background-muted)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 60%, var(--border-bold) 40%)',
     color: 'var(--text-default)',
     fontFamily: 'var(--font-sans)',
     overflow: 'auto',
-    padding: '1.2rem 0.75rem 0.75rem 0.75rem',
+    padding: '0.5rem 0',
   },
   '.cm-hackmd-rich-render-body': {
     minHeight: '1.5rem',
@@ -765,9 +944,8 @@ export const widgetTheme = {
     margin: '0',
     color: 'var(--text-default)',
   },
-  '.cm-hackmd-rich-render-error': {
-    borderColor: 'var(--destructive-default)',
-    boxShadow: 'inset 2px 0 0 var(--destructive-default)',
+  '.cm-hackmd-rich-render-error, .cm-hackmd-rich-render-error .cm-hackmd-rich-render-body': {
+    color: 'var(--destructive-default)',
   },
   '.cm-hackmd-rich-emoji': {
     display: 'inline-block',

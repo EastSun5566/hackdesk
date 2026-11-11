@@ -270,11 +270,13 @@ test('inline preview follows scrolling and reveals source without losing edits',
       await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = element.scrollHeight; });
       await expect(lastLine).toHaveText('bottom and link', { timeout: 500 });
     }).toPass();
-    await lastLine.click();
-    await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
+    // The line's own syntax reveals with the cursor on it; a link's source only with the cursor in it.
+    await lastLine.getByText('bottom', { exact: true }).click();
+    await expect(lastLine).toHaveText('**bottom** and link');
     await page.keyboard.press(`${primary}+End`);
+    await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
     await page.keyboard.type(' edited');
-    await expect(lastLine).toHaveText('**bottom** and [link](https://example.com) edited');
+    await expect(lastLine).toHaveText('**bottom** and link edited');
     await page.keyboard.press(`${primary}+z`);
     await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
   } finally {
@@ -1146,7 +1148,7 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       await openFixtureNote(page);
       await page.locator('.cm-content').click();
       await page.keyboard.press(`${primary}+f`);
-      await expect(page.locator('.cm-panels').first()).toBeVisible();
+      await expect(page.locator('.cm-panel.cm-search')).toBeVisible();
       await expect(page.locator('.cm-editor')).toHaveCSS('isolation', 'isolate');
       // Save uses real filesystem IPC. Routine saves are quiet; Rename Note confirms with a real
       // notification. It saves right away, from the leader menu in every editor mode.
@@ -1159,7 +1161,8 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       const notification = page.getByRole('status').filter({ hasText: `Renamed to “UI fixture ${editorMode}”.` });
       await expect(notification).toBeVisible();
       const bottomPanels = page.locator('.cm-panels-bottom');
-      const panels = await bottomPanels.count() ? bottomPanels : page.locator('.cm-panels-top');
+      // Find floats as a card over the note, so its top panel container has no height of its own.
+      const panels = await bottomPanels.count() ? bottomPanels : page.locator('.cm-panel.cm-search');
       // Force overlap with the real panel regardless of window geometry. Move
       // only the viewport; leave every z-index and stacking context untouched.
       const panel = (await panels.boundingBox())!;

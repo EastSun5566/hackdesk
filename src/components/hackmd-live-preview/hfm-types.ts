@@ -1,12 +1,21 @@
+export type ImageSize = {
+  unit: '%' | 'px';
+  value: number;
+};
+
 export type ImageBlock = {
   alt: string;
-  height?: number;
+  height?: ImageSize;
+  lineFrom: number;
   lineTo: number;
   src: string;
-  width?: number;
+  title?: string;
+  width?: ImageSize;
 };
 
 export type HfmInlineMark = {
+  /** Sanitized attributes for the mark's element (an inline colour, an abbreviation's title). */
+  attributes?: Record<string, string>;
   className: string;
   from: number;
   to: number;
@@ -15,6 +24,8 @@ export type HfmInlineMark = {
 export type HfmHiddenRange = {
   from: number;
   to: number;
+  /** Shown in place of the hidden source: `<br>` as a return glyph, `<summary>` as a disclosure mark. */
+  widget?: 'disclosure' | 'line-break';
 };
 
 export type HfmLineDecorations = {

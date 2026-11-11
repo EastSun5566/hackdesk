@@ -12,7 +12,7 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 
-import { activeLinesChanged, getActiveLines, revealInitialSelection } from './hfm-decoration-ranges';
+import { activeLinesChanged, getActiveLines, getFrontmatterRange, revealInitialSelection } from './hfm-decoration-ranges';
 import { fenceOpenPattern } from './hfm-patterns';
 import {
   ensureFontAwesomeCss,
@@ -37,7 +37,8 @@ const mathFenceLanguages = new Set(['math', 'tex', 'latex']);
 const emojiPattern = /:([A-Za-z0-9_+-]+):/g;
 const inlineMathPattern = /(?<!\\)\$(?!\s|\$)((?:\\.|[^\n$\\])+(?<!\s|\$))\$/g;
 const fontAwesomeTagPattern = /<i\s+class=(["'])([^"']+)\1\s*><\/i>/gi;
-const safeFontAwesomeClassPattern = /^(?:fa|fas|far|fab|fa-solid|fa-regular|fa-brands|fa-fw|fa-[a-z0-9-]+)$/;
+// Font Awesome 4.7 classes, as HackMD notes write them: `fa` plus `fa-*` names and modifiers.
+const safeFontAwesomeClassPattern = /^(?:fa|fa-[a-z0-9-]+)$/;
 
 class EmojiWidget extends WidgetType {
   constructor(
@@ -218,7 +219,10 @@ class CsvPreviewWidget extends WidgetType {
       body.appendChild(tableRow);
     }
     table.appendChild(body);
-    wrap.appendChild(table);
+    const frame = document.createElement('div');
+    frame.className = 'cm-hackmd-table-frame';
+    frame.appendChild(table);
+    wrap.appendChild(frame);
     wrap.addEventListener('mousedown', (event) => focusSourceLine(event, view, this.sourceFrom));
     return wrap;
   }
@@ -325,6 +329,10 @@ function buildRichPreviewDecorations(state: EditorState): DecorationSet {
       return false;
     },
   });
+
+  // Front matter is YAML: `:name:` or `$x$` in it is data, not an emoji or math.
+  const frontmatter = getFrontmatterRange(state.doc);
+  for (let lineNumber = 1; frontmatter && lineNumber <= frontmatter.endLine; lineNumber += 1) fencedLineNumbers.add(lineNumber);
 
   addDollarMathBlocks(state, activeLines, fencedLineNumbers, ranges);
   addInlineWidgets(state, activeLines, fencedLineNumbers, ranges);
@@ -506,10 +514,9 @@ function isSafeFontAwesomeClassName(className: string): boolean {
 }
 
 function normalizeFontAwesomeClassName(className: string): string {
+  // Font Awesome 4 needs the base `fa` class for every icon; HackMD notes sometimes leave it out.
   const classes = new Set(className.trim().split(/\s+/));
-  if (classes.has('fa')) {
-    classes.add('fa-solid');
-  }
+  classes.add('fa');
   return Array.from(classes).join(' ');
 }
 

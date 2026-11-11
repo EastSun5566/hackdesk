@@ -58,3 +58,10 @@ describe('ordered list marker previews', () => {
     ].join('\n'))).toEqual(['1.', '1.', '1.', '2.']);
   });
 });
+
+describe('bullet styles', () => {
+  it('cycle disc, circle, square by list depth like nested HTML lists', async () => {
+    const { getBulletStyle } = await import('./task-list-widgets');
+    expect([0, 1, 2, 3, 4].map(getBulletStyle)).toEqual(['disc', 'circle', 'square', 'disc', 'circle']);
+  });
+});

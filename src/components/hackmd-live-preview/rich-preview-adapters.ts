@@ -45,12 +45,36 @@ export function resolveEmojiShortcode(name: string): string | null {
   return nameToEmoji[name] ?? null;
 }
 
+/**
+ * Loads Font Awesome 4.7, the version HackMD renders `<i class="fa fa-…">` icons with, so the same
+ * icon names (fa-file-text-o, fa-github, …) work here. Its stylesheet lists five font formats;
+ * Electron only needs woff2, so the @font-face is replaced to bundle just that file.
+ */
 export function ensureFontAwesomeCss(): Promise<unknown> {
   if (!fontAwesomeCssPromise) {
-    fontAwesomeCssPromise = import('@fortawesome/fontawesome-free/css/all.css');
+    fontAwesomeCssPromise = Promise.all([
+      import('font-awesome/css/font-awesome.css?raw'),
+      import('font-awesome/fonts/fontawesome-webfont.woff2?url'),
+    ]).then(([css, font]) => {
+      const style = document.createElement('style');
+      style.dataset.hackdeskFontAwesome = '4.7.0';
+      style.textContent = withWoff2FontFace(css.default, font.default);
+      document.head.appendChild(style);
+    });
   }
 
   return fontAwesomeCssPromise;
+}
+
+export function withWoff2FontFace(css: string, fontUrl: string): string {
+  const fontFace = `@font-face {
+  font-family: 'FontAwesome';
+  src: url(${JSON.stringify(fontUrl)}) format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}`;
+  return css.replace(/@font-face\s*{[^}]*}/, fontFace);
 }
 
 export function parseCsvPreview(source: string, options: { delimiter?: string; header?: boolean } = {}): CsvPreviewModel {
