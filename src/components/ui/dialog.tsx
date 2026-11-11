@@ -67,6 +67,31 @@ const dialogPlacementClassNames = {
   top: 'mt-[12dvh] self-start',
 } as const;
 
+/**
+ * Where a dialog that sets no `finalFocus` of its own returns focus when it closes. The workbench
+ * points it at the open note's editor. Returning false leaves focus alone (a command the dialog
+ * ran is about to move it); null, or no provider, keeps Base UI's default.
+ */
+const DialogReturnFocusContext = React.createContext<(() => HTMLElement | false | null) | null>(null);
+const DialogReturnFocusProvider = DialogReturnFocusContext.Provider;
+
+function useDefaultFinalFocus(popupRef: React.RefObject<HTMLElement | null>) {
+  const getReturnTarget = React.useContext(DialogReturnFocusContext);
+  return React.useCallback(() => {
+    if (!getReturnTarget) return true;
+    const active = document.activeElement;
+    // A command the dialog ran may already have moved focus somewhere on purpose.
+    if (active instanceof HTMLElement && active !== document.body && !active.closest('[role="dialog"], [role="alertdialog"]')) {
+      return false;
+    }
+    // A dialog opened from another one returns into it, as usual.
+    const otherOpen = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]'))
+      .some((dialog) => dialog !== popupRef.current && !dialog.hasAttribute('data-closed'));
+    if (otherOpen) return true;
+    return getReturnTarget() ?? true;
+  }, [getReturnTarget, popupRef]);
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Popup>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Popup> & {
@@ -74,27 +99,37 @@ const DialogContent = React.forwardRef<
     size?: keyof typeof dialogSizeClassNames;
     placement?: keyof typeof dialogPlacementClassNames;
   }
->(({ className, children, showCloseButton = true, size = 'default', placement = 'center', ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Viewport className={cn('fixed inset-0 grid place-items-center', OVERLAY_LAYER_CLASS)}>
-      <DialogPrimitive.Popup
-        ref={ref}
-        className={cn(
-          'relative grid w-full gap-4 rounded-lg border border-border-default bg-background-raised p-5 text-text-default duration-150 ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
-          ELEVATED_SURFACE_CLASS,
-          dialogSizeClassNames[size],
-          dialogPlacementClassNames[placement],
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton ? <DialogClose className="absolute right-4 top-4" /> : null}
-      </DialogPrimitive.Popup>
-    </DialogPrimitive.Viewport>
-  </DialogPortal>
-));
+>(({ className, children, showCloseButton = true, size = 'default', placement = 'center', finalFocus, ...props }, ref) => {
+  const popupRef = React.useRef<HTMLDivElement | null>(null);
+  const setPopupRef = React.useCallback((element: HTMLDivElement | null) => {
+    popupRef.current = element;
+    if (typeof ref === 'function') ref(element);
+    else if (ref) ref.current = element;
+  }, [ref]);
+  const defaultFinalFocus = useDefaultFinalFocus(popupRef);
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Viewport className={cn('fixed inset-0 grid place-items-center', OVERLAY_LAYER_CLASS)}>
+        <DialogPrimitive.Popup
+          ref={setPopupRef}
+          finalFocus={finalFocus ?? defaultFinalFocus}
+          className={cn(
+            'relative grid w-full gap-4 rounded-lg border border-border-default bg-background-raised p-5 text-text-default duration-150 ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
+            ELEVATED_SURFACE_CLASS,
+            dialogSizeClassNames[size],
+            dialogPlacementClassNames[placement],
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          {showCloseButton ? <DialogClose className="absolute right-4 top-4" /> : null}
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Viewport>
+    </DialogPortal>
+  );
+});
 DialogContent.displayName = 'DialogContent';
 
 const DialogHeader = ({
@@ -155,6 +190,7 @@ DialogDescription.displayName = 'DialogDescription';
 export {
   Dialog,
   DialogClose,
+  DialogReturnFocusProvider,
   DialogPortal,
   DialogOverlay,
   DialogContent,
