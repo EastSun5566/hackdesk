@@ -561,6 +561,31 @@ export const inlineMarksTheme = {
     fontVariantNumeric: 'tabular-nums',
     textAlign: 'right',
   },
+  // A drawn dot, centred on the x-height: about a third of an em, the size of a browser's disc at
+  // body text size. Deeper levels switch to a ring, then a square, like nested HTML lists.
+  '.cm-hackmd-bullet': {
+    // Centred in the marker slot, the dot keeps about half an em from the text, as a browser's does.
+    textAlign: 'center',
+  },
+  '.cm-hackmd-bullet::before': {
+    content: '""',
+    display: 'inline-block',
+    boxSizing: 'border-box',
+    width: '0.36em',
+    height: '0.36em',
+    borderRadius: '50%',
+    backgroundColor: 'currentColor',
+    verticalAlign: '0.16em',
+  },
+  '.cm-hackmd-bullet-circle::before': {
+    backgroundColor: 'transparent',
+    border: '0.075em solid currentColor',
+  },
+  '.cm-hackmd-bullet-square::before': {
+    width: '0.32em',
+    height: '0.32em',
+    borderRadius: '1px',
+  },
   '.cm-hackmd-ordered-list-marker': {
     color: 'var(--text-subtle)',
     textAlign: 'right',

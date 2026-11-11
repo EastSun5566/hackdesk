@@ -4,15 +4,28 @@ import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 import { getListMarkerPreviewKey, type ListMarkerPreview } from './list-markers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
 
+// Like a browser's nested `ul` (and HackMD's lists): disc, then circle, then square, repeating.
+const bulletStyles = ['disc', 'circle', 'square'] as const;
+
+export function getBulletStyle(listDepth: number) {
+  return bulletStyles[Math.max(0, listDepth) % bulletStyles.length];
+}
+
 class BulletWidget extends WidgetType {
-  eq(): boolean {
-    return true;
+  constructor(private readonly style: (typeof bulletStyles)[number]) {
+    super();
+  }
+
+  eq(other: BulletWidget): boolean {
+    return other.style === this.style;
   }
 
   toDOM(): HTMLElement {
+    // The dot is drawn in CSS: a bullet glyph's size and height vary from font to font, and in most
+    // text faces it is too small to find at a glance.
     const marker = document.createElement('span');
-    marker.className = 'cm-hackmd-list-marker';
-    marker.textContent = '•';
+    marker.className = `cm-hackmd-list-marker cm-hackmd-bullet cm-hackmd-bullet-${this.style}`;
+    marker.setAttribute('aria-hidden', 'true');
     return marker;
   }
 
@@ -95,6 +108,7 @@ export function addListMarker(
   ranges: PreviewRange[],
   from: number,
   to: number,
+  listDepth = 0,
 ) {
   const line = state.doc.lineAt(from);
   addListLineIndent(ranges, line.from, from - line.from);
@@ -113,7 +127,7 @@ export function addListMarker(
   const hasTrailingSpace = state.sliceDoc(to, to + 1) === ' ';
   const replaceTo = hasTrailingSpace ? to + 1 : to;
   if (marker === '-' || marker === '*' || marker === '+') {
-    pushReplace(ranges, state.doc, from, replaceTo, { widget: new BulletWidget() });
+    pushReplace(ranges, state.doc, from, replaceTo, { widget: new BulletWidget(getBulletStyle(listDepth)) });
     return;
   }
 

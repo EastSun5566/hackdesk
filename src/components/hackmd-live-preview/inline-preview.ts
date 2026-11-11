@@ -316,7 +316,7 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
         }
 
         if (node.name === 'ListMark') {
-          addListMarker(state, activeLines, orderedListMarkers, ranges, node.from, node.to);
+          addListMarker(state, activeLines, orderedListMarkers, ranges, node.from, node.to, getListDepth(node.node));
           return;
         }
 
@@ -333,6 +333,15 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
   }
 
   return Decoration.set(ranges, true);
+}
+
+/** How many lists enclose this list mark's own list: 0 for a top-level item. */
+function getListDepth(node: SyntaxNodeLike['node']): number {
+  let depth = -1;
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (parent.name === 'BulletList' || parent.name === 'OrderedList') depth += 1;
+  }
+  return Math.max(0, depth);
 }
 
 function getFencedCodeLines(state: EditorState, tree: ReturnType<typeof syntaxTree>): Set<number> {

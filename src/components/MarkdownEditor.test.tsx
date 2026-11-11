@@ -900,7 +900,9 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
     const marker = await waitFor(() => {
       const node = editor.querySelector<HTMLElement>('.cm-hackmd-list-marker:not(.cm-hackmd-ordered-list-marker)');
-      expect(node?.textContent).toBe('•');
+      // The dot is drawn in CSS, so the marker has no text of its own.
+      expect(node).toHaveClass('cm-hackmd-bullet', 'cm-hackmd-bullet-disc');
+      expect(node?.textContent).toBe('');
       return node;
     });
     const listLine = marker?.closest<HTMLElement>('.cm-hackmd-list-line');
