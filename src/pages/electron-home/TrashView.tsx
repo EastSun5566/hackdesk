@@ -368,7 +368,9 @@ export function TrashNavigatorList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ul aria-label="Deleted notes" className="m-0 grid min-w-0 flex-1 list-none gap-0.5 overflow-y-auto p-0">
+      {/* The sidebar scrolls the list. A scroller here of its own clipped each row's 40px icon slot,
+          which overhangs its row, and showed a scrollbar over a single note. */}
+      <ul aria-label="Deleted notes" className="m-0 grid min-w-0 list-none gap-0.5 p-0">
         {notes.map((note, index) => (
           <TrashRow
             key={note.id}

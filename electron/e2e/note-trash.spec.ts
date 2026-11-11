@@ -96,6 +96,17 @@ test('restores one note from the trash and opens it', async () => {
 
     await sidebar.getByRole('button', { name: 'Restore Roadmap' }).click();
     await expect(rows).toHaveCount(1);
+    // One row fits: nothing between the list and the sidebar scroller shows a scrollbar.
+    const overflows = await sidebar.getByRole('list', { name: 'Deleted notes' }).evaluate((list) => {
+      const scroller = list.closest('.scroll-edges-source')!;
+      const overflowing: string[] = [];
+      for (let element: Element | null = list; element; element = element === scroller ? null : element.parentElement) {
+        const scrolls = ['auto', 'scroll'].includes(getComputedStyle(element).overflowY);
+        if (scrolls && element.scrollHeight > element.clientHeight) overflowing.push(element.tagName);
+      }
+      return overflowing;
+    });
+    expect(overflows).toEqual([]);
     await expect(page.getByText('Restored “Roadmap”.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Open', exact: true }).click();
