@@ -438,6 +438,14 @@ function blockRangeOverlapsLines(startLine: number, endLine: number, lines: Read
   return false;
 }
 
+function hasUrl(node: SyntaxNodeParentLike): boolean {
+  return (node as SyntaxNodeParentLike & { getChild?: (name: string) => unknown }).getChild?.('URL') != null;
+}
+
+function isSingleLineRange(state: EditorState, from: number, to: number) {
+  return to > from && state.doc.lineAt(from).number === state.doc.lineAt(Math.max(from, to - 1)).number;
+}
+
 function isInactiveSingleLineRange(state: EditorState, activeLines: Set<number>, from: number, to: number) {
   if (to <= from) {
     return false;
@@ -471,9 +479,6 @@ function addHiddenSyntax(
   node: SyntaxNodeLike,
 ) {
   const { from, to, name } = node;
-  if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
-    return;
-  }
 
   if (linkChildSyntaxNodeNames.has(name)) {
     let parent = node.node.parent;
@@ -485,9 +490,20 @@ function addHiddenSyntax(
       return;
     }
 
-    if ((parent?.name === 'Link' || parent?.name === 'Image') && activeInlineSourceStarts.has(parent.from)) {
+    if ((parent?.name === 'Link' || parent?.name === 'Image') && hasUrl(parent)) {
+      // A link's source opens only while the cursor is in that link, not anywhere on its line:
+      // a line of links would otherwise turn into a wall of URLs as soon as the cursor lands on it.
+      // Bracket-only text the parser also calls a link (`[!note]`, `[name=…]`) keeps line rules.
+      if (activeInlineSourceStarts.has(parent.from) || !isSingleLineRange(state, from, to)) {
+        return;
+      }
+      pushReplace(ranges, state.doc, from, to);
       return;
     }
+  }
+
+  if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
+    return;
   }
 
   let hideTo = to;

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorView } from '@codemirror/view';
 import { redo, undo } from '@codemirror/commands';
 
+import { revealInitialSelection } from './hackmd-live-preview/hfm-decoration-ranges';
 import { hfmFixtures } from './hackmd-live-preview/hfm-fixtures';
 import { formatMarkdownImage } from './hackmd-live-preview/markdown-image';
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
@@ -1683,6 +1684,25 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
     await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
+  });
+
+  it('reveals only the link under the cursor, not every link on its line', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = 'See [one](https://one.example) and [two](https://two.example) here.';
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor')!)!;
+    const line = () => editor.querySelector('.cm-line')!.textContent;
+
+    act(() => view.dispatch({ effects: revealInitialSelection.of(), selection: { anchor: markdown.indexOf('two') + 1 } }));
+    await waitFor(() => expect(line()).toContain('(https://two.example)'));
+    expect(line()).not.toContain('https://one.example');
+
+    act(() => view.dispatch({ selection: { anchor: markdown.indexOf('here') } }));
+    await waitFor(() => expect(line()).not.toContain('https://two.example'));
+    expect(line()).toContain('See one and two here.');
   });
 
   it('decorates active autolinks as source-safe links', async () => {
