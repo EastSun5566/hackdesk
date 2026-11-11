@@ -470,11 +470,26 @@ export function registerIpcHandlers(
     );
     return createLocalDirectory(validated.parentPath, validated.name);
   });
+  /**
+   * Reads where a configured folder lives before it is removed, so that afterwards only it stops
+   * being watched and searched. Other folders keep both: another window may show them.
+   */
+  const prepareFolderRemoval = async (path: string | undefined) => {
+    const identity = path ? await readLocalVaultIdentity(path) : null;
+    return (settings: { localVault: { vaults: { path: string }[] } }) => {
+      // A mutation still running in the removed folder must not bring its watcher or index back.
+      localVaultWatcherGeneration += 1;
+      if (!identity || !path || settings.localVault.vaults.some((vault) => vault.path === path)) return;
+      closeLocalVaultWatcherAt(identity.rootPath);
+      void noteIndex.forgetVault(identity.vaultId);
+    };
+  };
   ipcMain.handle(ELECTRON_CHANNELS.localVaultDisconnect, async () => {
-    closeLocalVaultWatcher();
-    void noteIndex.forgetVaults();
+    const stored = await readStoredSettings();
+    const finishRemoval = await prepareFolderRemoval(getActiveLocalVaultPath(stored) ?? undefined);
     const settings = await updateStoredSettings({ localVaultPath: null });
     options.onSettingsUpdated?.(settings);
+    finishRemoval(settings);
     return settings;
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultActivate, async (_event, input: unknown) => {
@@ -491,20 +506,12 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.localVaultForget, async (_event, input: unknown) => {
     const { vaultId } = validateIpcInput(ELECTRON_CHANNELS.localVaultForget, localVaultVaultIdInputSchema, input);
     const stored = await readStoredSettings();
-    const before = getActiveLocalVaultPath(stored);
     const forgotten = stored.localVault.vaults.find((vault) => vault.id === vaultId);
-    const identity = forgotten ? await readLocalVaultIdentity(forgotten.path) : null;
+    const finishRemoval = await prepareFolderRemoval(forgotten?.path);
     const settings = await updateStoredSettings({ localVaultRemoveId: vaultId });
     options.onSettingsUpdated?.(settings);
-    const after = getActiveLocalVaultPath(settings);
-    if (before && before !== after) {
-      closeLocalVaultWatcher();
-      void noteIndex.forgetVaults();
-    } else if (identity && forgotten && !settings.localVault.vaults.some((vault) => vault.path === forgotten.path)) {
-      // A folder that was not open stops being watched and searched too, as the dialog promises.
-      closeLocalVaultWatcherAt(identity.rootPath);
-      void noteIndex.forgetVault(identity.vaultId);
-    }
+    // The forgotten folder stops being watched and searched, open or not, as the dialog promises.
+    finishRemoval(settings);
     const snapshot = await getActiveLocalVaultSnapshot();
     if (snapshot) {
       ensureLocalVaultWatcher(snapshot.rootPath);
@@ -514,14 +521,10 @@ export function registerIpcHandlers(
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultWorkspace, async (_event, input: unknown) => {
     const mutation = validateIpcInput(ELECTRON_CHANNELS.localVaultWorkspace, localVaultWorkspaceInputSchema, input);
-    const before = getActiveLocalVaultPath(await readStoredSettings());
+    // A workspace edit removes no configured folder, so every folder keeps its watcher and index:
+    // another window may show the folder this one leaves.
     const settings = await updateStoredSettings({ localWorkspace: mutation });
     options.onSettingsUpdated?.(settings);
-    const after = getActiveLocalVaultPath(settings);
-    if (before !== after) {
-      closeLocalVaultWatcher();
-      void noteIndex.forgetVaults();
-    }
     const snapshot = await getActiveLocalVaultSnapshot();
     if (snapshot) {
       ensureLocalVaultWatcher(snapshot.rootPath);

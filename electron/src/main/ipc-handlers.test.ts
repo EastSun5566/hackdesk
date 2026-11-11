@@ -686,6 +686,14 @@ describe('registerIpcHandlers', () => {
     localVaultServiceMock.createLocalNote.mockImplementationOnce(() => new Promise((resolve) => {
       finishMutation = resolve;
     }));
+    // Disconnecting removes the open folder, the one the watcher reads.
+    settingsMock.readStoredSettings.mockResolvedValue({
+      localVault: { vaults: [{ id: 'vault-1', path: '/tmp/local-vault' }], activeVaultId: 'vault-1', workspaces: [], activeWorkspaceId: null },
+    } as never);
+    settingsMock.updateStoredSettings.mockResolvedValueOnce({
+      localVault: { vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null },
+    } as never);
+    localVaultServiceMock.readLocalVaultIdentity.mockResolvedValueOnce({ rootPath: '/tmp/local-vault', vaultId: 'vault-1' });
     registerIpcHandlers(windowManager);
     await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
 
@@ -700,6 +708,34 @@ describe('registerIpcHandlers', () => {
 
     expect(close).toHaveBeenCalledOnce();
     expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
+  });
+
+  it("forgets only the open folder, so another window's folder keeps its watcher and index", async () => {
+    const vaults = { vaults: [{ id: 'vault-a', path: '/a' }, { id: 'vault-b', path: '/b' }], activeVaultId: 'vault-a', workspaces: [], activeWorkspaceId: null };
+    settingsMock.readStoredSettings.mockResolvedValue({ localVault: vaults } as never);
+    settingsMock.updateStoredSettings.mockResolvedValueOnce({
+      localVault: { ...vaults, vaults: [vaults.vaults[1]], activeVaultId: 'vault-b' },
+    } as never);
+    localVaultServiceMock.readLocalVaultIdentity.mockResolvedValueOnce({ rootPath: '/real/a', vaultId: 'manifest-a' });
+    const closeA = vi.fn();
+    const closeB = vi.fn();
+    localVaultServiceMock.scanLocalVault
+      .mockResolvedValueOnce({ ...localVaultSnapshot, rootPath: '/real/a' })
+      .mockResolvedValueOnce({ ...localVaultSnapshot, rootPath: '/real/b' });
+    localVaultServiceMock.watchLocalVault
+      .mockReturnValueOnce({ close: closeA, pause: vi.fn(), resume: vi.fn() })
+      .mockReturnValueOnce({ close: closeB, pause: vi.fn(), resume: vi.fn() });
+    registerIpcHandlers(windowManager);
+    // Two windows: one reads A, the other B.
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot)?.({}, { vaultId: 'vault-a' });
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot)?.({}, { vaultId: 'vault-b' });
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultForget)?.({}, { vaultId: 'vault-a' });
+
+    expect(closeA).toHaveBeenCalledOnce();
+    expect(noteIndexMock.forgetVault).toHaveBeenCalledWith('manifest-a');
+    expect(closeB).not.toHaveBeenCalled();
+    expect(noteIndexMock.forgetVaults).not.toHaveBeenCalled();
   });
 
   it('stops watching and searching a folder that was not open when it is forgotten', async () => {
