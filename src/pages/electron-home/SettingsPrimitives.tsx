@@ -41,8 +41,9 @@ export function SettingsSection({
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-semibold leading-5 text-text-emphasize text-balance">{title}</h3>
             {help ? <SettingsHelpTooltip label={title}>{help}</SettingsHelpTooltip> : null}
+            {/* Beside the title, so it reads as resetting this section, not the row at the far edge. */}
             {onRevert ? (
-              <span className="ml-auto inline-flex shrink-0">
+              <span className="inline-flex shrink-0">
                 <Tooltip content={revertAccessibleLabel} side="top">
                   <Button
                     type="button"
