@@ -118,6 +118,17 @@ describe('useElectronFocusZones', () => {
     expect(fireEvent.keyDown(document.body, { key: 'F6' })).toBe(true);
   });
 
+  it('moves focus past a dialog that is closing, list and all, and reports the pending move', async () => {
+    const { result } = fixture();
+    // A command palette animating closed: the dialog is marked, its list is not.
+    render(<section role="dialog" data-closed=""><div role="listbox" aria-label="Suggestions" /></section>);
+    act(() => screen.getByRole('textbox', { name: 'Right editor' }).focus());
+    act(() => result.current.focusZone('navigator'));
+    expect(result.current.hasPendingFocus()).toBe(true);
+    await waitFor(() => expect(screen.getByRole('treeitem')).toHaveFocus());
+    expect(result.current.hasPendingFocus()).toBe(false);
+  });
+
   it('cancels pending focus when unmounted', async () => {
     const { result, unmount } = fixture();
     const tab = screen.getByRole('tab');

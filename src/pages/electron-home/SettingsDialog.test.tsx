@@ -884,6 +884,51 @@ describe('SettingsDialog', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it('ignores a validation response after its parent closes Settings', async () => {
+    const validation = createDeferred<typeof validatedUser>();
+    const { onSave, rerenderSettingsDialog } = renderSettingsDialog({
+      onValidateToken: vi.fn(() => validation.promise),
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.change(screen.getByLabelText('API Token'), { target: { value: 'api-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD' }));
+    // Another window or command closes Settings without going through the dialog itself.
+    rerenderSettingsDialog({ open: false });
+    await act(async () => {
+      validation.resolve(validatedUser);
+    });
+
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('lets a token connect again after Settings closed during a check', async () => {
+    const first = createDeferred<typeof validatedUser>();
+    const onValidateToken = vi.fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(async () => validatedUser);
+    const { onSave, rerenderSettingsDialog } = renderSettingsDialog({ onValidateToken });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.change(screen.getByLabelText('API Token'), { target: { value: 'api-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD' }));
+    expect(screen.getByText('Testing token…')).toBeInTheDocument();
+
+    rerenderSettingsDialog({ open: false });
+    rerenderSettingsDialog({ open: true });
+    expect(screen.queryByText('Testing token…')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD' }));
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ hackmdApiToken: 'api-token' }));
+    });
+    expect(onValidateToken).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      first.resolve(validatedUser);
+    });
+    expect(onSave).toHaveBeenCalledOnce();
+  });
+
   it('invalidates pending token validation when disconnecting HackMD', async () => {
     const validation = createDeferred<typeof validatedUser>();
     const { onDisconnectHackmd, onSave } = renderSettingsDialog({

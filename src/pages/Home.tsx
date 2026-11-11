@@ -1,6 +1,7 @@
 import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
 import { LocalVaultNameContext, NoteSummaryLookupContext, TeamNameLookupContext } from '@/pages/electron-home/NoteSummaryCard';
 import { ConfirmDialogHost } from '@/components/ConfirmDialogHost';
+import { DialogReturnFocusProvider } from '@/components/ui/dialog';
 import { getElectronAction, getResolvedActionShortcut } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
@@ -294,7 +295,12 @@ export function Home() {
   const handleOnboardingConnected = useCallback(() => {
     setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
   }, [setWorkspaceScope]);
-  const { focusZone, focusNextZone, focusedZone, getLastFocusedTarget } = useElectronFocusZones();
+  const { focusZone, focusNextZone, focusedZone, getLastFocusedTarget, hasPendingFocus } = useElectronFocusZones();
+  // A dismissed dialog hands focus back to the open note's editor, so writing can go on (#322),
+  // unless the command it ran is about to move focus somewhere else.
+  const getDialogReturnFocus = useCallback(() => (hasPendingFocus() ? false : document.querySelector<HTMLElement>(
+    '[data-active-pane="true"] [data-hackdesk-focus="editor"] .cm-content[data-hackdesk-focus-target="true"]',
+  )), [hasPendingFocus]);
   const initialFocusGiven = useRef(false);
   useEffect(() => {
     if (usingInitialDrafts && activeTab && !initialFocusGiven.current) {
@@ -1388,6 +1394,7 @@ export function Home() {
   }
 
   return (
+    <DialogReturnFocusProvider value={getDialogReturnFocus}>
     <ActionShortcutContext.Provider value={shortcutContext}>
       <KeyboardNavigation workspaceKey={scopeStorageKey} shortcuts={settings?.shortcuts} platform={api.platform} characterEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}>
         <div data-hack-mode={hackMode || undefined} className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
@@ -1468,5 +1475,6 @@ export function Home() {
         </div>
       </KeyboardNavigation>
     </ActionShortcutContext.Provider>
+    </DialogReturnFocusProvider>
   );
 }

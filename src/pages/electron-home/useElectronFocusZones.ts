@@ -24,8 +24,10 @@ function regionKey(region: HTMLElement) {
 }
 
 function hasOpenPopup() {
+  // A popup that is animating closed marks itself `data-closed`; a list inside it does not, and
+  // must not hold a command's focus until the frames run out.
   return Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]'))
-    .some(element => !element.hasAttribute('data-closed') && isAvailable(element));
+    .some(element => !element.closest('[data-closed]') && isAvailable(element));
 }
 
 export function useElectronFocusZones() {
@@ -129,5 +131,7 @@ export function useElectronFocusZones() {
   }, []);
 
   const getLastFocusedTarget = useCallback(() => rememberedTargetsRef.current.get(`${focusedZone}:${focusedPaneId ?? ''}`) ?? null, [focusedZone, focusedPaneId]);
-  return { focusedZone, focusedPaneId, focusZone, focusNextZone, getLastFocusedTarget };
+  // A command has asked to move focus and is waiting for the frame that does it.
+  const hasPendingFocus = useCallback(() => pendingFrameRef.current !== null, []);
+  return { focusedZone, focusedPaneId, focusZone, focusNextZone, getLastFocusedTarget, hasPendingFocus };
 }
