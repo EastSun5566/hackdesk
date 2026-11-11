@@ -251,7 +251,9 @@ export function NoteViewOptionsMenu({
   const tagGroupOrder = useTagGroupOrder();
   // Grouping changes how the tree's root notes read, not what the finder lists, so the option
   // lives on the tree's menu alone. It's on by default, so only turning it off counts as a changed view.
-  const viewOptionCount = getViewOptionCount(state) + (treeControl && !tagGroupingEnabled ? 1 : 0);
+  // Local folders have no HackMD tags, so they get no grouping options.
+  const tagGroupingAvailable = treeControl && !showLocalOptions;
+  const viewOptionCount = getViewOptionCount(state) + (tagGroupingAvailable && !tagGroupingEnabled ? 1 : 0);
   const currentFolderDisabled = !selectedFolderId;
   const updateState = (patch: Partial<NoteFinderState>) => onChange({ ...state, ...patch });
   const toggleTag = (tag: string) => onChange({
@@ -298,7 +300,7 @@ export function NoteViewOptionsMenu({
           {showLocalOptions ? <DropdownMenuCheckboxItem checked={showHidden} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setShowHiddenFiles(checked === true)}>Show hidden files and folders</DropdownMenuCheckboxItem> : null}
           <DropdownMenuSeparator />
         </> : null}
-        {treeControl ? (
+        {tagGroupingAvailable ? (
           <>
             <DropdownMenuLabel>Group by Tag</DropdownMenuLabel>
             <DropdownMenuCheckboxItem

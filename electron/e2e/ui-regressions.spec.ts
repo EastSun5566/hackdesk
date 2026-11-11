@@ -863,16 +863,11 @@ test('tree guides connect mixed children and end at the last folder row', async 
       }));
       expect(problems).toEqual([]);
     };
-    // Four expanded folders' lists (Projects, Sub, Folders only, Last), plus the Untagged group the
-    // root notes sit in (tag grouping is on by default).
-    await expect(page.locator('[data-tree-children]')).toHaveCount(5);
+    // Four expanded folders' lists (Projects, Sub, Folders only, Last). A local folder is never
+    // grouped by tag, so its root notes sit in no group of their own.
+    await expect(page.locator('[data-tree-children]')).toHaveCount(4);
+    await expect(page.locator('[data-folder-tree-kind="tag-group"]')).toHaveCount(0);
     await assertGuides();
-    // A tag group's label lines up with a folder's at the same level: one icon slot, not two.
-    const labelX = (kind: string) => page.locator(`[data-folder-tree-kind="${kind}"]`).first().evaluate((row) => {
-      const title = Array.from(row.querySelectorAll<HTMLElement>('span.truncate')).find((element) => element.textContent?.trim());
-      return title!.getBoundingClientRect().x;
-    });
-    expect(await labelX('tag-group')).toBeCloseTo(await labelX('folder'), 0);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('09-tree-guides.png') });
     await page.getByRole('button', { name: 'Collapse Last', exact: true }).click();
     await assertGuides();

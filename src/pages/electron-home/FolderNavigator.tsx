@@ -191,8 +191,9 @@ export type FolderTagGrouping = {
   onToggle: (tag: string) => void;
 };
 
-function useFolderTagGrouping(unfiledNotes: FolderTreeNote[]): FolderTagGrouping | null {
-  const enabled = useTagGroupingEnabled();
+/** Local folders have no HackMD tags to group by, so their trees are never grouped. */
+function useFolderTagGrouping(unfiledNotes: FolderTreeNote[], available: boolean): FolderTagGrouping | null {
+  const enabled = useTagGroupingEnabled() && available;
   const order = useTagGroupOrder();
   const collapsed = useCollapsedTagGroups();
   const groups = useMemo(
@@ -336,7 +337,7 @@ export function FolderNavigator(props: FolderNavigatorProps) {
   // Its callbacks are rebuilt each render too (openTrashNote is inline), which would defeat the memo.
   const trash = useStableCallbacks(props.trash ?? NO_TRASH);
   // Read in the top component: the memoized panels below would miss a preference change.
-  const tagGrouping = useFolderTagGrouping(props.tree.unfiled.notes);
+  const tagGrouping = useFolderTagGrouping(props.tree.unfiled.notes, props.scope.type !== 'local');
   return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashNavigatorViewProps : undefined} tagGrouping={tagGrouping} />;
 }
 
