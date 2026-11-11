@@ -10,6 +10,7 @@ import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import type { EditorMode } from '@/lib/settings';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { copyNoteContentText } from './useDocumentCommands';
 import { isDraftNoteTab, type OpenNoteTab } from './note-workspace';
 import type { BookSession } from './useBookSession';
 import type { ElectronFocusZone } from './useElectronFocusZones';
@@ -354,6 +355,10 @@ export function useWorkbenchActionHandlers({
     },
     copyMarkdownLink: () => {
       if (selectedDocument) copyNoteMarkdownLink(selectedDocument);
+    },
+    // What the editor shows, unsaved edits included.
+    copyNoteContent: () => {
+      if (selectedDocument) void copyNoteContentText(api, documentContent);
     },
     shareNote: openShare,
     moveTab: (step) => {

@@ -776,6 +776,7 @@ export function Home() {
   });
 
   const {
+    handleCopyNoteContent,
     handleCopyNoteLink,
     handleCopyNoteMarkdownLink,
     handleDeleteRequest,
@@ -1215,6 +1216,7 @@ export function Home() {
       copyDraftText,
       exportDraftText,
       retryDocumentLoad,
+      handleCopyNoteContent,
       handleCopyNoteLink,
       handleCopyNoteMarkdownLink,
       handleDeleteRequest,

@@ -62,6 +62,7 @@ type WorkspaceActions = {
   copyDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onCopyDraft'];
   exportDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onExportDraft'];
   retryDocumentLoad: ElectronHomeWorkspaceProps['documentWorkspace']['onRetryLoad'];
+  handleCopyNoteContent: NonNullable<ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteContent']>;
   handleCopyNoteLink: ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteLink'];
   handleCopyNoteMarkdownLink: ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteMarkdownLink'];
   handleDeleteRequest: ElectronHomeWorkspaceProps['navigator']['actions']['onDeleteNote'];
@@ -485,6 +486,7 @@ export function useHomeWorkspaceProps({
         },
         onCopyNoteLink: actions.handleCopyNoteLink,
         onCopyNoteMarkdownLink: actions.handleCopyNoteMarkdownLink,
+        onCopyNoteContent: actions.handleCopyNoteContent,
         onDuplicateNote: actions.handleDuplicateNote,
         onExportNoteMarkdown: actions.handleExportNoteMarkdown,
         onDeleteNote: actions.handleDeleteRequest,

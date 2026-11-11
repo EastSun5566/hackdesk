@@ -4,6 +4,7 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
+  ClipboardCopy,
   Copy,
   CopyPlus,
   Download,
@@ -62,6 +63,7 @@ export const RowOperationsContext = createContext<{
   renameFolder?: (id: string, name: string) => void;
   moveNote?: (note: NoteSummary) => void;
   moveFolder?: (id: string) => void;
+  copyNoteContent?: (note: NoteSummary) => void;
 }>({});
 
 function InlineName({ value, label, icon, height, onCancel, onSave }: { value: string; label: string; icon: ReactNode; height: 'folder' | 'note' | 'detail'; onCancel: () => void; onSave: (name: string) => void }) {
@@ -342,9 +344,15 @@ function NoteRowView({
               <Copy aria-hidden="true" className="h-4 w-4" />
               Copy Markdown Link
             </ContextMenuItem>
-            <ContextMenuSeparator />
           </>
         )}
+        {operations.copyNoteContent ? (
+          <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => operations.copyNoteContent?.(entry.note))}>
+            <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
+            Copy Content
+          </ContextMenuItem>
+        ) : null}
+        {isLocalNote && !operations.copyNoteContent ? null : <ContextMenuSeparator />}
         {isLocalNote && onRevealInFinder ? (
           <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealInFinder(entry.note))}>
             <FolderOpen aria-hidden="true" className="h-4 w-4" />

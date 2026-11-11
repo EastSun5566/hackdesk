@@ -22,6 +22,13 @@ import { noteIdentityMatches, type NoteIdentity } from './note-workspace';
 import type { WorkspaceScope } from './types';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
+/** Puts a note's Markdown on the clipboard and says so. */
+export function copyNoteContentText(api: HackDeskElectronAPI | undefined, content: string) {
+  return writeClipboardText(api, content)
+    .then(() => toast.success('Note content copied.'))
+    .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy note content.'));
+}
+
 function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
   return {
     ...note,
@@ -198,11 +205,31 @@ export function useDocumentCommands({
       .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy markdown link.'));
   }, [api]);
 
+  /** The open note copies what its editor shows; any other note is read first, as export does. */
+  const handleCopyNoteContent = useCallback((note: NoteSummary) => {
+    if (noteIdentityMatches(note, selectedNote) && selectedDocument) {
+      void copyNoteContentText(api, documentContent);
+      return;
+    }
+
+    const read = note.teamPath === LOCAL_VAULT_TEAM_PATH
+      ? api?.localVault.readNote(note.id).then((document) => document.content)
+      : api?.hackmd.getNote(note.id, note.teamPath ?? null).then((result) => {
+        if (result.source === 'error') throw new Error(result.error);
+        return result.data.content;
+      });
+    if (!read) return;
+    void read
+      .then((content) => copyNoteContentText(api, content))
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy note content.'));
+  }, [api, documentContent, selectedDocument, selectedNote]);
+
   const handleDuplicateNote = useCallback((note: NoteSummary) => {
     duplicateNote(note);
   }, [duplicateNote]);
 
   return {
+    handleCopyNoteContent,
     handleCopyNoteLink,
     handleCopyNoteMarkdownLink,
     handleDeleteRequest,

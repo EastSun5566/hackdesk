@@ -279,6 +279,7 @@ export type FolderNavigatorActions = {
   onRenameFolderInline?: (folderId: string, name: string) => void;
   onMoveNoteRequest?: (note: NoteSummary) => void;
   onMoveFolderRequest?: (folderId: string) => void;
+  onCopyNoteContent?: (note: NoteSummary) => void;
 };
 
 export type WorkspaceFolderTree = {
@@ -381,7 +382,7 @@ function FolderNavigatorPanel({
           to the left with that edge rather than sitting still under the note card. The width queries
           (note-navigator) read this full width, so rows never change mid-animation. */}
       <div className="note-navigator scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col self-end">
-        <RowOperationsContext.Provider value={{ renameNote: actions.onRenameNoteInline, renameFolder: actions.onRenameFolderInline, moveNote: actions.onMoveNoteRequest, moveFolder: actions.onMoveFolderRequest }}><ExpandedNavigator
+        <RowOperationsContext.Provider value={{ renameNote: actions.onRenameNoteInline, renameFolder: actions.onRenameFolderInline, moveNote: actions.onMoveNoteRequest, moveFolder: actions.onMoveFolderRequest, copyNoteContent: actions.onCopyNoteContent }}><ExpandedNavigator
           actions={actions}
           emptyState={emptyState}
           entries={entries}

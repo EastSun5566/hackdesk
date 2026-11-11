@@ -455,6 +455,7 @@ export type ElectronActionId =
   | 'reveal-note-in-finder'
   | 'copy-note-link'
   | 'copy-markdown-link'
+  | 'copy-note-content'
   | 'share-note'
   | 'move-tab-left'
   | 'move-tab-right'
