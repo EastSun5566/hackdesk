@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import type { DraftOpenNoteTab, OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
 import {
+  closedSyncKeys,
   draftSyncKey,
   getSyncSaveFailure,
   isSyncDeleting,
@@ -74,5 +76,25 @@ describe('syncActivityReducer', () => {
     const state = run([started(a, 1)]);
     expect(syncActivityReducer(state, succeeded(a, 99))).toBe(state);
     expect(syncActivityReducer(state, { type: 'upload_settled', key: b })).toBe(state);
+  });
+});
+
+describe('closedSyncKeys', () => {
+  const saved = (tabId: string, noteId: string): SavedOpenNoteTab => ({
+    tabId, noteId, teamPath: null, title: noteId, shortId: null, updatedAtMillis: null,
+  });
+  const draft = (tabId: string): DraftOpenNoteTab => ({
+    kind: 'draft', tabId, draftId: `draft-${tabId}`, title: 'Untitled', shortId: null, updatedAtMillis: null,
+  });
+  const tabs = (...list: OpenNoteTab[]) => Object.fromEntries(list.map((tab) => [tab.tabId, tab]));
+
+  it('reports a note or draft once its last tab closes', () => {
+    const before = tabs(saved('t1', 'note-a'), saved('t2', 'note-b'), draft('t3'));
+    expect(closedSyncKeys(before, tabs(saved('t2', 'note-b')))).toEqual([a, draftSyncKey('t3')]);
+  });
+
+  it('keeps a note that another tab still shows', () => {
+    const before = tabs(saved('t1', 'note-a'), saved('t2', 'note-a'));
+    expect(closedSyncKeys(before, tabs(saved('t2', 'note-a')))).toEqual([]);
   });
 });

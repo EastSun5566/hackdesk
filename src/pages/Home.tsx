@@ -91,7 +91,7 @@ import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
 import { useWorkspaceFolderTrees } from './electron-home/useWorkspaceFolderTrees';
 import { getSavedTabNoteIdentity, isBlankNoteTab, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type NoteIdentity, type OpenNoteTab } from './electron-home/note-workspace';
-import { draftSyncKey, EMPTY_SYNC_ACTIVITY, isSyncSaving, noteSyncKey, syncActivityReducer } from './electron-home/note-sync-activity';
+import { closedSyncKeys, draftSyncKey, EMPTY_SYNC_ACTIVITY, isSyncSaving, noteSyncKey, syncActivityReducer } from './electron-home/note-sync-activity';
 import { EMPTY_FOLDERS, EMPTY_NOTES, getScopeStorageKey } from './electron-home/repository';
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -541,6 +541,18 @@ export function Home() {
   const clearSaveFailure = useCallback((identity: NoteIdentity) => {
     dispatchSyncActivity({ type: 'save_failure_cleared', key: noteSyncKey(identity) });
   }, []);
+  // When a note's or draft's last tab closes, its failed save is over: the edits were discarded or
+  // saved another way. Switching workspace swaps the tabs without closing them, so it keeps them.
+  const { scopeKey: tabsScopeKey, tabs: openTabs } = noteWorkspace.state;
+  const previousTabsRef = useRef({ scope: tabsScopeKey, tabs: openTabs });
+  useEffect(() => {
+    const previous = previousTabsRef.current;
+    previousTabsRef.current = { scope: tabsScopeKey, tabs: openTabs };
+    if (previous.scope !== tabsScopeKey) return;
+    for (const key of closedSyncKeys(previous.tabs, openTabs)) {
+      dispatchSyncActivity({ type: 'save_failure_cleared', key });
+    }
+  }, [openTabs, tabsScopeKey]);
   // Save commands wait only for the active tab's own save, not for another tab's.
   const activeTabIdentity = activeTab && !isDraftNoteTab(activeTab) ? getSavedTabNoteIdentity(activeTab) : null;
   const isSavingActiveTab = activeTab
@@ -599,6 +611,7 @@ export function Home() {
       setSelectedFolderId(parentFolderId ?? UNFILED_FOLDER_ID);
     },
     onNoteDeleted: (note) => {
+      clearSaveFailure(note);
       removeRecentNoteEntry(note.id, note.teamPath ?? null);
       noteWorkspace.closeByNoteIdentity(note);
       if (currentScopeKeyRef.current === scopeStorageKey) setDeleteTarget(null);

@@ -1,4 +1,11 @@
-import { getNoteIdentityKey, type NoteIdentity } from './note-workspace';
+import {
+  getNoteIdentityKey,
+  getSavedTabNoteIdentity,
+  isBlankNoteTab,
+  isDraftNoteTab,
+  type NoteIdentity,
+  type OpenNoteTab,
+} from './note-workspace';
 
 /**
  * What each note, or each unsaved draft, is doing with the backend: saving, a save that failed,
@@ -43,6 +50,29 @@ export function noteSyncKey(identity: NoteIdentity): SyncKey {
 
 export function draftSyncKey(tabId: string): SyncKey {
   return `draft:${tabId}`;
+}
+
+/** The key a tab's progress is kept under, or null for a blank tab. */
+export function tabSyncKey(tab: OpenNoteTab): SyncKey | null {
+  if (isBlankNoteTab(tab)) return null;
+  if (isDraftNoteTab(tab)) return draftSyncKey(tab.tabId);
+  const identity = getSavedTabNoteIdentity(tab);
+  return identity ? noteSyncKey(identity) : null;
+}
+
+/**
+ * Keys whose last tab closed between two snapshots of the same workspace. A failed save there is
+ * over: its edits were discarded or saved some other way, so it must not mark the note later.
+ */
+export function closedSyncKeys(previous: Record<string, OpenNoteTab>, next: Record<string, OpenNoteTab>): SyncKey[] {
+  const open = new Set(Object.values(next).map(tabSyncKey));
+  const closed = new Set<SyncKey>();
+  for (const tab of Object.values(previous)) {
+    if (next[tab.tabId]) continue;
+    const key = tabSyncKey(tab);
+    if (key && !open.has(key)) closed.add(key);
+  }
+  return [...closed];
 }
 
 function nextActivity(current: SyncActivity, event: SyncActivityEvent): SyncActivity {

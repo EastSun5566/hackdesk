@@ -61,3 +61,22 @@ test('a tab keeps showing its save in progress while another tab saves', async (
   await expect(tabState(page, 'Alpha')).toHaveAttribute('data-sync-state', 'saving');
   await expect(tabState(page, 'Alpha')).toHaveAttribute('data-sync-state', 'saved', { timeout: 10_000 });
 });
+
+test('a failed save does not mark the note again after its tab is closed without saving', async ({ hackdesk }) => {
+  const { page, setHackmdFaults } = await hackdesk({ settings: { hackmdApiToken: 'fake-hackmd-token' }, fakeHackmd: true, hackmdNotes: notes });
+  await expect(page.getByRole('treeitem', { name: /^Alpha\b/ })).toBeVisible();
+
+  await editInTab(page, 'Alpha', 'Alpha edit');
+  await setHackmdFaults({ failPatch: ['note-alpha'] });
+  await page.keyboard.press(`${primary}+s`);
+  await expect(tabState(page, 'Alpha')).toHaveAttribute('data-sync-state', 'save_failed');
+
+  // Close the tab and discard the edit, then open the note again.
+  await page.getByRole('tab', { name: /^Alpha\b/ }).click();
+  await page.keyboard.press(`${primary}+w`);
+  await page.getByRole('alertdialog', { name: /Close/ }).getByRole('button', { name: 'Close Tab' }).click();
+  await expect(page.getByRole('tab', { name: /^Alpha\b/ })).toHaveCount(0);
+  await page.getByRole('treeitem', { name: /^Alpha\b/ }).dblclick();
+  await expect(page.locator('[data-active-pane="true"] .cm-content')).toContainText('Alpha body');
+  await expect(tabState(page, 'Alpha')).toHaveAttribute('data-sync-state', 'saved');
+});
