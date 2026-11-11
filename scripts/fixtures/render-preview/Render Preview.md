@@ -66,6 +66,9 @@ plain fence with a very long line that should either wrap or scroll horizontally
 ## Blocks
 
 > A blockquote line.
+> A second line that is long enough to wrap onto another line at the default width, so the bar shows its full height.
+
+> A quote with metadata.
 > [name=Someone] [color=#2b8a3e]
 
 > [!NOTE]
@@ -82,5 +85,9 @@ An info container.
 $$
 E = mc^2
 $$
+
+```math
+\int_0^1 x^2 \, dx = \frac{1}{3}
+```
 
 Last line.

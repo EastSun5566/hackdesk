@@ -485,7 +485,11 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-blockquote-meta': {
     color: 'var(--text-subtle)',
   },
-  '.cm-hackmd-math-block-line, .cm-hackmd-external-line': {
+  // `$$` delimiters while editing math: quiet source text, no band or edge bar.
+  '.cm-hackmd-math-block-line': {
+    color: 'var(--text-subtle)',
+  },
+  '.cm-hackmd-external-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
     borderLeft: '2px solid color-mix(in oklch, var(--primary-default) 55%, var(--border-bold) 45%)',

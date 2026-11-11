@@ -173,13 +173,14 @@ describe('HackMD preview widget theme', () => {
     }
   });
 
-  it('draws containers as rounded panels without an edge bar', () => {
+  it('draws containers and math delimiters without an edge bar', () => {
     // A bar beside a rounded tinted panel reads as a stray stroke.
     for (const [selector, style] of Object.entries(codeAndBlockTheme)) {
-      if (!/container-block/.test(selector)) continue;
+      if (!/container-block|math-block-line/.test(selector)) continue;
       expect(style, selector).not.toHaveProperty('borderLeft');
       expect(style, selector).not.toHaveProperty('borderLeftColor');
     }
+    expect(codeAndBlockTheme['.cm-hackmd-math-block-line']).toEqual({ color: 'var(--text-subtle)' });
   });
 
   it('does not retain obsolete aliases or fixed light and dark alert colors', () => {
