@@ -405,6 +405,8 @@ function SettingsDialogContent({
       keyHintsVisible: true,
     });
     setAppearance(defaultSettings.appearance);
+    // Kept on this computer rather than in settings, so it resets here, as the Appearance reset does.
+    setCodeTheme(DEFAULT_CODE_THEME);
     onSave({
       title: defaultSettings.title,
       hackmdApiToken: '',
