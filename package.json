@@ -14,6 +14,7 @@
   "scripts": {
     "dev": "node scripts/electron-dev.ts",
     "build": "node scripts/build-speech-helper.ts && node scripts/electron-build.ts && vite build",
+    "icons:generate": "node scripts/generate-icons.ts",
     "preview": "vite preview",
     "design:audit": "node scripts/design-audit.ts",
     "render:preview": "node scripts/render-preview.ts",
@@ -81,8 +82,8 @@
     },
     "extraResources": [
       {
-        "from": "build/icon.png",
-        "to": "assets/icon.png"
+        "from": "build/app-icons",
+        "to": "assets/app-icons"
       }
     ],
     "mac": {
@@ -170,6 +171,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@shadcn/lint": "0.2.1",
     "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/jest-dom": "^6.9.1",

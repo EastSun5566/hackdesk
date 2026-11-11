@@ -3,7 +3,7 @@ import { app, type BrowserWindow } from 'electron';
 
 import { attachWindowMenu, createApplicationMenu, type ApplicationMenuOptions } from './app-menu';
 import { createApplicationTray } from './app-tray';
-import { createAppIcon } from './app-icon';
+import { setAppIcon } from './app-icon';
 import { keepE2EWindowsInBackground } from './e2e-background-windows';
 import { registerQuickCaptureGlobalShortcut, unregisterQuickCaptureGlobalShortcut } from './global-shortcuts';
 import { registerIpcHandlers } from './ipc-handlers';
@@ -98,10 +98,12 @@ function refreshMenus(settings: Pick<ElectronSafeSettings, 'shortcuts' | 'keyboa
 }
 
 app.whenReady().then(async () => {
-  app.dock?.setIcon(createAppIcon());
   registerRendererProtocol();
   disposeIpcHandlers = registerIpcHandlers(windowManager, {
-    onSettingsUpdated: (settings) => refreshMenus(settings),
+    onSettingsUpdated: (settings) => {
+      refreshMenus(settings);
+      if (settings.appIcon) setAppIcon(settings.appIcon);
+    },
   }).dispose;
   windowManager.onMenuStateChanged(rebuildMenus);
   if (!await ensureReadableSettings()) {
@@ -109,7 +111,9 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
-  refreshMenus(await readStoredSettings());
+  const storedSettings = await readStoredSettings();
+  setAppIcon(storedSettings.appIcon);
+  refreshMenus(storedSettings);
   windowManager.createMainWindow();
   startupComplete = true;
   if (app.commandLine.hasSwitch('quick-capture')) {

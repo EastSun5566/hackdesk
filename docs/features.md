@@ -147,4 +147,4 @@ Choose **Rename Note** from **More actions** or the Command Palette to change a 
 
 Open **Note Details** to view metadata and backlinks. HackMD notes also offer tags, permissions, and sharing controls. Press **Escape** to close the panel and return to the note.
 
-For capture outside the main window, use [Quick Hack](./quick-hack.md). For themes and editor modes, [customize HackDesk](./config.md).
+For capture outside the main window, use [Quick Hack](./quick-hack.md). For themes, app icons, and editor modes, [customize HackDesk](./config.md).

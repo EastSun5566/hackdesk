@@ -4,6 +4,8 @@ import { access, constants, readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { APP_ICON_VARIANT_IDS } from '../src/lib/app-icons.ts';
+
 // Read archives with the same library/version as our installed packager.
 const builderRequire = createRequire(import.meta.resolve('electron-builder'));
 const packagerRequire = createRequire(builderRequire.resolve('app-builder-lib'));
@@ -30,6 +32,13 @@ export function inspectArchive(archive: string) {
  * `requireSpeechHelper` is for macOS packages: electron-builder only warns when the dictation
  * helper is missing, so the artifact itself is checked.
  */
+/** Every icon the running app can switch to, and the macOS menu bar template. */
+export const PACKAGED_APP_ICON_FILES = [
+  ...APP_ICON_VARIANT_IDS.flatMap(id => [`${id}.png`, `${id}-square.png`]),
+  'trayTemplate.png',
+  'trayTemplate@2x.png',
+];
+
 export async function checkPackagedContents(resources: string, { requireSpeechHelper = false } = {}) {
   const archive = join(resources, 'app.asar');
   const contents = inspectArchive(archive);
@@ -52,7 +61,11 @@ export async function checkPackagedContents(resources: string, { requireSpeechHe
     }
   }
   await checkUnpacked(`${archive}.unpacked`);
-  await access(join(resources, 'assets/icon.png'));
+  for (const name of PACKAGED_APP_ICON_FILES) {
+    await access(join(resources, 'assets/app-icons', name)).catch(() => {
+      throw new Error(`Missing packaged app icon: ${name}`);
+    });
+  }
   if (requireSpeechHelper) {
     await access(join(resources, 'native/hackdesk-speech'), constants.X_OK).catch(() => {
       throw new Error('Missing packaged dictation helper: native/hackdesk-speech');
