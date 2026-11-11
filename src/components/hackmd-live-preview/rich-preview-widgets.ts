@@ -218,7 +218,10 @@ class CsvPreviewWidget extends WidgetType {
       body.appendChild(tableRow);
     }
     table.appendChild(body);
-    wrap.appendChild(table);
+    const frame = document.createElement('div');
+    frame.className = 'cm-hackmd-table-frame';
+    frame.appendChild(table);
+    wrap.appendChild(frame);
     wrap.addEventListener('mousedown', (event) => focusSourceLine(event, view, this.sourceFrom));
     return wrap;
   }

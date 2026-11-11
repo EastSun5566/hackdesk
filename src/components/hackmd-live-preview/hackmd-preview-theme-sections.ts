@@ -751,16 +751,21 @@ export const inlineMarksTheme = {
 };
 
 export const widgetTheme = {
+  // The widget block carries the vertical spacing; the frame inside it draws the border, so the
+  // header and the last row meet the border with no gap and column rules run its full height.
   '.cm-hackmd-table': {
     maxWidth: '100%',
-    overflowX: 'auto',
     contentVisibility: 'auto',
     containIntrinsicSize: 'auto none auto 180px',
+    fontFamily: 'var(--font-sans)',
+    padding: '0.5rem 0',
+  },
+  '.cm-hackmd-table-frame': {
+    maxWidth: '100%',
+    overflowX: 'auto',
     border: '1px solid var(--border-default)',
     borderRadius: '6px',
     backgroundColor: 'var(--background-default)',
-    fontFamily: 'var(--font-sans)',
-    padding: '0.45rem 0 0.75rem 0',
   },
   '.cm-hackmd-table table': {
     width: '100%',
