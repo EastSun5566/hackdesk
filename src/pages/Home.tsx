@@ -1009,7 +1009,7 @@ export function Home() {
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
     hackMode,
     navigatorCollapsed,
-    noteDirty: activeTab && isDraftNoteTab(activeTab) ? true : noteDirty,
+    noteDirty,
     scopeType: scope.type,
     selectedFolderId,
     selectedNoteId: selectedNote?.id ?? null,

@@ -854,7 +854,8 @@ test('tree guides connect mixed children and end at the last folder row', async 
       }));
       expect(problems).toEqual([]);
     };
-    // Three folders' lists, plus the Untagged group the root note sits in (tag grouping is on by default).
+    // Four expanded folders' lists (Projects, Sub, Folders only, Last), plus the Untagged group the
+    // root notes sit in (tag grouping is on by default).
     await expect(page.locator('[data-tree-children]')).toHaveCount(5);
     await assertGuides();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('09-tree-guides.png') });

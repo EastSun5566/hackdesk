@@ -48,7 +48,8 @@ type EntityRowProps = {
   titleClassName?: string;
   trailingClassName?: string;
   focusTarget?: boolean;
-  contentOnClick?: () => void;  contentAriaLabel?: string;
+  contentOnClick?: () => void;
+  contentAriaLabel?: string;
   contentAriaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
   contentFocusTarget?: boolean;
   contentButtonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
