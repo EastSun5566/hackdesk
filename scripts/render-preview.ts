@@ -1,0 +1,131 @@
+/**
+ * Render preview: opens one markdown note in a throwaway HackDesk profile and screenshots the editor
+ * in light and dark mode. Use it to check a live-preview rendering change in the real app without
+ * running the E2E suite.
+ *
+ *   pnpm render:preview                                   # the bundled sample note
+ *   pnpm render:preview --note path/to/note.md            # any note; images beside it are copied too
+ *   pnpm render:preview --scroll-to "Code blocks"         # start the shot at the line containing this text
+ *   pnpm render:preview --modes dark --click "Last line"  # put the cursor on a line (reveals its source)
+ *   pnpm render:preview --eval "document.querySelectorAll('.cm-line').length"
+ *
+ * Screenshots land in .local/render-preview/<name>-<mode>.png. The script starts its own Vite dev
+ * server, so source edits are picked up on every run; it builds the Electron main bundle first.
+ * Windows stay in the background (HACKDESK_E2E_BACKGROUND) and never touch your real settings.
+ */
+import { _electron as electron } from '@playwright/test';
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { parseArgs } from 'node:util';
+import { createServer } from 'vite';
+import { buildTargets } from './electron-build.ts';
+
+const repoRoot = path.resolve(import.meta.dirname, '..');
+const { values } = parseArgs({
+  options: {
+    note: { type: 'string', default: path.join(repoRoot, 'scripts/fixtures/render-preview/Render Preview.md') },
+    modes: { type: 'string', default: 'light,dark' },
+    out: { type: 'string', default: path.join(repoRoot, '.local/render-preview') },
+    name: { type: 'string' },
+    'scroll-to': { type: 'string' },
+    click: { type: 'string' },
+    eval: { type: 'string' },
+    width: { type: 'string', default: '1280' },
+    height: { type: 'string', default: '1400' },
+  },
+});
+
+const notePath = path.resolve(values.note);
+const note = await readFile(notePath, 'utf8');
+const title = path.basename(notePath, '.md');
+const name = values.name ?? title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+await mkdir(values.out, { recursive: true });
+await buildTargets();
+
+const server = await createServer({ root: repoRoot, logLevel: 'error', server: { host: 'localhost', port: 0, strictPort: false } });
+await server.listen();
+const address = server.httpServer?.address();
+if (!address || typeof address === 'string') throw new Error('No dev server address.');
+
+try {
+  for (const mode of values.modes.split(',')) {
+    const home = await mkdtemp(path.join(tmpdir(), 'hackdesk-render-preview-'));
+    const vault = path.join(home, 'vault');
+    await mkdir(path.join(home, '.hackdesk'));
+    await mkdir(vault);
+    await writeFile(path.join(vault, `${title}.md`), note);
+    for (const file of await readdir(path.dirname(notePath))) {
+      if (/\.(?:svg|png|jpe?g|gif|webp)$/i.test(file)) await copyFile(path.join(path.dirname(notePath), file), path.join(vault, file));
+    }
+    await writeFile(path.join(home, '.hackdesk', 'settings.json'), JSON.stringify({
+      appearance: { theme: mode, presetId: 'hackmd-neo', customSeed: {} },
+      localVault: { vaults: [{ id: 'render-preview', path: vault }], activeVaultId: 'render-preview' },
+      onboarding: { hackmdTokenSetupDeferred: true },
+    }));
+
+    const env: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
+    delete env.ELECTRON_RUN_AS_NODE;
+    env.HOME = home;
+    env.HACKDESK_E2E_BACKGROUND = '1';
+    // Vite listens on localhost, which may resolve to ::1 only; 127.0.0.1 would never connect.
+    env.HACKDESK_ELECTRON_DEV_SERVER_URL = `http://localhost:${address.port}`;
+
+    const app = await electron.launch({
+      args: [repoRoot, `--hackdesk-home=${home}`, `--user-data-dir=${path.join(home, 'user-data')}`],
+      cwd: repoRoot,
+      env,
+    });
+    try {
+      const page = await app.firstWindow();
+      page.on('console', (message) => {
+        if (message.type() === 'error') console.error(`[renderer] ${message.text()}`);
+      });
+      await page.setViewportSize({ width: Number(values.width), height: Number(values.height) });
+
+      // The saved search state can arrive after launch and replace what was typed; retry until the note opens.
+      const search = page.getByPlaceholder('Search notes');
+      const deadline = Date.now() + 30_000;
+      for (;;) {
+        try {
+          await search.fill(title);
+          await page.getByRole('list', { name: 'Search results' }).getByRole('button', { name: title, exact: true }).click({ timeout: 2000 });
+          break;
+        } catch (error) {
+          if (Date.now() > deadline) {
+            await page.screenshot({ path: path.join(values.out, `${name}-${mode}-failed.png`) });
+            throw error;
+          }
+        }
+      }
+      await search.fill('');
+      const content = page.locator('.cm-content').first();
+      await content.waitFor();
+      // Lazy widgets (KaTeX, Mermaid, language parsers, images) settle after the first paint.
+      await page.waitForTimeout(2000);
+
+      if (values.click) {
+        await content.locator('.cm-line', { hasText: values.click }).first().click();
+        await page.waitForTimeout(300);
+      }
+      if (values['scroll-to']) {
+        await content.evaluate((element, text) => {
+          const line = [...element.querySelectorAll('.cm-line')].find((candidate) => candidate.textContent?.includes(text));
+          line?.scrollIntoView({ block: 'start' });
+        }, values['scroll-to']);
+        await page.waitForTimeout(500);
+      }
+      if (values.eval) console.log(`[${mode}]`, await page.evaluate(values.eval));
+
+      const file = path.join(values.out, `${name}-${mode}.png`);
+      await page.locator('.cm-editor').first().screenshot({ path: file });
+      console.log(file);
+    } finally {
+      await app.close().catch(() => app.process().kill('SIGKILL'));
+      await rm(home, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+} finally {
+  await server.close();
+}
