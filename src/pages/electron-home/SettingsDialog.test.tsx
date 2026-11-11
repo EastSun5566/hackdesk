@@ -391,7 +391,7 @@ describe('SettingsDialog', () => {
     fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Reset General settings?' }))
       .getByRole('button', { name: 'Reset General' }));
 
-    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk' });
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', appIcon: defaultSettings.appIcon });
     expect(screen.getByLabelText('Window title')).toHaveValue('HackDesk');
   });
 
@@ -718,6 +718,79 @@ describe('SettingsDialog', () => {
 
     expect(onSave).toHaveBeenCalledWith({ title: defaultSettings.title });
     expect(onSave).not.toHaveBeenCalledWith({ title: 'Typed Desk' });
+  });
+
+  it('saves and applies a chosen app icon at once', () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Nightly' }));
+
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', appIcon: 'nightly' });
+  });
+
+  it('resets the app icon with its section and with the General page', () => {
+    const settings = {
+      title: 'HackDesk',
+      workspaceNavigation: defaultSettings.workspaceNavigation,
+      appearance: defaultSettings.appearance,
+      editor: defaultSettings.editor,
+      appIcon: 'neon' as const,
+      hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
+      hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+      hasLocalVault: false,
+      localVault: defaultSettings.localVault,
+      onboarding: defaultSettings.onboarding,
+      shouldShowHackmdOnboarding: true,
+    };
+    const { onSave } = renderSettingsDialog({ settings });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset app icon to Match Appearance' }));
+    expect(onSave).toHaveBeenLastCalledWith({ title: 'HackDesk', appIcon: defaultSettings.appIcon });
+    expect(screen.getByRole('radio', { name: 'Match Appearance' })).toBeChecked();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Neon' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset General settings to defaults' }));
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Reset General settings?' }))
+      .getByRole('button', { name: 'Reset General' }));
+    expect(onSave).toHaveBeenLastCalledWith({ title: 'HackDesk', appIcon: defaultSettings.appIcon });
+    expect(screen.getByRole('radio', { name: 'Match Appearance' })).toBeChecked();
+  });
+
+  it('reveals secret app icons after repeatedly clicking the selected icon', () => {
+    const { onSave } = renderSettingsDialog();
+
+    expect(screen.queryByRole('radio', { name: 'Building Blocks' })).not.toBeInTheDocument();
+    const selected = screen.getByRole('radio', { name: 'Match Appearance' });
+    for (let click = 0; click < 5; click += 1) {
+      fireEvent.click(selected);
+    }
+
+    expect(screen.getByRole('radio', { name: 'Building Blocks' })).toBeInTheDocument();
+    expect(toastSuccessMock).toHaveBeenCalledWith('Secret icons unlocked.');
+    // Clicking the icon that is already selected changes nothing, so nothing saves.
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('shows secret app icons when one is already selected', () => {
+    renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        appIcon: 'blocks',
+        hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: true,
+      },
+    });
+
+    expect(screen.getByRole('radio', { name: 'Building Blocks' })).toBeChecked();
   });
 
   it('validates a new HackMD token before saving it', async () => {

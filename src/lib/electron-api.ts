@@ -65,10 +65,11 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   ai?: AppSettings['ai'];
   dictation?: AppSettings['dictation'];
   offline?: AppSettings['offline'];
+  appIcon?: AppSettings['appIcon'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline' | 'appIcon'>> & {
   hackmdApiToken?: string;
   /** Labels a newly connected account; also renames the active one when replacing its token. */
   hackmdAccountLabel?: string;

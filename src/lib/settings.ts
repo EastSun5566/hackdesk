@@ -9,6 +9,7 @@ import {
   type AiDelivery,
   type AiProviderId,
 } from '@/lib/ai';
+import { APP_ICON_IDS, DEFAULT_APP_ICON } from '@/lib/app-icons';
 import { MAX_DICTATION_LOCALE_LENGTH } from '@/lib/dictation';
 import { ELECTRON_ACTIONS } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
@@ -786,6 +787,7 @@ export const settingsSchema = z.object({
   ai: aiSettingsSchema,
   dictation: dictationSettingsSchema,
   offline: offlineSettingsSchema,
+  appIcon: z.enum(APP_ICON_IDS).catch(DEFAULT_APP_ICON),
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -804,6 +806,7 @@ export const defaultSettings: AppSettings = {
   ai: defaultAiSettings,
   dictation: defaultDictationSettings,
   offline: defaultOfflineSettings,
+  appIcon: DEFAULT_APP_ICON,
 };
 
 const storedShortcutSettingsSchema = z.record(z.string(), z.unknown())
@@ -836,6 +839,7 @@ const storedSettingsSchema = z.object({
   ai: settingsSchema.shape.ai.catch(defaultSettings.ai),
   dictation: settingsSchema.shape.dictation.catch(defaultSettings.dictation),
   offline: settingsSchema.shape.offline.catch(defaultSettings.offline),
+  appIcon: settingsSchema.shape.appIcon,
 });
 
 export function normalizeAppearanceSettings(

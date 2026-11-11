@@ -26,7 +26,8 @@
     "tailwindcss-animate"
   ],
   "ignoreBinaries": [
-    "xcrun",
-    "lipo"
+    "iconutil",
+    "lipo",
+    "xcrun"
   ]
 }

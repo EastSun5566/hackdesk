@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
-import { checkPackagedContents } from './check-packaged-contents';
+import { checkPackagedContents, PACKAGED_APP_ICON_FILES } from './check-packaged-contents';
 
 const packagerRequire = createRequire(createRequire(import.meta.resolve('electron-builder')).resolve('app-builder-lib'));
 const { createPackage, getRawHeader } = packagerRequire('@electron/asar') as {
@@ -32,8 +32,8 @@ async function fixture(extra: Record<string, string> = {}, omit?: string) {
     await mkdir(dirname(join(source, name)), { recursive: true });
     await writeFile(join(source, name), value);
   }
-  await mkdir(join(resources, 'assets'), { recursive: true });
-  await writeFile(join(resources, 'assets/icon.png'), 'icon');
+  await mkdir(join(resources, 'assets/app-icons'), { recursive: true });
+  for (const name of PACKAGED_APP_ICON_FILES) await writeFile(join(resources, 'assets/app-icons', name), 'icon');
   const archive = join(resources, 'app.asar');
   await createPackage(source, archive);
   // createPackage resolves before its write stream flushes, so wait for the whole archive.
@@ -49,6 +49,11 @@ it('reads a real ASAR and verifies bundles, renderer, icon and licenses', async 
   expect(result.files).toBe(8);
   expect(result.nodeModulesBytes).toBe(0);
   expect(result.asarBytes).toBeGreaterThan(result.payloadBytes);
+});
+it('requires every runtime app icon', async () => {
+  const resources = await fixture();
+  await rm(join(resources, 'assets/app-icons/nightly-square.png'));
+  await expect(checkPackagedContents(resources)).rejects.toThrow('Missing packaged app icon: nightly-square.png');
 });
 it('requires an executable dictation helper when asked to', async () => {
   const resources = await fixture();

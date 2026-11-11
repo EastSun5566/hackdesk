@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useTheme } from '@/components/theme-provider';
 import { useThemeAppearanceDraft } from '@/components/useThemeAppearanceDraft';
+import type { AppIconId } from '@/lib/app-icons';
 import { DEFAULT_CODE_THEME, setCodeTheme } from '@/lib/code-themes';
 import type { ElectronSafeSettings, UserSummary } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
@@ -163,6 +164,7 @@ function SettingsDialogContent({
   const [formState, setFormState] = useState(() => ({
     title: settings?.title ?? 'HackDesk',
     editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
+    appIcon: settings?.appIcon ?? defaultSettings.appIcon,
     token: '',
     tokenVisible: false,
     addingAccount: false,
@@ -184,7 +186,7 @@ function SettingsDialogContent({
     if (!open) cancelAppearanceDraftRef.current();
   }, [open]);
   useEffect(() => cancelPreview, [cancelPreview]);
-  const { editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible, addingAccount } = formState;
+  const { appIcon, editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible, addingAccount } = formState;
 
   // Every change saves at once; the footer is gone. Text fields debounce so typing saves once it pauses.
   const titleSaveTimer = useRef<number | undefined>(undefined);
@@ -237,6 +239,10 @@ function SettingsDialogContent({
     setFormState((current) => ({ ...current, editorMode: mode }));
     onSave({ title: titleForSave, editor: { mode } });
   };
+  const handleAppIconChange = (next: AppIconId) => {
+    setFormState((current) => ({ ...current, appIcon: next }));
+    onSave({ title: titleForSave, appIcon: next });
+  };
   const handleShortcutsChange = (next: typeof shortcuts) => {
     setFormState((current) => ({ ...current, shortcuts: next }));
     onSave({
@@ -269,8 +275,8 @@ function SettingsDialogContent({
     // A typed title still waiting to save must not land after the reset.
     cancelTitleSave();
     if (tab === 'general') {
-      setFormState((current) => ({ ...current, title: defaultSettings.title }));
-      onSave({ title: defaultSettings.title });
+      setFormState((current) => ({ ...current, title: defaultSettings.title, appIcon: defaultSettings.appIcon }));
+      onSave({ title: defaultSettings.title, appIcon: defaultSettings.appIcon });
       setResetRequest({ tab, nonce: Date.now() });
     } else if (tab === 'editor') {
       setFormState((current) => ({ ...current, editorMode: defaultSettings.editor.mode }));
@@ -389,6 +395,7 @@ function SettingsDialogContent({
     setFormState({
       title: defaultSettings.title,
       editorMode: defaultSettings.editor.mode,
+      appIcon: defaultSettings.appIcon,
       token: '',
       tokenVisible: false,
       addingAccount: false,
@@ -405,6 +412,7 @@ function SettingsDialogContent({
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
+      appIcon: defaultSettings.appIcon,
     });
   };
 
@@ -495,6 +503,9 @@ function SettingsDialogContent({
                       titleInvalid={!title.trim()}
                       onTitleChange={handleTitleChange}
                       onTitleBlur={handleTitleBlur}
+                      appIcon={appIcon}
+                      platform={platform}
+                      onAppIconChange={handleAppIconChange}
                       onRevertTitle={() => {
                         cancelTitleSave();
                         setFormState((current) => ({ ...current, title: defaultSettings.title }));

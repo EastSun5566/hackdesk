@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { MAX_ASK_NOTES_HISTORY, MAX_ASK_NOTES_SOURCE_CHARACTERS, MAX_ASK_NOTES_SOURCES } from '../../../src/lib/ai';
+import { APP_ICON_IDS } from '../../../src/lib/app-icons';
 import { MAX_NOTE_QUESTION_LENGTH, MAX_NOTE_SEARCH_QUERY_LENGTH } from '../../../src/lib/note-index';
 
 import { writeLog } from './logging';
@@ -229,6 +230,7 @@ export const settingsUpdateSchema = z.strictObject({
   hackmdAddAccount: z.boolean().optional(),
   hackmdActiveAccountId: z.string().trim().min(1).max(200).optional(),
   hackmdRemoveAccountId: z.string().trim().min(1).max(200).optional(),
+  appIcon: z.enum(APP_ICON_IDS).optional(),
 });
 
 export const aiProviderIdInputSchema = aiProviderIdSchema;
