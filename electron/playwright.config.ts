@@ -23,11 +23,15 @@ export default defineConfig({
   // packaged binary. Exclude it here so it only runs from the `package-smoke`
   // job after `pnpm run package:check` produces the binary on the same runner.
   testIgnore: '**/packaged-startup.spec.ts',
-  // Every test launches its own app with its own home directory, so tests can run side by side.
-  // CI stays serial on its small runners; visible local runs too, since windows fight for focus.
-  fullyParallel: runInBackground,
+  // Every test launches its own app with its own home directory, so tests can run side by side,
+  // and CI shards split the suite test by test (`--shard`), not file by file.
+  // Each CI shard stays serial on its small runner; visible local runs too, since windows fight
+  // for focus.
+  fullyParallel: true,
   workers: runInBackground ? 4 : 1,
-  retries: 0,
+  // One retry in CI, so a flaky test doesn't force a re-run of the whole workflow. Playwright still
+  // reports a test that passed on retry as flaky.
+  retries: isCI ? 1 : 0,
   // Refuse committed `.only` calls in CI so a forgotten focus on a single
   // test cannot ship under the guise of a full suite. Local runs still
   // allow it (so a developer can debug one test without ceremony).
