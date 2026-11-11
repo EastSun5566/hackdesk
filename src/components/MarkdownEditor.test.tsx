@@ -1718,10 +1718,13 @@ describe('MarkdownEditor', () => {
     act(() => view.dispatch({ effects: revealInitialSelection.of(), selection: { anchor: markdown.indexOf('two') + 1 } }));
     await waitFor(() => expect(line()).toContain('(https://two.example)'));
     expect(line()).not.toContain('https://one.example');
+    // The other link keeps its open button; the one being edited drops it.
+    expect(editor.querySelectorAll('.cm-hackmd-link-open')).toHaveLength(1);
 
     act(() => view.dispatch({ selection: { anchor: markdown.indexOf('here') } }));
     await waitFor(() => expect(line()).not.toContain('https://two.example'));
     expect(line()).toContain('See one and two here.');
+    await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-link-open')).toHaveLength(2));
   });
 
   it('decorates active autolinks as source-safe links', async () => {
