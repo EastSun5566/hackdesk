@@ -14,6 +14,7 @@ import {
   createFolderFocusId,
   findTypeaheadMatch,
   getKeyboardFocusRowId,
+  getParentFocusId,
   normalizeCreateNoteFolderId,
   shouldIgnoreFolderTreeKeydown,
   WORKSPACE_ROOT_FOCUS_ID,
@@ -145,7 +146,7 @@ export function useFolderTreeKeyboardNavigation({
     let parentId: string | null | undefined = previousItems[oldIndex]?.parentFolderId;
     let nextId: string | undefined;
     while (parentId) {
-      const parent = createFolderFocusId(parentId);
+      const parent = getParentFocusId(parentId);
       if (reachableIds.has(parent)) {
         nextId = parent;
         break;
@@ -382,9 +383,7 @@ export function useFolderTreeKeyboardNavigation({
       }
 
       if (currentItem.parentFolderId) {
-        // Notes under a tag group mention the group by its focus id already; folder children mean
-        // a folder id, which needs the focus-id prefix.
-        focusTreeItem(currentItem.parentFolderId.startsWith('tag:') ? currentItem.parentFolderId : createFolderFocusId(currentItem.parentFolderId));
+        focusTreeItem(getParentFocusId(currentItem.parentFolderId));
         return;
       }
 

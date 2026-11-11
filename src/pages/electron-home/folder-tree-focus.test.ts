@@ -10,6 +10,7 @@ import {
   findTypeaheadMatch,
   getFolderTreeFocusItems,
   normalizeCreateNoteFolderId,
+  getParentFocusId,
   WORKSPACE_ROOT_FOCUS_ID,
 } from './folder-tree-focus';
 
@@ -91,6 +92,13 @@ describe('folder tree focus model', () => {
   it('normalizes root folder ids for create-note commands', () => {
     expect(normalizeCreateNoteFolderId(UNFILED_FOLDER_ID)).toBeNull();
     expect(normalizeCreateNoteFolderId('projects')).toBe('projects');
+    // A grouped note's parent is its tag group, which holds root notes.
+    expect(normalizeCreateNoteFolderId(createTagGroupFocusId('work'))).toBeNull();
+  });
+
+  it("names a row's parent row by focus id, for a folder or a tag group", () => {
+    expect(getParentFocusId('projects')).toBe(createFolderFocusId('projects'));
+    expect(getParentFocusId(createTagGroupFocusId('work'))).toBe(createTagGroupFocusId('work'));
   });
 
   it('puts the workspace root before the tree for keyboard navigation', () => {

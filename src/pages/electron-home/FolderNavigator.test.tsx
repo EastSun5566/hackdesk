@@ -1313,6 +1313,20 @@ describe('FolderNavigator tag groups', () => {
     expect(screen.getByRole('treeitem', { name: 'Loose note' })).toBeVisible();
   });
 
+  it('creates a note at the root from a grouped note, never in the group as a folder', () => {
+    const onCreateNoteInside = vi.fn();
+    const notes = [note({ id: 'work-note', tags: ['work'], title: 'Work Note' })];
+    const tree = buildHackmdFolderTree(notes, []);
+    window.localStorage.setItem('hackdesk_tag_grouping', 'true');
+    const { container } = renderFolderNavigator({ tree, entries: tree.allNotes, actions: { onCreateNoteInside } });
+
+    const grouped = focusTreeRow(container, 'note:work-note');
+    fireEvent.keyDown(grouped, { key: 'N', metaKey: true, shiftKey: true });
+
+    // A tag group is not a folder: its id must never reach note or folder creation.
+    expect(onCreateNoteInside).toHaveBeenCalledWith(null);
+  });
+
   it('groups root notes under first tags, all expanded by default', () => {
     const { container } = renderTagGroupedNavigator();
 

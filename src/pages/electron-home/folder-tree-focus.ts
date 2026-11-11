@@ -1,7 +1,7 @@
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
-import { createTagGroupFocusId, type TagGroup } from '@/lib/electron-tag-groups';
+import { createTagGroupFocusId, isTagGroupFocusId, type TagGroup } from '@/lib/electron-tag-groups';
 
 export const WORKSPACE_ROOT_FOCUS_ID = 'workspace:root';
 
@@ -171,8 +171,14 @@ export function shouldIgnoreFolderTreeKeydown(target: EventTarget | null) {
   return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [data-folder-tree-ignore-keyboard]'));
 }
 
+/** The folder a new note goes in from a row's parent: a tag group holds root notes, so it is the root. */
 export function normalizeCreateNoteFolderId(folderId: string | null) {
-  return folderId === UNFILED_FOLDER_ID ? null : folderId;
+  return folderId === UNFILED_FOLDER_ID || isTagGroupFocusId(folderId) ? null : folderId;
+}
+
+/** A row's parent row: a tag group is named by its focus id already, a folder by its folder id. */
+export function getParentFocusId(parentFolderId: string) {
+  return isTagGroupFocusId(parentFolderId) ? parentFolderId : createFolderFocusId(parentFolderId);
 }
 
 export function findTypeaheadMatch(items: TreeFocusItem[], query: string, currentIndex: number) {

@@ -19,7 +19,17 @@ export function normalizeTagGroupOrder(value: unknown): TagGroupOrder {
 
 /** A tag group row's focus id in the folder tree; '' (no tags) reads as the untagged group. */
 export function createTagGroupFocusId(tag: string) {
-  return `tag:${tag || '__untagged__'}`;
+  return `${TAG_GROUP_FOCUS_PREFIX}${tag || '__untagged__'}`;
+}
+
+const TAG_GROUP_FOCUS_PREFIX = 'tag:';
+
+/**
+ * Whether a tree parent id names a tag group rather than a folder. A grouped note's parent is its
+ * group's focus id, which no folder-id consumer (creating a note inside, selecting a folder) may use.
+ */
+export function isTagGroupFocusId(id: string | null | undefined): id is string {
+  return Boolean(id?.startsWith(TAG_GROUP_FOCUS_PREFIX));
 }
 
 export function getTagGroupLabel(tag: string) {
