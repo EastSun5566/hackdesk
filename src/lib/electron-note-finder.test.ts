@@ -12,6 +12,7 @@ import {
   isNoteFinderActive,
   noteMatchesFinderQuery,
   readNoteFinderState,
+  sortFolderTreeNotes,
   togglePermissionFilter,
   toggleStringFilter,
   writeNoteFinderState,
@@ -63,6 +64,27 @@ const childFolder: FolderSummary = {
 };
 
 describe('electron note finder', () => {
+  it('reorders notes inside the tree without moving the folders, and only a search or filter flattens it', () => {
+    const inFolder = (id: string, title: string, updatedAtMillis: number) => note({ id, title, updatedAtMillis, folderPaths: [{ ...folder, parentId: null }] as NoteSummary['folderPaths'] });
+    const tree = buildHackmdFolderTree([
+      inFolder('b', 'Beta', 3),
+      inFolder('a', 'Alpha', 1),
+      note({ id: 'z', title: 'Zed', updatedAtMillis: 5 }),
+      note({ id: 'y', title: 'Yak', updatedAtMillis: 4 }),
+    ], [folder, childFolder]);
+
+    expect(sortFolderTreeNotes(tree, 'updated-desc')).toBe(tree);
+    const sorted = sortFolderTreeNotes(tree, 'title-asc');
+    expect(sorted.roots.map((node) => node.id)).toEqual(tree.roots.map((node) => node.id));
+    expect(sorted.nodesById.get('folder-1')?.notes.map((entry) => entry.note.title)).toEqual(['Alpha', 'Beta']);
+    expect(sorted.nodesById.get('folder-1')?.children.map((node) => node.id)).toEqual(['folder-2']);
+    expect(sorted.unfiled.notes.map((entry) => entry.note.title)).toEqual(['Yak', 'Zed']);
+
+    expect(isNoteFinderActive({ ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc', searchScope: 'current-folder' })).toBe(false);
+    expect(isNoteFinderActive({ ...DEFAULT_NOTE_FINDER_STATE, query: 'a' })).toBe(true);
+    expect(isNoteFinderActive({ ...DEFAULT_NOTE_FINDER_STATE, tagFilters: ['x'] })).toBe(true);
+  });
+
   it('roundtrips state through storage with defaults for invalid fields', () => {
     const storage = new Map<string, string>();
     const storageLike = {

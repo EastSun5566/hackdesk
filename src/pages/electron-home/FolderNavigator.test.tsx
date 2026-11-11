@@ -705,13 +705,31 @@ describe('FolderNavigator', () => {
     window.localStorage.removeItem('hackdesk_show_hidden_files');
   });
 
-  it('moves View options and the result count to the list header when the view changes', () => {
-    renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc' } });
+  it('keeps the folders when only the sort or the search scope changes', () => {
+    renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc', searchScope: 'current-folder' } });
+
+    expect(screen.getByRole('treeitem', { name: 'My Notes' })).toBeInTheDocument();
+    expect(screen.getByRole('treeitem', { name: 'Projects' })).toBeInTheDocument();
+    // Its badge still counts what differs from the default (the tooltip says so too).
+    expect(screen.getByRole('button', { name: 'View options' })).toHaveTextContent('2');
+    expect(screen.queryByText(/^\d+ results?$/)).not.toBeInTheDocument();
+  });
+
+  it('moves View options and the result count to the list header when a filter applies', () => {
+    renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, tagFilters: ['work'] } });
 
     expect(screen.queryByRole('treeitem', { name: 'My Notes' })).not.toBeInTheDocument();
-    // Its badge counts what differs from the default (the tooltip says so too).
     expect(screen.getByRole('button', { name: 'View options' })).toHaveTextContent('1');
     expect(screen.getByText(/^\d+ results?$/)).toBeInTheDocument();
+  });
+
+  it('offers no permission filters in a local folder', async () => {
+    renderFolderNavigator({ scope: { type: 'local', label: 'Notes' } });
+    fireEvent.pointerDown(screen.getAllByRole('button', { name: 'View options' })[0]);
+    const menu = await screen.findByRole('menu');
+    expect(menu).toHaveTextContent('Sort');
+    expect(menu).not.toHaveTextContent('Read Permission');
+    expect(menu).not.toHaveTextContent('Write Permission');
   });
 
   it('holds scope, sort, permissions and tags in View options, and counts what differs from the default', async () => {

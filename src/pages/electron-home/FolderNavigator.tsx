@@ -53,6 +53,7 @@ import {
   applyNoteFinder,
   getNoteFinderOptions,
   isNoteFinderActive,
+  sortFolderTreeNotes,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
 import { buildNoteTagIndex } from '@/lib/electron-note-tags';
@@ -336,9 +337,16 @@ export function FolderNavigator(props: FolderNavigatorProps) {
   const workspace = useStableCallbacks(props.workspace);
   // Its callbacks are rebuilt each render too (openTrashNote is inline), which would defeat the memo.
   const trash = useStableCallbacks(props.trash ?? NO_TRASH);
+  // Sorting reorders each folder's notes in place; the folders stay.
+  const sortMode = props.finderState.sortMode;
+  const tree = useMemo(() => sortFolderTreeNotes(props.tree, sortMode), [props.tree, sortMode]);
+  const workspaceFolders = useMemo(
+    () => props.workspaceFolders?.map((folder) => ({ ...folder, tree: sortFolderTreeNotes(folder.tree, sortMode) })),
+    [props.workspaceFolders, sortMode],
+  );
   // Read in the top component: the memoized panels below would miss a preference change.
-  const tagGrouping = useFolderTagGrouping(props.tree.unfiled.notes, props.scope.type !== 'local');
-  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashNavigatorViewProps : undefined} tagGrouping={tagGrouping} />;
+  const tagGrouping = useFolderTagGrouping(tree.unfiled.notes, props.scope.type !== 'local');
+  return <MemoFolderNavigator {...props} tree={tree} workspaceFolders={workspaceFolders} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashNavigatorViewProps : undefined} tagGrouping={tagGrouping} />;
 }
 
 const NO_TRASH = {};

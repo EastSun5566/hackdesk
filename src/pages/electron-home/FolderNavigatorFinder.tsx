@@ -339,30 +339,35 @@ export function NoteViewOptionsMenu({
             {SORT_LABELS[sortMode]}
           </DropdownMenuItem>
         ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Read Permission</DropdownMenuLabel>
-        {options.readPermissions.map((permission) => (
-          <DropdownMenuCheckboxItem
-            key={`read:${permission}`}
-            checked={state.readPermissionFilters.includes(permission)}
-            onSelect={(event) => event.preventDefault()}
-            onCheckedChange={() => updateState({ readPermissionFilters: togglePermissionFilter(state.readPermissionFilters, permission) })}
-          >
-            {PERMISSION_LABELS[permission]}
-          </DropdownMenuCheckboxItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Write Permission</DropdownMenuLabel>
-        {options.writePermissions.map((permission) => (
-          <DropdownMenuCheckboxItem
-            key={`write:${permission}`}
-            checked={state.writePermissionFilters.includes(permission)}
-            onSelect={(event) => event.preventDefault()}
-            onCheckedChange={() => updateState({ writePermissionFilters: togglePermissionFilter(state.writePermissionFilters, permission) })}
-          >
-            {PERMISSION_LABELS[permission]}
-          </DropdownMenuCheckboxItem>
-        ))}
+        {/* Local files have no HackMD sharing, so local folders get no permission filters. */}
+        {showLocalOptions ? null : (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Read Permission</DropdownMenuLabel>
+            {options.readPermissions.map((permission) => (
+              <DropdownMenuCheckboxItem
+                key={`read:${permission}`}
+                checked={state.readPermissionFilters.includes(permission)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={() => updateState({ readPermissionFilters: togglePermissionFilter(state.readPermissionFilters, permission) })}
+              >
+                {PERMISSION_LABELS[permission]}
+              </DropdownMenuCheckboxItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Write Permission</DropdownMenuLabel>
+            {options.writePermissions.map((permission) => (
+              <DropdownMenuCheckboxItem
+                key={`write:${permission}`}
+                checked={state.writePermissionFilters.includes(permission)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={() => updateState({ writePermissionFilters: togglePermissionFilter(state.writePermissionFilters, permission) })}
+              >
+                {PERMISSION_LABELS[permission]}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </>
+        )}
         {tags.length ? (
           <>
             <DropdownMenuSeparator />
