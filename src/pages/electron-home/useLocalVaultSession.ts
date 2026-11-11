@@ -24,6 +24,15 @@ import { migrateLocalWorkspaceStorage } from './local-workspace-storage';
  * routed through the change transition (like choose/disconnect), so concurrent
  * vault reads are cancelled instead of racing the switch.
  */
+
+/** The folder that holds `path`, or `path` itself at a root. */
+function parentDirectory(path: string) {
+  const trimmed = path.replace(/[\\/]+$/, '');
+  const index = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+  if (index <= 0) return trimmed.slice(0, index + 1) || path;
+  return /^[A-Za-z]:$/.test(trimmed.slice(0, index)) ? trimmed.slice(0, index + 1) : trimmed.slice(0, index);
+}
+
 export type LocalVaultSessionApi = Omit<HackDeskElectronAPI, 'localVault'> & {
   localVault: HackDeskElectronAPI['localVault'] & {
     switchVault: (vaultId: string) => Promise<LocalVaultActivateResult>;
@@ -45,7 +54,7 @@ export function useLocalVaultSession(
   settings: ElectronSafeSettings | undefined,
   beforeChange: MutableRefObject<() => void>,
   /** Opens the in-app folder picker; falls back to the native dialog when absent. */
-  pickFolder?: (startPath?: string | null) => Promise<string | null>,
+  pickFolder?: (startPath?: string | null, addedPaths?: readonly string[]) => Promise<string | null>,
 ) {
   const queryClient = useQueryClient();
   const path = getActiveLocalVaultPath(settings);
@@ -146,9 +155,14 @@ export function useLocalVaultSession(
         ...guarded.localVault,
         choose: () => transition(async () => {
           if (pickFolder) {
-            // Start where the current vault is, so changing vaults is one step.
+            // Start beside the current vault, among its siblings: the folder to add is usually a
+            // neighbour, and starting inside the vault offered to add it again.
             const current = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
-            const path = await pickFolder(getActiveLocalVaultPath(current) ?? undefined);
+            const activePath = getActiveLocalVaultPath(current);
+            const path = await pickFolder(
+              activePath ? parentDirectory(activePath) : undefined,
+              current?.localVault.vaults.map((vault) => vault.path) ?? [],
+            );
             if (!path) {
               return { canceled: true };
             }

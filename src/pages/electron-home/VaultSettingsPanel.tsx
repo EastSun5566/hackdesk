@@ -1,7 +1,8 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { AlertCircle, ArrowLeftRight, Check, FolderOpen, FolderPlus, HardDrive, Layers, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
+import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 import type { ElectronSafeSettings } from '@/lib/electron-api';
@@ -11,20 +12,7 @@ import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { SettingsPage, SettingsSection } from './SettingsPrimitives';
 import { localVaultFolderName } from './workspace-root-labels';
 
-const LOCAL_VAULT_SCANNED_AT_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
-
 const ROW_CLASS = 'flex flex-wrap items-center justify-between gap-3';
-
-function formatScannedAt(snapshot?: LocalVaultSnapshot | null) {
-  if (!snapshot?.scannedAtMillis) {
-    return 'Not scanned yet';
-  }
-
-  return LOCAL_VAULT_SCANNED_AT_FORMATTER.format(new Date(snapshot.scannedAtMillis));
-}
 
 function folderNames(vaults: LocalVaultEntry[], vaultIds: string[]) {
   return vaultIds
@@ -95,8 +83,6 @@ export function VaultSettingsPanel({
   const activeVaultId = settings?.localVault.activeVaultId ?? null;
   const activePath = getActiveLocalVaultPath(settings) ?? snapshot?.rootPath ?? null;
   const isConfigured = vaults.length > 0 || Boolean(activePath);
-  const activeFolderName = activePath ? localVaultFolderName(activePath) : null;
-  const activeWorkspaceName = workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ?? null;
   const workspaceNamesByVaultId = new Map<string, string[]>();
   for (const workspace of workspaces) {
     for (const vaultId of workspace.vaultIds) {
@@ -113,114 +99,57 @@ export function VaultSettingsPanel({
       .finally(() => setBusyAction(null));
   };
 
+  const addFolder = () => runVaultAction('choose', () => onAddVault().then(() => undefined));
+  const addButton = (
+    <Button variant="secondary" size="sm" disabled={busyAction !== null} onClick={addFolder}>
+      {busyAction === 'choose' ? <Spinner /> : <FolderPlus aria-hidden="true" className="h-3.5 w-3.5" />}
+      Add Folder
+    </Button>
+  );
+
   return (
     <SettingsPage>
-      {isConfigured ? (
-        <SettingsSection title="Currently open">
-          <div className={ROW_CLASS}>
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-sm font-medium leading-5 text-text-default">{activeFolderName}</p>
-                {activeWorkspaceName ? (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-background-primary-subtler px-2 py-0.5 text-xs leading-4 text-text-default">
-                    <Layers aria-hidden="true" className="size-3" />
-                    In {activeWorkspaceName}
-                  </span>
-                ) : null}
-              </div>
-              <p className="truncate font-mono text-xs leading-5 text-text-subtle" title={activePath ?? undefined}>{activePath}</p>
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-              <Button variant="secondary" size="sm" disabled={busyAction !== null} onClick={() => runVaultAction('open', onOpenLocalVault)}>
-                <FolderOpen aria-hidden="true" className="h-3.5 w-3.5" />
-                Open in Finder
-              </Button>
-              <Button variant="secondary" size="sm" disabled={busyAction !== null} onClick={() => runVaultAction('refresh', onRefreshLocalVault)}>
-                <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
-                Refresh Vault
-              </Button>
-            </div>
-          </div>
-          <dl className="grid grid-cols-3 gap-4 text-sm">
-            <VaultStat label="Notes" value={snapshot ? String(snapshot.notes.length) : '—'} />
-            <VaultStat label="Folders" value={snapshot ? String(snapshot.folders.length) : '—'} />
-            <VaultStat label="Last scanned" value={formatScannedAt(snapshot)} />
-          </dl>
-          {error ? (
-            <div className="flex gap-2 rounded border border-state-danger-border bg-state-danger-bg-light px-2.5 py-2 text-sm text-state-danger-text">
-              <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          ) : null}
-        </SettingsSection>
-      ) : null}
-
-      <SettingsSection
-        title="Workspaces"
-        description="Group related folders under one name and open them together in the sidebar. A folder can also be opened on its own or belong to more than one workspace."
-      >
-        {workspaces.length > 0 ? (
-          <ul data-settings-flush className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
-            {workspaces.map((workspace) => (
-              <WorkspaceRow
-                key={workspace.id}
-                workspace={workspace}
-                vaults={vaults}
-                active={workspace.id === activeWorkspaceId}
-                busyAction={busyAction}
-                onRun={runVaultAction}
-                actions={workspaceActions}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-text-subtle">
-            {vaults.length > 0
-              ? 'No workspaces yet. Group a few folders to keep a project in one place.'
-              : 'Add a folder first, then group folders into a workspace.'}
-          </p>
-        )}
-        {workspaceActions && vaults.length > 0 ? (
-          <div>
-            <NewWorkspaceForm
-              vaults={vaults}
-              busy={busyAction !== null}
-              onCreate={(name, vaultIds) => runVaultAction('workspace:create', () => workspaceActions.create(name, vaultIds))}
-            />
-          </div>
-        ) : null}
-      </SettingsSection>
-
+      {/* Folders come first: they are what a workspace is made of, and adding one is the first step. */}
       <SettingsSection
         title="Folders"
-        description={isConfigured
-          ? 'Folders are stored on your device. Open one on its own or add it to a workspace; your files stay in their original location.'
-          : 'Add a Markdown folder to read and write notes locally.'}
+        description={isConfigured ? 'Markdown folders on this computer. Notes stay where they are.' : undefined}
+        action={isConfigured ? addButton : undefined}
       >
         {vaults.length > 0 ? (
           <ul data-settings-flush className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
             {vaults.map((vault) => {
               const active = vault.id === activeVaultId;
               const memberships = workspaceNamesByVaultId.get(vault.id) ?? [];
+              const noteCount = active && snapshot ? snapshot.notes.length : null;
               return (
-                <li key={vault.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 pl-4 pr-2.5">
+                <li key={vault.id} className="flex items-center gap-3 py-2.5 pl-4 pr-2.5">
+                  <HardDrive aria-hidden="true" className={cn('size-4 shrink-0', active ? 'text-primary-default' : 'text-icon-subtle')} />
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
                       <p className="truncate text-sm font-medium leading-5 text-text-default">{localVaultFolderName(vault.path)}</p>
                       {active ? <ActiveBadge /> : null}
+                      {memberships.map((name) => <WorkspacePill key={name} name={name} />)}
                     </div>
-                    <p className="truncate font-mono text-xs leading-5 text-text-subtle" title={vault.path}>{vault.path}</p>
-                    {memberships.length > 0 ? (
-                      <p className="mt-1 flex flex-wrap gap-1">
-                        {memberships.map((name) => <WorkspacePill key={name} name={name} />)}
-                      </p>
-                    ) : null}
+                    <p className="flex min-w-0 items-center gap-1.5 text-xs leading-5 text-text-subtle">
+                      <PathText path={vault.path} />
+                      {noteCount === null ? null : <span className="shrink-0 tabular-nums">· {noteCount === 1 ? '1 note' : `${noteCount} notes`}</span>}
+                    </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {active ? null : (
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {active ? (
+                      <>
+                        <IconAction label="Open in Finder" disabled={busyAction !== null} onClick={() => runVaultAction('open', onOpenLocalVault)}>
+                          <FolderOpen aria-hidden="true" className="h-3.5 w-3.5" />
+                        </IconAction>
+                        <IconAction label="Refresh Vault" disabled={busyAction !== null} onClick={() => runVaultAction('refresh', onRefreshLocalVault)}>
+                          {busyAction === 'refresh' ? <Spinner /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
+                        </IconAction>
+                      </>
+                    ) : (
                       <Button
                         variant="secondary"
                         size="sm"
+                        className="mr-1"
                         disabled={busyAction !== null}
                         onClick={() => runVaultAction(`switch:${vault.id}`, () => onSwitchLocalVault(vault.id))}
                       >
@@ -228,36 +157,95 @@ export function VaultSettingsPanel({
                         Switch
                       </Button>
                     )}
-                    <Button
-                      variant="secondary"
-                      size="sm"
+                    <IconAction
+                      label="Forget"
+                      tooltip="Forget this folder (files stay on disk)"
                       disabled={busyAction !== null}
                       onClick={() => runVaultAction(`forget:${vault.id}`, () => onForgetLocalVault(vault.id))}
                     >
                       {busyAction === `forget:${vault.id}` ? <Spinner /> : <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />}
-                      Forget
-                    </Button>
+                    </IconAction>
                   </div>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="text-sm text-text-subtle">No folders added yet.</p>
+          <div data-settings-flush className="flex flex-col items-center gap-3 px-6 py-8 text-center">
+            <HardDrive aria-hidden="true" className="size-6 text-icon-subtle" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-text-default">No folders added yet.</p>
+              <p className="text-xs leading-5 text-text-subtle">Pick a folder of Markdown files to read and write notes on this computer.</p>
+            </div>
+            <Button variant="primary" size="sm" disabled={busyAction !== null} onClick={addFolder}>
+              {busyAction === 'choose' ? <Spinner /> : <FolderPlus aria-hidden="true" className="h-3.5 w-3.5" />}
+              Add Folder
+            </Button>
+          </div>
         )}
-        <div>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busyAction !== null}
-            onClick={() => runVaultAction('choose', () => onAddVault().then(() => undefined))}
-          >
-            {busyAction === 'choose' ? <Spinner /> : <FolderPlus aria-hidden="true" className="h-3.5 w-3.5" />}
-            Add Folder
-          </Button>
-        </div>
+        {error ? (
+          <div className="flex gap-2 rounded border border-state-danger-border bg-state-danger-bg-light px-2.5 py-2 text-sm text-state-danger-text">
+            <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        ) : null}
       </SettingsSection>
+
+      {/* A workspace needs two folders to be worth having, so it waits until there are two. */}
+      {vaults.length > 1 || workspaces.length > 0 ? (
+        <SettingsSection
+          title="Workspaces"
+          description="Open several folders together in the sidebar."
+        >
+          {workspaces.length > 0 ? (
+            <ul data-settings-flush className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
+              {workspaces.map((workspace) => (
+                <WorkspaceRow
+                  key={workspace.id}
+                  workspace={workspace}
+                  vaults={vaults}
+                  active={workspace.id === activeWorkspaceId}
+                  busyAction={busyAction}
+                  onRun={runVaultAction}
+                  actions={workspaceActions}
+                />
+              ))}
+            </ul>
+          ) : null}
+          {workspaceActions ? (
+            <div>
+              <NewWorkspaceForm
+                vaults={vaults}
+                busy={busyAction !== null}
+                onCreate={(name, vaultIds) => runVaultAction('workspace:create', () => workspaceActions.create(name, vaultIds))}
+              />
+            </div>
+          ) : null}
+        </SettingsSection>
+      ) : null}
     </SettingsPage>
+  );
+}
+
+/**
+ * A path cut from its start, so the folder's own name and its parents stay in view (…/Projects/Notes);
+ * the full path is in its tooltip.
+ */
+function PathText({ path }: { path: string }) {
+  return (
+    <span dir="rtl" title={path} className="min-w-0 truncate text-left">
+      <bdi>{path}</bdi>
+    </span>
+  );
+}
+
+function IconAction({ label, tooltip, disabled, onClick, children }: { label: string; tooltip?: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <Tooltip content={tooltip ?? label}>
+      <Button variant="ghost" size="icon-sm" aria-label={label} disabled={disabled} onClick={onClick}>
+        {children}
+      </Button>
+    </Tooltip>
   );
 }
 
@@ -499,17 +487,3 @@ function WorkspaceRow({
   );
 }
 
-function VaultStat({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs leading-5 text-text-subtle">{label}</dt>
-      <dd className="truncate font-medium tabular-nums leading-5 text-text-default">{value}</dd>
-    </div>
-  );
-}

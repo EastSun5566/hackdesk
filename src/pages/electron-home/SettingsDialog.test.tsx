@@ -1053,11 +1053,11 @@ describe('SettingsDialog', () => {
 
     expect(screen.getAllByText('/Users/michael/MyVault').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('MyVault').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Notes').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Folders').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('1')).toBeInTheDocument();
+    // The open folder is marked in the one folder list, with its note count; no separate card.
     expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('· 2 notes')).toBeInTheDocument();
+    expect(screen.queryByText('Currently open')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open in Finder' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Refresh Vault' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add Folder' })).toBeVisible();
