@@ -92,7 +92,11 @@ test('restores one note from the trash and opens it', async () => {
     await expect(rows).toHaveCount(2);
     await expect(sidebar.getByRole('button', { name: 'Back to notes' })).toBeVisible();
     await expect(sidebar.getByText('Trash', { exact: true })).toBeVisible();
+    // Resting on a row shows the same hover card as a tree note: full title and dates.
+    await rows.filter({ hasText: 'Meeting' }).hover();
+    await expect(page.getByText(/^Kept until /)).toBeVisible();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('trash.png') });
+    await page.mouse.move(0, 0);
 
     await sidebar.getByRole('button', { name: 'Restore Roadmap' }).click();
     await expect(rows).toHaveCount(1);

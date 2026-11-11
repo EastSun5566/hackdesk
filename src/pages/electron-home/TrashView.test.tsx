@@ -7,6 +7,7 @@ import type { RestoreTrashResult, TrashedNoteSummary } from '@/lib/electron-api'
 
 import { HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE } from '@/lib/note-errors';
 
+import { TrashedNoteSummaryCard } from './NoteSummaryCard';
 import { TrashNavigatorList } from './TrashView';
 import type { WorkspaceScope } from './types';
 
@@ -66,11 +67,20 @@ describe('TrashNavigatorList', () => {
     const rows = await findRows();
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent('Roadmap');
-    expect(within(rows[0]).getByTitle(/^Deleted Oct 15/)).toBeInTheDocument();
+    expect(rows[0].querySelector('time')).toHaveAttribute('dateTime', new Date(roadmap.deletedAtMillis!).toISOString());
     expect(rows[0]).not.toHaveTextContent('Kept until');
     expect(rows[1]).toHaveTextContent('Untitled');
-    expect(within(rows[1]).getByTitle(/^Deleted Oct 12/)).toBeInTheDocument();
+    expect(rows[1].querySelector('time')).toHaveAttribute('dateTime', new Date(meeting.deletedAtMillis!).toISOString());
     expect(rows[1]).not.toHaveTextContent('Kept until');
+  });
+
+  it('gives the hover card the full title, the tags and both dates', () => {
+    render(<TrashedNoteSummaryCard note={{ ...meeting, title: 'A long meeting title the row cuts short', tags: ['planning', 'q4'] }} />);
+    expect(screen.getByText('A long meeting title the row cuts short')).toBeInTheDocument();
+    expect(screen.getByText('planning')).toBeInTheDocument();
+    expect(screen.getByText('q4')).toBeInTheDocument();
+    expect(screen.getByText(/^Deleted Oct 12/)).toBeInTheDocument();
+    expect(screen.getByText(/^Kept until Nov 11/)).toBeInTheDocument();
   });
 
   it('says when the trash is empty', async () => {
