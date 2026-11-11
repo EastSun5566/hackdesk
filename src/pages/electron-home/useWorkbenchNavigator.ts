@@ -16,6 +16,7 @@ import {
   getFolderNoteEntries,
   getFolderPathLabel,
 } from './ui';
+import type { InPlaceTarget } from './useNoteLinkOpener';
 
 /**
  * How a note is revealed. Quick Open shows where the note lives, opening a hidden sidebar; links
@@ -23,8 +24,8 @@ import {
  */
 export type RevealNoteOptions = {
   expandNavigator?: boolean;
-  /** Show it in the active tab instead of a new one, as a book's tab turns chapters. */
-  inPlace?: boolean;
+  /** Show it in an open tab instead of a new one, as a book's tab turns chapters. */
+  inPlace?: InPlaceTarget;
 };
 
 export type WorkbenchNavigatorOptions = {
@@ -34,7 +35,7 @@ export type WorkbenchNavigatorOptions = {
   finderActive: boolean;
   focusNavigator: () => void;
   moveNote: (operation: Pick<NoteDropOperation, 'note' | 'targetFolderId'>) => void;
-  requestSelectNote: (note: FolderTreeNote['note'], options?: { focusEditor?: boolean; trackRecent?: boolean; inPlace?: boolean }) => Promise<boolean>;
+  requestSelectNote: (note: FolderTreeNote['note'], options?: { focusEditor?: boolean; trackRecent?: boolean; inPlace?: InPlaceTarget }) => Promise<boolean>;
   scopeType: WorkspaceScope['type'];
   selectedFolderId: string | null;
   setCollapsedFolderIds: Dispatch<SetStateAction<Set<string>>>;

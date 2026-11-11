@@ -490,6 +490,8 @@ export function navigateNoteWorkspace(state: NoteWorkspaceState, direction: 'bac
   }
 
   const next = activateNavigationTarget(state, target);
+  // The tab kept the note it shows (it has unsaved edits there): nothing moved, so history stays.
+  if (navigationTargetEquals(getActiveNavigationTarget(next), currentTarget)) return state;
   return {
     ...next,
     backStack: direction === 'back' ? remainingStack : pushNavigationTarget(destinationStack, currentTarget),
@@ -562,9 +564,18 @@ export function keepNoteTab(state: NoteWorkspaceState, tabId: string) {
  * after this one) before this tab turns, and a note already open in another tab is taken over from
  * it, edits included. A tab holding no saved note opens a tab as usual.
  */
-export function openNoteInPlace(state: NoteWorkspaceState, note: NoteSummary, paneId = state.activePaneId) {
-  const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
-  const tabId = pane.activeTabId;
+export function openNoteInPlace(
+  state: NoteWorkspaceState,
+  note: NoteSummary,
+  paneId = state.activePaneId,
+  /** The tab to turn, wherever it is; it defaults to the pane's active tab. */
+  targetTabId?: string,
+) {
+  const targetPane = targetTabId ? state.panes.find((candidate) => candidate.tabIds.includes(targetTabId)) : undefined;
+  // The tab closed while the note was being found: open the note as any other.
+  if (targetTabId && !targetPane) return openNoteTab(state, note);
+  const pane = targetPane ?? state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
+  const tabId = targetTabId ?? pane.activeTabId;
   const tab = tabId ? state.tabs[tabId] : null;
   const shown = getSavedTabNoteIdentity(tab);
   if (!tabId || !tab || !shown) return openNoteTab(state, note, pane.paneId);

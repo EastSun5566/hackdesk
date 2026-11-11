@@ -47,7 +47,10 @@ const settle = () => act(async () => {});
 async function setup(document: DocumentSummary | undefined = BOOK) {
   const openNoteTarget = vi.fn();
   const openExternal = vi.fn();
-  const hook = renderHook(({ current }) => useBookSession({ document: current, activeTabId: TAB, openNoteTarget, openExternal }), { initialProps: { current: document } });
+  const hook = renderHook<BookSession, { current: DocumentSummary | undefined }>(
+    ({ current }) => useBookSession({ document: current, activeTabId: TAB, openNoteTarget, openExternal }),
+    { initialProps: { current: document } },
+  );
   await settle();
   return { ...hook, openNoteTarget, openExternal };
 }
@@ -77,7 +80,7 @@ describe('useBookSession', () => {
     const { result, openNoteTarget, openExternal } = await setup();
     await act(async () => result.current.openChapter(1));
     // A chapter turns the book's tab rather than opening a tab of its own.
-    await waitFor(() => expect(openNoteTarget).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'tools-id' }), { inPlace: true }));
+    await waitFor(() => expect(openNoteTarget).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'tools-id' }), { inPlace: { tabId: TAB } }));
     expect(resolveNote).toHaveBeenCalledOnce();
     expect(result.current.positionOf(TOOLS, TAB)).toEqual({ isBook: false, chapterIndex: 1 });
 
@@ -97,6 +100,48 @@ describe('useBookSession', () => {
     act(() => result.current.open(notes));
     await settle();
     expect(result.current.book?.contents.chapters).toHaveLength(1);
+  });
+
+  it('reads the book in the tab it is opened from, even when another tab had it', async () => {
+    installApi();
+    const openNoteTarget = vi.fn();
+    const { result, rerender } = renderHook<BookSession, { tab: string; book: DocumentSummary }>(
+      ({ tab, book }) => useBookSession({ document: book, activeTabId: tab, openNoteTarget, openExternal: vi.fn() }),
+      { initialProps: { tab: TAB, book: BOOK } },
+    );
+    await settle();
+    expect(result.current.positionOf(BOOK, TAB)).toEqual({ isBook: true, chapterIndex: null });
+
+    // A second tab of the same note asks for Open as Book.
+    rerender({ tab: 'second-tab', book: BOOK });
+    act(() => result.current.open(BOOK));
+    await settle();
+    expect(result.current.positionOf(BOOK, 'second-tab')).toEqual({ isBook: true, chapterIndex: null });
+    expect(result.current.positionOf(BOOK, TAB)).toBeNull();
+
+    // Saved edits to the book refresh it where it is read, without moving it.
+    const edited = { ...BOOK, content: `${BOOK.content}\n- [More](https://hackmd.io/@me/more)` };
+    rerender({ tab: TAB, book: edited });
+    await settle();
+    expect(result.current.book?.contents.chapters).toHaveLength(4);
+    expect(result.current.positionOf(edited, 'second-tab')).toEqual({ isBook: true, chapterIndex: null });
+    expect(result.current.positionOf(edited, TAB)).toBeNull();
+  });
+
+  it('opens a HackMD book again after its tab, the last one, was closed', async () => {
+    installApi();
+    const { result, rerender } = await setup();
+    expect(result.current.book?.title).toBe('Handbook');
+
+    // Closing the book's tab closes the book and leaves nothing shown.
+    act(() => result.current.close());
+    rerender({ current: undefined });
+    expect(result.current.book).toBeNull();
+
+    // Opening it again from the sidebar reads it as a book, as on the first visit.
+    rerender({ current: { ...BOOK } });
+    await settle();
+    expect(result.current.book?.title).toBe('Handbook');
   });
 
   it('marks the chapter last opened when a book lists the same note twice', async () => {

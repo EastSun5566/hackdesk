@@ -42,6 +42,7 @@ test('packaged binary launches and serves the packaged renderer (#140)', async (
   // the same job. If it is missing the test is a setup error, not a flake.
   const bin = await packagedBinaryPath();
   await access(bin);
+  const { version: electronVersion } = JSON.parse(await readFile(join(repoRoot, 'node_modules/electron/package.json'), 'utf8'));
 
   // Isolated settings + vault. The packaged app reads $HOME/.hackdesk for its
   // config and $HOME/<vault> for the local vault. The settings file is
@@ -119,7 +120,12 @@ test('packaged binary launches and serves the packaged renderer (#140)', async (
       throw new Error('No browser context available from CDP endpoint');
     }
     const page = context.pages()[0] ?? (await context.waitForEvent('page'));
-    await page.waitForLoadState('domcontentloaded');
+    // CDP can expose the initial blank document before the renderer navigation starts.
+    await page.waitForURL('hackdesk://renderer/index.html#/electron', {
+      waitUntil: 'domcontentloaded',
+    });
+    // The packaged app must use the updated runtime, not a stale builder cache.
+    expect((await page.evaluate(() => navigator.userAgent)).split(' ')).toContain(`Electron/${electronVersion}`);
     await page.getByRole('treeitem', { name: /Image fixture/ }).first().click();
     const image = page.locator('.cm-hackmd-image-preview img');
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);

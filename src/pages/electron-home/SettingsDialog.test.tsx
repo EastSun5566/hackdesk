@@ -628,6 +628,98 @@ describe('SettingsDialog', () => {
     expect(title).toHaveValue('HackDesk');
   });
 
+  it('keeps its page, search and focus when its own saves change the settings', () => {
+    const settings = {
+      title: 'HackDesk',
+      workspaceNavigation: defaultSettings.workspaceNavigation,
+      appearance: defaultSettings.appearance,
+      editor: defaultSettings.editor,
+      hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
+      hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+      hasLocalVault: false,
+      localVault: defaultSettings.localVault,
+      onboarding: defaultSettings.onboarding,
+      shouldShowHackmdOnboarding: true,
+    };
+    const { rerenderSettingsDialog } = renderSettingsDialog({ settings });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Editor' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Vim' }));
+    // The saved mode comes back as new settings while Settings is still open.
+    rerenderSettingsDialog({ settings: { ...settings, editor: { ...settings.editor, mode: 'vim' } } });
+    expect(screen.getByRole('tab', { name: 'Editor' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('radio', { name: 'Vim' })).toBeChecked();
+
+    const search = screen.getByRole('combobox', { name: 'Search settings' });
+    fireEvent.change(search, { target: { value: 'editor font' } });
+    search.focus();
+    const savedTitle = { ...settings, title: 'Saved Desk', editor: { ...settings.editor, mode: 'vim' as const } };
+    rerenderSettingsDialog({ settings: savedTitle });
+    expect(screen.getByRole('combobox', { name: 'Search settings' })).toHaveValue('editor font');
+    expect(screen.getByRole('combobox', { name: 'Search settings' })).toHaveFocus();
+
+    // Asking for a page still opens it.
+    rerenderSettingsDialog({ settings: savedTitle, initialTab: 'shortcuts' });
+    expect(screen.getByRole('tab', { name: 'Shortcuts' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('commits the title with Enter only on the page that has it', () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Shortcuts' }));
+    fireEvent.submit(screen.getByRole('tab', { name: 'Shortcuts' }).closest('form')!);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('saves a title still waiting for its debounce when the field loses focus', () => {
+    const { onSave } = renderSettingsDialog();
+
+    const title = screen.getByLabelText('Window title');
+    fireEvent.change(title, { target: { value: ' Quick Desk ' } });
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.blur(title);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith({ title: 'Quick Desk' });
+  });
+
+  it('saves a title still waiting for its debounce when Settings closes', () => {
+    const { onOpenChange, onSave } = renderSettingsDialog();
+
+    fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'Closing Desk' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onSave).toHaveBeenCalledWith({ title: 'Closing Desk' });
+  });
+
+  it('does not save a typed title over a revert that followed it', async () => {
+    const { onSave } = renderSettingsDialog({
+      settings: {
+        title: 'Custom Desk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: true,
+      },
+    });
+
+    const title = screen.getByLabelText('Window title');
+    fireEvent.change(title, { target: { value: 'Typed Desk' } });
+    fireEvent.click(screen.getByRole('button', { name: `Reset window title to ${defaultSettings.title}` }));
+    fireEvent.blur(title);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    expect(onSave).toHaveBeenCalledWith({ title: defaultSettings.title });
+    expect(onSave).not.toHaveBeenCalledWith({ title: 'Typed Desk' });
+  });
+
   it('validates a new HackMD token before saving it', async () => {
     const validation = createDeferred<typeof validatedUser>();
     const { onSave, onValidateToken } = renderSettingsDialog({

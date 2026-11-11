@@ -159,6 +159,40 @@ async function openWorkspaceSwitcher(page: Page) {
   return list;
 }
 
+/**
+ * Clicks a native menu item from the main process. macOS has one application menu; Linux and
+ * Windows give each window its own (window.setMenu), which Electron cannot read back, so this
+ * records the menus as they are attached and asks the app for a rebuild, which is synchronous.
+ * `prefix` matches labels that carry a shortcut hint; `noAccelerator` checks that the item does
+ * not register its key natively.
+ */
+async function clickNativeMenuItem(app: ElectronApplication, section: string, label: string, options: { prefix?: boolean; noAccelerator?: boolean } = {}) {
+  await app.evaluate(({ BrowserWindow, Menu }, { section, label, prefix, noAccelerator }) => {
+    let menu = process.platform === 'darwin' ? Menu.getApplicationMenu() : null;
+    if (!menu) {
+      const target = BrowserWindow.getFocusedWindow()
+        ?? BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes('#/electron'));
+      if (!target) throw new Error('No main window to read a menu from');
+      const prototype = Object.getPrototypeOf(target) as { setMenu: (this: unknown, menu: Electron.Menu | null) => void };
+      const setMenu = prototype.setMenu;
+      prototype.setMenu = function (this: unknown, attached: Electron.Menu | null) {
+        if (this === target) menu = attached;
+        return setMenu.call(this, attached);
+      };
+      try {
+        target.emit('page-title-updated', { preventDefault() {} }, target.getTitle());
+      } finally {
+        prototype.setMenu = setMenu;
+      }
+    }
+    const item = menu?.items.find((candidate) => candidate.label === section)?.submenu?.items
+      .find((candidate) => (prefix ? candidate.label.startsWith(label) : candidate.label === label));
+    if (!item) throw new Error(`${section} › ${label} menu item is missing`);
+    if (noAccelerator && item.accelerator) throw new Error('Context key registered natively');
+    item.click(item, undefined, {});
+  }, { section, label, prefix: options.prefix ?? false, noAccelerator: options.noAccelerator ?? false });
+}
+
 async function switchWorkspace(page: Page, name: string) {
   await (await openWorkspaceSwitcher(page)).getByRole('button', { name, exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Workspaces' })).toBeHidden();
@@ -181,7 +215,7 @@ async function holdForHints(page: Page, target: Locator, ready = () => page.loca
 }
 
 async function openFixtureNote(page: Page) {
-  await switchWorkspace(page, 'Local Vault');
+  await switchWorkspace(page, 'vault');
   await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true }).click();
   await expect(page.locator('.cm-content')).toContainText('Test note for layout checks.');
   // Opening a note also requests editor focus; let that finish before moving focus elsewhere.
@@ -372,12 +406,12 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     await leader('gw');
     const switcher = page.getByRole('dialog', { name: 'Workspaces' });
     await expect(switcher.getByRole('button', { name: 'My Workspace', exact: true })).toBeFocused();
-    // Places sit together at the top: My Workspace, History, Local Vault.
+    // Arrow keys move between workspaces: My Workspace, then the local folder (History now lives
+    // in the sidebar).
     await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await expect(switcher.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
+    await expect(switcher.getByRole('button', { name: 'vault', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
+    await expect(trigger).toHaveAccessibleName('Switch workspace, current: vault');
 
     // Search, move through results, open one.
     await page.keyboard.press('/');
@@ -398,7 +432,7 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
 
     // The header is one line: where the note lives, and its buttons.
     await page.locator('.cm-content').click();
-    await expect(page.getByRole('navigation', { name: 'Note location' })).toHaveText(/^Local Vault\s*\/\s*Alpha$/);
+    await expect(page.getByRole('navigation', { name: 'Note location' })).toHaveText(/^vault\s*\/\s*Alpha$/);
     await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveCount(0);
 
     // Rename from the leader menu.
@@ -498,7 +532,7 @@ test('workspace switcher rows, gap boundaries and full-height Settings workbench
     const workspace = list.getByRole('button', { name: `${teamNames[0]}, private`, exact: true });
     const drag = list.getByRole('button', { name: `Reorder ${teamNames[0]}`, exact: true });
     const pin = list.getByRole('button', { name: `Unpin ${teamNames[0]}`, exact: true });
-    await expect(list.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
+    await expect(list.getByRole('button', { name: 'vault', exact: true })).toBeFocused();
     await page.mouse.move(900, 600);
     const rowBounds = (await workspace.locator('..').boundingBox())!;
     expect(Math.abs((await workspace.boundingBox())!.width - rowBounds.width)).toBeLessThan(1);
@@ -588,7 +622,7 @@ test('workspace keyboard reorder keeps focus and completes the drop', async () =
 test('the sidebar scrollbar remains clickable beside the resize handle', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
     await page.setViewportSize({ width: 1100, height: 420 });
     await page.evaluate(() => { document.documentElement.dataset.scrollbars = 'classic'; });
     const scroller = page.locator('#note-navigator-panel .scroll-edges-source').first();
@@ -633,7 +667,7 @@ test('one sidebar switches workspaces from its title, with Trash and Settings ne
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
     const trigger = page.getByRole('button', { name: /^Switch workspace, current: / });
-    await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
+    await expect(trigger).toHaveAccessibleName('Switch workspace, current: vault');
     const footer = page.getByTestId('sidebar-footer');
     // Trash belongs to HackMD workspaces: it isn't offered in a Local Vault.
     await expect(page.getByTestId('sidebar-trash-row')).toHaveCount(0);
@@ -680,13 +714,12 @@ test('one sidebar switches workspaces from its title, with Trash and Settings ne
     const list = page.getByRole('dialog', { name: 'Workspaces' });
     await expect(list.getByRole('button', { name: 'My Workspace', exact: true })).toBeFocused();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-workspace-switcher.png') });
+    // History lives in the sidebar now; arrows move only between workspace rows.
     await page.keyboard.press('ArrowDown');
-    await expect(list.getByRole('button', { name: 'History', exact: true })).toBeFocused();
-    await page.keyboard.press('ArrowDown');
-    await expect(list.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
+    await expect(list.getByRole('button', { name: 'vault', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(list).toBeHidden();
-    await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
+    await expect(trigger).toHaveAccessibleName('Switch workspace, current: vault');
     await expect(page.getByRole('treeitem', { name: 'Alpha', exact: true })).toBeVisible();
   } finally {
     await stopApp(app);
@@ -698,9 +731,10 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
   const testInfo = test.info();
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
+    // A sidebar pick opens a preview tab that the next pick replaces; a double-click keeps the tab.
     const openNote = async (name: string) => {
-      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).click();
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
       await expect(page.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
     };
     const strip = page.getByRole('navigation', { name: 'Open documents' });
@@ -793,7 +827,7 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
 test('tree guides connect mixed children and end at the last folder row', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
     for (const name of ['Projects', 'Sub', 'Folders only', 'Last']) {
       const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
       if (await expand.count()) await expand.click();
@@ -861,7 +895,7 @@ test('collapsing the sidebar slides its content out to the left without nudging 
 test('rows share one hover card and one context menu, and the workspace row keeps its own', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
     const card = page.locator('[data-row-card]');
     // A note row's card follows the pointer from row to row.
     await page.getByRole('treeitem', { name: 'Alpha', exact: true }).hover();
@@ -869,6 +903,14 @@ test('rows share one hover card and one context menu, and the workspace row keep
     await page.getByRole('treeitem', { name: 'Beta', exact: true }).hover();
     await expect(card).toContainText('Beta');
     await expect(card).not.toContainText('Alpha');
+    // The card stays while the pointer is on it, and goes once the pointer leaves both.
+    await card.hover();
+    // Staying open has no event to wait for: give a close, and its exit transition, time to happen.
+    await page.waitForTimeout(500);
+    await expect(card).toHaveAttribute('data-open', '');
+    await expect(card).toContainText('Beta');
+    await page.mouse.move(0, 0);
+    await expect(card).toHaveCount(0);
 
     // Each row's menu is its own, and Escape returns to the row it opened from.
     const alpha = page.getByRole('treeitem', { name: 'Alpha', exact: true });
@@ -885,11 +927,26 @@ test('rows share one hover card and one context menu, and the workspace row keep
     await page.keyboard.press('Escape');
 
     // The workspace row's menu is its own, not a row menu on top of it.
-    await page.getByRole('treeitem', { name: 'Local Vault', exact: true }).click({ button: 'right' });
+    const filesRow = page.getByRole('treeitem', { name: 'Files', exact: true });
+    await filesRow.click({ button: 'right' });
     await expect(page.getByRole('menuitem', { name: 'New Folder' })).toBeVisible();
     await expect(page.getByRole('menu')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toHaveCount(0);
+    // Focus returns to the row after the menu closes; wait for it so it cannot land after the next focus.
+    await expect(filesRow).toBeFocused();
+
+    // Keyboard focus shows a note row's card as hovering does, and it follows the arrow keys.
+    await page.mouse.move(0, 0);
+    await alpha.focus();
+    // The tree tracks the focused row in state; arrow keys move from it once it has caught up.
+    await expect(alpha).toHaveAttribute('tabindex', '0');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('treeitem', { name: 'Beta', exact: true })).toBeFocused();
+    await expect(card).toContainText('Beta');
+    // Leaving the list puts the card away.
+    await page.keyboard.press('F6');
+    await expect(card).toHaveCount(0);
   } finally {
     await stopApp(app);
   }
@@ -898,7 +955,7 @@ test('rows share one hover card and one context menu, and the workspace row keep
 test('dropping a folder or a note on the workspace row moves it to the top level', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
     for (const name of ['Projects', 'Sub']) {
       const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
       if (await expand.count()) await expand.click();
@@ -958,7 +1015,7 @@ test('dropping a folder or a note on the workspace row moves it to the top level
 test('a folder dropped on the middle of another moves inside it, on its top edge before it', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
     for (const name of ['Projects', 'Sub']) {
       const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
       if (await expand.count()) await expand.click();
@@ -1009,7 +1066,7 @@ test('a folder dropped on the middle of another moves inside it, on its top edge
 test('tree rows drag by their title, with no grip on hover', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
     const tree = page.locator('aside');
     const row = (kind: 'note' | 'folder', name: string) => page.locator(`[data-folder-tree-kind="${kind}"]`).filter({ has: page.getByRole('treeitem', { name, exact: true }) });
     const alpha = row('note', 'Alpha');
@@ -1125,11 +1182,13 @@ test('keyboard foundation separates focus from selection and protects drafts', a
   const { app, page } = await launchFixture('standard', true, true);
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
     const tree = page.getByRole('tree', { name: 'Folders and notes' });
     const alpha = tree.getByRole('treeitem', { name: 'Alpha', exact: true });
     const beta = tree.getByRole('treeitem', { name: 'Beta', exact: true });
-    await alpha.click();
+    // Keep Alpha's tab: a single pick opens a preview tab that the next pick would replace.
+    await alpha.dblclick();
+    await expect(page.getByRole('tab', { name: 'Alpha', exact: true })).toBeVisible();
     await beta.focus();
     await expect(page.locator('.cm-content')).toContainText('# Alpha');
     await beta.press('Enter');
@@ -1221,12 +1280,7 @@ test('pane promotion and workspace restore do not replay editor commands', async
         this.dataset.pickerRequests = String(Number(this.dataset.pickerRequests ?? 0) + 1);
       };
     });
-    const attachViaMenu = () => app.evaluate(({ Menu }) => {
-      const item = Menu.getApplicationMenu()?.items.find(section => section.label === 'File')
-        ?.submenu?.items.find(candidate => candidate.label === 'Attach Image...');
-      if (!item) throw new Error('Attach Image menu item is missing');
-      item.click(item, undefined, {});
-    });
+    const attachViaMenu = () => clickNativeMenuItem(app, 'File', 'Attach Image...');
     await left.locator('.cm-content').focus();
     await page.keyboard.press(`${primary}+f`);
     await expect(left.locator('.cm-search')).toBeVisible();
@@ -1245,7 +1299,7 @@ test('pane promotion and workspace restore do not replay editor commands', async
     await expect(left.locator('.cm-search')).toHaveCount(0);
     await expect(left.locator('input[type="file"]')).toHaveAttribute('data-picker-requests', '1');
     await switchWorkspace(page, 'My Workspace');
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
     await expect(page.locator('.cm-content')).toHaveCount(2);
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await expect(page.locator('.cm-search')).toHaveCount(0);
@@ -1419,12 +1473,7 @@ test('native help and palette region commands restore Workbench focus', async ()
     const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
     // A native menu still exposes help from the editor, without registering ?.
     await page.locator('.cm-content').focus();
-    await app.evaluate(({ Menu }) => {
-      const entry = Menu.getApplicationMenu()!.items.find(section => section.label === 'Help')!.submenu!.items.find(item => item.label.startsWith('Keyboard Shortcuts'))!;
-      expectNoAccelerator(entry.accelerator);
-      entry.click();
-      function expectNoAccelerator(accelerator: string | null | undefined) { if (accelerator) throw new Error('Context key registered natively'); }
-    });
+    await clickNativeMenuItem(app, 'Help', 'Keyboard Shortcuts', { prefix: true, noAccelerator: true });
     await expect(help).toBeVisible();
     await expect(help.getByRole('button', { name: 'Current Region: Editor' })).toBeVisible();
     await page.keyboard.press('Escape');
@@ -1587,6 +1636,8 @@ test('navigation follows visible tabs and tree targets and cancels changed conte
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
     await openFixtureNote(page);
+    // Keep the fixture's tab, so opening Beta from the tree adds a tab instead of reusing it.
+    await page.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ }).dblclick();
     const ui = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
     await ui.focus(); await holdPrimary(page);
     const betaRow = page.locator('[data-folder-tree-kind="note"]').filter({has:page.getByRole('treeitem',{name:'Beta',exact:true})});
@@ -1616,7 +1667,7 @@ test('navigation follows visible tabs and tree targets and cancels changed conte
     await expect(projects).toBeFocused();
     await page.keyboard.press(`${primary}+Shift+n`);
     const createNoteDialog = page.getByRole('dialog', {name:'New Note',exact:true});
-    await expect(createNoteDialog.getByText('Local Vault / Projects',{exact:true})).toBeVisible();
+    await expect(createNoteDialog.getByText('vault / Projects',{exact:true})).toBeVisible();
     await createNoteDialog.getByRole('button',{name:'Cancel',exact:true}).click();
     // Each hold fixes its visible target set; collapsing a folder cancels it.
     await projects.focus(); await holdPrimary(page);
@@ -1693,9 +1744,10 @@ test('onboarding stays compact at wide and narrow window sizes', async () => {
 test('classic horizontal scrollbars do not clip tabs and focus still scrolls the strip', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await switchWorkspace(page, 'Local Vault');
+    await switchWorkspace(page, 'vault');
+    // A double-click keeps each tab instead of reusing the preview tab, so the strip fills up.
     for (const name of ['Alpha', 'Beta', 'Gamma']) {
-      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).click();
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
       await expect(page.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
     }
     const strip = page.getByRole('navigation', { name: 'Open documents' });

@@ -28,9 +28,9 @@ async function quit(app: ElectronApplication, page: Page) {
     setImmediate(() => app.quit());
   });
   const closeHackDesk = page.getByRole('alertdialog');
-  if (await closeHackDesk.isVisible().catch(() => false)) {
-    await closeHackDesk.getByRole('button', { name: 'Close' }).click();
-  }
+  // Both callers have unsaved drafts; wait for the renderer's asynchronous confirmation.
+  await expect(closeHackDesk).toBeVisible();
+  await closeHackDesk.getByRole('button', { name: 'Close' }).click();
   await expect.poll(() => process.exitCode).toBe(0);
 }
 

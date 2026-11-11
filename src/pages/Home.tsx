@@ -14,7 +14,7 @@ import { TemplatePickerDialog } from './electron-home/TemplatePickerDialog';
 import { useNoteTemplates } from './electron-home/useNoteTemplates';
 import { useAskNotes } from './electron-home/useAskNotes';
 import { AskNotesDialog } from './electron-home/AskNotesDialog';
-import { toRecentNote } from './electron-home/useNoteLinkOpener';
+import { toRecentNote, type InPlaceTarget } from './electron-home/useNoteLinkOpener';
 import { toast } from '@/components/ui/toast';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
@@ -24,7 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
-import type { ElectronSafeSettings, FolderSummary,NoteSummary } from '@/lib/electron-api';
+import type { ElectronSafeSettings, FolderSummary, NoteSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
@@ -232,6 +232,18 @@ export function Home() {
         ?? (isDraftNoteTab(activeTab) ? activeTab.draftId : isBlankNoteTab(activeTab) ? activeTab.tabId : activeTab.noteId),
     } : null,
   );
+  // Stable, so the selection, palette and book callbacks built on it are not rebuilt every render.
+  const { openNote: openNoteTab, openNoteAsPreview, showNoteInActiveTab } = noteWorkspace;
+  const openNoteInWorkspace = useCallback((note: NoteSummary, options?: { inPlace?: InPlaceTarget; preview?: boolean }) => {
+    const inPlace = options?.inPlace;
+    if (inPlace) {
+      showNoteInActiveTab(note, typeof inPlace === 'object' ? inPlace.tabId : undefined);
+    } else if (options?.preview) {
+      openNoteAsPreview(note);
+    } else {
+      openNoteTab(note);
+    }
+  }, [openNoteAsPreview, openNoteTab, showNoteInActiveTab]);
   const {
     autoSelectSuppressionRef,
     handleNoteKeep,
@@ -248,9 +260,7 @@ export function Home() {
     },
     requestEditorFocus,
     scopeStorageKey,
-    openNoteInWorkspace: (note, options) => (options?.inPlace
-      ? noteWorkspace.showNoteInActiveTab(note)
-      : options?.preview ? noteWorkspace.openNoteAsPreview(note) : noteWorkspace.openNote(note)),
+    openNoteInWorkspace,
     keepNoteInWorkspace: noteWorkspace.keepNote,
     selectionRefs,
     trackRecentNote,
@@ -354,6 +364,7 @@ export function Home() {
   const workspaceFolders = useWorkspaceFolderTrees({
     api,
     activeSnapshot: vaultSession.snapshot,
+    activeSnapshotPath: vaultSession.snapshotPath,
     activeVaultId: settingsQuery.data?.localVault.activeVaultId ?? null,
     enabled: !!localWorkspaceId && scope.type === 'local',
     vaultIds: localWorkspaceId && scope.type === 'local' ? openLocalWorkspace?.vaultIds ?? [] : EMPTY_VAULT_IDS,

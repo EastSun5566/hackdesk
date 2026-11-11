@@ -187,6 +187,101 @@ describe('Local Vault session', () => {
     await expect(f.result.current.session.api!.localVault.focusVault('vault-elsewhere')).rejects.toThrow('not in the open workspace');
   });
 
+  function openWorkingSet(f: ReturnType<typeof fixture>) {
+    const base = f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])!;
+    const next: ElectronSafeSettings = {
+      ...base,
+      localVault: {
+        ...base.localVault,
+        vaults: [...base.localVault.vaults, { id: 'vault-/tmp/B', path: '/tmp/B' }, { id: 'vault-/tmp/C', path: '/tmp/C' }],
+        workspaces: [{ id: 'work', name: 'Work', vaultIds: ['vault-/tmp/A', 'vault-/tmp/B', 'vault-/tmp/C'] }],
+        activeWorkspaceId: 'work',
+      },
+    };
+    act(() => { f.client.setQueryData(['electron', 'settings'], next); });
+    return next;
+  }
+
+  it('loads a folder whose scan reports its resolved path, not the stored one', async () => {
+    const f = fixture();
+    // macOS resolves /tmp to /private/tmp; the main process reports the resolved root.
+    vi.mocked(f.api.localVault.getSnapshot).mockImplementation(async () => ({ ...snapshot('A'), rootPath: '/private/tmp/A' }));
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    expect(f.result.current.session.snapshotPath).toBe('/tmp/A');
+  });
+
+  it('never files the folder the main process still has open under the folder being opened', async () => {
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    openWorkingSet(f);
+    // The main process answers with A until the focus lands; B was never scanned in this window.
+    let mainFolder = 'A';
+    vi.mocked(f.api.localVault.getSnapshot).mockImplementation(async () => snapshot(mainFolder));
+    const scan = deferred<Awaited<ReturnType<HackDeskElectronAPI['localVault']['activate']>>>();
+    vi.mocked(f.api.localVault.activate).mockReturnValueOnce(scan.promise);
+    let focusing!: Promise<unknown>;
+    act(() => { focusing = f.result.current.session.api!.localVault.focusVault('vault-/tmp/B'); });
+
+    // A read of B's key waits for the focus instead of taking A's answer.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/B'))).toBeUndefined();
+    // A watcher event from A during the focus refreshes A, never B's key.
+    act(() => { f.changed({ snapshot: snapshot('A') }); });
+    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/B'))).toBeUndefined();
+
+    mainFolder = 'B';
+    const opened = { ...f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])! };
+    await act(async () => { scan.resolve({ settings: opened, snapshot: snapshot('B') }); await focusing; });
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('B'));
+    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/B'))).toEqual(snapshot('B'));
+  });
+
+  it('leaves the folder the main process has open after overlapping focuses both fail', async () => {
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    const stored = openWorkingSet(f);
+    vi.mocked(f.api.settings.get).mockResolvedValue(stored);
+    const toB = deferred<Awaited<ReturnType<HackDeskElectronAPI['localVault']['activate']>>>();
+    const toC = deferred<Awaited<ReturnType<HackDeskElectronAPI['localVault']['activate']>>>();
+    vi.mocked(f.api.localVault.activate).mockReturnValueOnce(toB.promise).mockReturnValueOnce(toC.promise);
+    let first!: Promise<unknown>;
+    let second!: Promise<unknown>;
+    act(() => { first = f.result.current.session.api!.localVault.focusVault('vault-/tmp/B'); });
+    act(() => { second = f.result.current.session.api!.localVault.focusVault('vault-/tmp/C'); });
+    const firstFailed = expect(first).rejects.toThrow('B failed');
+    const secondFailed = expect(second).rejects.toThrow('C failed');
+
+    await act(async () => { toB.reject(new Error('B failed')); await firstFailed; });
+    await act(async () => { toC.reject(new Error('C failed')); await secondFailed; });
+
+    // The second focus captured B's optimistic id; the main process still has A open.
+    await waitFor(() => expect(f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])!.localVault.activeVaultId).toBe('vault-/tmp/A'));
+  });
+
+  it('ends on the folder the latest focus opened even when an earlier failure refetches settings', async () => {
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    const stored = openWorkingSet(f);
+    // The failed focus re-reads settings; that read answers late, with the folder open before.
+    const staleRead = deferred<ElectronSafeSettings>();
+    vi.mocked(f.api.settings.get).mockReturnValueOnce(staleRead.promise);
+    const toC = deferred<Awaited<ReturnType<HackDeskElectronAPI['localVault']['activate']>>>();
+    vi.mocked(f.api.localVault.activate)
+      .mockRejectedValueOnce(new Error('B failed'))
+      .mockReturnValueOnce(toC.promise);
+    await act(async () => {
+      await expect(f.result.current.session.api!.localVault.focusVault('vault-/tmp/B')).rejects.toThrow('B failed');
+    });
+    let focusing!: Promise<unknown>;
+    act(() => { focusing = f.result.current.session.api!.localVault.focusVault('vault-/tmp/C'); });
+
+    await act(async () => { staleRead.resolve(stored); await staleRead.promise; });
+    const opened = { ...stored, localVault: { ...stored.localVault, activeVaultId: 'vault-/tmp/C' } };
+    await act(async () => { toC.resolve({ settings: opened, snapshot: { ...snapshot('C'), rootPath: '/tmp/C' } }); await focusing; });
+
+    expect(f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])!.localVault.activeVaultId).toBe('vault-/tmp/C');
+  });
+
   it('reorders a working set without reloading the open folder', async () => {
     const f = fixture();
     await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));

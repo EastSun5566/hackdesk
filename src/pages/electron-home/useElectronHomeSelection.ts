@@ -5,12 +5,13 @@ import type { NoteSummary } from '@/lib/electron-api';
 
 import { getSavedTabNoteIdentity, type NoteIdentity, type OpenNoteTab } from './note-workspace';
 import { readFocusEditorOnOpen } from './note-focus-preference';
+import type { InPlaceTarget } from './useNoteLinkOpener';
 
 export type ElectronHomeSelectNoteOptions = {
   focusEditor?: boolean;
   trackRecent?: boolean;
-  /** Show it in the active tab instead of a new one, as a book's tab turns chapters. */
-  inPlace?: boolean;
+  /** Show it in an open tab instead of a new one, as a book's tab turns chapters. */
+  inPlace?: InPlaceTarget;
   /** Open it in the pane's preview tab, which the next sidebar pick replaces. */
   preview?: boolean;
 };
@@ -21,7 +22,7 @@ export type ElectronHomeSelectionOptions = {
   getNotePaneId?: (note: NoteSummary) => string | undefined;
   activeTab: OpenNoteTab | null;
   requestEditorFocus: () => void;
-  openNoteInWorkspace: (note: NoteSummary, options?: { inPlace?: boolean; preview?: boolean }) => void;
+  openNoteInWorkspace: (note: NoteSummary, options?: { inPlace?: InPlaceTarget; preview?: boolean }) => void;
   /** Keeps the tab showing a note, so the next sidebar pick does not replace it. */
   keepNoteInWorkspace?: (note: NoteIdentity) => void;
   selectionRefs: ElectronHomeSelectionRefs;

@@ -20,13 +20,13 @@ Open the workspace switcher at the top of the sidebar:
 - **Local workspaces** are named sets of those folders. Opening a set shows every folder in it as its own root in the sidebar, each with its own tree, so the whole set stays in view. Folders keep their order when you open one; drag a folder's row, use **Move Up**/**Move Down** in its context menu, or press **Alt+↑**/**Alt+↓** on it to reorder the set. Create and edit them under **Settings → Vault → Workspaces**.
 - **History** shows recent HackMD browsing activity.
 
-Settings and Trash are at the bottom of the sidebar. Press **Cmd+B** on macOS or **Ctrl+B** on Windows/Linux to hide or show the sidebar.
+Settings and account controls are at the bottom of the sidebar. HackMD workspaces show **My Trash** or **Team Trash** just above the account controls. Press **Cmd+B** on macOS or **Ctrl+B** on Windows/Linux to hide or show the sidebar.
 
 Switching Local Vaults restores each vault's own tabs and recoverable drafts. Files are not uploaded to HackMD.
 
 ## Find and organize notes
 
-Use **Search notes** to find titles, tags, or text. **View options**, beside the search box, controls search scope, sorting, and filters.
+Use **Search notes** to find titles, tags, or text. **View options** controls search scope, sorting, and filters.
 
 Text search covers all notes in a Local Vault. For HackMD, it covers only notes you have opened in HackDesk. Results show the search coverage.
 
@@ -37,6 +37,8 @@ Create a folder with **New Folder**. Drag notes and folders to move them, or use
 Press **Cmd+P** / **Ctrl+P** for **Quick Open** to find notes, folders, and workspaces. Press **Cmd+K** / **Ctrl+K** for the **Command Palette** to find actions. If selected text opens AI actions instead, use **Cmd+Shift+P** / **Ctrl+Shift+P**.
 
 ## Arrange tabs and panes
+
+Press **Cmd+T** / **Ctrl+T**, or choose **New Tab**, for an empty page with search and recent notes. In **Settings → Editor → New tab opens**, choose **Duplicate current note** to reuse the current note instead. Empty pages are not restored after restart.
 
 Drag a tab's icon or title to reorder it within its pane.
 

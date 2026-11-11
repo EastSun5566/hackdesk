@@ -53,10 +53,22 @@ export function useLocalVaultSession(
   const access = useRef<VaultAccess>({ generation: 0, transitions: 0, vaultId: null, changing: false });
   const [transitions, setTransitions] = useState(0);
   const [context, setContext] = useState({ path, vaultId: null as string | null, generation: 0 });
+  /** The folder focus in flight, if any: the main process has not opened that folder yet. */
+  const pendingFocus = useRef<Promise<unknown> | null>(null);
   const snapshotQuery = useQuery({
     queryKey: getLocalVaultSnapshotQueryKey(path),
     networkMode: 'always',
     queryFn: async ({ signal }) => {
+      // While another folder of the set opens, the main process still has the previous one open:
+      // wait for the focus, then read only if this key still names the folder that is open.
+      for (let pending = pendingFocus.current; pending; pending = pendingFocus.current) {
+        await pending.catch(() => {});
+        signal.throwIfAborted();
+        if (pendingFocus.current === pending) break;
+      }
+      if (getActiveLocalVaultPath(queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings'])) !== path) {
+        throw new Error('The active Local Vault changed during loading.');
+      }
       const generation = access.current.generation;
       const snapshot = await api?.localVault.getSnapshot() ?? null;
       signal.throwIfAborted();
@@ -94,7 +106,8 @@ export function useLocalVaultSession(
       if (access.current.generation !== generation || access.current.changing) return;
       if (!next) return;
       // Another folder's event refreshes only that folder's cache; it never selects the folder.
-      if (next.vaultId !== access.current.vaultId) {
+      // While a folder of the set opens, an event may still come from the previous one.
+      if (next.vaultId !== access.current.vaultId || pendingFocus.current) {
         cacheLocalVaultSnapshot(queryClient, next);
         return;
       }
@@ -102,6 +115,7 @@ export function useLocalVaultSession(
     });
   }, [api, path, changing, vaultId, queryClient]);
 
+  const focusSequence = useRef(0);
   const sessionApi = useMemo(() => {
     if (!api) return undefined;
     const guarded = guardLocalVaultApi(api, () => access.current, { generation, transitions, vaultId, changing });
@@ -196,6 +210,10 @@ export function useLocalVaultSession(
           if (!current || !target || !workspace?.vaultIds.includes(vaultId)) {
             throw new Error('That folder is not in the open workspace.');
           }
+          const sequence = ++focusSequence.current;
+          // Reads of the new folder wait for this, so none can take the previous folder's answer.
+          const activation = api.localVault.activate({ vaultId });
+          pendingFocus.current = activation;
           // Show the folder from what the sidebar already holds, then let the scan confirm it.
           const cached = queryClient.getQueryData<LocalVaultSnapshot>(getLocalVaultVaultSnapshotQueryKey(vaultId));
           if (cached) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(target.path), cached);
@@ -204,20 +222,31 @@ export function useLocalVaultSession(
             localVault: { ...current.localVault, activeVaultId: vaultId },
           });
           try {
-            const result = await api.localVault.activate({ vaultId });
+            const result = await activation;
             if (result.snapshot) {
               queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
             }
-            queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest ? {
-              ...latest,
-              localVault: { ...latest.localVault, activeVaultId: latest.localVault.activeVaultId === vaultId ? result.settings.localVault.activeVaultId : latest.localVault.activeVaultId },
-            } : result.settings);
+            // The latest focus says which folder the main process opened, even when a settings refetch
+            // replaced the optimistic id meanwhile; an older one leaves the cache to the newer focus.
+            if (sequence === focusSequence.current) {
+              queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest ? {
+                ...latest,
+                localVault: { ...latest.localVault, activeVaultId: result.settings.localVault.activeVaultId },
+              } : result.settings);
+            }
             return result;
           } catch (error) {
-            queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest && latest.localVault.activeVaultId === vaultId ? {
-              ...latest, localVault: { ...latest.localVault, activeVaultId: current.localVault.activeVaultId },
-            } : latest);
+            // A later focus owns the optimistic folder now; only the latest one may put it back. What
+            // it puts back may itself be optimistic, so the main process's settings then confirm it.
+            if (sequence === focusSequence.current) {
+              queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest && latest.localVault.activeVaultId === vaultId ? {
+                ...latest, localVault: { ...latest.localVault, activeVaultId: current.localVault.activeVaultId },
+              } : latest);
+              void queryClient.invalidateQueries({ queryKey: ['electron', 'settings'], exact: true });
+            }
             throw error;
+          } finally {
+            if (pendingFocus.current === activation) pendingFocus.current = null;
           }
         },
         reorderWorkspace: async (id: string, vaultIds: string[]) => {
@@ -270,6 +299,8 @@ export function useLocalVaultSession(
   return {
     api: sessionApi,
     snapshot,
+    /** The stored path of the folder the snapshot belongs to (its root path is the resolved one). */
+    snapshotPath: snapshot ? path : null,
     snapshotQuery,
     vaultId,
     isChanging: changing,

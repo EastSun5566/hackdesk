@@ -721,6 +721,43 @@ describe('openNoteInPlace (a book\'s tab turning chapters)', () => {
     expect(Object.keys(state.tabs)).toEqual([bookTab]);
     expect(state.drafts[bookTab]).toEqual(expect.objectContaining({ content: 'alpha edits' }));
   });
+
+  it('keeps Back available when the tab stays put to keep its edits', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), book);
+    const tabId = getActiveTab(state)!.tabId;
+    state = openNoteInPlace(state, alpha);
+    state = updateNoteTabDraft(state, tabId, { title: 'Alpha', content: 'alpha edits' });
+    const before = state;
+
+    // Back would turn the tab to the book, but its edits belong to Alpha, so it stays.
+    state = navigateNoteWorkspace(state, 'back');
+    expect(tabNote(state)).toBe('alpha');
+    expect(state).toBe(before);
+    expect(state.backStack).toHaveLength(1);
+  });
+
+  it('turns the tab it was asked for, even after another tab became active', () => {
+    const other = note({ id: 'other', title: 'Other' });
+    let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), book);
+    const bookTab = getActiveTab(state)!.tabId;
+    // The reader switches tabs while the chapter is still being found.
+    state = openNoteTab(state, other);
+    const otherTab = getActiveTab(state)!.tabId;
+    state = openNoteInPlace(state, alpha, undefined, bookTab);
+    expect(getActiveTab(state)!.tabId).toBe(bookTab);
+    expect(tabNote(state)).toBe('alpha');
+    expect(state.tabs[otherTab]).toEqual(expect.objectContaining({ noteId: 'other' }));
+    expect(Object.keys(state.tabs).sort()).toEqual([bookTab, otherTab].sort());
+  });
+
+  it('opens the note in a tab of its own when the tab asked for has closed', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), book);
+    const bookTab = getActiveTab(state)!.tabId;
+    state = closeNoteTab(state, bookTab);
+    state = openNoteInPlace(state, alpha, undefined, bookTab);
+    expect(tabNote(state)).toBe('alpha');
+    expect(state.tabs[bookTab]).toBeUndefined();
+  });
 });
 
 describe('preview tabs', () => {

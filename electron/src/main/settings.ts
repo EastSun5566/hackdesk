@@ -472,10 +472,6 @@ async function updateStoredSettingsUnlocked(
   return safeSettingsFromMetadata({ settings: next, hasStoredAppearance: true, accountTokens: nextTokens, tokenStorageError });
 }
 
-/**
- * Applies one working-set edit. Activating a set also opens one of its folders, so the window
- * never shows a workspace whose active vault sits outside it.
- */
 /** Opens a working set, moving the open folder into it so the sidebar never leads with an outsider. */
 function openLocalWorkspace(current: LocalVaultSettings, id: string | null): LocalVaultSettings {
   const next = setActiveLocalWorkspace(current, id);
@@ -486,6 +482,10 @@ function openLocalWorkspace(current: LocalVaultSettings, id: string | null): Loc
   return setActiveLocalVault(next, workspace.vaultIds[0]);
 }
 
+/**
+ * Applies one working-set edit. Activating a set also opens one of its folders, so the window
+ * never shows a workspace whose active vault sits outside it.
+ */
 export function applyLocalWorkspaceMutation(
   current: LocalVaultSettings,
   mutation: LocalWorkspaceMutation,

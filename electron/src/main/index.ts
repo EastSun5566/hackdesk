@@ -75,6 +75,12 @@ function rebuildMenus() {
     return;
   }
 
+  // Windows without a menu of their own (Quick Hack, presentation) use the application menu.
+  // Without one, Electron's default menu, with Reload and DevTools, would appear there instead.
+  createApplicationMenu({
+    ...baseOptions,
+    windows: windowManager.getMainWindows().map((window) => ({ window, title: window.getTitle(), focused: false })),
+  });
   for (const window of windowManager.getMainWindows()) {
     if (window.isDestroyed()) continue;
     const windows = windowManager.getMainWindows().map((candidate) => ({

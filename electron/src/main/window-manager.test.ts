@@ -510,7 +510,7 @@ describe('WindowManager close intent', () => {
       webPreferences: expect.objectContaining({ preload: expect.stringContaining('presentation-preload.cjs'), sandbox: true, contextIsolation: true }),
     }));
     expect(presentation.options).not.toHaveProperty('fullscreen');
-    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# One' });
+    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# One', fullScreen: false });
 
     expect(manager.showPresentationWindow({ title: 'Deck', content: '# Two' })).toBe(presentation);
     expect(presentation.webContents.reload).toHaveBeenCalledOnce();
@@ -534,6 +534,28 @@ describe('WindowManager close intent', () => {
     expect(manager.togglePresentationFullScreen()).toBe(false);
     expect(presentation.setFullScreen).toHaveBeenLastCalledWith(false);
     expect(presentation.webContents.send).toHaveBeenLastCalledWith(ELECTRON_CHANNELS.appPresentationFullScreenChanged, { fullScreen: false });
+  });
+
+  it('starts slides presented again in a full-screen window as full screen', () => {
+    const { manager } = createManagerWithWindow();
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
+    manager.togglePresentationFullScreen();
+    expect(presentation.isFullScreen()).toBe(true);
+
+    manager.showPresentationWindow({ title: 'Deck', content: '# Two' });
+    expect(presentation.webContents.reload).toHaveBeenCalledOnce();
+    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# Two', fullScreen: true });
+  });
+
+  it('steps back out of full screen when asked again before the window has switched', () => {
+    const { manager } = createManagerWithWindow();
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
+    // The window switches (and reports it) later, as macOS does after its animation.
+    presentation.setFullScreen.mockImplementation(() => undefined);
+
+    expect(manager.togglePresentationFullScreen()).toBe(true);
+    expect(manager.togglePresentationFullScreen()).toBe(false);
+    expect(presentation.setFullScreen.mock.calls).toEqual([[true], [false]]);
   });
 
   it('lets each window call only its own IPC channels', () => {
@@ -610,6 +632,24 @@ describe('WindowManager close intent', () => {
     expect(window.hide).not.toHaveBeenCalled();
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
+    expect(mockState.state.appHide).not.toHaveBeenCalled();
+  });
+
+  it('returns to the window Quick Hack opened from, even after another window closes', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const manager = new WindowManager();
+    const other = getMockWindow(manager.createMainWindow());
+    const opener = getMockWindow(manager.createMainWindow());
+    opener.focus();
+    manager.showQuickCaptureWindow();
+    other.destroy();
+    opener.show.mockClear();
+    opener.focus.mockClear();
+
+    manager.hideQuickCaptureWindow();
+
+    expect(opener.show).toHaveBeenCalledOnce();
+    expect(opener.focus).toHaveBeenCalledOnce();
     expect(mockState.state.appHide).not.toHaveBeenCalled();
   });
 
@@ -860,7 +900,37 @@ describe('WindowManager multi-window', () => {
     expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
     expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
 
+    // A clean window answers at once; the app must wait for the window still asking.
     manager.confirmClose(first as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    manager.confirmClose(second as unknown as BrowserWindow);
+    expect(app.quit).toHaveBeenCalledOnce();
+  });
+
+  it('stops the app quit when any window keeps its unsaved changes', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    manager.handleBeforeQuit({ preventDefault: vi.fn(), defaultPrevented: false });
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    manager.cancelClose(second as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    // A late answer from a window after the quit stopped changes nothing.
+    manager.confirmClose(second as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    expect(first.destroy).not.toHaveBeenCalled();
+    expect(second.destroy).not.toHaveBeenCalled();
+  });
+
+  it('finishes the app quit when the last window it waited for goes away', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    manager.handleBeforeQuit({ preventDefault: vi.fn(), defaultPrevented: false });
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    second.destroy();
     expect(app.quit).toHaveBeenCalledOnce();
   });
 

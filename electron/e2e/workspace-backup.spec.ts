@@ -30,7 +30,7 @@ test('keeps drafts when workspace backup fails, rejects Quick Hack and clears af
     ]));
     const main = app.windows().find((page) => page.url().includes('#/electron'))!;
     const quickCapture = app.windows().find((page) => page.url().includes('#/quick-capture'))!;
-    await expect(main.getByText('Local Vault', { exact: true }).first()).toBeVisible();
+    await expect(main.getByRole('button', { name: 'Switch workspace, current: vault', exact: true })).toBeVisible();
 
     await quickCapture.getByLabel('Quick Hack note').fill('Backed up capture');
     await quickCapture.getByRole('button', { name: 'Capture' }).click();

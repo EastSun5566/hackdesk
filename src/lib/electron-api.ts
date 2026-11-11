@@ -682,6 +682,9 @@ export type PresentationDeck = {
   content: string;
 };
 
+/** The deck being presented, and whether its window is in full screen as the slides start. */
+export type PresentedDeck = PresentationDeck & { fullScreen: boolean };
+
 /** A workspace a new window boots into. A local scope may name a vault or a named workspace to activate; without either it means the active vault. */
 export type NewWindowWorkspaceScope = {
   type: 'local' | 'personal' | 'history' | 'team';
@@ -696,7 +699,7 @@ export type NewWindowInput = {
 };
 
 export type HackDeskPresentationAPI = {
-  getDeck: () => Promise<PresentationDeck | null>;
+  getDeck: () => Promise<PresentedDeck | null>;
   close: () => Promise<void>;
   /** Puts the slides in or out of full screen; resolves to whether they are now full screen. */
   toggleFullScreen: () => Promise<boolean>;
