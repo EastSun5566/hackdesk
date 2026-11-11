@@ -40,7 +40,7 @@ vi.mock('node:fs', async (importOriginal) => {
   return { ...actual, default: { ...actual, existsSync: mocks.existsSync }, existsSync: mocks.existsSync };
 });
 
-import { createTrayIcon, getAppIconPath, setAppIcon } from './app-icon';
+import { createTrayIcon, getAppIconPath, onAppIconChanged, setAppIcon } from './app-icon';
 
 const originalPlatform = process.platform;
 
@@ -114,5 +114,16 @@ describe('app icon', () => {
 
     expect(mocks.image.resize).toHaveBeenCalledWith({ width: 16, height: 16, quality: 'best' });
     expect(mocks.image.setTemplateImage).not.toHaveBeenCalled();
+  });
+
+  it('tells listeners about each icon change until they stop listening', () => {
+    const listener = vi.fn();
+    const stop = onAppIconChanged(listener);
+    setAppIcon('neon');
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    stop();
+    setAppIcon('glass');
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

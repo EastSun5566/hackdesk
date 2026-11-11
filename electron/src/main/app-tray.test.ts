@@ -7,13 +7,17 @@ const trayMocks = vi.hoisted(() => {
     setTemplateImage: vi.fn(),
   };
   const tray = {
+    isDestroyed: vi.fn(() => false),
     setContextMenu: vi.fn(),
+    setImage: vi.fn(),
     setToolTip: vi.fn(),
   };
+  const iconListeners: Array<() => void> = [];
 
   return {
     buildFromTemplate: vi.fn((template: unknown) => template),
     createEmpty: vi.fn(() => image),
+    iconListeners,
     image,
     quit: vi.fn(),
     tray,
@@ -39,6 +43,10 @@ vi.mock('electron', () => ({
 
 vi.mock('./app-icon', () => ({
   createTrayIcon: () => trayMocks.image,
+  onAppIconChanged: (listener: () => void) => {
+    trayMocks.iconListeners.push(listener);
+    return () => trayMocks.iconListeners.splice(trayMocks.iconListeners.indexOf(listener), 1);
+  },
 }));
 
 import { createApplicationTray } from './app-tray';
@@ -50,6 +58,8 @@ function currentTemplate() {
 describe('createApplicationTray', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    trayMocks.iconListeners.length = 0;
+    trayMocks.tray.isDestroyed.mockReturnValue(false);
     trayMocks.image.isEmpty.mockReturnValue(false);
     trayMocks.image.resize.mockReturnValue(trayMocks.image);
   });
@@ -84,5 +94,35 @@ describe('createApplicationTray', () => {
     template[3]?.click?.({} as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent);
 
     expect(trayMocks.quit).toHaveBeenCalledOnce();
+  });
+
+  it('follows app icon changes outside macOS, and stops once the tray is gone', () => {
+    const platform = process.platform;
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    try {
+      createApplicationTray({ showMainWindow: vi.fn(), showQuickCaptureWindow: vi.fn() });
+      expect(trayMocks.iconListeners).toHaveLength(1);
+
+      trayMocks.iconListeners[0]();
+      expect(trayMocks.tray.setImage).toHaveBeenCalledWith(trayMocks.image);
+
+      trayMocks.tray.isDestroyed.mockReturnValue(true);
+      trayMocks.iconListeners[0]();
+      expect(trayMocks.tray.setImage).toHaveBeenCalledTimes(1);
+      expect(trayMocks.iconListeners).toHaveLength(0);
+    } finally {
+      Object.defineProperty(process, 'platform', { value: platform });
+    }
+  });
+
+  it('keeps the fixed menu bar template on macOS', () => {
+    const platform = process.platform;
+    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    try {
+      createApplicationTray({ showMainWindow: vi.fn(), showQuickCaptureWindow: vi.fn() });
+      expect(trayMocks.iconListeners).toHaveLength(0);
+    } finally {
+      Object.defineProperty(process, 'platform', { value: platform });
+    }
   });
 });

@@ -52,6 +52,16 @@ export function createTrayIcon() {
   return icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16, quality: 'best' });
 }
 
+const appIconListeners = new Set<() => void>();
+
+/** Calls `listener` after each icon change, so surfaces built from the icon (the tray) can follow it. */
+export function onAppIconChanged(listener: () => void) {
+  appIconListeners.add(listener);
+  return () => {
+    appIconListeners.delete(listener);
+  };
+}
+
 function applyAppIcon() {
   const icon = createAppIcon();
   if (icon.isEmpty()) {
@@ -66,6 +76,7 @@ function applyAppIcon() {
       }
     }
   }
+  for (const listener of appIconListeners) listener();
 }
 
 function handleNativeThemeUpdated() {
