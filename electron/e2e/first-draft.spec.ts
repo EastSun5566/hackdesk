@@ -89,7 +89,7 @@ test('starts without setup, preserves drafts through cancel/restart, and saves o
     
     await page.keyboard.press(`${primary}+s`);
     await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
-    await chooseFolderInPicker(page, 'vault');
+    await chooseFolderInPicker(app, page, 'vault');
     await expect.poll(async () => (await readdir(vault)).filter(name => name.endsWith('.md'))).toHaveLength(1);
     const file = (await readdir(vault)).find(name => name.endsWith('.md'))!;
     expect(await readFile(join(vault, file), 'utf8')).toContain('Latest first input');

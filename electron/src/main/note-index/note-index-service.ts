@@ -100,6 +100,11 @@ export function createNoteIndexService({ path, readNotes, keepHackmdNotes = true
       return enqueue(store => store.keepOnlyWorkspace('local', null));
     },
 
+    /** Forgets one folder's notes, by the manifest id they are indexed under. */
+    forgetVault(vaultId: string) {
+      return enqueue(store => store.clearWorkspace('local', vaultId));
+    },
+
     search({ query, scope, limit }: NoteSearchInput): NoteSearchResponse {
       if (scope.type === 'hackmd' && !keepHackmd) return { matches: [], indexedCount: 0 };
       const { store } = open();

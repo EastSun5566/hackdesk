@@ -110,7 +110,7 @@ for (const renderer of ['production', 'development'] as const) {
       await page.keyboard.press(`${primary}+,`);
       await page.getByRole('tab', { name: 'Vault', exact: true }).click();
       await page.getByRole('button', { name: 'Add Folder', exact: true }).click();
-      await chooseFolderInPicker(page, 'next-vault', basename(home));
+      await chooseFolderInPicker(app, page, 'next-vault', basename(home));
       // The added folder is listed (and, being the open one, also shown above the list).
       await expect(page.getByRole('dialog', { name: 'Settings' }).getByRole('list').getByText(nextVault, { exact: true })).toBeVisible();
       await page.keyboard.press('Escape');

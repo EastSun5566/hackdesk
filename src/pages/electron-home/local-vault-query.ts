@@ -72,6 +72,13 @@ export type VaultAccess = { generation: number; transitions?: number; vaultId: s
  */
 const NOTE_ADDRESSED_METHODS = new Set(['readNote', 'writeNote', 'renameNote', 'moveNote', 'trashNote', 'revealNote', 'importAttachment']);
 
+/**
+ * Calls addressed to the folder this window shows. Each names it by manifest id, because the
+ * app-wide active folder follows whichever window last opened one: without it, a note or folder
+ * created here would land in another window's folder.
+ */
+const FOLDER_ADDRESSED_METHODS = new Set(['getSnapshot', 'createNote', 'createFolder', 'renameFolder', 'moveFolder', 'trashFolder', 'revealFolder', 'revealRoot']);
+
 export function guardLocalVaultApi(
   api: HackDeskElectronAPI,
   access: () => VaultAccess,
@@ -91,7 +98,10 @@ export function guardLocalVaultApi(
       if (!bound.vaultId || !start.vaultId || start.changing || !sameContext(start, bound)) {
         throw new Error('Local Vault is still loading. Try again when it is ready.');
       }
-      const result = await Reflect.apply(method, api.localVault, args);
+      const callArgs = FOLDER_ADDRESSED_METHODS.has(name)
+        ? [{ ...(args[0] as object | undefined), vaultId: start.vaultId }, ...args.slice(1)]
+        : args;
+      const result = await Reflect.apply(method, api.localVault, callArgs);
       const current = access();
       if (current.changing || !sameContext(start, current)) {
         throw new Error('The active Local Vault changed. The previous operation was not applied to this workspace.');

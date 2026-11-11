@@ -9,6 +9,7 @@ import type {
   LocalVaultCreateDirectoryInput,
   LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
+  LocalVaultFolderTargetInput,
   LocalVaultForgetResult,
   LocalVaultVaultIdInput,
   LocalVaultCreateNoteInput,
@@ -625,7 +626,7 @@ export type HackDeskElectronAPI = {
     updateWorkspace: (mutation: LocalWorkspaceMutation) => Promise<LocalWorkspaceMutationResult>;
     createDirectory: (input: LocalVaultCreateDirectoryInput) => Promise<LocalVaultCreateDirectoryResult>;
     disconnect: () => Promise<ElectronSafeSettings>;
-    getSnapshot: () => Promise<LocalVaultSnapshot | null>;
+    getSnapshot: (input?: LocalVaultFolderTargetInput) => Promise<LocalVaultSnapshot | null>;
     /** Scans one known folder without making it the active vault. */
     getVaultSnapshot: (input: LocalVaultVaultIdInput) => Promise<LocalVaultSnapshot>;
     readNote: (noteId: string) => Promise<LocalDocument>;
@@ -641,7 +642,7 @@ export type HackDeskElectronAPI = {
     moveFolder: (input: LocalVaultMoveFolderInput) => Promise<LocalVaultSnapshot>;
     trashFolder: (input: LocalVaultTrashFolderInput) => Promise<LocalVaultSnapshot>;
     revealFolder: (input: LocalVaultRevealFolderInput) => Promise<void>;
-    revealRoot: () => Promise<void>;
+    revealRoot: (input?: LocalVaultFolderTargetInput) => Promise<void>;
     onDidChange: (callback: (event: LocalVaultChangeEvent) => void) => () => void;
   };
   shell: {

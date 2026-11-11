@@ -36,6 +36,7 @@ import type {
   LocalNoteSummary,
   LocalRevision,
   LocalVaultCreateFolderInput,
+  LocalVaultFolderTargetInput,
   LocalVaultCreateNoteInput,
   LocalVaultMoveFolderInput,
   LocalVaultMoveNoteInput,
@@ -372,6 +373,36 @@ async function scanMarkdownFiles(vaultRoot: string, current = vaultRoot): Promis
   return scanned;
 }
 
+/** How many entries a folder is measured up to before HackDesk asks whether it is meant. */
+export const LOCAL_VAULT_SIZE_LIMIT = 20_000;
+
+/**
+ * Counts what choosing a folder would scan, by the scan's own rules, and stops at `limit` entries
+ * so measuring a huge folder (a home folder, a drive) stays quick.
+ */
+export async function measureLocalVaultFolder(root: string, limit = LOCAL_VAULT_SIZE_LIMIT) {
+  let entries = 0;
+  let notes = 0;
+  const pending = [root];
+  while (pending.length) {
+    const current = pending.pop()!;
+    let children;
+    try {
+      children = await readdir(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of children) {
+      if (entry.isSymbolicLink() || (entry.isDirectory() && IGNORED_DIRS.has(entry.name))) continue;
+      entries += 1;
+      if (entries >= limit) return { notes, entries, exceedsLimit: true };
+      if (entry.isDirectory()) pending.push(join(current, entry.name));
+      else if (entry.isFile() && extname(entry.name).toLowerCase() === MARKDOWN_EXTENSION) notes += 1;
+    }
+  }
+  return { notes, entries, exceedsLimit: false };
+}
+
 async function scanFolders(vaultRoot: string, current = vaultRoot): Promise<LocalFolder[]> {
   const entries = await readdir(current, { withFileTypes: true });
   const folders: LocalFolder[] = [];
@@ -523,6 +554,18 @@ async function requireNoteVaultRoot(noteId: string) {
 async function requireVaultRootByManifestId(vaultId: string) {
   const root = await findConfiguredVaultRoot((manifest) => manifest.vaultId === vaultId);
   if (!root) throw new Error('Local image context is no longer available.');
+  return root;
+}
+
+/**
+ * The folder a folder-addressed call is for. Each window shows its own folder, and the app-wide
+ * active folder follows whichever window last opened one, so a call that names its folder must
+ * never fall back to another: it fails instead. Without a name, the active folder is used.
+ */
+async function requireTargetVaultRoot(vaultId: string | undefined) {
+  if (!vaultId) return requireActiveLocalVaultPath();
+  const root = await findConfiguredVaultRoot((manifest) => manifest.vaultId === vaultId);
+  if (!root) throw new Error('That local folder is no longer available. Reopen it and try again.');
   return root;
 }
 
@@ -732,8 +775,8 @@ export async function createLocalDirectory(parentPath: string, name: string): Pr
   return { path };
 }
 
-export async function revealLocalVaultRoot(openPath: OpenPath) {
-  const vaultRoot = await requireActiveLocalVaultPath();
+export async function revealLocalVaultRoot(openPath: OpenPath, input: LocalVaultFolderTargetInput = {}) {
+  const vaultRoot = await requireTargetVaultRoot(input.vaultId);
   const error = await openPath(vaultRoot);
   if (error) {
     throw new Error(error);
@@ -749,8 +792,29 @@ export async function revealLocalVaultNote(input: LocalVaultRevealNoteInput, sho
 }
 
 export async function revealLocalVaultFolder(input: LocalVaultRevealFolderInput, showItemInFolder: ShowItemInFolder) {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireTargetVaultRoot(input.vaultId);
   showItemInFolder(resolveInsideVault(vaultRoot, input.relativePath));
+}
+
+/**
+ * Where a configured folder lives and the id its notes are indexed under, read without scanning it.
+ * Null for a folder that is gone or has no manifest yet: nothing of it is watched or indexed.
+ */
+export async function readLocalVaultIdentity(path: string): Promise<{ rootPath: string; vaultId: string } | null> {
+  try {
+    await assertVaultRootExists(path);
+    const rootPath = await realpath(path);
+    const { vaultId } = await readManifest(rootPath);
+    return { rootPath, vaultId };
+  } catch {
+    return null;
+  }
+}
+
+/** The snapshot of the folder a window shows, by its manifest id; without one, the active folder's. */
+export async function getLocalVaultSnapshotFor(vaultId: string | undefined) {
+  if (!vaultId) return getActiveLocalVaultSnapshot();
+  return scanLocalVault(await requireTargetVaultRoot(vaultId));
 }
 
 export async function getActiveLocalVaultSnapshot() {
@@ -944,7 +1008,7 @@ async function createUniqueAttachmentPath(vaultRoot: string, parentPath: string 
 }
 
 export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise<LocalVaultDocumentMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireTargetVaultRoot(input.vaultId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const parentPath = normalizeRelativePath(input.parentPath);
     const absolutePath = await createUniqueMarkdownPath(vaultRoot, parentPath, input.title ?? 'Untitled');
@@ -1104,7 +1168,7 @@ function getMutatedFolder(snapshot: LocalVaultSnapshot, relativePath: string) {
 }
 
 export async function createLocalFolder(input: LocalVaultCreateFolderInput): Promise<LocalVaultFolderMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireTargetVaultRoot(input.vaultId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const parentPath = normalizeRelativePath(input.parentPath);
     const folderName = sanitizeFolderName(input.name);
@@ -1117,7 +1181,7 @@ export async function createLocalFolder(input: LocalVaultCreateFolderInput): Pro
 }
 
 export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Promise<LocalVaultFolderMutationResult> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireTargetVaultRoot(input.vaultId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const source = await resolveVaultChild(vaultRoot, input.relativePath);
     const targetPath = toVaultRelativePath(vaultRoot, join(dirname(source), sanitizeFolderName(input.name)));
@@ -1131,7 +1195,7 @@ export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Pro
 }
 
 export async function moveLocalFolder(input: LocalVaultMoveFolderInput): Promise<LocalVaultSnapshot> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireTargetVaultRoot(input.vaultId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const source = await resolveVaultChild(vaultRoot, input.relativePath);
     const targetDirectory = resolveInsideVault(vaultRoot, input.parentPath);
@@ -1146,7 +1210,7 @@ export async function moveLocalFolder(input: LocalVaultMoveFolderInput): Promise
 }
 
 export async function trashLocalFolder(input: LocalVaultTrashFolderInput, trashItem: TrashItem): Promise<LocalVaultSnapshot> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+  const vaultRoot = await requireTargetVaultRoot(input.vaultId);
   return enqueueVaultOperation(vaultRoot, async () => {
     const folderPath = await resolveVaultChild(vaultRoot, input.relativePath);
     await trashItem(folderPath);

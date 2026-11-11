@@ -165,6 +165,16 @@ describe('IPC runtime validation', () => {
     expect(() => validateIpcInput('app:new-window', newWindowInputSchema, {
       workspace: { type: 'spaceship', label: 'X' },
     })).toThrow();
+    // A folder or a named local workspace, as the switcher sends them (an unset key included).
+    expect(validateIpcInput('app:new-window', newWindowInputSchema, {
+      workspace: { type: 'local', label: 'beta', vaultId: 'vault-beta', workspaceId: undefined },
+    })).toEqual({ workspace: { type: 'local', label: 'beta', vaultId: 'vault-beta' } });
+    expect(validateIpcInput('app:new-window', newWindowInputSchema, {
+      workspace: { type: 'local', label: 'Work', workspaceId: 'work' },
+    })).toEqual({ workspace: { type: 'local', label: 'Work', workspaceId: 'work' } });
+    expect(() => validateIpcInput('app:new-window', newWindowInputSchema, {
+      workspace: { type: 'personal', label: 'My Workspace', workspaceId: 'work' },
+    })).toThrow('named workspace');
   });
 
   it('accepts account management fields in settings updates', () => {

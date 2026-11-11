@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { WindowManager } from './window-manager';
 import type { watchLocalVault } from './local-vault-service';
 import { EventEmitter } from 'node:events';
+import { dialog } from 'electron';
 
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
@@ -93,6 +94,13 @@ const localVaultServiceMock = vi.hoisted(() => ({
   createLocalFolder: vi.fn(),
   createLocalNote: vi.fn(async () => localVaultMutationResult),
   getActiveLocalVaultSnapshot: vi.fn(async () => localVaultSnapshot),
+  readLocalVaultIdentity: vi.fn(async (): Promise<{ rootPath: string; vaultId: string } | null> => null),
+  LOCAL_VAULT_SIZE_LIMIT: 20_000,
+  measureLocalVaultFolder: vi.fn(async () => ({ notes: 3, entries: 5, exceedsLimit: false })),
+  // A window's own folder by id; without one, the active folder, as the service does.
+  getLocalVaultSnapshotFor: vi.fn(async (vaultId?: string) => (
+    vaultId ? localVaultSnapshot : localVaultServiceMock.getActiveLocalVaultSnapshot()
+  )),
   importLocalVaultAttachment: vi.fn(),
   moveLocalFolder: vi.fn(),
   moveLocalNote: vi.fn(),
@@ -134,6 +142,7 @@ const noteIndexMock = vi.hoisted(() => ({
   setKeepHackmdNotes: vi.fn(),
   indexVault: vi.fn(async () => undefined),
   forgetVaults: vi.fn(async () => undefined),
+  forgetVault: vi.fn(async () => undefined),
   search: vi.fn(() => ({ matches: [], indexedCount: 0 })),
   findPassages: vi.fn(() => ({ passages: [], indexedCount: 0 })),
   status: vi.fn(() => ({ hackmdNotes: 0, hackmdBytes: 0, localNotes: 0 })),
@@ -567,17 +576,41 @@ describe('registerIpcHandlers', () => {
     });
   });
 
-  it('chooses a vault from an in-app picker path after resolving it', async () => {
+  it('chooses a vault from an in-app picker path after resolving it and confirming it natively', async () => {
     localVaultServiceMock.resolveLocalDirectory.mockResolvedValueOnce('/tmp/picked');
+    vi.mocked(dialog.showMessageBox).mockResolvedValueOnce({ response: 0, checkboxChecked: false });
     registerIpcHandlers(windowManager);
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultChoosePath);
 
     expect(await handler?.({}, { path: '/tmp/picked' })).toMatchObject({ canceled: false });
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Use “picked” as a vault folder?',
+      detail: expect.stringContaining('3 Markdown notes'),
+    }));
 
     expect(localVaultServiceMock.resolveLocalDirectory).toHaveBeenCalledWith('/tmp/picked');
     expect(localVaultServiceMock.scanLocalVault).toHaveBeenCalledWith('/tmp/picked');
     expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({ localVaultPath: '/tmp/picked' });
     expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalled();
+  });
+
+  it('changes nothing when the picked folder is not confirmed, and warns about a huge one', async () => {
+    localVaultServiceMock.resolveLocalDirectory.mockResolvedValueOnce('/home/test');
+    localVaultServiceMock.measureLocalVaultFolder.mockResolvedValueOnce({ notes: 900, entries: 20_000, exceedsLimit: true });
+    vi.mocked(dialog.showMessageBox).mockResolvedValueOnce({ response: 1, checkboxChecked: false });
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultChoosePath);
+
+    expect(await handler?.({}, { path: '/home/test' })).toEqual({ canceled: true });
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'warning',
+      defaultId: 1,
+      detail: expect.stringContaining('more than 20,000 files and folders'),
+    }));
+    // Nothing is scanned, written or watched until the folder is confirmed.
+    expect(localVaultServiceMock.scanLocalVault).not.toHaveBeenCalled();
+    expect(settingsMock.updateStoredSettings).not.toHaveBeenCalled();
+    expect(localVaultServiceMock.watchLocalVault).not.toHaveBeenCalled();
   });
 
   it('rejects a picker path that is not a folder', async () => {
@@ -667,6 +700,28 @@ describe('registerIpcHandlers', () => {
 
     expect(close).toHaveBeenCalledOnce();
     expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
+  });
+
+  it('stops watching and searching a folder that was not open when it is forgotten', async () => {
+    const vaults = { vaults: [{ id: 'vault-a', path: '/a' }, { id: 'vault-b', path: '/b' }], activeVaultId: 'vault-a', workspaces: [], activeWorkspaceId: null };
+    settingsMock.readStoredSettings.mockResolvedValue({ localVault: vaults } as never);
+    settingsMock.updateStoredSettings.mockResolvedValueOnce({
+      localVault: { ...vaults, vaults: [vaults.vaults[0]] },
+    } as never);
+    localVaultServiceMock.readLocalVaultIdentity.mockResolvedValueOnce({ rootPath: '/real/b', vaultId: 'manifest-b' });
+    const closeB = vi.fn();
+    localVaultServiceMock.scanLocalVault.mockResolvedValueOnce({ ...localVaultSnapshot, rootPath: '/real/b' });
+    localVaultServiceMock.watchLocalVault.mockReturnValueOnce({ close: closeB, pause: vi.fn(), resume: vi.fn() });
+    registerIpcHandlers(windowManager);
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetVaultSnapshot)?.({}, { vaultId: 'vault-b' });
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultForget)?.({}, { vaultId: 'vault-b' });
+
+    expect(localVaultServiceMock.readLocalVaultIdentity).toHaveBeenCalledWith('/b');
+    expect(noteIndexMock.forgetVault).toHaveBeenCalledWith('manifest-b');
+    expect(closeB).toHaveBeenCalledOnce();
+    // The open folder keeps its index.
+    expect(noteIndexMock.forgetVaults).not.toHaveBeenCalled();
   });
 
   it('validates conditional note reads and restores before calling HackMD', () => {

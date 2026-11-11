@@ -414,6 +414,36 @@ describe('Local Vault session', () => {
     await rejection;
   });
 
+  it("names this window's folder on folder calls, so another window's active folder is never used", async () => {
+    const api = { localVault: {
+      createNote: vi.fn(async () => ({})),
+      createFolder: vi.fn(async () => ({})),
+      revealRoot: vi.fn(async () => undefined),
+      readNote: vi.fn(async () => ({})),
+    } } as unknown as HackDeskElectronAPI;
+    const access: VaultAccess = { vaultId: 'A', generation: 1, transitions: 0, changing: false };
+    const guarded = guardLocalVaultApi(api, () => access);
+
+    await guarded.localVault.createNote({ title: 'Plan' });
+    await guarded.localVault.createFolder({ name: 'Projects', parentPath: null });
+    await guarded.localVault.revealRoot();
+    await guarded.localVault.readNote('note');
+
+    expect(api.localVault.createNote).toHaveBeenCalledWith({ title: 'Plan', vaultId: 'A' });
+    expect(api.localVault.createFolder).toHaveBeenCalledWith({ name: 'Projects', parentPath: null, vaultId: 'A' });
+    expect(api.localVault.revealRoot).toHaveBeenCalledWith({ vaultId: 'A' });
+    // A note call finds its folder by the note itself.
+    expect(api.localVault.readNote).toHaveBeenCalledWith('note');
+  });
+
+  it('refreshes the folder its key already holds, whichever folder is active now', async () => {
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    vi.mocked(f.api.localVault.getSnapshot).mockClear();
+    await act(async () => { await f.result.current.session.snapshotQuery.refetch(); });
+    expect(f.api.localVault.getSnapshot).toHaveBeenCalledWith({ vaultId: 'A' });
+  });
+
   it('keeps a note read across another folder of the set opening, but not across a transition', async () => {
     const api = { localVault: { readNote: vi.fn() } } as unknown as HackDeskElectronAPI;
     const access: VaultAccess = { vaultId: 'A', generation: 1, transitions: 0, changing: false };

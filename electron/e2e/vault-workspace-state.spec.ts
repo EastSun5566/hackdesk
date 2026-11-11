@@ -40,7 +40,7 @@ async function openVaultSettings(page: Page) {
   await page.getByRole('tab', { name: 'Vault', exact: true }).click();
 }
 
-async function choose(page: Page, path: string | null, homeBase: string) {
+async function choose(app: ElectronApplication, page: Page, path: string | null, homeBase: string) {
   // The in-app picker opens instead of the native dialog. Real IPC, settings, scan and vault
   // identity are exercised; only the native dialog is replaced. The picker starts at the
   // current vault, so climb to the shared parent before descending into the target.
@@ -49,7 +49,7 @@ async function choose(page: Page, path: string | null, homeBase: string) {
     await cancelFolderPicker(page);
     return;
   }
-  await chooseFolderInPicker(page, basename(path), homeBase);
+  await chooseFolderInPicker(app, page, basename(path), homeBase);
   // The open folder card and the folder list both name the path.
   await expect(page.getByRole('dialog', { name: 'Settings' }).getByText(path, { exact: true }).first()).toBeVisible();
   await page.keyboard.press('Escape');
@@ -78,16 +78,16 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await expect(page.locator('[data-active-pane]')).toHaveCount(2);
     await page.getByRole('textbox', { name: 'Search notes' }).fill('A search');
     await openVaultSettings(page);
-    await choose(page, null, basename(home));
+    await choose(app, page, null, basename(home));
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
     await openVaultSettings(page);
-    await choose(page, vaultB, basename(home));
+    await choose(app, page, vaultB, basename(home));
     await expect(page.locator('.cm-content')).toContainText('Only in B.');
     await expect(page.getByRole('textbox', { name: 'Search notes' })).toHaveValue('');
     await expect(page.locator('[data-active-pane]')).toHaveCount(1);
     await captureDraft(app, page, 'Draft B');
     await openVaultSettings(page);
-    await choose(page, vaultA, basename(home));
+    await choose(app, page, vaultA, basename(home));
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
     await expect(page.locator('[data-active-pane]')).toHaveCount(2);
     await expect(page.getByRole('textbox', { name: 'Search notes' })).toHaveValue('A search');
@@ -106,7 +106,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await settingsDialog.locator('li', { hasText: vaultB }).getByRole('button', { name: 'Forget', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Forget Vault', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Settings' }).getByText('No folders added yet.', { exact: true })).toBeVisible();
-    await choose(page, vaultA, basename(home));
+    await choose(app, page, vaultA, basename(home));
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
     await app.evaluate(({ BrowserWindow }) => {
       const main = BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes('#/electron'));
@@ -136,7 +136,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     const columns = await page.locator('[data-active-pane]').evaluateAll(elements => new Set(elements.map(element => Math.round(element.getBoundingClientRect().x))).size);
     expect(columns).toBe(2);
     await openVaultSettings(page);
-    await choose(page, vaultB, basename(home));
+    await choose(app, page, vaultB, basename(home));
     await expect(page.locator('.cm-content')).toContainText('Draft B');
     // The workspace switcher lists each vault by folder name and switches between them.
     await page.getByRole('button', { name: /^Switch workspace, current: / }).click();
@@ -145,7 +145,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await expect(page.getByRole('button', { name: /^Switch workspace, current: A/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Switch workspace, current: A/ })).toBeVisible();
     await openVaultSettings(page);
-    await choose(page, vaultB, basename(home));
+    await choose(app, page, vaultB, basename(home));
     await expect(page.locator('.cm-content')).toContainText('Draft B');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes('#/electron'))?.show());
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('vault-B-restored.png') });
