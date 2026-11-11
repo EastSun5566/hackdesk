@@ -3,6 +3,7 @@ export { EDITOR_LINE_WIDTH } from './editor-content-layout';
 
 const EDITOR_CONTROL_HEIGHT = '32px';
 const EDITOR_CONTROL_RADIUS = '6px';
+const SEARCH_CONTROL_HEIGHT = '26px';
 const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)';
 /** Set per mode by createHackmdPreviewTheme: the muted surface in light, a lifted one in dark. */
 const CODE_PANEL_BACKGROUND = 'var(--cm-code-panel)';
@@ -183,43 +184,58 @@ export const searchPanelTheme = {
     backgroundColor: 'var(--background-selected)',
     color: 'var(--text-default)',
   },
+  // Find floats over the top right of the note like the app's other popovers, instead of a bar
+  // that pushes the note down. The top panel container keeps no height of its own, so opening it
+  // never moves the text.
   '.cm-panel.cm-search.cm-hackdesk-search-panel': {
-    borderBottom: '1px solid var(--border-subtle)',
-    backgroundColor: 'var(--background-default)',
-    padding: '8px',
+    position: 'absolute',
+    top: '10px',
+    right: '16px',
+    width: 'min(320px, calc(100% - 32px))',
+    boxSizing: 'border-box',
+    border: '1px solid var(--border-default)',
+    borderRadius: EDITOR_CONTROL_RADIUS,
+    backgroundColor: 'var(--background-raised, var(--background-default))',
+    boxShadow: '0 3px 15px 0 rgba(0, 0, 0, 0.15)',
+    padding: '4px',
   },
   '.cm-hackdesk-search-form': {
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    gap: '2px',
   },
   '.cm-hackdesk-search-input': {
     minWidth: '0',
     flex: '1 1 auto',
-    height: EDITOR_CONTROL_HEIGHT,
-    border: '1px solid var(--border-default)',
-    borderRadius: EDITOR_CONTROL_RADIUS,
-    backgroundColor: 'var(--background-default)',
+    height: SEARCH_CONTROL_HEIGHT,
+    border: '1px solid transparent',
+    borderRadius: '4px',
+    backgroundColor: 'transparent',
     color: 'var(--text-default)',
     fontFamily: 'var(--font-sans)',
-    fontSize: 'var(--font-size-ui)',
+    fontSize: 'calc(var(--font-size-ui) - 1px)',
     outline: 'none',
-    padding: '0 9px',
+    padding: '0 6px',
     transition: 'border-color 120ms ease, box-shadow 120ms ease',
   },
   '.cm-hackdesk-search-input:focus': {
+    borderColor: 'transparent',
+  },
+  // The whole card shows focus, so the field itself stays borderless.
+  '.cm-panel.cm-search.cm-hackdesk-search-panel:focus-within': {
     borderColor: 'var(--focus-ring)',
-    boxShadow: EDITOR_FOCUS_RING,
+    boxShadow: `${EDITOR_FOCUS_RING}, 0 3px 15px 0 rgba(0, 0, 0, 0.15)`,
   },
   '.cm-hackdesk-search-input::placeholder': {
     color: 'var(--text-subtle)',
   },
   '.cm-hackdesk-search-count': {
     flex: '0 0 auto',
-    minWidth: '42px',
+    minWidth: '20px',
+    paddingInline: '4px',
     color: 'var(--text-subtle)',
     fontFamily: 'var(--font-sans)',
-    fontSize: '0.875em',
+    fontSize: 'calc(var(--font-size-ui) - 2px)',
     fontVariantNumeric: 'tabular-nums',
     textAlign: 'right',
     userSelect: 'none',
@@ -229,12 +245,12 @@ export const searchPanelTheme = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: EDITOR_CONTROL_HEIGHT,
-    height: EDITOR_CONTROL_HEIGHT,
+    width: SEARCH_CONTROL_HEIGHT,
+    height: SEARCH_CONTROL_HEIGHT,
     flex: '0 0 auto',
-    border: '1px solid var(--border-default)',
-    borderRadius: EDITOR_CONTROL_RADIUS,
-    backgroundColor: 'var(--background-default)',
+    border: '1px solid transparent',
+    borderRadius: '4px',
+    backgroundColor: 'transparent',
     color: 'var(--icon-subtle)',
     cursor: 'default',
     padding: '0',
@@ -255,8 +271,8 @@ export const searchPanelTheme = {
     boxShadow: EDITOR_FOCUS_RING,
   },
   '.cm-hackdesk-search-button svg': {
-    width: '15px',
-    height: '15px',
+    width: '14px',
+    height: '14px',
   },
   '.cm-searchMatch': {
     borderRadius: '3px',

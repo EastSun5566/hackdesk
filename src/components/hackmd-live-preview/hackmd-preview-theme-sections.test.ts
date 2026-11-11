@@ -60,22 +60,32 @@ describe('HackMD preview widget theme', () => {
       });
     expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
       fontFamily: 'var(--font-sans)',
-      height: '32px',
+      height: '26px',
     });
   });
 
-  it('aligns editor chrome controls with shared component states', () => {
-    expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
+  it('floats find over the note as a compact card instead of a bar that pushes it down', () => {
+    expect(searchPanelTheme['.cm-panel.cm-search.cm-hackdesk-search-panel']).toMatchObject({
+      position: 'absolute',
+      top: '10px',
+      right: '16px',
       border: '1px solid var(--border-default)',
       borderRadius: '6px',
-      backgroundColor: 'var(--background-default)',
+    });
+    expect(searchPanelTheme['.cm-panel.cm-search.cm-hackdesk-search-panel:focus-within'].borderColor).toBe('var(--focus-ring)');
+  });
+
+  it('aligns editor chrome controls with shared component states', () => {
+    // Inside the card, the field and buttons are borderless like the app's ghost controls.
+    expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
+      border: '1px solid transparent',
+      backgroundColor: 'transparent',
     });
     expect(searchPanelTheme['.cm-hackdesk-search-button']).toMatchObject({
-      width: '32px',
-      height: '32px',
-      border: '1px solid var(--border-default)',
-      borderRadius: '6px',
-      backgroundColor: 'var(--background-default)',
+      width: '26px',
+      height: '26px',
+      border: '1px solid transparent',
+      backgroundColor: 'transparent',
     });
     expect(searchPanelTheme['.cm-hackdesk-search-button:hover']).toHaveProperty(
       'backgroundColor',

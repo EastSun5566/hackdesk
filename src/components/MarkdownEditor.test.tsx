@@ -382,13 +382,13 @@ describe('MarkdownEditor', () => {
     expect(within(searchPanel).getByRole('button', { name: 'Previous match' })).toHaveAttribute('type', 'button');
     expect(within(searchPanel).getByRole('button', { name: 'Next match' })).toHaveAttribute('type', 'button');
     expect(within(searchPanel).getByRole('button', { name: 'Close search' })).toHaveAttribute('type', 'button');
+    expect(getComputedStyle(searchPanel)).toMatchObject({ position: 'absolute', borderRadius: '6px' });
     expect(getComputedStyle(within(searchPanel).getByRole('textbox', { name: 'Find in note' }))).toMatchObject({
-      height: '32px',
-      borderRadius: '6px',
+      height: '26px',
     });
     expect(getComputedStyle(within(searchPanel).getByRole('button', { name: 'Next match' }))).toMatchObject({
-      height: '32px',
-      width: '32px',
+      height: '26px',
+      width: '26px',
     });
     expect(searchPanel).not.toHaveTextContent(/replace/i);
     expect(searchPanel).not.toHaveTextContent(/match case/i);
