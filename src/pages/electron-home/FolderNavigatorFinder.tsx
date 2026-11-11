@@ -250,8 +250,8 @@ export function NoteViewOptionsMenu({
   const tagGroupingEnabled = useTagGroupingEnabled();
   const tagGroupOrder = useTagGroupOrder();
   // Grouping changes how the tree's root notes read, not what the finder lists, so the option
-  // lives on the tree's menu alone and counts as a changed view only while it's on.
-  const viewOptionCount = getViewOptionCount(state) + (treeControl && tagGroupingEnabled ? 1 : 0);
+  // lives on the tree's menu alone. It's on by default, so only turning it off counts as a changed view.
+  const viewOptionCount = getViewOptionCount(state) + (treeControl && !tagGroupingEnabled ? 1 : 0);
   const currentFolderDisabled = !selectedFolderId;
   const updateState = (patch: Partial<NoteFinderState>) => onChange({ ...state, ...patch });
   const toggleTag = (tag: string) => onChange({

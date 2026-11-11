@@ -23,16 +23,19 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
-/** Whether the sidebar groups its root (folder-less) notes under each note's first tag. */
+/**
+ * Whether the sidebar groups its root (folder-less) notes under each note's first tag.
+ * On by default: only an explicit "false" turns it off.
+ */
 function readTagGroupingEnabled() {
-  return typeof window !== 'undefined' && window.localStorage.getItem(ENABLED_KEY) === 'true';
+  return typeof window === 'undefined' || window.localStorage.getItem(ENABLED_KEY) !== 'false';
 }
 export function setTagGroupingEnabled(value: boolean) {
   trySetStorageItem(window.localStorage, ENABLED_KEY, String(value));
   notify();
 }
 export function useTagGroupingEnabled() {
-  return useSyncExternalStore(subscribe, readTagGroupingEnabled, () => false);
+  return useSyncExternalStore(subscribe, readTagGroupingEnabled, () => true);
 }
 
 /** Tag groups order themselves by name or by their newest note. */

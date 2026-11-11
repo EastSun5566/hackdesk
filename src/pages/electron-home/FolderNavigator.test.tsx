@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentProps } from 'react';
 
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
@@ -202,6 +202,9 @@ function focusTreeRow(container: HTMLElement, rowId: string) {
 }
 
 describe('FolderNavigator', () => {
+  // A test that turns tag grouping off doesn't leave it off for the next one.
+  afterEach(() => window.localStorage.removeItem('hackdesk_tag_grouping'));
+
   it('keeps the mounted tree out of search keystroke renders', () => {
     const { props, rerender } = renderFolderNavigator();
     const renderCount = treeRender.mock.calls.length;
@@ -845,6 +848,8 @@ describe('FolderNavigator', () => {
   });
 
   it('announces hierarchy and expanded state with owned child groups', () => {
+    // The flat root notes, so the levels below are the folder tree's alone.
+    window.localStorage.setItem('hackdesk_tag_grouping', 'false');
     renderFolderNavigator();
     const tree = screen.getByRole('tree', { name: 'Folders and notes' });
     const items = within(tree).getAllByRole('treeitem');
@@ -908,6 +913,7 @@ describe('FolderNavigator', () => {
   });
 
   it('moves focus through visible tree rows with arrow keys and Ctrl+N/P', () => {
+    window.localStorage.setItem('hackdesk_tag_grouping', 'false');
     const { container } = renderFolderNavigator();
     const root = focusTreeRow(container, 'workspace:root');
 
@@ -1296,10 +1302,14 @@ describe('FolderNavigator tag groups', () => {
     return { ...view, tree };
   }
 
-  it('keeps the flat root notes until the view option turns grouping on', () => {
-    renderFolderNavigator();
+  it('groups root notes by default and keeps them flat once the view option is off', () => {
+    const view = renderFolderNavigator();
+    expect(screen.getByRole('treeitem', { name: 'Untagged group' })).toBeInTheDocument();
 
-    expect(screen.queryByRole('treeitem', { name: 'Untagged' })).not.toBeInTheDocument();
+    view.unmount();
+    window.localStorage.setItem('hackdesk_tag_grouping', 'false');
+    renderFolderNavigator();
+    expect(screen.queryByRole('treeitem', { name: 'Untagged group' })).not.toBeInTheDocument();
     expect(screen.getByRole('treeitem', { name: 'Loose note' })).toBeVisible();
   });
 
@@ -1350,15 +1360,20 @@ describe('FolderNavigator tag groups', () => {
 
   it('toggles grouping from the tree View options and offers the tag order there', async () => {
     renderFolderNavigator();
+    // On by default, so grouping alone isn't a changed view.
     const trigger = screen.getByRole('button', { name: 'View options' });
+    expect(trigger).toHaveTextContent('');
+    // Only folder-less notes group; the loose untagged note lands in the Untagged group.
+    expect(screen.getByRole('treeitem', { name: 'Untagged group' })).toHaveAttribute('aria-expanded', 'true');
     fireEvent.pointerDown(trigger);
     const menu = await screen.findByRole('menu');
     expect(menu).toHaveTextContent('Group by Tag');
 
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Group notes by first tag' }));
-    expect(window.localStorage.getItem('hackdesk_tag_grouping')).toBe('true');
-    // Only folder-less notes group; the loose untagged note lands in the Untagged group.
-    expect(await screen.findByRole('treeitem', { name: 'Untagged group' })).toHaveAttribute('aria-expanded', 'true');
+    expect(window.localStorage.getItem('hackdesk_tag_grouping')).toBe('false');
+    await waitFor(() => expect(screen.queryByRole('treeitem', { name: 'Untagged group' })).not.toBeInTheDocument());
+    // Turning it off is the change the badge counts.
+    expect(trigger).toHaveTextContent('1');
 
     fireEvent.keyDown(menu, { key: 'Escape' });
   });
