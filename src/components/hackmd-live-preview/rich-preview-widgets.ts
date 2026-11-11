@@ -37,7 +37,8 @@ const mathFenceLanguages = new Set(['math', 'tex', 'latex']);
 const emojiPattern = /:([A-Za-z0-9_+-]+):/g;
 const inlineMathPattern = /(?<!\\)\$(?!\s|\$)((?:\\.|[^\n$\\])+(?<!\s|\$))\$/g;
 const fontAwesomeTagPattern = /<i\s+class=(["'])([^"']+)\1\s*><\/i>/gi;
-const safeFontAwesomeClassPattern = /^(?:fa|fas|far|fab|fa-solid|fa-regular|fa-brands|fa-fw|fa-[a-z0-9-]+)$/;
+// Font Awesome 4.7 classes, as HackMD notes write them: `fa` plus `fa-*` names and modifiers.
+const safeFontAwesomeClassPattern = /^(?:fa|fa-[a-z0-9-]+)$/;
 
 class EmojiWidget extends WidgetType {
   constructor(
@@ -509,10 +510,9 @@ function isSafeFontAwesomeClassName(className: string): boolean {
 }
 
 function normalizeFontAwesomeClassName(className: string): string {
+  // Font Awesome 4 needs the base `fa` class for every icon; HackMD notes sometimes leave it out.
   const classes = new Set(className.trim().split(/\s+/));
-  if (classes.has('fa')) {
-    classes.add('fa-solid');
-  }
+  classes.add('fa');
   return Array.from(classes).join(' ');
 }
 
