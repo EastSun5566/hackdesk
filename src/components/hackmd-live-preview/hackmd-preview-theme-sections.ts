@@ -4,7 +4,14 @@ export { EDITOR_LINE_WIDTH } from './editor-content-layout';
 const EDITOR_CONTROL_HEIGHT = '32px';
 const EDITOR_CONTROL_RADIUS = '6px';
 const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)';
-const CODE_PANEL_BACKGROUND = 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)';
+/** Set per mode by createHackmdPreviewTheme: the muted surface in light, a lifted one in dark. */
+const CODE_PANEL_BACKGROUND = 'var(--cm-code-panel)';
+export const CODE_PANEL_BACKGROUNDS = {
+  // Light: the theme's own muted surface, a clean tint of the page instead of a grey wash.
+  light: 'var(--background-muted)',
+  // Dark: --background-muted sits below the page, so lift the panel a step toward the text instead.
+  dark: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
+} as const;
 export const EDITOR_SELECTION_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 24%, transparent)';
 const EDITOR_BLOCK_CURSOR_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 55%, transparent)';
 
