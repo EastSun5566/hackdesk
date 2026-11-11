@@ -77,6 +77,7 @@ type WorkspaceActions = {
   handleOpenEditor: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenNote'];
   handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
   openHackmdTokenSetup: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenSettings'];
+  openVaultSettings: () => void;
   openPalette: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenPalette'];
   openQuickOpen: () => void;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
@@ -359,6 +360,7 @@ export function useHomeWorkspaceProps({
         onChooseLocalVault: () => {
           void localVaultActions.chooseLocalVault();
         },
+        onManageLocalVaults: actions.openVaultSettings,
         onScopeChange: (next) => {
           actions.setTrashOpen(false);
           actions.setHistoryOpen(false);

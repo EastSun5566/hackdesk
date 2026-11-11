@@ -1231,6 +1231,7 @@ export function Home() {
       handleOpenEditor,
       handleOpenExternal,
       openHackmdTokenSetup,
+      openVaultSettings: () => openSettingsTab('vault'),
       openPalette,
       openQuickOpen,
       setFinderState,
