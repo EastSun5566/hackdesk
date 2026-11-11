@@ -18,6 +18,7 @@ import {
   getNoteIdentityKey,
   isBlankNoteTab,
   isDraftNoteTab,
+  isMeaningfulDraft,
   noteIdentityMatches,
   type NoteDocumentDraft,
   type NoteIdentity,
@@ -142,8 +143,12 @@ export function useWorkbenchDocuments({
   }, [getTabDocument, getTabDraft]);
 
   const isTabDirty = useCallback((tab: OpenNoteTab) => {
-    if (isBlankNoteTab(tab) || isDraftNoteTab(tab)) {
-      return isDraftNoteTab(tab);
+    if (isBlankNoteTab(tab)) {
+      return false;
+    }
+    // A new note's draft counts once it holds something worth keeping, as persistence decides.
+    if (isDraftNoteTab(tab)) {
+      return isMeaningfulDraft(getTabDraft(tab));
     }
 
     const documentResult = getTabDocument(tab);
@@ -161,7 +166,9 @@ export function useWorkbenchDocuments({
   const selectedDocument = activeTab ? getTabDocument(activeTab) : undefined;
   const documentTitle = activeTab ? getTabTitle(activeTab) : '';
   const documentContent = activeTab ? getTabContent(activeTab) : '';
-  const noteDirty = activeTab ? isTabDirty(activeTab) : false;
+  // A new note can always be saved, even before anything is typed: Save asks where it goes. Only
+  // closing and quitting skip a draft that holds nothing (isTabDirty).
+  const noteDirty = activeTab ? isDraftNoteTab(activeTab) || isTabDirty(activeTab) : false;
 
   const getTabDiskChanged = useCallback((tab: OpenNoteTab) => {
     if (isDraftNoteTab(tab) || isBlankNoteTab(tab)) {

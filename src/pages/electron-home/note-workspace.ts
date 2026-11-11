@@ -32,6 +32,11 @@ export type SavedOpenNoteTab = {
    * stays once its note is edited or the tab is double-clicked.
    */
   preview?: boolean;
+  /**
+   * The draft this tab's note was saved from. Saving a draft keeps its editor: see
+   * getNoteTabEditorKey. A tab turned to another note is built anew and drops it.
+   */
+  createdFromDraftId?: string;
 };
 
 export type DraftOpenNoteTab = {
@@ -129,6 +134,16 @@ function createPaneId() {
 
 export function isDraftNoteTab(tab: OpenNoteTab | undefined | null): tab is DraftOpenNoteTab {
   return tab?.kind === 'draft';
+}
+
+/**
+ * A new note's draft is worth keeping once it has text or a title of its own. An untouched
+ * Untitled draft is not: it is neither persisted nor a reason to confirm closing.
+ */
+export function isMeaningfulDraft(draft: NoteDocumentDraft | undefined): boolean {
+  if (!draft) return false;
+  const title = draft.title.trim();
+  return Boolean(draft.content.trim() || (title && title !== 'Untitled'));
 }
 
 export function isBlankNoteTab(tab: OpenNoteTab | undefined | null): tab is BlankOpenNoteTab {
@@ -684,10 +699,22 @@ export function materializeDraftNoteTab(state: NoteWorkspaceState, tabId: string
     ...state,
     tabs: {
       ...state.tabs,
-      [tabId]: createTabFromNote(note, tabId),
+      [tabId]: { ...createTabFromNote(note, tabId), createdFromDraftId: tab.draftId },
     },
     drafts,
   });
+}
+
+/**
+ * Identifies the editor a tab shows. It changes when the tab turns to another note, so the editor
+ * starts fresh there, but not when the tab's draft is saved as a note: the same text stays in the
+ * same editor, with its focus, selection and undo history.
+ */
+export function getNoteTabEditorKey(tab: OpenNoteTab) {
+  if (isBlankNoteTab(tab)) return `${tab.tabId}:`;
+  if (isDraftNoteTab(tab)) return `${tab.tabId}:draft:${tab.draftId}`;
+  if (tab.createdFromDraftId) return `${tab.tabId}:draft:${tab.createdFromDraftId}`;
+  return `${tab.tabId}:${tab.teamPath ?? ''}:${tab.noteId}`;
 }
 
 export function selectNoteTab(state: NoteWorkspaceState, paneId: string, tabId: string) {
@@ -1198,7 +1225,7 @@ export function toPersistedNoteWorkspaceLayout(state: NoteWorkspaceState): Persi
     const tab = state.tabs[tabId];
     if (!tab) return false;
     return isDraftNoteTab(tab)
-      ? Boolean(draft.content.trim() || (draft.title.trim() && draft.title.trim() !== 'Untitled'))
+      ? isMeaningfulDraft(draft)
       : draft.title !== draft.baseTitle || draft.content !== draft.baseContent;
   }));
   const persistedTabs = Object.fromEntries(

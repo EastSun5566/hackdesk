@@ -21,6 +21,8 @@ import {
   getActiveNavigationTarget,
   getPaneActiveTab,
   isDraftNoteTab,
+  isMeaningfulDraft,
+  getNoteTabEditorKey,
   hydrateNoteWorkspaceLayout,
   materializeDraftNoteTab,
   moveActiveTabToOtherPane,
@@ -190,6 +192,26 @@ describe('note workspace tabs', () => {
     expect(getActiveTab(materialized)?.tabId).toBe(draftTabId);
   });
 
+  it('keeps the editor when a draft is saved, and starts a new one when the tab turns to another note', () => {
+    const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'));
+    const tabId = getActiveTab(withDraft)!.tabId;
+    const draftKey = getNoteTabEditorKey(withDraft.tabs[tabId]);
+    const saved = materializeDraftNoteTab(withDraft, tabId, note({ id: 'note-1', title: 'Saved' }));
+
+    // Same text in the same editor: focus, selection and undo history survive the save.
+    expect(getNoteTabEditorKey(saved.tabs[tabId])).toBe(draftKey);
+
+    const turned = openNoteInPlace(saved, note({ id: 'note-2', title: 'Other' }), saved.activePaneId, tabId);
+    expect(turned.tabs[tabId]).toMatchObject({ noteId: 'note-2' });
+    expect(getNoteTabEditorKey(turned.tabs[tabId])).not.toBe(draftKey);
+
+    // Another saved draft gets an editor of its own.
+    const second = openDraftNoteTab(saved);
+    const secondId = getActiveTab(second)!.tabId;
+    const secondSaved = materializeDraftNoteTab(second, secondId, note({ id: 'note-3', title: 'Third' }));
+    expect(getNoteTabEditorKey(secondSaved.tabs[secondId])).not.toBe(getNoteTabEditorKey(secondSaved.tabs[tabId]));
+  });
+
   it('rebases later draft input on the created note without keeping the provisional title', () => {
     const initial = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'), { content: '# Derived title' });
     const tabId = getActiveTab(initial)!.tabId;
@@ -200,6 +222,17 @@ describe('note workspace tabs', () => {
     expect(next.drafts[tabId]).toMatchObject({ title: 'Derived title', content: '# Derived title\nMore input', baseTitle: 'Derived title', baseContent: '# Derived title' });
     expect(materializeDraftNoteTab(initial, tabId, created, submitted).drafts[tabId]).toBeUndefined();
     expect(next.panes).toEqual(initial.panes);
+  });
+
+  it("counts a new note's draft only once it has text or a title of its own", () => {
+    const draft = { title: 'Untitled', content: '', baseTitle: 'Untitled', baseContent: '' };
+    expect(isMeaningfulDraft(undefined)).toBe(false);
+    expect(isMeaningfulDraft(draft)).toBe(false);
+    expect(isMeaningfulDraft({ ...draft, content: '  \n ' })).toBe(false);
+    expect(isMeaningfulDraft({ ...draft, title: '  Untitled ' })).toBe(false);
+    expect(isMeaningfulDraft({ ...draft, title: '' })).toBe(false);
+    expect(isMeaningfulDraft({ ...draft, content: '# Plan' })).toBe(true);
+    expect(isMeaningfulDraft({ ...draft, title: 'Plan' })).toBe(true);
   });
 
   it('does not persist unsaved draft tabs without content persistence', () => {

@@ -435,6 +435,21 @@ export function useElectronNoteMutations({
       if (scope.type !== 'local') {
         seedWorkspaceNote(createdNote);
       }
+      // The draft's tab becomes the note's tab. Give it the saved document at once, as a save of an
+      // existing note does: a cold document query shows the loading view in its place, which
+      // removes the focused editor and drops focus to the page.
+      const savedNote = { ...createdNote, content: createdNote.content ?? variables.input.content ?? '' };
+      if (scope.type === 'local' || createdNote.teamPath === LOCAL_VAULT_TEAM_PATH) {
+        queryClient.setQueryData<LocalDocument | undefined>(
+          getLocalVaultDocumentQueryKey(createdNote.id, (createdNote as LocalDocumentSummary).localVaultId),
+          (current) => localDocumentFromSummary(current, savedNote as LocalDocumentSummary),
+        );
+      } else {
+        queryClient.setQueryData<RepositoryValue<DocumentSummary> | undefined>(
+          ['electron', 'hackmd', 'note', createdNote.teamPath ?? null, createdNote.id],
+          (current) => repositoryDocumentValue(current, savedNote),
+        );
+      }
       onDraftNoteCreated(variables.tabId, createdNote, {
         title: variables.input.title ?? DEFAULT_DRAFT_NOTE_TITLE,
         content: variables.input.content ?? '',

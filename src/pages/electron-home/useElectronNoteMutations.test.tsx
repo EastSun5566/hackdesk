@@ -10,6 +10,7 @@ import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 import { HACKMD_NOTE_CHANGED_MESSAGE } from '@/lib/note-errors';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { getLocalVaultDocumentQueryKey } from './local-vault-query';
 import { deriveDraftNoteTitle, useElectronNoteMutations } from './useElectronNoteMutations';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { getFoldersQueryKey, getWorkspaceQueryKey } from './repository';
@@ -145,7 +146,7 @@ describe('useElectronNoteMutations draft save', () => {
       },
     } as unknown as HackDeskElectronAPI;
     const onDraftNoteCreated = vi.fn();
-    const { Wrapper } = createWrapper();
+    const { queryClient, Wrapper } = createWrapper();
     const { result } = renderHook(() => useElectronNoteMutations(createOptions({
       api,
       scope: { type: 'personal', label: 'My Workspace' },
@@ -164,6 +165,8 @@ describe('useElectronNoteMutations draft save', () => {
       content: '# Capture title\nBody',
     });
     expect(onDraftNoteCreated).toHaveBeenCalledWith('draft-tab-1', created, { title: 'Untitled', content: '# Capture title\nBody' });
+    // The tab that turns into this note has its document at once, so its editor stays in place.
+    expect(queryClient.getQueryData(['electron', 'hackmd', 'note', null, 'personal-note'])).toMatchObject({ data: { id: 'personal-note' } });
     // The saved note shows in its tab; no toast.
     expect(toast.success).not.toHaveBeenCalledWith('Note saved.');
   });
@@ -233,6 +236,7 @@ describe('useElectronNoteMutations draft save', () => {
         teamPath: LOCAL_VAULT_TEAM_PATH,
       }), { title: 'Local draft', content: '# Local draft' });
     });
+    expect(queryClient.getQueryData(getLocalVaultDocumentQueryKey('local-note', snapshot.vaultId))).toMatchObject({ id: 'local-note' });
     expect(api.localVault.getSnapshot).not.toHaveBeenCalled();
     expect(queryClient.getQueryData(['electron', 'local-vault', 'snapshot', null])).toEqual(snapshot);
   });
