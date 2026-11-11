@@ -36,6 +36,7 @@ import type {
   LocalVaultCreateDirectoryInput,
   LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
+  LocalVaultFolderTargetInput,
   LocalVaultForgetResult,
   LocalWorkspaceMutation,
   LocalWorkspaceMutationResult,
@@ -224,7 +225,7 @@ const api: HackDeskElectronAPI = {
       ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateDirectory, input) as Promise<LocalVaultCreateDirectoryResult>
     ),
     disconnect: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultDisconnect),
-    getSnapshot: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetSnapshot),
+    getSnapshot: (input?: LocalVaultFolderTargetInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetSnapshot, input),
     getVaultSnapshot: (input: LocalVaultVaultIdInput) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetVaultSnapshot, input) as Promise<LocalVaultSnapshot>
     ),
@@ -243,7 +244,7 @@ const api: HackDeskElectronAPI = {
     moveFolder: (input: LocalVaultMoveFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultMoveFolder, input),
     trashFolder: (input: LocalVaultTrashFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultTrashFolder, input),
     revealFolder: (input: LocalVaultRevealFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRevealFolder, input),
-    revealRoot: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRevealRoot),
+    revealRoot: (input?: LocalVaultFolderTargetInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRevealRoot, input),
     onDidChange: (callback: (event: LocalVaultChangeEvent) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, event: LocalVaultChangeEvent) => {
         callback(event);

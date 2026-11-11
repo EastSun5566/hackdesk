@@ -66,11 +66,15 @@ export function useLocalVaultSession(
         signal.throwIfAborted();
         if (pendingFocus.current === pending) break;
       }
-      if (getActiveLocalVaultPath(queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings'])) !== path) {
+      const settings = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+      if (getActiveLocalVaultPath(settings) !== path) {
         throw new Error('The active Local Vault changed during loading.');
       }
       const generation = access.current.generation;
-      const snapshot = await api?.localVault.getSnapshot() ?? null;
+      // A refresh reads the folder this key already holds, by its id: the app-wide active folder
+      // follows whichever window last opened one, and may be another window's by now.
+      const known = queryClient.getQueryData<LocalVaultSnapshot | null>(getLocalVaultSnapshotQueryKey(path));
+      const snapshot = await api?.localVault.getSnapshot(known ? { vaultId: known.vaultId } : undefined) ?? null;
       signal.throwIfAborted();
       if (generation !== access.current.generation) throw new Error('The active Local Vault changed during loading.');
       return snapshot;

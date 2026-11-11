@@ -314,10 +314,18 @@ export const localVaultRevisionSchema = z.strictObject({
   mtimeMs: z.number().finite().nonnegative(),
 });
 
+/** A folder's manifest id: which configured folder a folder-addressed call is for. */
+const optionalVaultIdSchema = z.string().trim().min(1).max(200).optional();
+
+export const localVaultFolderTargetInputSchema = z.strictObject({
+  vaultId: optionalVaultIdSchema,
+}).default({});
+
 export const localVaultCreateNoteInputSchema = z.strictObject({
   title: optionalStringSchema,
   parentPath: z.string().nullable().optional(),
   content: optionalStringSchema,
+  vaultId: optionalVaultIdSchema,
 });
 
 export const localVaultWriteInputSchema = z.strictObject({
@@ -357,24 +365,29 @@ export const localVaultImportAttachmentInputSchema = z.strictObject({
 export const localVaultCreateFolderInputSchema = z.strictObject({
   name: nonEmptyStringSchema,
   parentPath: z.string().nullable().optional(),
+  vaultId: optionalVaultIdSchema,
 });
 
 export const localVaultRenameFolderInputSchema = z.strictObject({
   relativePath: nonEmptyStringSchema,
   name: nonEmptyStringSchema,
+  vaultId: optionalVaultIdSchema,
 });
 
 export const localVaultMoveFolderInputSchema = z.strictObject({
   relativePath: nonEmptyStringSchema,
   parentPath: z.string().nullable(),
+  vaultId: optionalVaultIdSchema,
 });
 
 export const localVaultTrashFolderInputSchema = z.strictObject({
   relativePath: nonEmptyStringSchema,
+  vaultId: optionalVaultIdSchema,
 });
 
 export const localVaultRevealFolderInputSchema = z.strictObject({
   relativePath: nonEmptyStringSchema,
+  vaultId: optionalVaultIdSchema,
 });
 
 const absolutePathSchema = z.string().trim().min(1).max(4096);
@@ -563,10 +576,13 @@ export const newWindowInputSchema = z.strictObject({
     label: z.string().trim().min(1).max(200),
     teamPath: z.string().trim().min(1).max(500).optional(),
     vaultId: z.string().trim().min(1).max(200).optional(),
+    workspaceId: z.string().trim().min(1).max(200).optional(),
   }).refine((scope) => scope.type !== 'team' || scope.teamPath !== undefined, {
     message: 'A team workspace must name its team.',
   }).refine((scope) => scope.vaultId === undefined || scope.type === 'local', {
     message: 'Only a local workspace may name a vault.',
+  }).refine((scope) => scope.workspaceId === undefined || scope.type === 'local', {
+    message: 'Only a local workspace may name a named workspace.',
   }).optional(),
 }).default({});
 

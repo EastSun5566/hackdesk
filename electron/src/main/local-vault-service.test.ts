@@ -49,6 +49,8 @@ import {
   createLocalFolder,
   resolveLocalDirectory,
   createLocalNote,
+  getLocalVaultSnapshotFor,
+  measureLocalVaultFolder,
   importLocalVaultAttachment,
   moveLocalNote,
   moveLocalFolder,
@@ -210,6 +212,48 @@ describe('LocalVaultService', () => {
     } finally {
       await rm(otherPath, { force: true, recursive: true });
     }
+  });
+
+  it('creates notes and folders in the folder a call names, not the active one', async () => {
+    // Two windows: one shows A while the other made B the app-wide active folder.
+    const otherPath = await mkdtemp(join(tmpdir(), 'hackdesk-local-other-'));
+    try {
+      const writeVaults = (activeVaultId: string) => writeFile(getSettingsPath(), JSON.stringify({
+        title: 'HackDesk',
+        hackmdApiToken: '',
+        localVault: {
+          vaults: [{ id: 'vault-a', path: vaultPath }, { id: 'vault-b', path: otherPath }],
+          activeVaultId,
+        },
+      }));
+      await writeVaults('vault-a');
+      const folderA = await getLocalVaultSnapshotFor(undefined);
+      await writeVaults('vault-b');
+
+      const { snapshot } = await createLocalNote({ title: 'Written in A', vaultId: folderA!.vaultId });
+      expect(snapshot.vaultId).toBe(folderA!.vaultId);
+      expect(await readFile(join(vaultPath, 'Written in A.md'), 'utf8')).toBe('');
+      await createLocalFolder({ name: 'Folder in A', vaultId: folderA!.vaultId });
+      expect((await getLocalVaultSnapshotFor(folderA!.vaultId))!.folders.map((folder) => folder.relativePath)).toContain('Folder in A');
+      expect(await readdir(otherPath)).not.toContain('Written in A.md');
+      // A folder that is no longer configured is never replaced by the active one.
+      await expect(createLocalNote({ title: 'Lost', vaultId: 'gone' })).rejects.toThrow('no longer available');
+    } finally {
+      await rm(otherPath, { force: true, recursive: true });
+    }
+  });
+
+  it('measures what choosing a folder would scan, and stops at the limit', async () => {
+    await mkdir(join(vaultPath, 'notes', 'deep'), { recursive: true });
+    await mkdir(join(vaultPath, 'node_modules', 'pkg'), { recursive: true });
+    await writeFile(join(vaultPath, 'a.md'), '');
+    await writeFile(join(vaultPath, 'notes', 'b.MD'), '');
+    await writeFile(join(vaultPath, 'notes', 'deep', 'c.md'), '');
+    await writeFile(join(vaultPath, 'notes', 'image.png'), '');
+    await writeFile(join(vaultPath, 'node_modules', 'pkg', 'readme.md'), '');
+
+    expect(await measureLocalVaultFolder(vaultPath)).toEqual({ notes: 3, entries: 6, exceedsLimit: false });
+    expect(await measureLocalVaultFolder(vaultPath, 3)).toMatchObject({ entries: 3, exceedsLimit: true });
   });
 
   it('does not return an image that changes during its read', async () => {

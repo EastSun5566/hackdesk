@@ -63,6 +63,18 @@ describe('note index service', () => {
     await index.close();
   });
 
+  it("forgets one folder's notes and keeps the others", async () => {
+    const { index } = await service(true, { 'a.md': 'apple', 'b.md': 'banana' });
+    await index.indexVault({ vaultId: 'vault-a', rootPath: '/a', notes: [vaultNote('a.md')], folders: [] });
+    await index.indexVault({ vaultId: 'vault-b', rootPath: '/b', notes: [vaultNote('b.md')], folders: [] });
+
+    await index.forgetVault('vault-b');
+
+    expect(index.search({ query: 'banana', scope: { type: 'local', vaultId: 'vault-b' }, limit: 10 }).matches).toEqual([]);
+    expect(index.search({ query: 'apple', scope: { type: 'local', vaultId: 'vault-a' }, limit: 10 }).matches).toHaveLength(1);
+    await index.close();
+  });
+
   it('resolves HackMD embeds from local data only, and only while HackMD notes are kept', async () => {
     const { index } = await service();
     index.hackmdFallback.write('notes', [{ id: 'n2', shortId: 'plan2', permalink: 'plan', userPath: 'me', teamPath: null, title: 'Plan' }]);

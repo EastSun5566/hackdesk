@@ -1,6 +1,6 @@
 import { app, clipboard, dialog, ipcMain as electronIpcMain, shell } from 'electron';
 import type { IpcMainInvokeEvent, MessageBoxOptions, WebContents } from 'electron';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import type {
   ConfirmDialogOptions,
@@ -96,6 +96,10 @@ import {
   createLocalFolder,
   createLocalNote,
   getActiveLocalVaultSnapshot,
+  getLocalVaultSnapshotFor,
+  LOCAL_VAULT_SIZE_LIMIT,
+  measureLocalVaultFolder,
+  readLocalVaultIdentity,
   importLocalVaultAttachment,
   readLocalNote,
   readLocalVaultNotesForIndex,
@@ -138,6 +142,7 @@ import {
   fatalRendererErrorSchema,
   folderOrderSchema,
   localVaultCreateFolderInputSchema,
+  localVaultFolderTargetInputSchema,
   localVaultCreateNoteInputSchema,
   localVaultImportAttachmentInputSchema,
   localVaultMoveFolderInputSchema,
@@ -324,6 +329,10 @@ export function registerIpcHandlers(
     localVaultWatchers.clear();
     localVaultWatcherGeneration += 1;
   };
+  const closeLocalVaultWatcherAt = (vaultPath: string) => {
+    localVaultWatchers.get(vaultPath)?.close();
+    localVaultWatchers.delete(vaultPath);
+  };
   const ensureLocalVaultWatcher = (vaultPath: string) => {
     if (localVaultWatchers.has(vaultPath)) {
       return;
@@ -408,9 +417,29 @@ export function registerIpcHandlers(
 
     return chooseScannedVaultPath(result.filePaths[0]);
   });
-  ipcMain.handle(ELECTRON_CHANNELS.localVaultChoosePath, async (_event, input: unknown) => {
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultChoosePath, async (event, input: unknown) => {
     const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultChoosePath, localVaultChoosePathInputSchema, input);
-    return chooseScannedVaultPath(await resolveLocalDirectory(path));
+    const rootPath = await resolveLocalDirectory(path);
+    // The in-app picker is page UI, so the folder is confirmed here, outside the page, the way the
+    // native folder dialog confirmed it. The answer also says how much HackDesk will read and watch.
+    const size = await measureLocalVaultFolder(rootPath);
+    const name = basename(rootPath) || rootPath;
+    const owner = windowManager.getMainWindowForWebContents(event.sender) ?? windowManager.getTargetWindow();
+    const confirmation: MessageBoxOptions = {
+      type: size.exceedsLimit ? 'warning' : 'question',
+      title: app.getName(),
+      message: `Use “${name}” as a vault folder?`,
+      detail: size.exceedsLimit
+        ? `${rootPath}\n\nIt holds more than ${LOCAL_VAULT_SIZE_LIMIT.toLocaleString('en-US')} files and folders. HackDesk reads and watches every Markdown file in it, which can be slow. A smaller folder is usually better.`
+        : `${rootPath}\n\nHackDesk will read and watch the ${size.notes === 1 ? '1 Markdown note' : `${size.notes.toLocaleString('en-US')} Markdown notes`} in it.`,
+      buttons: ['Use Folder', 'Cancel'],
+      defaultId: size.exceedsLimit ? 1 : 0,
+      cancelId: 1,
+      noLink: true,
+    };
+    const { response } = owner ? await dialog.showMessageBox(owner, confirmation) : await dialog.showMessageBox(confirmation);
+    if (response !== 0) return { canceled: true };
+    return chooseScannedVaultPath(rootPath);
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultGetVaultSnapshot, async (_event, input: unknown) => {
     const { vaultId } = validateIpcInput(
@@ -441,11 +470,26 @@ export function registerIpcHandlers(
     );
     return createLocalDirectory(validated.parentPath, validated.name);
   });
+  /**
+   * Reads where a configured folder lives before it is removed, so that afterwards only it stops
+   * being watched and searched. Other folders keep both: another window may show them.
+   */
+  const prepareFolderRemoval = async (path: string | undefined) => {
+    const identity = path ? await readLocalVaultIdentity(path) : null;
+    return (settings: { localVault: { vaults: { path: string }[] } }) => {
+      // A mutation still running in the removed folder must not bring its watcher or index back.
+      localVaultWatcherGeneration += 1;
+      if (!identity || !path || settings.localVault.vaults.some((vault) => vault.path === path)) return;
+      closeLocalVaultWatcherAt(identity.rootPath);
+      void noteIndex.forgetVault(identity.vaultId);
+    };
+  };
   ipcMain.handle(ELECTRON_CHANNELS.localVaultDisconnect, async () => {
-    closeLocalVaultWatcher();
-    void noteIndex.forgetVaults();
+    const stored = await readStoredSettings();
+    const finishRemoval = await prepareFolderRemoval(getActiveLocalVaultPath(stored) ?? undefined);
     const settings = await updateStoredSettings({ localVaultPath: null });
     options.onSettingsUpdated?.(settings);
+    finishRemoval(settings);
     return settings;
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultActivate, async (_event, input: unknown) => {
@@ -461,14 +505,13 @@ export function registerIpcHandlers(
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultForget, async (_event, input: unknown) => {
     const { vaultId } = validateIpcInput(ELECTRON_CHANNELS.localVaultForget, localVaultVaultIdInputSchema, input);
-    const before = getActiveLocalVaultPath(await readStoredSettings());
+    const stored = await readStoredSettings();
+    const forgotten = stored.localVault.vaults.find((vault) => vault.id === vaultId);
+    const finishRemoval = await prepareFolderRemoval(forgotten?.path);
     const settings = await updateStoredSettings({ localVaultRemoveId: vaultId });
     options.onSettingsUpdated?.(settings);
-    const after = getActiveLocalVaultPath(settings);
-    if (before && before !== after) {
-      closeLocalVaultWatcher();
-      void noteIndex.forgetVaults();
-    }
+    // The forgotten folder stops being watched and searched, open or not, as the dialog promises.
+    finishRemoval(settings);
     const snapshot = await getActiveLocalVaultSnapshot();
     if (snapshot) {
       ensureLocalVaultWatcher(snapshot.rootPath);
@@ -478,14 +521,10 @@ export function registerIpcHandlers(
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultWorkspace, async (_event, input: unknown) => {
     const mutation = validateIpcInput(ELECTRON_CHANNELS.localVaultWorkspace, localVaultWorkspaceInputSchema, input);
-    const before = getActiveLocalVaultPath(await readStoredSettings());
+    // A workspace edit removes no configured folder, so every folder keeps its watcher and index:
+    // another window may show the folder this one leaves.
     const settings = await updateStoredSettings({ localWorkspace: mutation });
     options.onSettingsUpdated?.(settings);
-    const after = getActiveLocalVaultPath(settings);
-    if (before !== after) {
-      closeLocalVaultWatcher();
-      void noteIndex.forgetVaults();
-    }
     const snapshot = await getActiveLocalVaultSnapshot();
     if (snapshot) {
       ensureLocalVaultWatcher(snapshot.rootPath);
@@ -493,8 +532,9 @@ export function registerIpcHandlers(
     }
     return { settings, snapshot };
   });
-  ipcMain.handle(ELECTRON_CHANNELS.localVaultGetSnapshot, async () => {
-    const snapshot = await getActiveLocalVaultSnapshot();
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultGetSnapshot, async (_event, input: unknown) => {
+    const { vaultId } = validateIpcInput(ELECTRON_CHANNELS.localVaultGetSnapshot, localVaultFolderTargetInputSchema, input);
+    const snapshot = await getLocalVaultSnapshotFor(vaultId);
     if (snapshot) {
       ensureLocalVaultWatcher(snapshot.rootPath);
       void noteIndex.indexVault(snapshot);
@@ -585,8 +625,11 @@ export function registerIpcHandlers(
       (path) => shell.showItemInFolder(path),
     )
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.localVaultRevealRoot, () => (
-    revealLocalVaultRoot((path) => shell.openPath(path))
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultRevealRoot, (_event, input: unknown) => (
+    revealLocalVaultRoot(
+      (path) => shell.openPath(path),
+      validateIpcInput(ELECTRON_CHANNELS.localVaultRevealRoot, localVaultFolderTargetInputSchema, input),
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdValidateToken, (event, token: string, options?: HackmdRequestOptions) => (
     runRequest(event, options, validateToken, [validateNonEmptyString(ELECTRON_CHANNELS.hackmdValidateToken, token)])

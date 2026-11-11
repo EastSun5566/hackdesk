@@ -112,6 +112,12 @@ export type LocalVaultCreateNoteInput = {
   title?: string;
   parentPath?: string | null;
   content?: string;
+  /**
+   * The folder the call is for: the manifest id its snapshots carry. With several windows open on
+   * different folders, the app-wide active folder may belong to another window. Without it, the
+   * active folder is used.
+   */
+  vaultId?: string;
 };
 
 export type LocalVaultRenameNoteInput = {
@@ -164,24 +170,60 @@ export type LocalVaultAttachmentMutationResult = {
 export type LocalVaultCreateFolderInput = {
   name: string;
   parentPath?: string | null;
+  /**
+   * The folder the call is for: the manifest id its snapshots carry. With several windows open on
+   * different folders, the app-wide active folder may belong to another window. Without it, the
+   * active folder is used.
+   */
+  vaultId?: string;
 };
 
 export type LocalVaultRenameFolderInput = {
   relativePath: string;
   name: string;
+  /**
+   * The folder the call is for: the manifest id its snapshots carry. With several windows open on
+   * different folders, the app-wide active folder may belong to another window. Without it, the
+   * active folder is used.
+   */
+  vaultId?: string;
 };
 
 export type LocalVaultMoveFolderInput = {
   relativePath: string;
   parentPath: string | null;
+  /**
+   * The folder the call is for: the manifest id its snapshots carry. With several windows open on
+   * different folders, the app-wide active folder may belong to another window. Without it, the
+   * active folder is used.
+   */
+  vaultId?: string;
 };
 
 export type LocalVaultTrashFolderInput = {
   relativePath: string;
+  /**
+   * The folder the call is for: the manifest id its snapshots carry. With several windows open on
+   * different folders, the app-wide active folder may belong to another window. Without it, the
+   * active folder is used.
+   */
+  vaultId?: string;
 };
 
 export type LocalVaultRevealFolderInput = {
   relativePath: string;
+  /**
+   * The folder the call is for: the manifest id its snapshots carry. With several windows open on
+   * different folders, the app-wide active folder may belong to another window. Without it, the
+   * active folder is used.
+   */
+  vaultId?: string;
+};
+
+/** A call addressed to a whole folder, such as revealing its root. */
+export type LocalVaultFolderTargetInput = {
+  /** The folder's manifest id; without it, the active folder. */
+  vaultId?: string;
 };
 
 export type LocalVaultChangeEvent = {
