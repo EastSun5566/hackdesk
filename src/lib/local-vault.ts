@@ -61,6 +61,16 @@ export type LocalDirectoryBrowseResult = {
   entries: LocalDirectoryEntry[];
 };
 
+/** What choosing a folder would read, for the confirmation before it is added. */
+export type LocalVaultFolderMeasure = {
+  path: string;
+  name: string;
+  notes: number;
+  /** Past `limit` files and folders; the count stopped there. */
+  exceedsLimit: boolean;
+  limit: number;
+};
+
 export type LocalVaultChoosePathInput = {
   path: string;
 };

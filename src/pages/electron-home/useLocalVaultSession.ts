@@ -9,6 +9,7 @@ import type {
   LocalWorkspaceMutation,
   LocalWorkspaceMutationResult,
 } from '@/lib/local-vault';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
 import {
   cacheLocalVaultSnapshot,
@@ -24,6 +25,23 @@ import { migrateLocalWorkspaceStorage } from './local-workspace-storage';
  * routed through the change transition (like choose/disconnect), so concurrent
  * vault reads are cancelled instead of racing the switch.
  */
+
+/**
+ * Asks, in the app's own dialog, whether to use the picked folder, saying how much HackDesk would
+ * read. Nothing is scanned, written or watched until it is confirmed.
+ */
+async function confirmVaultFolder(api: HackDeskElectronAPI, path: string) {
+  const folder = await api.localVault.measure({ path });
+  const notes = folder.notes === 1 ? '1 Markdown note' : `${folder.notes.toLocaleString()} Markdown notes`;
+  const { confirmed } = await confirmDialog({
+    message: `Use “${folder.name}” as a vault folder?`,
+    detail: folder.exceedsLimit
+      ? `${folder.path} holds more than ${folder.limit.toLocaleString()} files and folders. HackDesk reads and watches every Markdown file in it, which can be slow; a smaller folder is usually better.`
+      : `HackDesk will read and watch the ${notes} in ${folder.path}. Your files stay where they are.`,
+    confirmLabel: 'Use Folder',
+  });
+  return confirmed;
+}
 
 /** The folder that holds `path`, or `path` itself at a root. */
 function parentDirectory(path: string) {
@@ -163,7 +181,7 @@ export function useLocalVaultSession(
               activePath ? parentDirectory(activePath) : undefined,
               current?.localVault.vaults.map((vault) => vault.path) ?? [],
             );
-            if (!path) {
+            if (!path || !(await confirmVaultFolder(api, path))) {
               return { canceled: true };
             }
             const picked = await api.localVault.choosePath({ path });

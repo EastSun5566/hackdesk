@@ -6,6 +6,7 @@ import type {
   LocalVaultAttachmentMutationResult,
   LocalVaultChangeEvent,
   LocalVaultChoosePathInput,
+  LocalVaultFolderMeasure,
   LocalVaultCreateDirectoryInput,
   LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
@@ -617,7 +618,9 @@ export type HackDeskElectronAPI = {
     choose: () => Promise<ChooseLocalVaultResult>;
     /** Lists folders for the in-app picker; no path starts at the home folder. */
     browse: (path?: string) => Promise<LocalDirectoryBrowseResult>;
-    /** Chooses a vault from the in-app picker without the native dialog. */
+    /** What choosing a folder would read: its Markdown notes, and whether it is huge. Read-only. */
+    measure: (input: LocalVaultChoosePathInput) => Promise<LocalVaultFolderMeasure>;
+    /** Chooses a vault from the in-app picker once the person has confirmed it. */
     choosePath: (input: LocalVaultChoosePathInput) => Promise<ChooseLocalVaultResult>;
     /** Switches the active vault, returning the new settings and snapshot. */
     activate: (input: LocalVaultVaultIdInput) => Promise<LocalVaultActivateResult>;
