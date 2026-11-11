@@ -38,6 +38,17 @@ function defaultState() {
 }
 
 const state = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : defaultState();
+
+// A spec can make writes fail or wait while the app runs, through <home>/fake-hackmd-faults.json:
+// { "failPatch": ["note-id"], "delayPatchMs": { "note-id": 2000 } }. It is read on every write.
+const faultsPath = join(home, 'fake-hackmd-faults.json');
+function readFaults() {
+  try {
+    return JSON.parse(readFileSync(faultsPath, 'utf8'));
+  } catch {
+    return {};
+  }
+}
 const persist = () => writeFileSync(statePath, JSON.stringify(state, null, 2));
 persist();
 
@@ -131,6 +142,10 @@ globalThis.fetch = async (input, init = {}) => {
   }
 
   if (method === 'PATCH' && note) {
+    const faults = readFaults();
+    const delay = faults.delayPatchMs?.[note.id];
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+    if (faults.failPatch?.includes(note.id)) return error(500, 'Simulated HackMD failure');
     if (typeof body?.content === 'string') note.content = body.content;
     if (typeof body?.title === 'string') note.title = body.title;
     if (Array.isArray(body?.tags)) note.tags = body.tags;
