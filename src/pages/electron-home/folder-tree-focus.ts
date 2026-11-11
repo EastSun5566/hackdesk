@@ -1,18 +1,28 @@
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
+import { createTagGroupFocusId, isTagGroupFocusId, type TagGroup } from '@/lib/electron-tag-groups';
+
 export const WORKSPACE_ROOT_FOCUS_ID = 'workspace:root';
 
 export type TreeFocusItem = {
   depth: number;
   folderId?: string;
+  /** The tag behind a tag-group row ('' is the untagged group). */
+  groupTag?: string;
   hasChildren?: boolean;
   id: string;
-  kind: 'folder' | 'note' | 'root';
+  kind: 'folder' | 'note' | 'root' | 'tag-group';
   label: string;
   note?: FolderTreeNote;
   parentFolderId: string | null;
 };
+
+/** Grouping active in the focus model: the tag groups of the tree's root notes, and which are shut. */
+export type FolderTreeGrouping = {
+  collapsed: Set<string>;
+  groups: TagGroup[];
+} | null;
 
 export function createFolderFocusId(folderId: string) {
   return `folder:${folderId}`;
@@ -26,6 +36,7 @@ export function getFolderTreeFocusItems(
   tree: FolderTree,
   collapsedFolderIds: Set<string>,
   depthOffset = 0,
+  grouping: FolderTreeGrouping = null,
 ): TreeFocusItem[] {
   const items: TreeFocusItem[] = [];
 
@@ -65,6 +76,36 @@ export function getFolderTreeFocusItems(
     appendFolder(node, null, depthOffset);
   }
 
+  if (grouping) {
+    // When root notes group by first tag, the tag group takes the place of the flat root notes.
+    for (const group of grouping.groups) {
+      const groupId = createTagGroupFocusId(group.tag);
+      const expanded = !grouping.collapsed.has(group.tag);
+      items.push({
+        depth: depthOffset,
+        folderId: groupId,
+        groupTag: group.tag,
+        hasChildren: group.entries.length > 0,
+        id: groupId,
+        kind: 'tag-group',
+        label: group.label,
+        parentFolderId: null,
+      });
+      if (!expanded) continue;
+      for (const note of group.entries) {
+        items.push({
+          depth: depthOffset + 1,
+          id: createNoteFocusId(note.note.id),
+          kind: 'note',
+          label: note.note.title || 'Untitled',
+          note,
+          parentFolderId: groupId,
+        });
+      }
+    }
+    return items;
+  }
+
   for (const note of tree.unfiled.notes) {
     items.push({
       depth: depthOffset,
@@ -85,12 +126,14 @@ export function buildFolderNavigatorFocusItems({
   showRoot,
   rootSectionExpanded,
   rootLabel,
+  grouping = null,
 }: {
   tree: FolderTree;
   collapsedFolderIds: Set<string>;
   showRoot: boolean;
   rootSectionExpanded: boolean;
   rootLabel: string;
+  grouping?: FolderTreeGrouping;
 }): TreeFocusItem[] {
   const items: TreeFocusItem[] = [];
 
@@ -106,7 +149,7 @@ export function buildFolderNavigatorFocusItems({
   }
 
   if (!showRoot || rootSectionExpanded) {
-    items.push(...getFolderTreeFocusItems(tree, collapsedFolderIds, showRoot ? 1 : 0));
+    items.push(...getFolderTreeFocusItems(tree, collapsedFolderIds, showRoot ? 1 : 0, grouping));
   }
 
   return items;
@@ -128,8 +171,14 @@ export function shouldIgnoreFolderTreeKeydown(target: EventTarget | null) {
   return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [data-folder-tree-ignore-keyboard]'));
 }
 
+/** The folder a new note goes in from a row's parent: a tag group holds root notes, so it is the root. */
 export function normalizeCreateNoteFolderId(folderId: string | null) {
-  return folderId === UNFILED_FOLDER_ID ? null : folderId;
+  return folderId === UNFILED_FOLDER_ID || isTagGroupFocusId(folderId) ? null : folderId;
+}
+
+/** A row's parent row: a tag group is named by its focus id already, a folder by its folder id. */
+export function getParentFocusId(parentFolderId: string) {
+  return isTagGroupFocusId(parentFolderId) ? parentFolderId : createFolderFocusId(parentFolderId);
 }
 
 export function findTypeaheadMatch(items: TreeFocusItem[], query: string, currentIndex: number) {

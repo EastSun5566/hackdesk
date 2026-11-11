@@ -70,7 +70,7 @@ export function useFolderTreeItem(id: string, selected: boolean, expanded?: bool
   // Own sibling controls without nesting native buttons. Only treeitems/groups
   // belong directly to a tree group in the accessibility tree.
   const ownedIds = controls.map(control => `${context.treeId}-${encodeURIComponent(id)}-${control}`);
-  if (kind === 'folder' && expanded && hasChildren === '1') {
+  if ((kind === 'folder' || kind === 'tag-group') && expanded && hasChildren === '1') {
     ownedIds.push(`${context.treeId}-children-${encodeURIComponent(folderId ?? '')}`);
   }
   if (kind === 'root' && expanded) {
@@ -81,7 +81,7 @@ export function useFolderTreeItem(id: string, selected: boolean, expanded?: bool
     tabIndex: focused === '1' ? 0 : -1,
     'aria-level': Number(depth) + 1,
     'aria-selected': selected && isSelectedRow === '1',
-    'aria-expanded': (kind === 'folder' || kind === 'root') && hasChildren === '1' ? expanded : undefined,
+    'aria-expanded': (kind === 'folder' || kind === 'root' || kind === 'tag-group') && hasChildren === '1' ? expanded : undefined,
     'aria-owns': ownedIds.length ? ownedIds.join(' ') : undefined,
     onFocus: () => context.onFocus(id),
   };

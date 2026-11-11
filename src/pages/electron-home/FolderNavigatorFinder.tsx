@@ -22,6 +22,8 @@ import {
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
 import type { ElectronNoteTag } from '@/lib/electron-note-tags';
+import { TAG_GROUP_ORDER_LABELS, TAG_GROUP_ORDER_MODES } from '@/lib/electron-tag-groups';
+import { setTagGroupingEnabled, setTagGroupOrder, useTagGroupingEnabled, useTagGroupOrder } from './tag-group-preference';
 import { cn } from '@/lib/utils';
 
 import { FOCUS_RING_CLASS, FOCUS_RING_INSET_CLASS } from './ui';
@@ -245,7 +247,11 @@ export function NoteViewOptionsMenu({
   showLocalOptions?: boolean;
 }) {
   const showHidden = useShowHiddenFiles();
-  const viewOptionCount = getViewOptionCount(state);
+  const tagGroupingEnabled = useTagGroupingEnabled();
+  const tagGroupOrder = useTagGroupOrder();
+  // Grouping changes how the tree's root notes read, not what the finder lists, so the option
+  // lives on the tree's menu alone. It's on by default, so only turning it off counts as a changed view.
+  const viewOptionCount = getViewOptionCount(state) + (treeControl && !tagGroupingEnabled ? 1 : 0);
   const currentFolderDisabled = !selectedFolderId;
   const updateState = (patch: Partial<NoteFinderState>) => onChange({ ...state, ...patch });
   const toggleTag = (tag: string) => onChange({
@@ -292,6 +298,25 @@ export function NoteViewOptionsMenu({
           {showLocalOptions ? <DropdownMenuCheckboxItem checked={showHidden} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setShowHiddenFiles(checked === true)}>Show hidden files and folders</DropdownMenuCheckboxItem> : null}
           <DropdownMenuSeparator />
         </> : null}
+        {treeControl ? (
+          <>
+            <DropdownMenuLabel>Group by Tag</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={tagGroupingEnabled}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={(checked) => setTagGroupingEnabled(checked === true)}
+            >
+              Group notes by first tag
+            </DropdownMenuCheckboxItem>
+            {tagGroupingEnabled ? TAG_GROUP_ORDER_MODES.map((order) => (
+              <DropdownMenuItem key={order} onSelect={() => setTagGroupOrder(order)}>
+                <CheckedIcon checked={tagGroupOrder === order} />
+                {TAG_GROUP_ORDER_LABELS[order]}
+              </DropdownMenuItem>
+            )) : null}
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuLabel>Search In</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => updateState({ searchScope: 'workspace' })}>
           <CheckedIcon checked={state.searchScope === 'workspace'} />

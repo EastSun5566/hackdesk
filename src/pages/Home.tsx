@@ -204,7 +204,6 @@ export function Home() {
   const [hackMode, setHackMode] = useState(false);
   const splitStatusLine = useSplitStatusLine();
   const statusLineVisible = useStatusLineVisible();
-  const [sidebarWidth, setSidebarWidth] = useState(0);
   // Hiding the sidebar unmounts the switcher, so it must not come back open. In Hack Mode the
   // sidebar is hidden with everything else, so the key leaves Hack Mode and shows it.
   const toggleSidebar = useCallback(() => {
@@ -220,16 +219,6 @@ export function Home() {
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
 
-  useEffect(() => {
-    if (!splitStatusLine) return undefined;
-    const panel = document.getElementById(NOTE_NAVIGATOR_PANEL_ID);
-    if (!panel) return undefined;
-    const measure = () => setSidebarWidth(panel.getBoundingClientRect().width);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(panel);
-    return () => observer.disconnect();
-  }, [splitStatusLine, navigatorCollapsed]);
   const flushWorkspace = noteWorkspace.flush;
   const transferInitialDrafts = noteWorkspace.transferInitialDrafts;
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
@@ -1020,7 +1009,7 @@ export function Home() {
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
     hackMode,
     navigatorCollapsed,
-    noteDirty: activeTab && isDraftNoteTab(activeTab) ? true : noteDirty,
+    noteDirty,
     scopeType: scope.type,
     selectedFolderId,
     selectedNoteId: selectedNote?.id ?? null,
@@ -1432,7 +1421,7 @@ export function Home() {
               characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}
               onOpenShortcuts={openKeyboardShortcuts}
               splitStatusLine={splitStatusLine}
-              sidebarWidth={sidebarWidth}
+              sidebarPanelId={NOTE_NAVIGATOR_PANEL_ID}
               navigatorCollapsed={navigatorCollapsed}
               keyHintsVisible={settings?.keyboardNavigation?.keyHintsVisible ?? true}
             />

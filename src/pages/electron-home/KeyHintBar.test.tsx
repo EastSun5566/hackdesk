@@ -135,6 +135,39 @@ describe('KeyHintBar', () => {
     expect(screen.getByTestId('key-hint-half-right')).toBeTruthy();
   });
 
+  it('tracks sidebar width locally and disconnects its observer', () => {
+    let notify: ResizeObserverCallback = () => {};
+    const disconnect = vi.fn();
+    const observe = vi.fn();
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) { notify = callback; }
+      observe = observe;
+      disconnect = disconnect;
+    });
+    const panel = document.createElement('aside');
+    panel.id = 'test-sidebar';
+    document.body.append(panel);
+    let width = 280;
+    vi.spyOn(panel, 'getBoundingClientRect').mockImplementation(() => ({ width } as DOMRect));
+    let parentRenders = 0;
+    function Parent() {
+      parentRenders++;
+      return <KeyHintBar actionContext={actionContext} shortcuts={undefined} platform="darwin"
+        characterShortcutsEnabled onOpenShortcuts={() => {}} splitStatusLine sidebarPanelId={panel.id} />;
+    }
+    const view = render(<Parent />);
+    expect(observe).toHaveBeenCalledWith(panel);
+    expect(screen.getByRole('note')).toHaveStyle({ '--status-split': '264px' });
+    width = 320;
+    act(() => notify([], {} as ResizeObserver));
+    expect(screen.getByRole('note')).toHaveStyle({ '--status-split': '304px' });
+    expect(parentRenders).toBe(1);
+    view.unmount();
+    expect(disconnect).toHaveBeenCalled();
+    panel.remove();
+    vi.unstubAllGlobals();
+  });
+
   it('with the experiment off matches the classic swapping bar', () => {
     const { bar } = setup({ splitStatusLine: false });
     expect(bar).not.toHaveAttribute('data-split-status-line');
