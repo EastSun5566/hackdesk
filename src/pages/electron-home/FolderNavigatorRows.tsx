@@ -1300,10 +1300,12 @@ export function TagGroupRow({
               FOCUS_RING_INSET_CLASS,
             )}
           >
-            <ChevronRight aria-hidden="true" className={cn('size-3.5', COLLAPSE_ICON_CLASS, expanded && 'rotate-90')} />
+            {/* One slot like a folder's: the tag icon, turning into the arrow on hover or focus,
+                so the label lines up with folder names at the same level. */}
+            <Tag aria-hidden="true" className="size-3.5 group-hover/entity-row:hidden group-focus-within/entity-row:hidden" />
+            <ChevronRight aria-hidden="true" className={cn('hidden size-3.5 group-hover/entity-row:block group-focus-within/entity-row:block', COLLAPSE_ICON_CLASS, expanded && 'rotate-90')} />
           </button>
         )}
-        icon={<Tag aria-hidden="true" className="size-3.5" />}
         title={label}
         contentOnClick={onToggle}
         contentAriaLabel={`${label} group`}
