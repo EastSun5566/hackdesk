@@ -11,8 +11,9 @@ import {
   WidgetType,
   type DecorationSet,
 } from '@codemirror/view';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 
-import { activeLinesChanged, getActiveLines, revealInitialSelection } from './hfm-decoration-ranges';
+import { activeLinesChanged, getActiveLines, getFrontmatterRange, revealInitialSelection } from './hfm-decoration-ranges';
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
 import { formatImageSize, getImageCaption } from './hfm-images';
 import type { ImageSize } from './hfm-types';
@@ -135,12 +136,25 @@ class ImagePreviewWidget extends WidgetType {
   }
 }
 
+/** Code and front matter show their source as written: an image-looking line there is text. */
+function isSourceOnlyLine(state: EditorState, tree: ReturnType<typeof syntaxTree>, lineTo: number) {
+  const frontmatter = getFrontmatterRange(state.doc);
+  if (frontmatter && state.doc.lineAt(lineTo).number <= frontmatter.endLine) return true;
+  // From the line's end: an indented code block's node starts after its indentation.
+  for (let node: ReturnType<typeof tree.resolveInner> | null = tree.resolveInner(lineTo, -1); node; node = node.parent) {
+    if (node.name === 'FencedCode' || node.name === 'CodeBlock') return true;
+  }
+  return false;
+}
+
 function buildHfmBlocks(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
   const context = state.field(localImageContextField);
   const activeLines = getActiveLines(state);
+  const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
 
   for (const image of getHfmDocumentIndex(state).images) {
+    if (isSourceOnlyLine(state, tree, image.lineTo)) continue;
     const widget = new ImagePreviewWidget(
       resolvePreviewImageSource(image.src, context),
       image.alt,
@@ -189,7 +203,7 @@ function sameSize(left?: ImageSize, right?: ImageSize): boolean {
 /**
  * Sizes the image the way HackMD does: a given width or height is the rendered size (so a small
  * image scales up), a missing side follows the aspect ratio, and the theme caps the width at the
- * column. A percentage height has no box to resolve against, on HackMD too, so it is ignored.
+ * column. A percentage height has no box to resolve against in the editor, so it is ignored.
  */
 export function applyImageSize(
   image: HTMLImageElement,

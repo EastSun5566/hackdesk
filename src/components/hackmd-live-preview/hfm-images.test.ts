@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getImageCaption, parseImageSize, parseMarkdownImage } from './hfm-images';
+import { getImageCaption, parseHtmlImage, parseImageSize, parseMarkdownImage } from './hfm-images';
 
 const parse = (line: string) => parseMarkdownImage(line, line.length);
 
@@ -64,5 +64,19 @@ describe('getImageCaption', () => {
     for (const alt of ['image', 'Image', 'screenshot', 'IMG_0042.JPG', 'photo 2024.png', 'Uploading image 1a2b3c4d...', '']) {
       expect(getImageCaption({ alt }), alt).toBe('');
     }
+  });
+});
+
+describe('unsafe image sources', () => {
+  it('rejects script and local schemes even when split by tabs, line breaks or leading controls', () => {
+    for (const src of ['javascript:alert(1)', 'jav\tascript:alert(1)', 'java\nscript:x', '\u0001 data:image/png;base64,AA', 'FILE:///etc/passwd']) {
+      expect(parseHtmlImage(`<img src="${src}">`, 0), src).toBeNull();
+    }
+    expect(parseMarkdownImage('![x](<jav\tascript:alert(1)>)', 0)).toBeNull();
+  });
+
+  it('keeps ordinary web and relative sources', () => {
+    expect(parseHtmlImage('<img src="https://example.com/a.png">', 0)?.src).toBe('https://example.com/a.png');
+    expect(parseMarkdownImage('![x](images/javascript.png)', 0)?.src).toBe('images/javascript.png');
   });
 });

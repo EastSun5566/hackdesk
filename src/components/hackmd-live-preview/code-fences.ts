@@ -16,7 +16,8 @@ export type CodeFence = {
 
 /**
  * Every fenced code block in the document, keyed by its opening line. Numbering needs the whole
- * document: HackMD's `=+` continues from the previous numbered block, wherever that is.
+ * document: here `=+` continues from the previous numbered block anywhere above it, not only an
+ * adjacent one.
  */
 export function getCodeFences(state: EditorState, tree: ReturnType<typeof syntaxTree>): Map<number, CodeFence> {
   const fences = new Map<number, CodeFence>();

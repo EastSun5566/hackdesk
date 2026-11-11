@@ -2,9 +2,10 @@ import { LanguageDescription } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 
 /**
- * Splits a fence info string into its language and HackMD's options. HackMD appends options to the
+ * Splits a fence info string into its language and HackMD's options, which are appended to the
  * language itself: `=` numbers lines from 1, `=N` from N, `=+` continues the previous numbered
- * block, and a trailing `!` wraps long lines (`js=`, `js=101`, `js=+`, `js!`, `js=!`).
+ * block, and a trailing `!` wraps long lines (`js=`, `js=101`, `js=+`, `js!`). Numbering and
+ * wrapping together (`js=!`) are accepted here too.
  */
 export function parseCodeFenceInfo(info: string) {
   const word = info.trim().split(/\s+/, 1)[0] ?? '';

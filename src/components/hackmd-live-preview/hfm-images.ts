@@ -8,6 +8,17 @@ const markdownImagePattern = /^!\[((?:\\.|[^\\\]])*)\]\(\s*(<[^<>\r\n]+>|[^\s()]
 
 const unsafeImageSourcePattern = /^(?:javascript|file|data|blob|vbscript):/i;
 
+/**
+ * Whether a source names a scheme no preview may load. Tested the way a URL parser reads it: tabs
+ * and line breaks anywhere, and leading controls or spaces, do not count (`jav\tascript:` is
+ * `javascript:`).
+ */
+function isUnsafeImageSource(src: string) {
+  // oxlint-disable-next-line no-control-regex -- matching control characters is the point here
+  const normalized = src.replace(/[\t\n\r]/g, '').replace(/^[\u0000-\u0020]+/, '');
+  return unsafeImageSourcePattern.test(normalized);
+}
+
 export function parseMarkdownImage(lineText: string, lineTo: number): ImageBlock | null {
   const match = lineText.trim().match(markdownImagePattern);
   if (!match) {
@@ -16,7 +27,7 @@ export function parseMarkdownImage(lineText: string, lineTo: number): ImageBlock
 
   const [, rawAlt, destination, rawTitle, width, height] = match;
   const src = destination.startsWith('<') ? destination.slice(1, -1) : destination;
-  if (!src || unsafeImageSourcePattern.test(src)) {
+  if (!src || isUnsafeImageSource(src)) {
     return null;
   }
 
@@ -50,7 +61,7 @@ export function parseHtmlImage(lineText: string, lineTo: number): ImageBlock | n
   }
 
   const src = attributes.get('src')?.trim();
-  if (!src || unsafeImageSourcePattern.test(src)) {
+  if (!src || isUnsafeImageSource(src)) {
     return null;
   }
 

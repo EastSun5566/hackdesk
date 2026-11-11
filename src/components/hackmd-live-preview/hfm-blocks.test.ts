@@ -1,6 +1,48 @@
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { EditorState } from '@codemirror/state';
+import { EditorView, type DecorationSet } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 
-import { applyImageSize } from './hfm-blocks';
+import { applyImageSize, hfmBlocks } from './hfm-blocks';
+
+/** The lines whose image figures the field draws, with the cursor at the end of the note. */
+function figureLines(doc: string) {
+  const state = EditorState.create({
+    doc,
+    selection: { anchor: doc.length },
+    extensions: [markdown({ base: markdownLanguage }), hfmBlocks()],
+  });
+  const lines: number[] = [];
+  for (const source of state.facet(EditorView.decorations)) {
+    if (typeof source === 'function') continue;
+    (source as DecorationSet).between(0, state.doc.length, (from) => {
+      lines.push(state.doc.lineAt(from).number);
+    });
+  }
+  return lines;
+}
+
+describe('image figures', () => {
+  it('draws a figure for an image line but never inside code or front matter', () => {
+    const doc = [
+      '---',
+      'cover: ![meta](m.png)',
+      '---',
+      '![real](a.png)',
+      '',
+      '```md',
+      '![example](b.png)',
+      '```',
+      '',
+      '    ![indented](c.png)',
+      '',
+      'end',
+    ].join('\n');
+
+    // Only line 4: the fenced, indented and front-matter lines stay source, as HackMD shows code.
+    expect(figureLines(doc)).toEqual([4]);
+  });
+});
 
 describe('applyImageSize', () => {
   it('renders a given width as the image width, scaling small images up', () => {
