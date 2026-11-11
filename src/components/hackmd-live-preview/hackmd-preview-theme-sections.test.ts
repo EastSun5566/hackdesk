@@ -111,7 +111,8 @@ describe('HackMD preview widget theme', () => {
 
   it('keeps rich block widget spacing inside the measured border box', () => {
     expect(widgetTheme['.cm-hackmd-table']).not.toHaveProperty('margin');
-    expect(widgetTheme['.cm-hackmd-image-preview']).not.toHaveProperty('margin');
+    // A <figure> has a browser default margin, so the image preview must zero it rather than omit it.
+    expect(widgetTheme['.cm-hackmd-image-preview']).toHaveProperty('margin', '0');
     expect(widgetTheme['.cm-hackmd-rich-block']).not.toHaveProperty('margin');
 
     expect(widgetTheme['.cm-hackmd-table']).toHaveProperty('padding');

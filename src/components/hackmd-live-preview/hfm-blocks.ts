@@ -12,8 +12,9 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 
+import { activeLinesChanged, getActiveLines, revealInitialSelection } from './hfm-decoration-ranges';
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
-import { formatImageSize } from './hfm-images';
+import { formatImageSize, getImageCaption } from './hfm-images';
 import type { ImageSize } from './hfm-types';
 import { treeGrowthEffect } from './tree-progress';
 import { resolvePreviewImageSource, type LocalImageContext } from '@/lib/local-image';
@@ -37,6 +38,7 @@ class ImagePreviewWidget extends WidgetType {
   constructor(
     private readonly src: string | null,
     private readonly alt: string,
+    private readonly caption: string,
     private readonly lineTo: number,
     private readonly width?: ImageSize,
     private readonly height?: ImageSize,
@@ -47,6 +49,7 @@ class ImagePreviewWidget extends WidgetType {
   eq(other: ImagePreviewWidget): boolean {
     return other.src === this.src
       && other.alt === this.alt
+      && other.caption === this.caption
       && other.lineTo === this.lineTo
       && sameSize(other.width, this.width)
       && sameSize(other.height, this.height);
@@ -96,6 +99,7 @@ class ImagePreviewWidget extends WidgetType {
     wrap.appendChild(image);
 
     const unavailable = document.createElement('span');
+    unavailable.className = 'cm-hackmd-image-unavailable';
     unavailable.textContent = 'Image unavailable';
     unavailable.hidden = Boolean(this.src);
     image.hidden = !this.src;
@@ -106,9 +110,9 @@ class ImagePreviewWidget extends WidgetType {
     });
     wrap.appendChild(unavailable);
 
-    if (this.alt) {
+    if (this.caption) {
       const caption = document.createElement('figcaption');
-      caption.textContent = this.alt;
+      caption.textContent = this.caption;
       wrap.appendChild(caption);
     }
 
@@ -134,13 +138,23 @@ class ImagePreviewWidget extends WidgetType {
 function buildHfmBlocks(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
   const context = state.field(localImageContextField);
+  const activeLines = getActiveLines(state);
 
   for (const image of getHfmDocumentIndex(state).images) {
-    ranges.push(Decoration.widget({
-      block: true,
-      side: 1,
-      widget: new ImagePreviewWidget(resolvePreviewImageSource(image.src, context), image.alt, image.lineTo, image.width, image.height),
-    }).range(image.lineTo));
+    const widget = new ImagePreviewWidget(
+      resolvePreviewImageSource(image.src, context),
+      image.alt,
+      getImageCaption(image),
+      image.lineTo,
+      image.width,
+      image.height,
+    );
+    // Away from the cursor the figure stands in for its source line, like math and diagrams do.
+    // With the cursor on the line, the source is shown for editing and the figure stays below it.
+    const lineIsActive = activeLines.has(state.doc.lineAt(image.lineTo).number);
+    ranges.push(lineIsActive
+      ? Decoration.widget({ block: true, side: 1, widget }).range(image.lineTo)
+      : Decoration.replace({ block: true, widget }).range(image.lineFrom, image.lineTo));
   }
 
   return Decoration.set(ranges, true);
@@ -150,16 +164,16 @@ const hfmBlocksField = StateField.define<DecorationSet>({
   create: (state) => buildHfmBlocks(state),
   update(decorations, transaction) {
     for (const effect of transaction.effects) {
-      if (effect.is(treeGrowthEffect) || effect.is(setLocalImageContext)) {
+      if (effect.is(treeGrowthEffect) || effect.is(setLocalImageContext) || effect.is(revealInitialSelection)) {
         return buildHfmBlocks(transaction.state);
       }
     }
 
-    if (!transaction.docChanged) {
-      return decorations;
+    if (transaction.docChanged || (transaction.selection && activeLinesChanged(transaction.startState, transaction.state))) {
+      return buildHfmBlocks(transaction.state);
     }
 
-    return buildHfmBlocks(transaction.state);
+    return decorations;
   },
   provide: (field) => EditorView.decorations.from(field),
 });

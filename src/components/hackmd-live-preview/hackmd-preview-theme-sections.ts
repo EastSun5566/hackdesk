@@ -707,29 +707,45 @@ export const widgetTheme = {
   '.cm-hackmd-csv-preview td': {
     color: 'var(--text-subtle)',
   },
+  // A figure is the image itself: no frame, tint or padding around it. Vertical rhythm comes from
+  // padding (not margin), which CodeMirror's height map measures.
   '.cm-hackmd-image-preview': {
-    maxWidth: 'min(100%, 720px)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    margin: '0',
+    padding: '0.5em 0',
     contentVisibility: 'auto',
     containIntrinsicSize: 'auto none auto 220px',
-    borderRadius: '6px',
-    border: '1px solid var(--border-default)',
-    backgroundColor: 'var(--background-muted)',
-    padding: '0.5rem',
   },
   '.cm-hackmd-image-preview img': {
     display: 'block',
     maxWidth: '100%',
     height: 'auto',
-    borderRadius: '4px',
+    borderRadius: '6px',
+    cursor: 'text',
   },
   '.cm-hackmd-image-preview img[hidden]': {
     display: 'none',
   },
   '.cm-hackmd-image-preview figcaption': {
-    marginTop: '0.35rem',
+    maxWidth: '100%',
+    marginTop: '0.5em',
     color: 'var(--text-subtle)',
-    fontFamily: 'var(--font-sans)',
-    fontSize: '12px',
+    fontSize: '0.875em',
+    lineHeight: '1.45',
+    textWrap: 'pretty',
+  },
+  '.cm-hackmd-image-unavailable': {
+    display: 'inline-block',
+    borderRadius: '6px',
+    backgroundColor: 'var(--background-muted)',
+    color: 'var(--text-subtle)',
+    fontSize: '0.875em',
+    padding: '0.35em 0.65em',
+  },
+  '.cm-hackmd-image-unavailable[hidden]': {
+    display: 'none',
   },
   '.cm-hackmd-rich-block': {
     maxWidth: 'min(100%, 820px)',
