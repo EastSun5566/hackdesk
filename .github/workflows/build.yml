@@ -11,8 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    timeout-minutes: 30
+  # The quality checks run as parallel jobs, so a PR waits for the slowest one instead of their sum.
+  static:
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,23 +27,86 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm run check:ci
-      - run: xvfb-run --auto-servernum pnpm run test:smoke
+      - run: pnpm run version:check
+      - run: pnpm run check:static
       - run: pnpm run docs:build
       - run: pnpm run audit:prod
+
+  unit:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run test
+
+  e2e:
+    name: e2e (${{ matrix.shard }}/3)
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run build
+      - run: xvfb-run --auto-servernum pnpm exec playwright test --config electron/playwright.config.ts --shard="$SHARD/3"
+        env:
+          SHARD: ${{ matrix.shard }}
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: quality-playwright-report
+          name: quality-playwright-report-${{ matrix.shard }}
           path: |
             playwright-report
             test-results
           retention-days: 7
 
+  # One check that passes only when every quality job did, under the name branch protection and
+  # other workflows already know. It runs when a job fails, but not when the run is cancelled.
+  quality:
+    if: ${{ !cancelled() }}
+    needs: [static, unit, e2e]
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require every quality job
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::Every quality job must succeed; got: $RESULTS"
+              exit 1
+            fi
+          done
+
   package-smoke:
     timeout-minutes: 45
-    needs: quality
+    # Gated on the fast static checks only, so packaging runs beside the unit and E2E jobs.
+    needs: static
     strategy:
       fail-fast: false
       matrix:
@@ -82,7 +146,7 @@ jobs:
       # EnableNodeCliInspectArguments fuse (verified by
       # scripts/check-electron-fuses.ts in package:check) disables.
       # playwright.config.ts `testIgnore` keeps this spec out of the
-      # regular `pnpm run test:smoke` run.
+      # regular E2E run.
       #
       # Linux needs a display; macOS and Windows runners have one.
       - name: Run packaged-startup spec
