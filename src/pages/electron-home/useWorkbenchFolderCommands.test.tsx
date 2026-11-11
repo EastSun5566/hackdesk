@@ -35,7 +35,6 @@ function createOptions(overrides: Partial<WorkbenchFolderCommandsOptions> = {}):
 
   return {
     currentFolders: folders,
-    deleteFolder: vi.fn(),
     folderTree: buildHackmdFolderTree([], folders),
     hasLocalVault: false,
     hasToken: true,
@@ -243,7 +242,6 @@ describe('useWorkbenchFolderCommands', () => {
       id: 'folder-a',
       name: 'Folder A',
     }));
-    expect(options.deleteFolder).not.toHaveBeenCalled();
   });
 
   it('opens the delete folder dialog for a local folder', () => {
@@ -258,6 +256,5 @@ describe('useWorkbenchFolderCommands', () => {
       id: 'folder-a',
       name: 'Folder A',
     }));
-    expect(options.deleteFolder).not.toHaveBeenCalled();
   });
 });

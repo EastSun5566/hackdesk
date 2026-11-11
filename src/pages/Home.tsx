@@ -435,6 +435,7 @@ export function Home() {
     setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
   }, [settings, setWorkspaceScope]);
 
+  const { switchLocalVault, activateLocalWorkspace } = localVaultActions;
   useEffect(() => {
     if (settings === undefined || usingInitialDrafts || initialWorkspaceResolvedRef.current) {
       return;
@@ -460,7 +461,7 @@ export function Home() {
     if (settings.hasLocalVault && openedOnto
       && settings.localVault.vaults.some((vault) => vault.id === openedOnto)
       && openedOnto !== settings.localVault.activeVaultId && !vaultSession.isChanging) {
-      void localVaultActions.switchLocalVault(openedOnto).catch((error) => {
+      void switchLocalVault(openedOnto).catch((error) => {
         toast.error(error instanceof Error ? error.message : 'Failed to open the vault in a new window.');
       });
     }
@@ -470,22 +471,24 @@ export function Home() {
     if (settings.hasLocalVault && openedWorkspaceId
       && settings.localVault.workspaces.some((workspace) => workspace.id === openedWorkspaceId)
       && openedWorkspaceId !== settings.localVault.activeWorkspaceId && !vaultSession.isChanging) {
-      void localVaultActions.activateLocalWorkspace(openedWorkspaceId).catch((error) => {
+      void activateLocalWorkspace(openedWorkspaceId).catch((error) => {
         toast.error(error instanceof Error ? error.message : 'Failed to open the workspace in a new window.');
       });
     }
-  }, [initialWorkspaceScope, scope.type, setWorkspaceScope, settings, usingInitialDrafts, vaultSession.isChanging]);
+  }, [activateLocalWorkspace, initialWorkspaceScope, scope.type, setWorkspaceScope, settings, switchLocalVault, usingInitialDrafts, vaultSession.isChanging]);
 
+  // Only the active vault's path names the scope, so other settings changes do not move drafts again.
+  const initialDraftsVaultPath = settings ? getActiveLocalVaultPath(settings) : null;
   useEffect(() => {
     if (!usingInitialDrafts || vaultSession.isChanging) return;
-    const activePath = settings ? getActiveLocalVaultPath(settings) : null;
+    const activePath = initialDraftsVaultPath;
     const target: WorkspaceScope | null = settings?.hasLocalVault
       ? vaultSession.vaultId ? { type: 'local', label: activePath ? localVaultFolderName(activePath) : 'Local Vault', vaultId: vaultSession.vaultId } : null
       : hasToken ? DEFAULT_WORKSPACE_SCOPE : null;
     if (!target) return;
     try { setWorkspaceScope(target); }
     catch (error) { toast.error(error instanceof Error ? error.message : 'Failed to move drafts.'); }
-  }, [usingInitialDrafts, settings?.hasLocalVault, hasToken, vaultSession.vaultId, vaultSession.isChanging, setWorkspaceScope]);
+  }, [usingInitialDrafts, settings?.hasLocalVault, initialDraftsVaultPath, hasToken, vaultSession.vaultId, vaultSession.isChanging, setWorkspaceScope]);
 
   const {
     displayScope,
@@ -756,9 +759,7 @@ export function Home() {
   });
 
   const folderCommands = useWorkbenchFolderCommands({
-    api,
     currentFolders,
-    deleteFolder: mutations.deleteFolderMutation.mutate,
     folderTree,
     hasLocalVault: hasConfiguredLocalVault,
     hasToken,
@@ -793,7 +794,6 @@ export function Home() {
     handleOpenExternal,
   } = useDocumentCommands({
     api,
-    deleteNote: mutations.deleteNoteMutation.mutate,
     documentContent,
     documentTitle,
     duplicateNote: mutations.duplicateNoteMutation.mutate,
@@ -859,7 +859,6 @@ export function Home() {
     requestCloseTabsToRight,
   } = useWorkbenchTabLifecycle({
     activePaneId: noteWorkspace.state.activePaneId,
-    api,
     autoSelectSuppressionRef,
     closeOtherTabs: noteWorkspace.closeOtherTabs,
     closeTab: noteWorkspace.closeTab,
@@ -1122,7 +1121,7 @@ export function Home() {
       return;
     }
     handleNoteMove({ note: entry, targetFolderId, changed: getNoteCurrentFolderId(entry) !== targetFolderId });
-  }, [folderCommands, folderTree, handleNoteMove, mutations.moveFolderMutation, selectedNote?.id]);
+  }, [folderTree, handleNoteMove, mutations.moveFolderMutation, selectedNote?.id, setSelectedFolderId]);
 
   const workspaceNavigation = useMemo(() => getWorkspaceNavigationTeams(
     teams,

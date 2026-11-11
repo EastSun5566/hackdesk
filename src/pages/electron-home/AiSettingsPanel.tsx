@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { Meter } from '@base-ui/react/meter';
 import { ArrowDown, ArrowUp, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
@@ -310,6 +310,11 @@ export function AiSettingsPanel({ active, resetSignal = 0 }: { active: boolean; 
     });
   };
 
+  // The reset below runs the latest save, without re-running whenever save is recreated.
+  const saveRef = useRef(save);
+  useLayoutEffect(() => {
+    saveRef.current = save;
+  });
   // The header Reset button reaches this self-saving page through its tab.
   useEffect(() => {
     if (!resetSignal || resetSignal === lastResetSignal.current) return;
@@ -320,9 +325,9 @@ export function AiSettingsPanel({ active, resetSignal = 0 }: { active: boolean; 
       } catch {
         // Custom commands stay as they are; the slice below still resets.
       }
-      void save(defaultAiSettings);
+      void saveRef.current(defaultAiSettings);
     })();
-  }, [resetSignal, save]);
+  }, [resetSignal]);
 
   if (!api?.ai) {
     return <p className="text-sm text-text-subtle">AI providers are available in the HackDesk desktop app.</p>;

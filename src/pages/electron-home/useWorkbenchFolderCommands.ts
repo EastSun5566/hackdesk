@@ -3,7 +3,6 @@ import { toast } from '@/components/ui/toast';
 
 import type {
   FolderSummary,
-  HackDeskElectronAPI,
 } from '@/lib/electron-api';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 import {
@@ -23,9 +22,7 @@ import type {
 } from './types';
 
 export type WorkbenchFolderCommandsOptions = {
-  api?: HackDeskElectronAPI;
   currentFolders: FolderSummary[];
-  deleteFolder: (input: { folderId: string; parentFolderId: string | null }) => void;
   folderTree: FolderTree;
   hasToken: boolean;
   hasLocalVault: boolean;
@@ -45,9 +42,7 @@ export type WorkbenchFolderCommandsOptions = {
 };
 
 export function useWorkbenchFolderCommands({
-  api,
   currentFolders,
-  deleteFolder,
   folderTree,
   hasToken,
   hasLocalVault,
@@ -175,7 +170,7 @@ export function useWorkbenchFolderCommands({
     // The in-app delete dialog asks, so the question matches the app rather than the system.
     setDeleteFolderTarget(folder);
 
-  }, [api, deleteFolder, folderTree.nodesById, scopeType, setDeleteFolderTarget]);
+  }, [folderTree.nodesById, setDeleteFolderTarget]);
 
   const handleFolderDrop = useCallback((operation: FolderDropOperation) => {
     moveFolder(operation);

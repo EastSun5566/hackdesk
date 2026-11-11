@@ -7,7 +7,7 @@ vi.mock('@/components/ConfirmDialogHost', () => ({
   confirmDialog: confirmDialogMock,
 }));
 
-import type { HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
+import type { NoteSummary } from '@/lib/electron-api';
 import type { FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { DocumentSyncState } from './DocumentDetail';
@@ -52,10 +52,6 @@ function createNote(overrides: Partial<NoteSummary> = {}): NoteSummary {
   };
 }
 
-function createApi() {
-  return {} as unknown as HackDeskElectronAPI;
-}
-
 function mockConfirm(confirmed: boolean) {
   confirmDialogMock.mockResolvedValue({ confirmed });
 }
@@ -79,7 +75,6 @@ function createOptions(overrides: Partial<WorkbenchTabLifecycleOptions> = {}): W
 
   return {
     activePaneId: pane.paneId,
-    api: createApi(),
     autoSelectSuppressionRef: { current: null },
     closeOtherTabs: vi.fn(),
     closeTab: vi.fn(),

@@ -40,7 +40,7 @@ export function useWorkbenchClosePolicy({
       toast.error(error instanceof Error ? error.message : 'Failed to confirm close.');
       return false;
     }
-  }, [api]);
+  }, []);
 
   const settleCloseRequest = useCallback(async (request: HackDeskCloseRequest = { source: 'window-button' }) => {
     if (!api) {

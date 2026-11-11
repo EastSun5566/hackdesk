@@ -183,7 +183,7 @@ export function useHomeLocalVaultActions({
       }
     }
     toast.success('Local vault forgotten.', { description: 'Markdown files were not deleted.' });
-  }, [api, queryClient]);
+  }, [api, queryClient, setWorkspaceScope]);
 
   const refreshLocalVault = useCallback(async () => {
     await refetchLocalVault();

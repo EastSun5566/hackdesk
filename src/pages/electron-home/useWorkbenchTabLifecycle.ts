@@ -3,17 +3,13 @@ import { confirmDialog } from '@/components/ConfirmDialogHost';
 import type { MutableRefObject } from 'react';
 import { toast } from '@/components/ui/toast';
 
-import type {
-  HackDeskElectronAPI,
-  NoteSummary,
-} from '@/lib/electron-api';
+import type { NoteSummary } from '@/lib/electron-api';
 import type { FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { DocumentSyncState } from './DocumentDetail';
 import { isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
 
 export type WorkbenchTabLifecycleOptions = {
-  api?: HackDeskElectronAPI;
   autoSelectSuppressionRef: MutableRefObject<string | null>;
   closeOtherTabs: (paneId: string, keepTabId: string) => void;
   closeTab: (tabId: string) => void;
@@ -32,7 +28,6 @@ export type WorkbenchTabLifecycleOptions = {
 };
 
 export function useWorkbenchTabLifecycle({
-  api,
   autoSelectSuppressionRef,
   closeOtherTabs,
   closeTab,
@@ -85,7 +80,7 @@ export function useWorkbenchTabLifecycle({
       toast.error(error instanceof Error ? error.message : 'Failed to confirm close.');
       return false;
     }
-  }, [api, getTabSyncState, getTabTitle, getUnsafeTabs]);
+  }, [getTabSyncState, getTabTitle, getUnsafeTabs]);
 
   const requestCloseTab = useCallback(async (tabId: string) => {
     const tab = tabs[tabId];

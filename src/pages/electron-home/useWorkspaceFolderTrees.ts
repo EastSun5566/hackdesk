@@ -96,5 +96,7 @@ export function useWorkspaceFolderTrees({
       // A failed refresh keeps the last good tree instead of replacing it with an error.
       error: !active && !snapshot && result?.error instanceof Error ? result.error.message : null,
     };
+    // The signature stands in for the results read through the ref above; it is the cache key.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }), [activeSnapshot?.vaultId, activeVaultId, folders, resultsSignature, showHidden]);
 }

@@ -32,7 +32,6 @@ function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
 
 export type DocumentCommandOptions = {
   api?: HackDeskElectronAPI;
-  deleteNote: (note: DocumentSummary) => void;
   documentContent: string;
   documentTitle: string;
   duplicateNote: (note: NoteSummary) => void;
@@ -47,7 +46,6 @@ export type DocumentCommandOptions = {
 
 export function useDocumentCommands({
   api,
-  deleteNote,
   documentContent,
   documentTitle,
   duplicateNote,
@@ -148,7 +146,7 @@ export function useDocumentCommands({
     // The in-app delete dialog asks, so the question matches the app rather than the system.
     setDeleteTarget(deleteTarget);
 
-  }, [api, deleteNote, setDeleteTarget]);
+  }, [setDeleteTarget]);
 
   const handleOpenEditor = useCallback((note: NoteSummary) => {
     if (!api) {
