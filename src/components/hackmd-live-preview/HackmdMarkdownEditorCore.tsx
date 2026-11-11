@@ -39,7 +39,7 @@ import { getAiInlineTarget, IDLE_AI_INLINE, type AiInlineState } from './ai-inli
 import { dictation as dictationExtension, toggleDictation, type DictationHost } from './dictation/extension';
 import { noteEmbeds, type NoteEmbedHost } from './note-embeds/extension';
 import { hackmdCompletions, type NoteLinksHost } from './hackmd-completions';
-import { hackmdCodeLanguages } from './hackmd-code-languages';
+import { resolveCodeLanguage } from './hackmd-code-languages';
 import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
 import { hackmdInlinePreview } from './inline-preview';
@@ -128,7 +128,7 @@ const editorExtensions: Extension[] = [
   }),
   markdown({
     base: markdownLanguage,
-    codeLanguages: hackmdCodeLanguages,
+    codeLanguages: resolveCodeLanguage,
   }),
   markdownLanguage.data.of({
     closeBrackets: { brackets: ['(', '[', '{', "'", '"', '*', '_', '`'] },
