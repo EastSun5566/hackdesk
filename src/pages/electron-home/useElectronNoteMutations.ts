@@ -39,6 +39,7 @@ import {
 import { noteVersionsKeys } from './useNoteVersions';
 import { noteCommentsKeys } from './useNoteComments';
 import type { NoteDocumentDraft, NoteIdentity } from './note-workspace';
+import { draftSyncKey, noteSyncKey, type SyncActivityEvent, type SyncKey } from './note-sync-activity';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
 import { trashKeys } from './useTrash';
@@ -48,10 +49,46 @@ const NOTE_RESTORE_TOAST_MS = 10_000;
 
 // Mutation observers receive new options when the workspace changes. Carry the
 // initiating callbacks and API closure with each request, including its awaits.
+/** Reports each request's progress per note, so tabs show their own save, delete or upload. */
+type MutationSync<TVariables> = {
+  kind: 'save' | 'delete' | 'upload';
+  key: (variables: TVariables) => SyncKey | null;
+  report?: (event: SyncActivityEvent) => void;
+};
+
+let nextSyncRequestId = 0;
+
+function reportSyncStart<TVariables>(sync: MutationSync<TVariables> | undefined, variables: TVariables) {
+  const key = sync?.report ? sync.key(variables) : null;
+  if (!sync?.report || !key) return null;
+  const requestId = ++nextSyncRequestId;
+  if (sync.kind === 'save') sync.report({ type: 'save_started', key, requestId });
+  else if (sync.kind === 'delete') sync.report({ type: 'delete_started', key, requestId });
+  else sync.report({ type: 'upload_started', key });
+  return { key, requestId };
+}
+
+function reportSyncEnd<TVariables>(
+  sync: MutationSync<TVariables> | undefined,
+  started: { key: SyncKey; requestId: number } | null | undefined,
+  error: Error | null,
+) {
+  if (!sync?.report || !started) return;
+  const { key, requestId } = started;
+  if (sync.kind === 'save') {
+    sync.report(error ? { type: 'save_failed', key, requestId, error } : { type: 'save_succeeded', key, requestId });
+  } else if (sync.kind === 'delete') {
+    sync.report({ type: 'delete_settled', key, requestId });
+  } else {
+    sync.report({ type: 'upload_settled', key });
+  }
+}
+
 function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: string, operation: {
   mutationFn: (variables: TVariables) => Promise<TData>;
   onSuccess?: (data: TData, variables: TVariables) => void;
   onError?: (error: Error) => void;
+  sync?: MutationSync<TVariables>;
 }) {
   const queryClient = useQueryClient();
   const scopeKey = getScopeStorageKey(scope);
@@ -60,8 +97,15 @@ function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: st
   const mutation = useMutation({
     mutationKey,
     mutationFn: (request: Request) => request.operation.mutationFn(request.variables),
-    onSuccess: (data, request) => request.operation.onSuccess?.(data, request.variables),
-    onError: (error: Error, request) => request.operation.onError?.(error),
+    onMutate: (request: Request) => reportSyncStart(request.operation.sync, request.variables),
+    onSuccess: (data, request, started) => {
+      reportSyncEnd(request.operation.sync, started, null);
+      request.operation.onSuccess?.(data, request.variables);
+    },
+    onError: (error: Error, request, started) => {
+      reportSyncEnd(request.operation.sync, started, error);
+      request.operation.onError?.(error);
+    },
   });
   // Observe the cache so returning to A still shows its pending operation even
   // when the same hook has started another operation in B in the meantime.
@@ -208,6 +252,7 @@ export function useElectronNoteMutations({
   onFolderDeleted,
   onNoteDeleted,
   onNoteMoved,
+  onSyncActivity,
 }: {
   api?: HackDeskElectronAPI;
   scope: WorkspaceScope;
@@ -222,6 +267,8 @@ export function useElectronNoteMutations({
   onFolderDeleted: (folderId: string, parentFolderId: string | null) => void;
   onNoteDeleted: (note: DocumentSummary) => void;
   onNoteMoved: (note: NoteSummary, targetFolderId: string | null) => void;
+  /** Receives each note's save, delete and upload progress. */
+  onSyncActivity?: (event: SyncActivityEvent) => void;
 }) {
   const queryClient = useQueryClient();
 
@@ -400,6 +447,7 @@ export function useElectronNoteMutations({
   });
 
   const createDraftNoteMutation = useWorkspaceMutation(scope, 'create-draft', {
+    sync: { kind: 'save', key: (variables) => draftSyncKey(variables.tabId), report: onSyncActivity },
     mutationFn: async (variables: { tabId: string; input: Pick<UpdateNoteInput, 'title' | 'content'> }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -659,6 +707,7 @@ export function useElectronNoteMutations({
   };
 
   const updateNoteMutation = useWorkspaceMutation(scope, 'update-note', {
+    sync: { kind: 'save', key: (variables) => noteSyncKey(variables.note), report: onSyncActivity },
     mutationFn: async (variables: UpdateNoteMutationVariables) => {
       const { note, input } = variables;
       if (!api) {
@@ -725,6 +774,7 @@ export function useElectronNoteMutations({
   });
 
   const uploadNoteImageMutation = useWorkspaceMutation(scope, 'upload-image', {
+    sync: { kind: 'upload', key: (variables) => noteSyncKey(variables.note), report: onSyncActivity },
     mutationFn: async ({ note, input, signal }: { note: DocumentSummary; input: UploadNoteImageInput; signal?: AbortSignal }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -751,6 +801,7 @@ export function useElectronNoteMutations({
   });
 
   const deleteNoteMutation = useWorkspaceMutation(scope, 'delete-note', {
+    sync: { kind: 'delete', key: (note) => noteSyncKey(note), report: onSyncActivity },
     mutationFn: async (note: DocumentSummary) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');

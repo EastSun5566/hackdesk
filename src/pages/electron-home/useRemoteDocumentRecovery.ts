@@ -28,12 +28,13 @@ export function useRemoteDocumentRecovery({
   clearDraft,
   documentQueries,
   getTabsMatching,
-  resetSaveMutation,
+  clearSaveFailure,
 }: {
   clearDraft: (tabId: string) => void;
   documentQueries: RemoteDocumentQueries;
   getTabsMatching: (note: NoteIdentity) => OpenNoteTab[];
-  resetSaveMutation: () => void;
+  /** Clears a note's failed save once the person resolves it another way. */
+  clearSaveFailure: (identity: NoteIdentity) => void;
 }) {
   const queryClient = useQueryClient();
 
@@ -51,11 +52,11 @@ export function useRemoteDocumentRecovery({
       for (const tab of getTabsMatching(identity)) {
         clearDraft(tab.tabId);
       }
-      resetSaveMutation();
+      clearSaveFailure(identity);
     })().catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to reload note from HackMD.');
     });
-  }, [clearDraft, documentQueries, getTabsMatching, queryClient, resetSaveMutation]);
+  }, [clearDraft, documentQueries, getTabsMatching, queryClient, clearSaveFailure]);
 
   return { reloadFromHackmd };
 }

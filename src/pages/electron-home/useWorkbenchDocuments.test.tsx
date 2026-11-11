@@ -14,6 +14,13 @@ import {
   type OpenNoteTab,
   type SavedOpenNoteTab,
 } from './note-workspace';
+import {
+  EMPTY_SYNC_ACTIVITY,
+  noteSyncKey,
+  syncActivityReducer,
+  type SyncActivityEvent,
+  type SyncActivityState,
+} from './note-sync-activity';
 import { useWorkbenchDocuments, type WorkbenchDocumentsOptions } from './useWorkbenchDocuments';
 
 function createDocument(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
@@ -70,6 +77,14 @@ function remoteDocument(document: DocumentSummary): RepositoryValue<DocumentSumm
   return { source: 'remote' as const, data: document };
 }
 
+function failedSave(identity: NoteIdentity, error: unknown = new Error('Save failed.')): SyncActivityState {
+  const key = noteSyncKey(identity);
+  return [
+    { type: 'save_started', key, requestId: 1 },
+    { type: 'save_failed', key, requestId: 1, error },
+  ].reduce<SyncActivityState>((state, event) => syncActivityReducer(state, event as SyncActivityEvent), EMPTY_SYNC_ACTIVITY);
+}
+
 function createOptions(overrides: Partial<WorkbenchDocumentsOptions> = {}): WorkbenchDocumentsOptions {
   const tab = createTab();
   const document = createDocument();
@@ -78,19 +93,12 @@ function createOptions(overrides: Partial<WorkbenchDocumentsOptions> = {}): Work
   return {
     activeTab: tab,
     clearDraft: vi.fn(),
-    deletingNote: null,
     documentQueriesByKey: new Map([[getNoteIdentityKey(identity), { isFetching: false, isLoading: false }]]),
     documentsByKey: new Map([[getNoteIdentityKey(identity), remoteDocument(document)]]),
     drafts: {},
-    isDeletingNote: false,
-    isSavingNote: false,
-    isUploadingImage: false,
-    saveError: null,
-    saveFailedNote: null,
-    savingNote: null,
+    syncActivity: EMPTY_SYNC_ACTIVITY,
     tabs: { [tab.tabId]: tab },
     updateDraft: vi.fn(),
-    uploadingNote: null,
     ...overrides,
   };
 }
@@ -212,7 +220,7 @@ describe('useWorkbenchDocuments', () => {
     expect(result.current.getTabSyncState(tab)).toBe('save_failed');
 
     rerender(createOptions({
-      saveFailedNote: identity,
+      syncActivity: failedSave(identity),
     }));
     expect(result.current.getTabSyncState(tab)).toBe('save_failed');
 
@@ -266,14 +274,15 @@ describe('useWorkbenchDocuments', () => {
     const tab = createTab();
     const pane = createPane(tab);
     const identity = { id: tab.noteId, teamPath: tab.teamPath };
+    const key = noteSyncKey(identity);
+    const syncActivity = ([
+      { type: 'save_started', key, requestId: 1 },
+      { type: 'delete_started', key, requestId: 2 },
+      { type: 'upload_started', key },
+    ] as SyncActivityEvent[]).reduce(syncActivityReducer, EMPTY_SYNC_ACTIVITY);
     const { result } = renderHook(() => useWorkbenchDocuments(createOptions({
-      deletingNote: identity,
-      isDeletingNote: true,
-      isSavingNote: true,
-      isUploadingImage: true,
-      savingNote: identity,
+      syncActivity,
       tabs: { [tab.tabId]: tab },
-      uploadingNote: identity,
     })));
 
     expect(result.current.getPaneView(pane)).toMatchObject({
@@ -296,8 +305,7 @@ describe('useWorkbenchDocuments', () => {
     const identity = { id: tab.noteId, teamPath: tab.teamPath };
     const { result, rerender } = renderHook((props: WorkbenchDocumentsOptions) => useWorkbenchDocuments(props), {
       initialProps: createOptions({
-        saveError: new Error('File changed on disk. Reload it or save a copy before writing.'),
-        saveFailedNote: identity,
+        syncActivity: failedSave(identity, new Error('File changed on disk. Reload it or save a copy before writing.')),
         tabs: { [tab.tabId]: tab },
       }),
     });
@@ -308,8 +316,7 @@ describe('useWorkbenchDocuments', () => {
     });
 
     rerender(createOptions({
-      saveError: new Error('Network failed.'),
-      saveFailedNote: identity,
+      syncActivity: failedSave(identity, new Error('Network failed.')),
       tabs: { [tab.tabId]: tab },
     }));
 
@@ -320,8 +327,7 @@ describe('useWorkbenchDocuments', () => {
     const tab = createTab();
     const other = createTab({ noteId: 'note-2', tabId: 'tab-2' });
     const options = createOptions({
-      saveError: new Error(HACKMD_NOTE_CHANGED_MESSAGE),
-      saveFailedNote: { id: tab.noteId, teamPath: tab.teamPath },
+      syncActivity: failedSave({ id: tab.noteId, teamPath: tab.teamPath }, new Error(HACKMD_NOTE_CHANGED_MESSAGE)),
       tabs: { [tab.tabId]: tab, [other.tabId]: other },
     });
     const { result } = renderHook(() => useWorkbenchDocuments(options));
