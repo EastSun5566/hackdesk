@@ -4,6 +4,7 @@ export { EDITOR_LINE_WIDTH } from './editor-content-layout';
 const EDITOR_CONTROL_HEIGHT = '32px';
 const EDITOR_CONTROL_RADIUS = '6px';
 const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)';
+const CODE_PANEL_BACKGROUND = 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)';
 export const EDITOR_SELECTION_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 24%, transparent)';
 const EDITOR_BLOCK_CURSOR_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 55%, transparent)';
 
@@ -328,12 +329,65 @@ export const proseTheme = {
 };
 
 export const codeAndBlockTheme = {
+  // A fence is one quiet panel: a flat tint with rounded ends, no stripe. Text the language does not
+  // colour stays in the body colour; the token colours come from the theme's --code-* palette.
   '.cm-hackmd-fenced-code': {
     fontFamily: 'var(--font-mono)',
     fontSize: '0.88em',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
-    paddingInline: '0.875rem',
+    color: 'var(--text-default)',
+    backgroundColor: CODE_PANEL_BACKGROUND,
+    paddingInline: '1rem',
+  },
+  // Code lines are a fractional number of pixels tall, so neighbouring line backgrounds can leave an
+  // anti-aliased seam. A 1px shadow of the panel colour under each line but the last fills it.
+  '.cm-hackmd-fenced-code:not(.cm-hackmd-code-footer, .cm-hackmd-code-last), .cm-hackmd-indented-code': {
+    boxShadow: `0 1px 0 ${CODE_PANEL_BACKGROUND}`,
+  },
+  '.cm-hackmd-code-header': {
+    borderStartStartRadius: '6px',
+    borderStartEndRadius: '6px',
+    paddingTop: '0.2em',
+  },
+  // Away from the cursor, the opening fence is a slim header carrying the language on the right.
+  '.cm-hackmd-code-header-collapsed': {
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.75em',
+    lineHeight: '1.5',
+    paddingTop: '0.45em',
+    textAlign: 'right',
+  },
+  '.cm-hackmd-code-label': {
+    color: 'var(--text-subtle)',
+    letterSpacing: '0.01em',
+    userSelect: 'none',
+  },
+  '.cm-hackmd-code-footer, .cm-hackmd-code-last': {
+    borderEndStartRadius: '6px',
+    borderEndEndRadius: '6px',
+    paddingBottom: '0.2em',
+  },
+  // ...and the closing fence is just the panel's bottom padding.
+  '.cm-hackmd-code-footer-collapsed': {
+    fontSize: '0.5em',
+    lineHeight: '1',
+    paddingBottom: '0.6em',
+  },
+  // HackMD's `=`, `=N` and `=+` fences number their lines in a gutter inside the panel.
+  '.cm-hackmd-code-numbered': {
+    position: 'relative',
+    paddingInlineStart: 'calc(1rem + var(--cm-code-gutter, 2ch) + 1.5ch)',
+  },
+  '.cm-hackmd-code-numbered::before': {
+    content: 'attr(data-line-number)',
+    position: 'absolute',
+    left: '1rem',
+    width: 'var(--cm-code-gutter, 2ch)',
+    color: 'var(--text-subtle)',
+    opacity: '0.7',
+    textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums',
+    pointerEvents: 'none',
+    userSelect: 'none',
   },
   // Alerts and containers mark their edge with a real left border, as HackMD and GitHub do. An inset
   // box-shadow on a rounded line bleeds a hairline across every line edge, and alert lines are also
@@ -423,7 +477,7 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-blockquote-meta': {
     color: 'var(--text-subtle)',
   },
-  '.cm-hackmd-hfm-fence, .cm-hackmd-code-fence-options, .cm-hackmd-math-block-line, .cm-hackmd-external-line': {
+  '.cm-hackmd-math-block-line, .cm-hackmd-external-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
     borderLeft: '2px solid color-mix(in oklch, var(--primary-default) 55%, var(--border-bold) 45%)',
@@ -433,9 +487,8 @@ export const codeAndBlockTheme = {
     fontFamily: 'var(--font-mono)',
     fontSize: '0.88em',
     color: 'var(--text-subtle)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
-    boxShadow: 'inset 2px 0 0 var(--border-bold)',
-    paddingInlineStart: '0.875rem',
+    backgroundColor: CODE_PANEL_BACKGROUND,
+    paddingInline: '1rem',
   },
   '.cm-hackmd-table-line': {
     color: 'var(--text-subtle)',

@@ -24,7 +24,9 @@ const editorThemeSections = {
 
 function getReferencedThemeTokens() {
   const serializedTheme = JSON.stringify(editorThemeSections);
-  return new Set(Array.from(serializedTheme.matchAll(/var\((--[\w-]+)/g), (match) => match[1]));
+  // `--cm-*` variables are per-line layout values set by decorations (like a code gutter's width),
+  // not palette tokens.
+  return new Set(Array.from(serializedTheme.matchAll(/var\((--(?!cm-)[\w-]+)/g), (match) => match[1]));
 }
 
 describe('HackMD preview widget theme', () => {
@@ -225,10 +227,13 @@ describe('HackMD preview widget theme', () => {
   it('keeps code blocks highlighted without selection-like token backgrounds', () => {
     expect(codeAndBlockTheme['.cm-hackmd-fenced-code']).toMatchObject({
       backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
-      boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
+      color: 'var(--text-default)',
     });
-    expect(codeAndBlockTheme['.cm-hackmd-fenced-code'].boxShadow)
-      .not.toContain('inset 0 1px');
+    // One flat panel: no accent stripe, whose per-line shadow shows a seam at every line edge.
+    expect(codeAndBlockTheme['.cm-hackmd-fenced-code']).not.toHaveProperty('boxShadow');
+    expect(codeAndBlockTheme['.cm-hackmd-indented-code']).not.toHaveProperty('boxShadow');
+    expect(codeAndBlockTheme['.cm-hackmd-fenced-code:not(.cm-hackmd-code-footer, .cm-hackmd-code-last), .cm-hackmd-indented-code'].boxShadow)
+      .not.toContain('inset');
     expect(codeAndBlockTheme['.cm-hackmd-fenced-code'].backgroundColor)
       .not.toContain('var(--background-selected)');
     expect(inlineMarksTheme['.cm-hackmd-inline-code']).toHaveProperty('backgroundColor', 'var(--primary-soft)');

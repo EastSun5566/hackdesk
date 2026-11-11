@@ -9,6 +9,7 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
+  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
@@ -22,6 +23,7 @@ import {
   getActiveLines,
   revealInitialSelection,
 } from './hfm-decoration-ranges';
+import { getCodeFenceLineRole, getCodeFenceLines, getCodeFences, type CodeFence } from './code-fences';
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
 import { getOrderedListMarkerPreviews } from './list-markers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
@@ -86,6 +88,27 @@ const hideableSyntaxNodeNames = new Set([
   'QuoteMark',
   'Escape',
 ]);
+
+class CodeLanguageLabelWidget extends WidgetType {
+  constructor(private readonly label: string) {
+    super();
+  }
+
+  eq(other: CodeLanguageLabelWidget): boolean {
+    return other.label === this.label;
+  }
+
+  toDOM(): HTMLElement {
+    const label = document.createElement('span');
+    label.className = 'cm-hackmd-code-label';
+    label.textContent = this.label;
+    return label;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
 
 type SyntaxNodeLike = {
   from: number;
@@ -231,17 +254,20 @@ export function hackmdInlinePreview(): Extension {
 function buildPreviewDocument(state: EditorState) {
   const sourceTree = syntaxTree(state);
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
-  const fencedCodeLines = getFencedCodeLines(state, tree);
+  const codeFences = getCodeFences(state, tree);
+  const fencedCodeLines = getCodeFenceLines(codeFences);
   const hfmBlockRanges = getHfmDocumentIndex(state).blockRanges
     .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, fencedCodeLines));
   const orderedListMarkers = getOrderedListMarkerPreviews(state);
-  return { doc: state.doc, sourceTree, tree, fencedCodeLines, hfmBlockRanges, orderedListMarkers };
+  return { doc: state.doc, sourceTree, tree, codeFences, fencedCodeLines, hfmBlockRanges, orderedListMarkers };
 }
 
 type PreviewDocument = ReturnType<typeof buildPreviewDocument>;
 
 function buildDecorations(view: EditorView, state: EditorState, document: PreviewDocument): DecorationSet {
-  const { tree, fencedCodeLines, hfmBlockRanges, orderedListMarkers } = document;
+  const { tree, codeFences, fencedCodeLines, hfmBlockRanges, orderedListMarkers } = document;
+  // Opening fence lines that show a language label in place of their source.
+  const labelledFenceLines = new Set<number>();
   const ranges: PreviewRange[] = [];
   const activeLines = getActiveLines(state);
   const activeInlineSourceStarts = new Set<number>();
@@ -285,6 +311,10 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
               activeLines.add(lineNumber);
             }
           }
+          const fence = codeFences.get(startLine);
+          if (fence) {
+            addCodeFenceRanges(state, ranges, fence, fenceIsActive, visibleLines, labelledFenceLines);
+          }
         }
 
         if (node.name === 'Link' || node.name === 'Image') {
@@ -325,6 +355,10 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
           return;
         }
 
+        if ((node.name === 'CodeMark' || node.name === 'CodeInfo') && labelledFenceLines.has(state.doc.lineAt(node.from).number)) {
+          return;
+        }
+
         if (hideableSyntaxNodeNames.has(node.name)) {
           addHiddenSyntax(state, activeLines, activeInlineSourceStarts, ranges, node);
         }
@@ -344,24 +378,54 @@ function getListDepth(node: SyntaxNodeLike['node']): number {
   return Math.max(0, depth);
 }
 
-function getFencedCodeLines(state: EditorState, tree: ReturnType<typeof syntaxTree>): Set<number> {
-  const lines = new Set<number>();
+/**
+ * Shapes a fence into one panel: its opening line becomes a slim header with the language label,
+ * its closing line slim bottom padding, and numbered fences get a line-number gutter. With the
+ * cursor in the fence, both fence lines show their source at full size.
+ */
+function addCodeFenceRanges(
+  state: EditorState,
+  ranges: PreviewRange[],
+  fence: CodeFence,
+  fenceIsActive: boolean,
+  visibleLines: ReadonlySet<number>,
+  labelledFenceLines: Set<number>,
+) {
+  for (let lineNumber = fence.startLine; lineNumber <= fence.endLine; lineNumber += 1) {
+    if (!visibleLines.has(lineNumber)) continue;
+    const line = state.doc.line(lineNumber);
+    const role = getCodeFenceLineRole(fence, lineNumber);
 
-  tree.iterate({
-    enter(node) {
-      if (node.name !== 'FencedCode') {
-        return;
+    if (role.kind === 'header') {
+      const classes = ['cm-hackmd-code-header'];
+      if (!fenceIsActive) classes.push('cm-hackmd-code-header-collapsed');
+      if (fence.endLine === fence.startLine) classes.push('cm-hackmd-code-last');
+      ranges.push(Decoration.line({ attributes: { class: classes.join(' ') } }).range(line.from));
+      if (!fenceIsActive && line.length > 0) {
+        labelledFenceLines.add(lineNumber);
+        pushReplace(ranges, state.doc, line.from, line.to, fence.label ? { widget: new CodeLanguageLabelWidget(fence.label) } : {});
       }
+      continue;
+    }
 
-      const startLine = state.doc.lineAt(node.from).number;
-      const endLine = state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
-      for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
-        lines.add(lineNumber);
-      }
-    },
-  });
+    if (role.kind === 'footer') {
+      const className = fenceIsActive ? 'cm-hackmd-code-footer' : 'cm-hackmd-code-footer cm-hackmd-code-footer-collapsed';
+      ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
+      continue;
+    }
 
-  return lines;
+    const classes: string[] = [];
+    const attributes: Record<string, string> = {};
+    if (role.last) classes.push('cm-hackmd-code-last');
+    if (role.number !== null && fence.numbering) {
+      classes.push('cm-hackmd-code-numbered');
+      attributes['data-line-number'] = String(role.number);
+      attributes.style = `--cm-code-gutter: ${fence.numbering.width}ch`;
+    }
+    if (classes.length > 0) {
+      ranges.push(Decoration.line({ attributes: { ...attributes, class: classes.join(' ') } }).range(line.from));
+    }
+  }
 }
 
 function blockRangeOverlapsLines(startLine: number, endLine: number, lines: ReadonlySet<number>): boolean {
