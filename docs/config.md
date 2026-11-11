@@ -31,10 +31,13 @@ tree ~/.hackdesk
   },
   "shortcuts": {
     "open-command-palette": "mod+j"
-  }
+  },
+  "appIcon": "nightly"
 }
 ```
 
 HackDesk validates this file and fills in omitted settings with safe defaults. Manage the HackMD token and Local Vault folder from the app; do not copy secrets or machine-specific paths into shared config.
+
+`appIcon` sets the Dock, taskbar, and window icon while HackDesk runs. Use `system` (the default) to follow the OS light/dark appearance, or pick a style in **Settings → General → App Icon**. Unknown values fall back to `system`.
 
 Use **Settings → Advanced → Reset All Settings** to reset HackDesk without deleting Local Vault files.

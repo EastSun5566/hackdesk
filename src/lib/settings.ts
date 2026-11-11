@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { DEFAULT_TITLE } from '@/constants';
+import { APP_ICON_IDS, DEFAULT_APP_ICON } from '@/lib/app-icons';
 import { ELECTRON_ACTIONS } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import { isValidCustomShortcutConfig } from '@/lib/keyboard-shortcuts';
@@ -141,6 +142,7 @@ export const settingsSchema = z.object({
   workspaceNavigation: z.object({
     pinnedTeamIds: pinnedTeamIdsSchema.default(null),
   }).default(defaultWorkspaceNavigationSettings),
+  appIcon: z.enum(APP_ICON_IDS).catch(DEFAULT_APP_ICON),
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -154,6 +156,7 @@ export const defaultSettings: AppSettings = {
   editor: defaultEditorSettings,
   shortcuts: defaultShortcutSettings,
   workspaceNavigation: defaultWorkspaceNavigationSettings,
+  appIcon: DEFAULT_APP_ICON,
 };
 
 export function normalizeAppearanceSettings(

@@ -75,6 +75,7 @@ function SettingsDialogContent({
   const [formState, setFormState] = useState(() => ({
     title: settings?.title ?? 'HackDesk',
     editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
+    appIcon: settings?.appIcon ?? defaultSettings.appIcon,
     token: '',
     tokenVisible: false,
     tokenTest: {
@@ -84,7 +85,7 @@ function SettingsDialogContent({
     shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
-  const { editorMode, shortcuts, title, token, tokenTest, tokenVisible } = formState;
+  const { appIcon, editorMode, shortcuts, title, token, tokenTest, tokenVisible } = formState;
 
   const normalizedToken = token.trim();
   const isTestingToken = tokenTest.status === 'testing';
@@ -171,6 +172,7 @@ function SettingsDialogContent({
 
     onSave({
       title: title.trim(),
+      appIcon,
     });
   };
 
@@ -179,6 +181,7 @@ function SettingsDialogContent({
     setFormState({
       title: defaultSettings.title,
       editorMode: defaultSettings.editor.mode,
+      appIcon: defaultSettings.appIcon,
       token: '',
       tokenVisible: false,
       tokenTest: { status: 'idle', message: '' },
@@ -191,6 +194,7 @@ function SettingsDialogContent({
       appearance: defaultSettings.appearance,
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
+      appIcon: defaultSettings.appIcon,
     });
   };
 
@@ -246,7 +250,10 @@ function SettingsDialogContent({
                 <TabsContent value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <GeneralSettingsPanel
                     title={title}
+                    appIcon={appIcon}
+                    platform={platform}
                     onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
+                    onAppIconChange={(nextAppIcon) => setFormState((current) => ({ ...current, appIcon: nextAppIcon }))}
                   />
                 </TabsContent>
 

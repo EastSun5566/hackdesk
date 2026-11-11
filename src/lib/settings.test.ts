@@ -19,6 +19,7 @@ describe('settings helpers', () => {
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       workspaceNavigation: defaultSettings.workspaceNavigation,
+      appIcon: defaultSettings.appIcon,
     });
   });
 
@@ -39,11 +40,20 @@ describe('settings helpers', () => {
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       workspaceNavigation: defaultSettings.workspaceNavigation,
+      appIcon: defaultSettings.appIcon,
     });
   });
 
   it.each(['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const)('parses the %s editor mode', (mode) => {
     expect(parseSettings(JSON.stringify({ title: 'Workspace', editor: { mode } })).editor).toEqual({ mode });
+  });
+
+  it('parses a stored app icon', () => {
+    expect(parseSettings('{"title":"Workspace","appIcon":"nightly"}').appIcon).toBe('nightly');
+  });
+
+  it('falls back to the default app icon when the stored one no longer exists', () => {
+    expect(parseSettings('{"title":"Workspace","appIcon":"retired-icon"}').appIcon).toBe(defaultSettings.appIcon);
   });
 
   it('rejects an unknown editor mode', () => {
@@ -239,7 +249,8 @@ describe('settings helpers', () => {
   "shortcuts": {},
   "workspaceNavigation": {
     "pinnedTeamIds": null
-  }
+  },
+  "appIcon": "system"
 }`);
   });
 });

@@ -421,7 +421,49 @@ describe('SettingsDialog', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(onSave).toHaveBeenCalledWith({ title: 'Focus Desk' });
+    expect(onSave).toHaveBeenCalledWith({ title: 'Focus Desk', appIcon: defaultSettings.appIcon });
+  });
+
+  it('saves the chosen app icon with the general settings', () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Nightly' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', appIcon: 'nightly' });
+  });
+
+  it('reveals secret app icons after repeatedly clicking the selected icon', () => {
+    renderSettingsDialog();
+
+    expect(screen.queryByRole('radio', { name: 'Building Blocks' })).not.toBeInTheDocument();
+    const selected = screen.getByRole('radio', { name: 'Match Appearance' });
+    for (let click = 0; click < 5; click += 1) {
+      fireEvent.click(selected);
+    }
+
+    expect(screen.getByRole('radio', { name: 'Building Blocks' })).toBeInTheDocument();
+    expect(toastSuccessMock).toHaveBeenCalledWith('Secret icons unlocked.');
+  });
+
+  it('shows secret app icons when one is already selected', () => {
+    renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        appIcon: 'blocks',
+        hasHackmdApiToken: false,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: true,
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+      },
+    });
+
+    expect(screen.getByRole('radio', { name: 'Building Blocks' })).toBeChecked();
   });
 
   it('validates a new HackMD token before saving it', async () => {

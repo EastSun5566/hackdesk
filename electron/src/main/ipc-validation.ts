@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { APP_ICON_IDS } from '../../../src/lib/app-icons';
 import { writeLog } from './logging';
 
 const notePermissionSchema = z.enum(['owner', 'signed_in', 'guest']);
@@ -148,6 +149,7 @@ export const settingsUpdateSchema = z.strictObject({
   onboarding: z.strictObject({
     hackmdTokenSetupDeferred: z.boolean(),
   }).optional(),
+  appIcon: z.enum(APP_ICON_IDS).optional(),
 });
 
 export const localVaultRevisionSchema = z.strictObject({

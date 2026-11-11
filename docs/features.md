@@ -31,5 +31,6 @@ Open any folder as a Local Vault—no account or API token required.
 Use `CmdOrCtrl+,` for Settings or edit `~/.hackdesk/settings.json` while HackDesk is closed.
 
 - Choose themes, colors, fonts, and editor sizes
+- Pick an app icon style — classic, single tile, or fun ones like Nightly and Neon (and a few secret ones)
 - Switch between Standard, Vim, Helix, Emacs, and Kakoune modes
 - Remap desktop actions and use `CmdOrCtrl+K` for the command palette

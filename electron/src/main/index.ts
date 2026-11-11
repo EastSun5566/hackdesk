@@ -2,7 +2,7 @@ import { app } from 'electron';
 
 import { createApplicationMenu } from './app-menu';
 import { createApplicationTray } from './app-tray';
-import { createAppIcon } from './app-icon';
+import { setAppIcon } from './app-icon';
 import { registerQuickCaptureGlobalShortcut, unregisterQuickCaptureGlobalShortcut } from './global-shortcuts';
 import { registerIpcHandlers } from './ipc-handlers';
 import { initCrashReporter, initLogging, writeLog } from './logging';
@@ -37,7 +37,8 @@ if (!gotLock) {
 }
 
 app.whenReady().then(async () => {
-  app.dock?.setIcon(createAppIcon());
+  const storedSettings = await readStoredSettings();
+  setAppIcon(storedSettings.appIcon);
   registerRendererProtocol();
   const createMenu = (shortcuts = {}) => createApplicationMenu(
     (command) => windowManager.sendCommandToMainWindow(command),
@@ -45,9 +46,12 @@ app.whenReady().then(async () => {
     () => windowManager.closeMainWindow(),
   );
   registerIpcHandlers(windowManager, {
-    onSettingsUpdated: (settings) => createMenu(settings.shortcuts),
+    onSettingsUpdated: (settings) => {
+      createMenu(settings.shortcuts);
+      setAppIcon(settings.appIcon);
+    },
   });
-  createMenu((await readStoredSettings()).shortcuts);
+  createMenu(storedSettings.shortcuts);
   windowManager.createMainWindow();
   if (app.commandLine.hasSwitch('quick-capture')) {
     windowManager.showQuickCaptureWindow();

@@ -19,6 +19,9 @@
     "docs/**/*.ts"
   ],
   "ignoreExportsUsedInFile": true,
+  "ignoreBinaries": [
+    "iconutil"
+  ],
   "ignoreDependencies": [
     "tailwindcss",
     "tailwindcss-animate"

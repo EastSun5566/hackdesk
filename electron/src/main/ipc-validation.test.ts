@@ -136,6 +136,16 @@ describe('IPC runtime validation', () => {
     });
   });
 
+  it('accepts known app icons in settings updates', () => {
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { appIcon: 'nightly' })).toEqual({ appIcon: 'nightly' });
+  });
+
+  it('rejects unknown app icons in settings updates', () => {
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      appIcon: 'retired-icon',
+    })).toThrow(/Invalid option/);
+  });
+
   it('rejects unknown editor modes in settings updates', () => {
     expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
       editor: { mode: 'nano' },

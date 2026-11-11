@@ -1,3 +1,4 @@
+import type { AppIconId } from '@/lib/app-icons';
 import type {
   AppearanceSettings,
   EditorSettings,
@@ -48,4 +49,5 @@ export type SettingsFormInput = {
   shortcuts?: ShortcutSettings;
   onboarding?: OnboardingSettings;
   workspaceNavigation?: WorkspaceNavigationSettings;
+  appIcon?: AppIconId;
 };

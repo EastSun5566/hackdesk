@@ -38,7 +38,7 @@ vi.mock('electron', () => ({
 }));
 
 vi.mock('./app-icon', () => ({
-  createAppIcon: () => trayMocks.image,
+  createTrayIcon: () => trayMocks.image,
 }));
 
 import { createApplicationTray } from './app-tray';
