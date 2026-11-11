@@ -5,8 +5,8 @@
  *
  *   pnpm render:preview                                   # the bundled sample note
  *   pnpm render:preview --note path/to/note.md            # any note; images beside it are copied too
- *   pnpm render:preview --scroll-to "Code blocks"         # start the shot at the line containing this text
- *   pnpm render:preview --modes dark --click "Last line"  # put the cursor on a line (reveals its source)
+ *   pnpm render:preview --scroll-to "## Code blocks"      # start the shot at this markdown source text
+ *   pnpm render:preview --modes dark --click "Last line"  # put the cursor there (reveals that line's source)
  *   pnpm render:preview --eval "document.querySelectorAll('.cm-line').length"
  *
  * Screenshots land in .local/render-preview/<name>-<mode>.png. The script starts its own Vite dev
@@ -22,6 +22,32 @@ import { createServer } from 'vite';
 import { buildTargets } from './electron-build.ts';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
+
+type EditorViewLike = {
+  dispatch: (spec: Record<string, unknown>) => void;
+  focus: () => void;
+  state: { doc: { toString: () => string } };
+  constructor: { scrollIntoView: (pos: number, options: Record<string, unknown>) => unknown };
+};
+
+// These run in the renderer, serialized on their own, so each reads the view itself: CodeMirror keeps
+// it on the content element's tile (what EditorView.findFromDOM reads).
+function placeCursorAt(content: Element, text: string): boolean {
+  const view = (content as Element & { cmTile: { root: { view: EditorViewLike } } }).cmTile.root.view;
+  const position = view.state.doc.toString().indexOf(text);
+  if (position < 0) return false;
+  view.focus();
+  view.dispatch({ selection: { anchor: position }, effects: view.constructor.scrollIntoView(position, { y: 'center' }) });
+  return true;
+}
+
+function scrollToSource(content: Element, text: string): boolean {
+  const view = (content as Element & { cmTile: { root: { view: EditorViewLike } } }).cmTile.root.view;
+  const position = view.state.doc.toString().indexOf(text);
+  if (position < 0) return false;
+  view.dispatch({ effects: view.constructor.scrollIntoView(position, { y: 'start', yMargin: 16 }) });
+  return true;
+}
 const { values } = parseArgs({
   options: {
     note: { type: 'string', default: path.join(repoRoot, 'scripts/fixtures/render-preview/Render Preview.md') },
@@ -105,15 +131,15 @@ try {
       // Lazy widgets (KaTeX, Mermaid, language parsers, images) settle after the first paint.
       await page.waitForTimeout(2000);
 
+      // Both options search the markdown source, so they also reach lines a widget stands in for.
       if (values.click) {
-        await content.locator('.cm-line', { hasText: values.click }).first().click();
+        const found = await content.evaluate(placeCursorAt, values.click);
+        if (!found) throw new Error(`--click: "${values.click}" is not in the note.`);
         await page.waitForTimeout(300);
       }
       if (values['scroll-to']) {
-        await content.evaluate((element, text) => {
-          const line = [...element.querySelectorAll('.cm-line')].find((candidate) => candidate.textContent?.includes(text));
-          line?.scrollIntoView({ block: 'start' });
-        }, values['scroll-to']);
+        const found = await content.evaluate(scrollToSource, values['scroll-to']);
+        if (!found) throw new Error(`--scroll-to: "${values['scroll-to']}" is not in the note.`);
         await page.waitForTimeout(500);
       }
       if (values.eval) console.log(`[${mode}]`, await page.evaluate(values.eval));

@@ -26,8 +26,8 @@ server, so every run reflects the current source; it never touches your real set
 - The default note, `scripts/fixtures/render-preview/Render Preview.md`, covers every live-preview
   feature (lists, images and sizes, inline HTML, code fences, alerts, containers, tables, math).
   Add a section there when you add a rendering feature.
-- `--scroll-to "<text>"` starts the shot at a line, `--click "<text>"` puts the cursor on a line
-  (to see its source revealed), `--modes dark`, `--note <file.md>`, `--eval "<js>"` to print DOM facts.
+- `--scroll-to "<source text>"` starts the shot where that markdown appears, `--click "<source text>"`
+  puts the cursor there (to see that line's source revealed), `--modes dark`, `--note <file.md>`, `--eval "<js>"` to print DOM facts.
 - Look at both screenshots before calling a visual change done.
 
 Gotcha: the dev server must be reached as `localhost`, not `127.0.0.1` (Vite may listen on `::1` only),
