@@ -84,9 +84,9 @@ jobs:
           retention-days: 7
 
   # One check that passes only when every quality job did, under the name branch protection and
-  # other workflows already know.
+  # other workflows already know. It runs when a job fails, but not when the run is cancelled.
   quality:
-    if: always()
+    if: ${{ !cancelled() }}
     needs: [static, unit, e2e]
     timeout-minutes: 5
     runs-on: ubuntu-latest

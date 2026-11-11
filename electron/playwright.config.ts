@@ -18,10 +18,10 @@ const repoRoot = resolve(import.meta.dirname, '..');
 
 export default defineConfig({
   testDir: './e2e',
-  // packaged-startup.spec.ts needs a packaged binary on disk; the regular
-  // `pnpm run test:smoke` (run on ubuntu-latest by the quality job) has no
-  // packaged binary. Exclude it here so it only runs from the `package-smoke`
-  // job after `pnpm run package:check` produces the binary on the same runner.
+  // packaged-startup.spec.ts needs a packaged binary on disk; the regular E2E run
+  // (`pnpm run test:smoke`, and the `e2e` shard jobs in CI) has none. Exclude it here so
+  // it only runs from the `package-smoke` job after `pnpm run package:check` produces
+  // the binary on the same runner.
   testIgnore: '**/packaged-startup.spec.ts',
   // Every test launches its own app with its own home directory, so tests can run side by side,
   // and CI shards split the suite test by test (`--shard`), not file by file.
