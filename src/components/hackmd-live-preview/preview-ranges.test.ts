@@ -13,7 +13,8 @@ describe('live-preview range helpers', () => {
     const line = state.doc.line(3);
     expect(ranges.length).toBeGreaterThan(0);
     expect(ranges.every((range) => range.from >= line.from && range.to <= line.to)).toBe(true);
-    expect(ranges.map((range) => state.sliceDoc(range.from, range.to))).toEqual(['==two==']);
+    // The mark itself, then its two hidden delimiters.
+    expect(ranges.map((range) => state.sliceDoc(range.from, range.to))).toEqual(['==two==', '==', '==']);
   });
 
   it('keeps single-line replace decorations as a single range', () => {

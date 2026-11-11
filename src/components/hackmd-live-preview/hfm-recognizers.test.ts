@@ -154,7 +154,7 @@ describe('HFM live-preview recognizers', () => {
   });
 
   it('recognizes HFM inline marks as source offsets', () => {
-    const marks = getHfmLineDecorations('{漢字|かんじ} ==mark== ++insert++ H ~2~ O x^2^ :smile: $x+1$ ^[inline footnote] [ref][id] ![img][id] https://hackmd.io <i class="fa fa-pencil"></i> (tm) -- "quote"').inlineMarks;
+    const marks = getHfmLineDecorations('{漢字|かんじ} ==mark== ++insert++ H ~2~ O x^2^ :smile: $x+1$ ^[inline footnote] [ref][id] ![img][id] https://hackmd.io <i class="fa fa-pencil"></i>').inlineMarks;
 
     expect(marks.map((mark) => mark.className)).toEqual(expect.arrayContaining([
       'cm-hackmd-ruby',
@@ -168,9 +168,28 @@ describe('HFM live-preview recognizers', () => {
       'cm-hackmd-reference-link',
       'cm-hackmd-autolink',
       'cm-hackmd-raw-html',
-      'cm-hackmd-typographer',
     ]));
     expect(marks.every((mark) => mark.to > mark.from)).toBe(true);
+  });
+
+  it('leaves typographer text alone, since HackMD renders it with typographer off', () => {
+    const marks = getHfmLineDecorations('(tm) -- "quote" ...').inlineMarks;
+    expect(marks).toEqual([]);
+  });
+
+  it('keeps sub and sup marks apart from strikethrough, footnotes and spaces', () => {
+    const classes = (line: string) => getHfmLineDecorations(line).inlineMarks.map((mark) => line.slice(mark.from, mark.to) + ' ' + mark.className);
+    expect(classes('~~strike~~')).toEqual([]);
+    expect(classes('H~2~O and ~~gone~~')).toEqual(['~2~ cm-hackmd-subscript']);
+    expect(classes('see [^1] and [^2]')).toEqual(['[^1] cm-hackmd-footnote-ref', '[^2] cm-hackmd-footnote-ref']);
+    expect(classes('x^2^ but not ^a b^')).toEqual(['^2^ cm-hackmd-superscript']);
+    expect(classes('`==code==` ==real==')).toEqual(['==real== cm-hackmd-mark']);
+  });
+
+  it('hides the delimiters of HackMD marks away from the cursor', () => {
+    const line = 'a ==mark== ++ins++ H~2~O x^2^';
+    const hidden = getHfmLineDecorations(line).hiddenRanges.map((range) => line.slice(range.from, range.to));
+    expect(hidden).toEqual(['==', '==', '++', '++', '~', '~', '^', '^']);
   });
 
   it('recognizes CSV and spoiler metadata as editable source marks', () => {

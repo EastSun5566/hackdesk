@@ -547,12 +547,6 @@ export const inlineMarksTheme = {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 70%, transparent)',
     borderRadius: '3px',
   },
-  '.cm-hackmd-typographer': {
-    color: 'var(--text-subtle)',
-    textDecoration: 'underline',
-    textDecorationColor: 'color-mix(in oklch, var(--text-subtle) 35%, transparent)',
-    textUnderlineOffset: '0.16em',
-  },
   '.cm-hackmd-list-marker': {
     display: 'inline-block',
     width: '0.9em',
