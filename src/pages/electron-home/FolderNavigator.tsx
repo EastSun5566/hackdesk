@@ -1460,7 +1460,7 @@ function NavigatorTree({
   ), [
     actions, activeFolderId, activeNoteId, layout.collapsedFolderIds, selectedFolderForNoteMove,
     selection.selectedFolderId, selection.selectedNoteId, showRootRow, status.isMovingFolder,
-    status.isMovingNote, tagGrouping, tree,
+    status.isMovingNote, tagGrouping, tree, treeId,
   ]);
 
   return (

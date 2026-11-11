@@ -172,6 +172,28 @@ describe('useWorkbenchActionHandlers', () => {
     expect(saveNote).toHaveBeenCalledOnce();
   });
 
+  it('runs the latest pane commands after the workspace hands in new ones', () => {
+    const base = createOptions();
+    const first = { togglePaneZoom: vi.fn(), equalizePanes: vi.fn(), focusPaneToward: vi.fn(), splitActivePaneDown: vi.fn() };
+    const next = { togglePaneZoom: vi.fn(), equalizePanes: vi.fn(), focusPaneToward: vi.fn(), splitActivePaneDown: vi.fn() };
+    const { result, rerender } = renderHook((props: WorkbenchActionHandlersOptions) => useWorkbenchActionHandlers(props), {
+      initialProps: { ...base, ...first },
+    });
+
+    // Only the pane commands change, as when the note workspace re-creates them.
+    rerender({ ...base, ...next });
+    result.current.togglePaneZoom();
+    result.current.equalizePanes();
+    result.current.focusPaneInDirection('right');
+    result.current.splitPaneDown();
+
+    expect(next.togglePaneZoom).toHaveBeenCalledOnce();
+    expect(next.equalizePanes).toHaveBeenCalledOnce();
+    expect(next.focusPaneToward).toHaveBeenCalledWith('right');
+    expect(next.splitActivePaneDown).toHaveBeenCalledOnce();
+    for (const stale of Object.values(first)) expect(stale).not.toHaveBeenCalled();
+  });
+
   it('moves the active tab past its neighbour, and acts on the selected note', () => {
     const options = createOptions();
     const { result } = renderHook(() => useWorkbenchActionHandlers(options));

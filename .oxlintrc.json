@@ -161,7 +161,7 @@
         "react/no-unsafe": "off",
         "react/react-in-jsx-scope": "off",
         "react/rules-of-hooks": "error",
-        "react/exhaustive-deps": "warn",
+        "react/exhaustive-deps": "error",
         "typescript/ban-ts-comment": "error",
         "typescript/no-duplicate-enum-values": "error",
         "typescript/no-empty-object-type": "error",
