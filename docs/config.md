@@ -51,11 +51,14 @@ For example, merge this field into your existing configuration to use Vim mode:
 
 ```json
 {
-  "editor": { "mode": "vim" }
+  "editor": { "mode": "vim" },
+  "appIcon": "nightly"
 }
 ```
 
 Set tokens and vault paths through Settings. Do not copy them into shared configuration.
+
+`appIcon` sets the Dock, taskbar, and window icon while HackDesk runs. Use `system` (the default) to follow the OS light/dark appearance, or pick a style in **Settings → General → App Icon**. Unknown values fall back to `system`.
 
 ## Protect your token
 

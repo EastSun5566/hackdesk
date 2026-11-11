@@ -1,6 +1,6 @@
 import { app, Menu, nativeImage, Tray } from 'electron';
 
-import { createAppIcon } from './app-icon';
+import { createTrayIcon } from './app-icon';
 
 type ApplicationTrayActions = {
   showMainWindow: () => void;
@@ -11,14 +11,7 @@ export function createApplicationTray({
   showMainWindow,
   showQuickCaptureWindow,
 }: ApplicationTrayActions) {
-  const icon = createAppIcon();
-  const trayIcon = process.platform === 'darwin'
-    ? icon.resize({ width: 18, height: 18, quality: 'best' })
-    : icon.resize({ width: 16, height: 16, quality: 'best' });
-
-  if (process.platform === 'darwin') {
-    trayIcon.setTemplateImage(true);
-  }
+  const trayIcon = createTrayIcon();
 
   const tray = new Tray(trayIcon.isEmpty() ? nativeImage.createEmpty() : trayIcon);
   tray.setToolTip(app.getName());
