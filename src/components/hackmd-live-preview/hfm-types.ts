@@ -14,6 +14,8 @@ export type ImageBlock = {
 };
 
 export type HfmInlineMark = {
+  /** Sanitized attributes for the mark's element (an inline colour, an abbreviation's title). */
+  attributes?: Record<string, string>;
   className: string;
   from: number;
   to: number;
@@ -22,6 +24,8 @@ export type HfmInlineMark = {
 export type HfmHiddenRange = {
   from: number;
   to: number;
+  /** Shown in place of the hidden source: `<br>` as a return glyph, `<summary>` as a disclosure mark. */
+  widget?: 'disclosure' | 'line-break';
 };
 
 export type HfmLineDecorations = {

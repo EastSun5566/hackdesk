@@ -600,6 +600,55 @@ export const inlineMarksTheme = {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 70%, transparent)',
     borderRadius: '3px',
   },
+  // Inline HTML that HackMD renders as formatting. <b>, <i>, <del>, <ins>, <mark>, <sub> and <sup>
+  // reuse the classes of their markdown equivalents.
+  '.cm-hackmd-html-kbd': {
+    display: 'inline-block',
+    border: '1px solid var(--border-default)',
+    borderBottomWidth: '2px',
+    borderRadius: '4px',
+    backgroundColor: 'var(--background-muted)',
+    color: 'var(--text-default)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.8em',
+    lineHeight: '1.3',
+    padding: '0 0.35em',
+    verticalAlign: '0.06em',
+  },
+  '.cm-hackmd-html-u': {
+    textDecoration: 'underline',
+    textUnderlineOffset: '0.15em',
+  },
+  '.cm-hackmd-html-small': {
+    fontSize: '0.85em',
+  },
+  '.cm-hackmd-html-abbr': {
+    textDecoration: 'underline dotted',
+    textUnderlineOffset: '0.15em',
+    cursor: 'help',
+  },
+  '.cm-hackmd-html-q::before': {
+    content: '"\u201C"',
+  },
+  '.cm-hackmd-html-q::after': {
+    content: '"\u201D"',
+  },
+  '.cm-hackmd-html-summary': {
+    fontWeight: '600',
+  },
+  '.cm-hackmd-html-disclosure::before': {
+    content: '"\u25B8"',
+    display: 'inline-block',
+    width: '1em',
+    color: 'var(--text-subtle)',
+  },
+  '.cm-hackmd-html-br': {
+    color: 'var(--text-subtle)',
+    fontSize: '0.85em',
+    opacity: '0.7',
+    paddingInline: '0.15em',
+    userSelect: 'none',
+  },
   '.cm-hackmd-list-marker': {
     display: 'inline-block',
     width: '0.9em',

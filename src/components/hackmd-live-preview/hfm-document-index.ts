@@ -1,10 +1,10 @@
 import { StateField, type EditorState, type Extension } from '@codemirror/state';
 
-import { getHfmBlockRanges, parseMarkdownImage } from './hfm-recognizers';
+import { getHfmBlockRanges, parseImageLine } from './hfm-recognizers';
 
 export type HfmDocumentIndex = {
   blockRanges: ReturnType<typeof getHfmBlockRanges>;
-  images: Array<NonNullable<ReturnType<typeof parseMarkdownImage>>>;
+  images: Array<NonNullable<ReturnType<typeof parseImageLine>>>;
 };
 
 export function createHfmDocumentIndex(state: EditorState): HfmDocumentIndex {
@@ -14,7 +14,7 @@ export function createHfmDocumentIndex(state: EditorState): HfmDocumentIndex {
   for (const text of state.doc.iterLines()) {
     lines.push(text);
     const to = from + text.length;
-    const image = parseMarkdownImage(text, to);
+    const image = parseImageLine(text, to);
     if (image) images.push(image);
     from = to + 1;
   }

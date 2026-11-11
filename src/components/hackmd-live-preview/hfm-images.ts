@@ -31,6 +31,51 @@ export function parseMarkdownImage(lineText: string, lineTo: number): ImageBlock
   };
 }
 
+const htmlImagePattern = /^<img(\s+[^<>]*?)\s*\/?>$/i;
+const htmlAttributePattern = /([^\s"'=<>/`]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+
+/**
+ * A line holding only an `<img>` tag. HackMD's sanitizer keeps src, alt, title, width and height on
+ * an image, so those are the attributes read here; everything else is dropped.
+ */
+export function parseHtmlImage(lineText: string, lineTo: number): ImageBlock | null {
+  const match = lineText.trim().match(htmlImagePattern);
+  if (!match) {
+    return null;
+  }
+
+  const attributes = new Map<string, string>();
+  for (const attribute of match[1].matchAll(htmlAttributePattern)) {
+    attributes.set(attribute[1].toLowerCase(), decodeHtmlEntities(attribute[2] ?? attribute[3] ?? attribute[4] ?? ''));
+  }
+
+  const src = attributes.get('src')?.trim();
+  if (!src || unsafeImageSourcePattern.test(src)) {
+    return null;
+  }
+
+  return {
+    alt: attributes.get('alt') ?? '',
+    src,
+    lineFrom: lineTo - lineText.length,
+    lineTo,
+    title: attributes.get('title') || undefined,
+    width: parseImageSize(attributes.get('width')?.trim()),
+    height: parseImageSize(attributes.get('height')?.trim()),
+  };
+}
+
+/** A line that is a single image, in markdown or HTML. */
+export function parseImageLine(lineText: string, lineTo: number): ImageBlock | null {
+  return parseMarkdownImage(lineText, lineTo) ?? parseHtmlImage(lineText, lineTo);
+}
+
+function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(?:amp|lt|gt|quot|#39|#x27);/g, (entity) => ({
+    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&#x27;': "'",
+  })[entity] ?? entity);
+}
+
 /** A HackMD size side: digits are pixels, a trailing `%` is a percentage of the column. */
 export function parseImageSize(value: string | undefined): ImageSize | undefined {
   const match = value?.match(/^(\d+(?:\.\d+)?)(%|px)?$/);

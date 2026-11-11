@@ -7,6 +7,7 @@ import type {
   HfmHiddenRange,
   HfmInlineMark,
 } from './hfm-types';
+import { getInlineHtmlDecorations } from './inline-html';
 
 // HackMD's delimited inline marks (markdown-it-mark, -ins, -sub, -sup). Sub and sup content has no
 // unescaped whitespace, and a single `~` must not be half of a `~~strikethrough~~`.
@@ -32,7 +33,8 @@ export function getHackmdInlineMarks(text: string): HfmInlineMark[] {
     ...getRegexMarks(text, /(?<!\\)\$(?!\s|\$)(?:\\.|[^\n$\\])+(?<!\s|\$)\$/g, 'cm-hackmd-inline-math'),
     ...getRegexMarks(text, /\^\[[^\]\n]+\]/g, 'cm-hackmd-inline-footnote'),
     ...getRegexMarks(text, /\bhttps?:\/\/[^\s<]+/g, 'cm-hackmd-autolink'),
-    ...getRegexMarks(text, /<\/?[A-Za-z][^>\n]*>/g, 'cm-hackmd-raw-html'),
+    ...getRegexMarks(text, /<\/?[A-Za-z][^>\n]*>/g, 'cm-hackmd-raw-html', codeSpans),
+    ...getInlineHtmlDecorations(text, codeSpans).marks,
     ...getRegexMarks(text, /:[A-Za-z0-9_+-]+:/g, 'cm-hackmd-emoji'),
     ...getRegexMarks(text, /^\s*:\s+.+$/g, 'cm-hackmd-definition-line'),
     ...getRegexMarks(text, /^\s*~\s+.+$/g, 'cm-hackmd-definition-line'),
@@ -53,6 +55,8 @@ export function getHackmdHiddenRanges(text: string): HfmHiddenRange[] {
       ranges.push({ from: mark.from, to: mark.from + delimiter }, { from: mark.to - delimiter, to: mark.to });
     }
   }
+
+  ranges.push(...getInlineHtmlDecorations(text, codeSpans).hidden);
 
   return ranges.sort((left, right) => left.from - right.from);
 }

@@ -60,6 +60,47 @@ class AlertHeaderWidget extends WidgetType {
   }
 }
 
+class LineBreakWidget extends WidgetType {
+  eq(): boolean {
+    return true;
+  }
+
+  toDOM(): HTMLElement {
+    // The editor cannot break the line the way the rendered note does, so it marks where `<br>` is.
+    const mark = document.createElement('span');
+    mark.className = 'cm-hackmd-html-br';
+    mark.setAttribute('aria-label', 'line break');
+    mark.textContent = '↵';
+    return mark;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
+class DisclosureWidget extends WidgetType {
+  eq(): boolean {
+    return true;
+  }
+
+  toDOM(): HTMLElement {
+    const mark = document.createElement('span');
+    mark.className = 'cm-hackmd-html-disclosure';
+    mark.setAttribute('aria-hidden', 'true');
+    return mark;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
+const hiddenRangeWidgets = {
+  disclosure: new DisclosureWidget(),
+  'line-break': new LineBreakWidget(),
+};
+
 export const revealInitialSelection = StateEffect.define<void>();
 const initialSelectionHidden = StateField.define<boolean>({
   create: () => true,
@@ -229,7 +270,7 @@ function addHackmdInlineSyntaxRanges(
   ranges: PreviewRange[],
 ) {
   for (const mark of marks) {
-    ranges.push(Decoration.mark({ class: mark.className }).range(
+    ranges.push(Decoration.mark({ class: mark.className, attributes: mark.attributes }).range(
       lineFrom + mark.from,
       lineFrom + mark.to,
     ));
@@ -249,6 +290,12 @@ function addHackmdHiddenSyntaxRanges(
   }
 
   for (const hiddenRange of hiddenRanges) {
-    pushReplace(ranges, state.doc, lineFrom + hiddenRange.from, lineFrom + hiddenRange.to);
+    pushReplace(
+      ranges,
+      state.doc,
+      lineFrom + hiddenRange.from,
+      lineFrom + hiddenRange.to,
+      hiddenRange.widget ? { widget: hiddenRangeWidgets[hiddenRange.widget] } : {},
+    );
   }
 }
