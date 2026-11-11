@@ -33,6 +33,9 @@ export function cacheLocalVaultSnapshot(queryClient: QueryClient, snapshot: Loca
   const active = queryClient.getQueryData<LocalVaultSnapshot | null>(activeKey);
   // An unknown active path (settings not loaded yet) can't contradict the snapshot, and mutations
   // only run against the active vault; a known path must match before the snapshot may land here.
+  // A scan reports its resolved root, so that match only holds when the stored path is already
+  // resolved (not through /var on macOS, or a short name on Windows). The session itself writes
+  // the open folder's key by stored path, so nothing relies on this fallback for the open folder.
   if ((!active && (activePath === null || activePath === snapshot.rootPath)) || active?.vaultId === snapshot.vaultId) {
     queryClient.setQueryData(activeKey, snapshot);
   }
