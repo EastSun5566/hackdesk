@@ -184,6 +184,18 @@ function SettingsDialogContent({
   useEffect(() => {
     if (!open) cancelAppearanceDraftRef.current();
   }, [open]);
+  // Every close path, the parent's included: a token check still running when Settings closes
+  // must not save afterwards, nor leave "Testing token…" behind for the next time it opens.
+  useLayoutEffect(() => {
+    if (!open) tokenValidationRequestRef.current += 1;
+  }, [open]);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (!open && formState.tokenTest.status === 'testing') {
+      setFormState((current) => ({ ...current, tokenTest: { status: 'idle', message: '' } }));
+    }
+  }
   useEffect(() => cancelPreview, [cancelPreview]);
   const { appIcon, editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible, addingAccount } = formState;
 
