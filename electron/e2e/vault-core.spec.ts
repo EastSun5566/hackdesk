@@ -28,13 +28,13 @@ test('@core Local Vault notes and folders are created, renamed, moved and trashe
   await page.keyboard.press(`${primary}+s`);
   // The saved note replaces the draft tab; wait for that before the next command.
   await expect(page.getByRole('tab', { name: 'Plan', exact: true, selected: true })).toBeVisible();
+  // Saving keeps the editor focused, so note commands apply to the saved note right away.
+  await expect(editor).toBeFocused();
   await expect(tree.getByRole('treeitem', { name: /^Plan/ })).toBeVisible();
   await expect.poll(() => markdownFiles(vault)).toEqual(['Inbox.md', 'Plan.md']);
   expect(await readFile(join(vault, 'Plan.md'), 'utf8')).toContain('Written in HackDesk');
 
-  // Renaming the note renames its file. Note commands follow the focused note; saving a new
-  // draft does not always leave focus on it, so select it first.
-  await tree.getByRole('treeitem', { name: /^Plan/ }).click();
+  // Renaming the note renames its file.
   await runCommand(page, 'Rename Note');
   const rename = page.getByRole('dialog', { name: 'Rename Note' });
   await rename.getByLabel('Title').fill('Roadmap');

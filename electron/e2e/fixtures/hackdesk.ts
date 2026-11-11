@@ -45,8 +45,8 @@ type Launch = (options?: LaunchOptions) => Promise<HackDesk>;
 
 /**
  * Quits through the app's own close flow; Playwright's `app.close()` never returns while HackDesk
- * asks to confirm closing. With unsaved drafts (even the empty first-launch one) HackDesk keeps
- * them for the next launch, so this confirms like a user and waits for the process to exit.
+ * asks to confirm closing. With unsaved drafts HackDesk keeps them for the next launch and asks
+ * first, so this confirms like a user when asked and waits for the process to exit.
  */
 async function quit(app: ElectronApplication, page: Page) {
   const child = app.process();
@@ -151,18 +151,21 @@ export { expect };
 
 /** Runs a command by name from the command palette. */
 export async function runCommand(page: Page, label: string) {
-  const search = page.getByRole('combobox', { name: 'Search notes, folders, and commands' });
+  // Only an open palette counts. The one closed by the previous command can still be in the page
+  // while it finishes closing, and in a window without focus that can take seconds.
+  const palette = page.locator('[role="dialog"]:not([data-closed])');
+  const search = palette.getByRole('combobox', { name: 'Search notes, folders, and commands' });
   // Right after launch the window can take the key before its shortcuts are listening.
   await expect(async () => {
     if (!(await search.isVisible())) await page.keyboard.press(`${primary}+Shift+P`);
     await expect(search).toBeVisible({ timeout: 1000 });
   }).toPass();
   await search.fill(label);
-  const option = page.getByRole('option', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).first();
+  const option = palette.getByRole('option', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).first();
   try {
     await option.click({ timeout: 10_000 });
   } catch (error) {
-    const suggestions = await page.getByRole('listbox').ariaSnapshot({ timeout: 1000 }).catch(() => '(no suggestions)');
+    const suggestions = await palette.getByRole('listbox').ariaSnapshot({ timeout: 1000 }).catch(() => '(no suggestions)');
     throw new Error(`The palette offered no "${label}" command. It showed:\n${suggestions}`, { cause: error });
   }
 }

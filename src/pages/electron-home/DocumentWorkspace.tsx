@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
-import { getSavedTabNoteIdentity, isDraftNoteTab, isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
+import { getNoteTabEditorKey, getSavedTabNoteIdentity, isDraftNoteTab, isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { EmptyState } from './interaction-primitives';
 import { layoutNodeId, layoutPaneIds, type PaneLayoutNode } from './pane-layout';
@@ -383,7 +383,7 @@ export function DocumentWorkspace({
         <PaneTabIdContext.Provider value={view.activeTab?.tabId ?? null}>
           <DocumentDetail
             // With the tab's note: a book's tab turns chapters in place, and each needs its own editor and undo history.
-            editorKey={view.activeTab ? `${view.activeTab.tabId}:${isDraftNoteTab(view.activeTab) || isBlankNoteTab(view.activeTab) ? '' : `${view.activeTab.teamPath ?? ''}:${view.activeTab.noteId}`}` : `${pane.paneId}:empty`}
+            editorKey={view.activeTab ? getNoteTabEditorKey(view.activeTab) : `${pane.paneId}:empty`}
             editorMode={editorMode}
             folderTree={folderTree}
             documentState={{

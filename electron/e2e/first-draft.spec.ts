@@ -34,6 +34,31 @@ async function quit(app: ElectronApplication, page: Page) {
   await expect.poll(() => process.exitCode).toBe(0);
 }
 
+test('quits a fresh install without asking when its first draft is still empty', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'hackdesk-empty-draft-'));
+  const { app, page } = await launch(home);
+  // Held before quitting: the app's handle can't be asked for its process once it has exited.
+  const child = app.process();
+  try {
+    await expect(page.locator('.cm-content')).toBeFocused();
+    await expect(page.getByRole('tab')).toHaveCount(1);
+    const exited = new Promise<'exited'>(resolveExit => child.once('exit', () => resolveExit('exited')));
+    await app.evaluate(({ app }) => { setImmediate(() => app.quit()); });
+    // Nothing was typed, so nothing is kept and there is nothing to confirm.
+    const outcome = await Promise.race([
+      exited,
+      page.getByRole('alertdialog').waitFor({ state: 'visible', timeout: 15_000 }).then(
+        () => 'confirmation' as const,
+        () => 'closed' as const,
+      ),
+    ]);
+    expect(outcome).not.toBe('confirmation');
+    await exited;
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  }
+});
+
 test('starts without setup, preserves drafts through cancel/restart, and saves only the chosen draft to a real vault', async () => {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-first-draft-'));
   const vault = join(home, 'vault');

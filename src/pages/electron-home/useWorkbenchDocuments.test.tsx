@@ -157,6 +157,37 @@ describe('useWorkbenchDocuments', () => {
     expect(result.current.noteDirty).toBe(true);
   });
 
+  it("counts a new note's draft as unsaved only once it holds something", () => {
+    const draftTab: OpenNoteTab = {
+      kind: 'draft',
+      tabId: 'draft-tab',
+      draftId: 'draft-1',
+      title: 'Untitled',
+      shortId: null,
+      updatedAtMillis: null,
+    };
+    const empty: NoteDocumentDraft = { title: 'Untitled', content: '', baseTitle: 'Untitled', baseContent: '' };
+    const { result, rerender } = renderHook((props: WorkbenchDocumentsOptions) => useWorkbenchDocuments(props), {
+      initialProps: createOptions({
+        activeTab: draftTab,
+        drafts: { [draftTab.tabId]: empty },
+        tabs: { [draftTab.tabId]: draftTab },
+      }),
+    });
+
+    // An untouched Untitled draft is not kept, so closing it or quitting asks nothing, but it can
+    // still be saved.
+    expect(result.current.isTabDirty(draftTab)).toBe(false);
+    expect(result.current.noteDirty).toBe(true);
+
+    rerender(createOptions({
+      activeTab: draftTab,
+      drafts: { [draftTab.tabId]: { ...empty, content: '# Plan' } },
+      tabs: { [draftTab.tabId]: draftTab },
+    }));
+    expect(result.current.isTabDirty(draftTab)).toBe(true);
+  });
+
   it('derives loading, cached, save failed, and saved sync states', () => {
     const tab = createTab();
     const identity = { id: tab.noteId, teamPath: tab.teamPath };
