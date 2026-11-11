@@ -350,6 +350,11 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-fenced-code:not(.cm-hackmd-code-footer, .cm-hackmd-code-last), .cm-hackmd-indented-code': {
     boxShadow: `0 1px 0 ${CODE_PANEL_BACKGROUND}`,
   },
+  // Measured space between a panel and a line that touches it (see block-spacing.ts). 12px matches
+  // the widget's estimated height, so the height map needs no correction.
+  '.cm-hackmd-panel-spacer': {
+    height: '12px',
+  },
   '.cm-hackmd-code-header': {
     borderStartStartRadius: '6px',
     borderStartEndRadius: '6px',

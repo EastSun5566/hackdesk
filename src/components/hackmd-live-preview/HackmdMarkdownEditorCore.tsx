@@ -40,6 +40,7 @@ import { dictation as dictationExtension, toggleDictation, type DictationHost } 
 import { noteEmbeds, type NoteEmbedHost } from './note-embeds/extension';
 import { hackmdCompletions, type NoteLinksHost } from './hackmd-completions';
 import { resolveCodeLanguage } from './hackmd-code-languages';
+import { hackmdPanelSpacing } from './block-spacing';
 import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
 import { hackmdInlinePreview } from './inline-preview';
@@ -139,6 +140,7 @@ const editorExtensions: Extension[] = [
   initialRevealExtension(),
   hackmdRichPreviewNavigation(),
   hackmdRichPreviewWidgets(),
+  hackmdPanelSpacing(),
   EditorView.lineWrapping,
   keymap.of([
     indentWithTab,
