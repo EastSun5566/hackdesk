@@ -24,15 +24,17 @@ describe('HFM live-preview recognizers', () => {
   it('recognizes HackMD image size syntax without unsafe URL schemes', () => {
     expect(parseMarkdownImage('![Alt](https://example.com/a.png =320x180)', 42)).toEqual({
       alt: 'Alt',
-      height: 180,
+      height: { value: 180, unit: 'px' },
+      lineFrom: 0,
       lineTo: 42,
       src: 'https://example.com/a.png',
-      width: 320,
+      title: undefined,
+      width: { value: 320, unit: 'px' },
     });
     expect(parseMarkdownImage('![bad](javascript:alert(1))', 10)).toBeNull();
     expect(parseMarkdownImage('![bad](data:image/png;base64,abc)', 10)).toBeNull();
-    expect(parseMarkdownImage('![Alt](<圖 my image.png> =320x180 "Title")', 42)).toMatchObject({
-      src: '圖 my image.png', width: 320, height: 180,
+    expect(parseMarkdownImage('![Alt](<圖 my image.png> "Title" =320x180)', 42)).toMatchObject({
+      src: '圖 my image.png', title: 'Title', width: { value: 320 }, height: { value: 180 },
     });
   });
 

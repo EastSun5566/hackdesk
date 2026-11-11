@@ -13,6 +13,8 @@ import {
 } from '@codemirror/view';
 
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
+import { formatImageSize } from './hfm-images';
+import type { ImageSize } from './hfm-types';
 import { treeGrowthEffect } from './tree-progress';
 import { resolvePreviewImageSource, type LocalImageContext } from '@/lib/local-image';
 
@@ -36,8 +38,8 @@ class ImagePreviewWidget extends WidgetType {
     private readonly src: string | null,
     private readonly alt: string,
     private readonly lineTo: number,
-    private readonly width?: number,
-    private readonly height?: number,
+    private readonly width?: ImageSize,
+    private readonly height?: ImageSize,
   ) {
     super();
   }
@@ -46,13 +48,13 @@ class ImagePreviewWidget extends WidgetType {
     return other.src === this.src
       && other.alt === this.alt
       && other.lineTo === this.lineTo
-      && other.width === this.width
-      && other.height === this.height;
+      && sameSize(other.width, this.width)
+      && sameSize(other.height, this.height);
   }
 
   get estimatedHeight(): number {
-    if (this.height) {
-      return this.height + 48;
+    if (this.height?.unit === 'px') {
+      return this.height.value + 48;
     }
 
     const cached = this.src ? imageDimensionCache.get(this.src) : undefined;
@@ -73,20 +75,7 @@ class ImagePreviewWidget extends WidgetType {
     image.alt = this.alt;
     image.loading = 'lazy';
 
-    const cached = this.src ? imageDimensionCache.get(this.src) : undefined;
-    const stableWidth = this.width ?? cached?.width;
-    const stableHeight = this.height ?? cached?.height;
-    if (stableWidth && stableHeight) {
-      image.width = stableWidth;
-      image.height = stableHeight;
-    }
-
-    if (this.width) {
-      image.style.maxWidth = `${this.width}px`;
-    }
-    if (this.height) {
-      image.style.maxHeight = `${this.height}px`;
-    }
+    applyImageSize(image, this.width, this.height, this.src ? imageDimensionCache.get(this.src) : undefined);
 
     image.addEventListener('load', () => {
       if (!this.src || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
@@ -177,4 +166,35 @@ const hfmBlocksField = StateField.define<DecorationSet>({
 
 export function hfmBlocks(context: LocalImageContext | null = null): Extension {
   return [hfmDocumentIndexExtension, localImageContextField.init(() => context), hfmBlocksField];
+}
+
+function sameSize(left?: ImageSize, right?: ImageSize): boolean {
+  return left?.value === right?.value && left?.unit === right?.unit;
+}
+
+/**
+ * Sizes the image the way HackMD does: a given width or height is the rendered size (so a small
+ * image scales up), a missing side follows the aspect ratio, and the theme caps the width at the
+ * column. A percentage height has no box to resolve against, on HackMD too, so it is ignored.
+ */
+export function applyImageSize(
+  image: HTMLImageElement,
+  width: ImageSize | undefined,
+  height: ImageSize | undefined,
+  natural: { height: number; width: number } | undefined,
+) {
+  // Pixel sizes also go on the attributes, which reserve the box (and its aspect ratio) before load.
+  if (width) {
+    image.style.width = formatImageSize(width);
+    if (width.unit === 'px') image.width = width.value;
+  }
+  if (height?.unit === 'px') {
+    image.style.height = formatImageSize(height);
+    image.height = height.value;
+  }
+  if (natural && !width && !height) {
+    // Reserve the natural box before the image loads, so the editor's height map stays stable.
+    image.width = natural.width;
+    image.height = natural.height;
+  }
 }

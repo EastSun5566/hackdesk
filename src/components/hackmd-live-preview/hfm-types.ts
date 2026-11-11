@@ -1,9 +1,16 @@
+export type ImageSize = {
+  unit: '%' | 'px';
+  value: number;
+};
+
 export type ImageBlock = {
   alt: string;
-  height?: number;
+  height?: ImageSize;
+  lineFrom: number;
   lineTo: number;
   src: string;
-  width?: number;
+  title?: string;
+  width?: ImageSize;
 };
 
 export type HfmInlineMark = {
