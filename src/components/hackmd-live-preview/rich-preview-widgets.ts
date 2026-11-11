@@ -14,6 +14,7 @@ import {
 
 import { activeLinesChanged, getActiveLines, getFrontmatterRange, revealInitialSelection } from './hfm-decoration-ranges';
 import { fenceOpenPattern } from './hfm-patterns';
+import { findInlineMath } from './inline-math';
 import {
   ensureFontAwesomeCss,
   parseCsvPreview,
@@ -35,7 +36,6 @@ type FencePreview = {
 const richFenceLanguages = new Set(['csvpreview', 'math', 'tex', 'latex', 'mermaid']);
 const mathFenceLanguages = new Set(['math', 'tex', 'latex']);
 const emojiPattern = /:([A-Za-z0-9_+-]+):/g;
-const inlineMathPattern = /(?<!\\)\$(?!\s|\$)((?:\\.|[^\n$\\])+(?<!\s|\$))\$/g;
 const fontAwesomeTagPattern = /<i\s+class=(["'])([^"']+)\1\s*><\/i>/gi;
 // Font Awesome 4.7 classes, as HackMD notes write them: `fa` plus `fa-*` names and modifiers.
 const safeFontAwesomeClassPattern = /^(?:fa|fa-[a-z0-9-]+)$/;
@@ -236,21 +236,24 @@ class InlineMathWidget extends WidgetType {
   constructor(
     private readonly source: string,
     private readonly sourceFrom: number,
+    /** `$$…$$` within a line: display math, centred on a row of its own as HackMD shows it. */
+    private readonly display = false,
   ) {
     super();
   }
 
   eq(other: InlineMathWidget): boolean {
-    return other.source === this.source && other.sourceFrom === this.sourceFrom;
+    return other.source === this.source && other.sourceFrom === this.sourceFrom && other.display === this.display;
   }
 
   toDOM(view: EditorView): HTMLElement {
     const span = document.createElement('span');
     span.className = 'cm-hackmd-rich-math-inline cm-hackmd-rich-math-inline-pending';
+    if (this.display) span.classList.add('cm-hackmd-rich-math-display');
     span.setAttribute('contenteditable', 'false');
     span.textContent = 'math';
 
-    renderMath(this.source, { display: false })
+    renderMath(this.source, { display: this.display })
       .then((result) => {
         if (span.isConnected) {
           span.classList.remove('cm-hackmd-rich-math-inline-pending');
@@ -493,16 +496,10 @@ function addFontAwesomeWidgets(text: string, lineFrom: number, ranges: Array<Ran
 }
 
 function addInlineMathWidgets(text: string, lineFrom: number, ranges: Array<Range<Decoration>>) {
-  for (const match of text.matchAll(inlineMathPattern)) {
-    const source = match[1];
-    const index = match.index;
-    if (!source || index === undefined) {
-      continue;
-    }
-
+  for (const match of findInlineMath(text)) {
     ranges.push(Decoration.replace({
-      widget: new InlineMathWidget(source, lineFrom + index),
-    }).range(lineFrom + index, lineFrom + index + match[0].length));
+      widget: new InlineMathWidget(match.source, lineFrom + match.from, match.display),
+    }).range(lineFrom + match.from, lineFrom + match.to));
   }
 }
 
