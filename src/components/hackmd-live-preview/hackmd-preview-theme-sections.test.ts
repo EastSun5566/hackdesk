@@ -150,16 +150,24 @@ describe('HackMD preview widget theme', () => {
   });
 
   it('uses semantic status tokens for alert blocks and headings', () => {
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo'].boxShadow)
-      .toContain('var(--link-text-default)');
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-tip'].boxShadow)
-      .toContain('var(--success-default)');
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-warning'].boxShadow)
-      .toContain('var(--warning-default)');
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger'].boxShadow)
-      .toContain('var(--destructive-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo'].borderLeftColor)
+      .toBe('var(--link-text-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-tip'].borderLeftColor)
+      .toBe('var(--success-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-warning'].borderLeftColor)
+      .toBe('var(--warning-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger'].borderLeftColor)
+      .toBe('var(--destructive-default)');
     expect(inlineMarksTheme['.cm-hackmd-alert-heading-important'].color)
       .toBe('var(--primary-default)');
+  });
+
+  it('draws block edges with borders, never inset shadows on rounded lines', () => {
+    // An inset box-shadow on a line with border-radius bleeds a hairline across each line edge.
+    for (const [selector, style] of Object.entries(codeAndBlockTheme)) {
+      if (!/alert-block|container-block|table-block|blockquote-meta/.test(selector)) continue;
+      expect(style, selector).not.toHaveProperty('boxShadow');
+    }
   });
 
   it('does not retain obsolete aliases or fixed light and dark alert colors', () => {

@@ -335,64 +335,69 @@ export const codeAndBlockTheme = {
     boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
     paddingInline: '0.875rem',
   },
+  // Alerts and containers mark their edge with a real left border, as HackMD and GitHub do. An inset
+  // box-shadow on a rounded line bleeds a hairline across every line edge, and alert lines are also
+  // blockquote lines, whose own border would double the bar; this border replaces it.
   '.cm-hackmd-alert-block': {
     color: 'var(--text-default)',
     backgroundColor: 'transparent',
-    boxShadow: 'inset .25em 0 0 var(--border-bold)',
+    borderLeft: '0.25em solid var(--border-bold)',
     paddingInlineStart: '1rem',
     paddingInlineEnd: '0.75rem',
   },
   '.cm-hackmd-container-block': {
     color: 'var(--text-default)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
-    boxShadow: 'inset 4px 0 0 color-mix(in oklch, var(--primary-default) 72%, var(--border-bold) 28%)',
-    paddingInlineStart: '1.15rem',
+    borderLeft: '3px solid color-mix(in oklch, var(--primary-default) 72%, var(--border-bold) 28%)',
+    paddingInlineStart: '1rem',
     paddingInlineEnd: '0.75rem',
   },
   '.cm-hackmd-alert-block-start, .cm-hackmd-container-block-start': {
-    borderStartStartRadius: '6px',
-    borderStartEndRadius: '6px',
     paddingTop: '0.12rem',
   },
   '.cm-hackmd-alert-block-end, .cm-hackmd-container-block-end': {
-    borderEndStartRadius: '6px',
-    borderEndEndRadius: '6px',
     paddingBottom: '0.12rem',
   },
+  // Only the tinted container has a surface to round, and only on the side away from its border.
+  '.cm-hackmd-container-block-start': {
+    borderStartEndRadius: '6px',
+  },
+  '.cm-hackmd-container-block-end': {
+    borderEndEndRadius: '6px',
+  },
   '.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo': {
-    boxShadow: 'inset .25em 0 0 var(--link-text-default)',
+    borderLeftColor: 'var(--link-text-default)',
   },
   '.cm-hackmd-alert-block-tip': {
-    boxShadow: 'inset .25em 0 0 var(--success-default)',
+    borderLeftColor: 'var(--success-default)',
   },
   '.cm-hackmd-alert-block-important': {
-    boxShadow: 'inset .25em 0 0 var(--primary-default)',
+    borderLeftColor: 'var(--primary-default)',
   },
   '.cm-hackmd-alert-block-warning': {
-    boxShadow: 'inset .25em 0 0 var(--warning-default)',
+    borderLeftColor: 'var(--warning-default)',
   },
   '.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger': {
-    boxShadow: 'inset .25em 0 0 var(--destructive-default)',
+    borderLeftColor: 'var(--destructive-default)',
   },
   '.cm-hackmd-container-block-success': {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--success-default) 8%)',
-    boxShadow: 'inset 4px 0 0 var(--success-default)',
+    borderLeftColor: 'var(--success-default)',
   },
   '.cm-hackmd-container-block-warning': {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 90%, var(--warning-default) 10%)',
-    boxShadow: 'inset 4px 0 0 var(--warning-default)',
+    borderLeftColor: 'var(--warning-default)',
   },
   '.cm-hackmd-container-block-danger': {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 90%, var(--destructive-default) 10%)',
-    boxShadow: 'inset 4px 0 0 var(--destructive-default)',
+    borderLeftColor: 'var(--destructive-default)',
   },
   '.cm-hackmd-container-block-spoiler': {
     backgroundColor: 'var(--background-muted)',
-    boxShadow: 'inset 3px 0 0 var(--border-bold)',
+    borderLeftColor: 'var(--border-bold)',
   },
   '.cm-hackmd-table-block': {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 76%, var(--primary-default) 24%)',
     paddingInlineStart: '0.75rem',
     paddingInlineEnd: '0.75rem',
   },
@@ -406,30 +411,22 @@ export const codeAndBlockTheme = {
     borderEndEndRadius: '6px',
     paddingBottom: '0.1rem',
   },
+  // `[name=]`, `[time=]` and `[color=]` lines belong to the blockquote around them; they take its
+  // border and colour instead of a tinted band of their own.
   '.cm-hackmd-blockquote-meta-block': {
     color: 'var(--text-subtle)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 3px 0 0 color-mix(in oklch, var(--primary-default) 52%, var(--border-bold) 48%)',
-    paddingInlineStart: '0.85rem',
   },
-  '.cm-hackmd-blockquote-meta-block-start': {
-    borderStartStartRadius: '6px',
-    borderStartEndRadius: '6px',
-    paddingTop: '0.1rem',
-  },
-  '.cm-hackmd-blockquote-meta-block-end': {
-    borderEndStartRadius: '6px',
-    borderEndEndRadius: '6px',
-    paddingBottom: '0.1rem',
-  },
-  '.cm-hackmd-tags-line, .cm-hackmd-toc-line, .cm-hackmd-blockquote-meta': {
+  '.cm-hackmd-tags-line, .cm-hackmd-toc-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'var(--background-muted)',
+  },
+  '.cm-hackmd-blockquote-meta': {
+    color: 'var(--text-subtle)',
   },
   '.cm-hackmd-hfm-fence, .cm-hackmd-code-fence-options, .cm-hackmd-math-block-line, .cm-hackmd-external-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 55%, var(--border-bold) 45%)',
+    borderLeft: '2px solid color-mix(in oklch, var(--primary-default) 55%, var(--border-bold) 45%)',
     paddingInlineStart: '0.75rem',
   },
   '.cm-hackmd-indented-code': {
@@ -747,18 +744,15 @@ export const widgetTheme = {
   '.cm-hackmd-image-unavailable[hidden]': {
     display: 'none',
   },
+  // Rendered math and diagrams stand on the page like the images do: no frame, tint or accent stripe.
   '.cm-hackmd-rich-block': {
     maxWidth: 'min(100%, 820px)',
     contentVisibility: 'auto',
     containIntrinsicSize: 'auto none auto 220px',
-    border: '1px solid var(--border-default)',
-    borderRadius: '6px',
-    backgroundColor: 'var(--background-muted)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 60%, var(--border-bold) 40%)',
     color: 'var(--text-default)',
     fontFamily: 'var(--font-sans)',
     overflow: 'auto',
-    padding: '1.2rem 0.75rem 0.75rem 0.75rem',
+    padding: '0.5rem 0',
   },
   '.cm-hackmd-rich-render-body': {
     minHeight: '1.5rem',
@@ -781,9 +775,8 @@ export const widgetTheme = {
     margin: '0',
     color: 'var(--text-default)',
   },
-  '.cm-hackmd-rich-render-error': {
-    borderColor: 'var(--destructive-default)',
-    boxShadow: 'inset 2px 0 0 var(--destructive-default)',
+  '.cm-hackmd-rich-render-error, .cm-hackmd-rich-render-error .cm-hackmd-rich-render-body': {
+    color: 'var(--destructive-default)',
   },
   '.cm-hackmd-rich-emoji': {
     display: 'inline-block',
