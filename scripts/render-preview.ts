@@ -7,6 +7,7 @@
  *   pnpm render:preview --note path/to/note.md            # any note; images beside it are copied too
  *   pnpm render:preview --scroll-to "## Code blocks"      # start the shot at this markdown source text
  *   pnpm render:preview --modes dark --click "Last line"  # put the cursor there (reveals that line's source)
+ *   pnpm render:preview --find "link"                     # open find (Cmd/Ctrl+F) and type a query
  *   pnpm render:preview --eval "document.querySelectorAll('.cm-line').length"
  *
  * Screenshots land in .local/render-preview/<name>-<mode>.png. The script starts its own Vite dev
@@ -56,6 +57,7 @@ const { values } = parseArgs({
     name: { type: 'string' },
     'scroll-to': { type: 'string' },
     click: { type: 'string' },
+    find: { type: 'string' },
     eval: { type: 'string' },
     width: { type: 'string', default: '1280' },
     height: { type: 'string', default: '1400' },
@@ -141,6 +143,12 @@ try {
         const found = await content.evaluate(scrollToSource, values['scroll-to']);
         if (!found) throw new Error(`--scroll-to: "${values['scroll-to']}" is not in the note.`);
         await page.waitForTimeout(500);
+      }
+      if (values.find !== undefined) {
+        await content.click();
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+f' : 'Control+f');
+        await page.keyboard.type(values.find);
+        await page.waitForTimeout(300);
       }
       if (values.eval) console.log(`[${mode}]`, await page.evaluate(values.eval));
 
