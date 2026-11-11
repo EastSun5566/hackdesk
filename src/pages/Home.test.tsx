@@ -402,6 +402,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
     },
     localVault: {
       choose: vi.fn(async () => ({ canceled: true })),
+      measure: vi.fn(async () => { throw new Error('Unexpected folder measure.'); }),
       activate: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
       forget: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
       updateWorkspace: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
@@ -811,6 +812,7 @@ describe('Home native-feel behavior', () => {
       },
       localVault: {
         choosePath,
+        measure: vi.fn(async ({ path }: { path: string }) => ({ path, name: 'tmp', notes: 1, exceedsLimit: false, limit: 20_000 })),
       },
     });
 
@@ -818,9 +820,12 @@ describe('Home native-feel behavior', () => {
     const onboardingDialog = await openHackmdOnboardingDialog();
     fireEvent.click(within(onboardingDialog).getByRole('button', { name: 'Open local folder' }));
 
-    // The in-app picker opens instead of the native dialog; choosing confirms the vault.
+    // The in-app picker opens instead of the native dialog; the app's own dialog confirms the folder.
     const picker = await screen.findByRole('dialog', { name: 'Choose a Vault Folder' });
     fireEvent.click(within(picker).getByRole('button', { name: /Choose “tmp”/ }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Use “tmp” as a vault folder?' });
+    expect(choosePath).not.toHaveBeenCalled();
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Use Folder' }));
     await waitFor(() => expect(choosePath).toHaveBeenCalledOnce());
     await waitFor(() => {
       expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
@@ -2624,6 +2629,8 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await within(palette).findByRole('option', { name: /^Projects/ }));
 
     await selectCurrentFolderScope();
+    // The scope narrows a search; on its own it leaves the tree.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search notes' }), { target: { value: 'Note' } });
 
     await screen.findByText('1 result');
     expect(getNoteRow('Folder Note')).toBeInTheDocument();
@@ -2651,6 +2658,8 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(within(folders).getByRole('option', { name: /^Root/ }));
 
     await selectCurrentFolderScope();
+    // The scope narrows a search; on its own it leaves the tree.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search notes' }), { target: { value: 'Note' } });
 
     await screen.findByText('1 result');
     expect(getNoteRow('Root Note')).toBeInTheDocument();
@@ -3489,7 +3498,7 @@ describe('Home native-feel behavior', () => {
     expect(getNoteRow('History Product')).toBeInTheDocument();
   });
 
-  it('sorts finder results by title', async () => {
+  it('sorts the tree\'s notes by title without leaving the tree', async () => {
     const notes = [
       { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 3000 },
       { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 1000 },
@@ -3507,12 +3516,13 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await screen.findByText('Title A-Z'));
 
     await waitFor(() => {
-      // Only the results: the tree stays mounted, hidden, behind them.
-      expect([...screen.getByLabelText('Search results').querySelectorAll('[data-note-id]')].map((row) => row.getAttribute('data-note-id'))).toEqual([
+      // Sorting reorders the tree's notes and keeps the tree: no result list replaces it.
+      expect([...screen.getByRole('tree').querySelectorAll('[data-note-id]')].map((row) => row.getAttribute('data-note-id'))).toEqual([
         'note-a',
         'note-b',
       ]);
     });
+    expect(screen.queryByLabelText('Search results')).not.toBeInTheDocument();
   });
 
   it('disables current folder scope when no folder is selected and filters direct folder notes when selected', async () => {
@@ -3542,6 +3552,8 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click(projectsLabel.closest('button')!);
     await selectCurrentFolderScope();
+    // The scope narrows a search; on its own it leaves the tree.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search notes' }), { target: { value: 'Note' } });
 
     await screen.findByText('1 result');
     expect(getNoteRow('Folder Note')).toBeInTheDocument();

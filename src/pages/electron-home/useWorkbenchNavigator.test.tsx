@@ -105,6 +105,21 @@ describe('useWorkbenchNavigator', () => {
     expect(result.current.visibleEntries.map((entry) => entry.note.id)).toEqual(['beta']);
   });
 
+  it('lists a folder\'s notes in the chosen sort while the tree shows, as the sidebar does', () => {
+    const tree = buildHackmdFolderTree([
+      note({ id: 'zed', title: 'Zed', updatedAtMillis: 3 }),
+      note({ id: 'apple', title: 'Apple', updatedAtMillis: 1 }),
+    ], []);
+    const { result } = renderHook(() => useWorkbenchNavigator(createOptions({
+      tree,
+      selectedFolderId: UNFILED_FOLDER_ID,
+      deferredFinderState: { ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc' },
+    })));
+
+    // The note opened when the selection clears (visibleEntries[0]) is the one listed first.
+    expect(result.current.visibleEntries.map((entry) => entry.note.id)).toEqual(['apple', 'zed']);
+  });
+
   it('selects and expands a selected folder', () => {
     const setCollapsedFolderIds = vi.fn((updater: Set<string> | ((current: Set<string>) => Set<string>)) => typeof updater === 'function' ? updater(new Set(['folder-a'])) : updater);
     const setSelectedFolderId = vi.fn();
