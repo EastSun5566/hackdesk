@@ -163,7 +163,6 @@ function extractLinkUrl(state: EditorState, linkRange: { from: number; name?: st
 
 function buildLinkOpenDecorations(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
-  const activeLines = getActiveLines(state);
 
   syntaxTree(state).iterate({
     enter(node) {
@@ -175,7 +174,9 @@ function buildLinkOpenDecorations(state: EditorState): DecorationSet {
         return;
       }
 
-      if (!isInactiveSingleLineRange(state, activeLines, node.from, node.to)) {
+      // Like the link's source, the open button follows the cursor in that link, not its line:
+      // it hides only while the cursor or selection touches the link itself.
+      if (!isSingleLineRange(state, node.from, node.to) || selectionTouches(state, node.from, node.to)) {
         return;
       }
 
@@ -200,13 +201,12 @@ function buildLinkOpenDecorations(state: EditorState): DecorationSet {
   return Decoration.set(ranges, true);
 }
 
-function isInactiveSingleLineRange(
-  state: EditorState,
-  activeLines: Set<number>,
-  from: number,
-  to: number,
-): boolean {
-  const startLine = state.doc.lineAt(from);
-  const endLine = state.doc.lineAt(Math.max(from, to - 1));
-  return startLine.number === endLine.number && !activeLines.has(startLine.number);
+function isSingleLineRange(state: EditorState, from: number, to: number): boolean {
+  return state.doc.lineAt(from).number === state.doc.lineAt(Math.max(from, to - 1)).number;
+}
+
+function selectionTouches(state: EditorState, from: number, to: number): boolean {
+  // Before the editor is focused there is no cursor to speak of (see hideInitialSelection).
+  if (getActiveLines(state).size === 0) return false;
+  return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 }

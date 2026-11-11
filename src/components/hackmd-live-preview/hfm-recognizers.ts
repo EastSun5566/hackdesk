@@ -1,4 +1,5 @@
 export {
+  parseImageLine,
   parseMarkdownImage,
 } from './hfm-images';
 export {

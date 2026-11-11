@@ -9,12 +9,13 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
+  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
 
 import {
-  addFrontmatterRanges,
+  getFrontmatterRange,
   addHackmdLineSyntaxRanges,
   addHfmBlockRanges,
   expandActiveHfmBlockLines,
@@ -22,6 +23,7 @@ import {
   getActiveLines,
   revealInitialSelection,
 } from './hfm-decoration-ranges';
+import { getCodeFenceLineRole, getCodeFenceLines, getCodeFences, type CodeFence } from './code-fences';
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
 import { getOrderedListMarkerPreviews } from './list-markers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
@@ -86,6 +88,27 @@ const hideableSyntaxNodeNames = new Set([
   'QuoteMark',
   'Escape',
 ]);
+
+class CodeLanguageLabelWidget extends WidgetType {
+  constructor(private readonly label: string) {
+    super();
+  }
+
+  eq(other: CodeLanguageLabelWidget): boolean {
+    return other.label === this.label;
+  }
+
+  toDOM(): HTMLElement {
+    const label = document.createElement('span');
+    label.className = 'cm-hackmd-code-label';
+    label.textContent = this.label;
+    return label;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
 
 type SyntaxNodeLike = {
   from: number;
@@ -231,17 +254,25 @@ export function hackmdInlinePreview(): Extension {
 function buildPreviewDocument(state: EditorState) {
   const sourceTree = syntaxTree(state);
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
-  const fencedCodeLines = getFencedCodeLines(state, tree);
+  const codeFences = getCodeFences(state, tree);
+  const fencedCodeLines = getCodeFenceLines(codeFences);
+  const frontmatter = getFrontmatterRange(state.doc);
+  // Front matter is YAML: no markdown or HackMD syntax is decorated inside it.
+  const sourceOnlyLines = new Set(fencedCodeLines);
+  for (let lineNumber = 1; frontmatter && lineNumber <= frontmatter.endLine; lineNumber += 1) sourceOnlyLines.add(lineNumber);
   const hfmBlockRanges = getHfmDocumentIndex(state).blockRanges
-    .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, fencedCodeLines));
+    .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, sourceOnlyLines));
   const orderedListMarkers = getOrderedListMarkerPreviews(state);
-  return { doc: state.doc, sourceTree, tree, fencedCodeLines, hfmBlockRanges, orderedListMarkers };
+  return { doc: state.doc, sourceTree, tree, codeFences, fencedCodeLines, frontmatter, sourceOnlyLines, hfmBlockRanges, orderedListMarkers };
 }
 
 type PreviewDocument = ReturnType<typeof buildPreviewDocument>;
 
 function buildDecorations(view: EditorView, state: EditorState, document: PreviewDocument): DecorationSet {
-  const { tree, fencedCodeLines, hfmBlockRanges, orderedListMarkers } = document;
+  const { tree, codeFences, frontmatter, sourceOnlyLines, hfmBlockRanges, orderedListMarkers } = document;
+  const frontmatterEnd = frontmatter ? state.doc.line(frontmatter.endLine).to : -1;
+  // Opening fence lines that show a language label in place of their source.
+  const labelledFenceLines = new Set<number>();
   const ranges: PreviewRange[] = [];
   const activeLines = getActiveLines(state);
   const activeInlineSourceStarts = new Set<number>();
@@ -249,14 +280,14 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
 
   expandActiveHfmBlockLines(activeHfmBlocks, activeLines);
 
-  addFrontmatterRanges(state, ranges);
+  if (frontmatter) addFrontmatterPanel(state, ranges, frontmatter.endLine, activeLines);
   addHfmBlockRanges(state, hfmBlockRanges, activeHfmBlocks, ranges);
   const visibleLines = new Set<number>();
   for (const { from, to } of view.visibleRanges) {
     const startLine = state.doc.lineAt(from).number;
     const endLine = state.doc.lineAt(to).number;
     for (let number = startLine; number <= endLine; number++) visibleLines.add(number);
-    addHackmdLineSyntaxRanges(state, activeLines, ranges, fencedCodeLines, startLine, endLine);
+    addHackmdLineSyntaxRanges(state, activeLines, ranges, sourceOnlyLines, startLine, endLine);
   }
 
   // Block replacements stay in StateFields. Only this plugin's inline/line
@@ -267,6 +298,8 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
       from,
       to,
       enter(node) {
+        // The markdown parser reads YAML as paragraphs, links and setext headings; leave it alone.
+        if (node.to <= frontmatterEnd && node.name !== 'Document') return false;
         const key = `${node.name}:${node.from}:${node.to}`;
         if (visited.has(key)) return;
         visited.add(key);
@@ -284,6 +317,10 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
             for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
               activeLines.add(lineNumber);
             }
+          }
+          const fence = codeFences.get(startLine);
+          if (fence) {
+            addCodeFenceRanges(state, ranges, fence, fenceIsActive, visibleLines, labelledFenceLines);
           }
         }
 
@@ -316,12 +353,16 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
         }
 
         if (node.name === 'ListMark') {
-          addListMarker(state, activeLines, orderedListMarkers, ranges, node.from, node.to);
+          addListMarker(state, activeLines, orderedListMarkers, ranges, node.from, node.to, getListDepth(node.node));
           return;
         }
 
         if (node.name === 'TaskMarker') {
           addTaskMarker(state, activeLines, ranges, node.from, node.to);
+          return;
+        }
+
+        if ((node.name === 'CodeMark' || node.name === 'CodeInfo') && labelledFenceLines.has(state.doc.lineAt(node.from).number)) {
           return;
         }
 
@@ -335,24 +376,101 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
   return Decoration.set(ranges, true);
 }
 
-function getFencedCodeLines(state: EditorState, tree: ReturnType<typeof syntaxTree>): Set<number> {
-  const lines = new Set<number>();
+/** How many lists enclose this list mark's own list: 0 for a top-level item. */
+function getListDepth(node: SyntaxNodeLike['node']): number {
+  let depth = -1;
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (parent.name === 'BulletList' || parent.name === 'OrderedList') depth += 1;
+  }
+  return Math.max(0, depth);
+}
 
-  tree.iterate({
-    enter(node) {
-      if (node.name !== 'FencedCode') {
-        return;
+/**
+ * Front matter is shown as a quiet panel like a code fence: away from the cursor its `---` lines
+ * become a slim "Metadata" header and the bottom padding, and keys are set apart from values.
+ */
+function addFrontmatterPanel(state: EditorState, ranges: PreviewRange[], endLine: number, activeLines: ReadonlySet<number>) {
+  let active = false;
+  for (let lineNumber = 1; lineNumber <= endLine; lineNumber += 1) {
+    if (activeLines.has(lineNumber)) active = true;
+  }
+
+  for (let lineNumber = 1; lineNumber <= endLine; lineNumber += 1) {
+    const line = state.doc.line(lineNumber);
+    const classes = ['cm-hackmd-fenced-code', 'cm-hackmd-frontmatter'];
+    if (lineNumber === 1) {
+      classes.push('cm-hackmd-code-header');
+      if (!active) {
+        classes.push('cm-hackmd-code-header-collapsed');
+        pushReplace(ranges, state.doc, line.from, line.to, { widget: new CodeLanguageLabelWidget('Metadata') });
       }
-
-      const startLine = state.doc.lineAt(node.from).number;
-      const endLine = state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
-      for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
-        lines.add(lineNumber);
+    } else if (lineNumber === endLine) {
+      classes.push('cm-hackmd-code-footer');
+      if (!active) {
+        classes.push('cm-hackmd-code-footer-collapsed');
+        pushReplace(ranges, state.doc, line.from, line.to);
       }
-    },
-  });
+    } else {
+      const key = line.text.match(/^(\s*-?\s*)([^\s:#][^:#]*?:)(?=\s|$)/);
+      if (key) {
+        const from = line.from + key[1].length;
+        ranges.push(Decoration.mark({ class: 'cm-hackmd-frontmatter-key' }).range(from, from + key[2].length));
+      } else if (/^\s*#/.test(line.text)) {
+        ranges.push(Decoration.mark({ class: 'cm-hackmd-frontmatter-comment' }).range(line.from, line.to));
+      }
+    }
+    ranges.push(Decoration.line({ attributes: { class: classes.join(' ') } }).range(line.from));
+  }
+}
 
-  return lines;
+/**
+ * Shapes a fence into one panel: its opening line becomes a slim header with the language label,
+ * its closing line slim bottom padding, and numbered fences get a line-number gutter. With the
+ * cursor in the fence, both fence lines show their source at full size.
+ */
+function addCodeFenceRanges(
+  state: EditorState,
+  ranges: PreviewRange[],
+  fence: CodeFence,
+  fenceIsActive: boolean,
+  visibleLines: ReadonlySet<number>,
+  labelledFenceLines: Set<number>,
+) {
+  for (let lineNumber = fence.startLine; lineNumber <= fence.endLine; lineNumber += 1) {
+    if (!visibleLines.has(lineNumber)) continue;
+    const line = state.doc.line(lineNumber);
+    const role = getCodeFenceLineRole(fence, lineNumber);
+
+    if (role.kind === 'header') {
+      const classes = ['cm-hackmd-code-header'];
+      if (!fenceIsActive) classes.push('cm-hackmd-code-header-collapsed');
+      if (fence.endLine === fence.startLine) classes.push('cm-hackmd-code-last');
+      ranges.push(Decoration.line({ attributes: { class: classes.join(' ') } }).range(line.from));
+      if (!fenceIsActive && line.length > 0) {
+        labelledFenceLines.add(lineNumber);
+        pushReplace(ranges, state.doc, line.from, line.to, fence.label ? { widget: new CodeLanguageLabelWidget(fence.label) } : {});
+      }
+      continue;
+    }
+
+    if (role.kind === 'footer') {
+      const className = fenceIsActive ? 'cm-hackmd-code-footer' : 'cm-hackmd-code-footer cm-hackmd-code-footer-collapsed';
+      ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
+      continue;
+    }
+
+    const classes: string[] = [];
+    const attributes: Record<string, string> = {};
+    if (role.last) classes.push('cm-hackmd-code-last');
+    if (role.number !== null && fence.numbering) {
+      classes.push('cm-hackmd-code-numbered');
+      attributes['data-line-number'] = String(role.number);
+      attributes.style = `--cm-code-gutter: ${fence.numbering.width}ch`;
+    }
+    if (classes.length > 0) {
+      ranges.push(Decoration.line({ attributes: { ...attributes, class: classes.join(' ') } }).range(line.from));
+    }
+  }
 }
 
 function blockRangeOverlapsLines(startLine: number, endLine: number, lines: ReadonlySet<number>): boolean {
@@ -363,6 +481,14 @@ function blockRangeOverlapsLines(startLine: number, endLine: number, lines: Read
   }
 
   return false;
+}
+
+function hasUrl(node: SyntaxNodeParentLike): boolean {
+  return (node as SyntaxNodeParentLike & { getChild?: (name: string) => unknown }).getChild?.('URL') != null;
+}
+
+function isSingleLineRange(state: EditorState, from: number, to: number) {
+  return to > from && state.doc.lineAt(from).number === state.doc.lineAt(Math.max(from, to - 1)).number;
 }
 
 function isInactiveSingleLineRange(state: EditorState, activeLines: Set<number>, from: number, to: number) {
@@ -398,9 +524,6 @@ function addHiddenSyntax(
   node: SyntaxNodeLike,
 ) {
   const { from, to, name } = node;
-  if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
-    return;
-  }
 
   if (linkChildSyntaxNodeNames.has(name)) {
     let parent = node.node.parent;
@@ -412,9 +535,20 @@ function addHiddenSyntax(
       return;
     }
 
-    if ((parent?.name === 'Link' || parent?.name === 'Image') && activeInlineSourceStarts.has(parent.from)) {
+    if ((parent?.name === 'Link' || parent?.name === 'Image') && hasUrl(parent)) {
+      // A link's source opens only while the cursor is in that link, not anywhere on its line:
+      // a line of links would otherwise turn into a wall of URLs as soon as the cursor lands on it.
+      // Bracket-only text the parser also calls a link (`[!note]`, `[name=…]`) keeps line rules.
+      if (activeInlineSourceStarts.has(parent.from) || !isSingleLineRange(state, from, to)) {
+        return;
+      }
+      pushReplace(ranges, state.doc, from, to);
       return;
     }
+  }
+
+  if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
+    return;
   }
 
   let hideTo = to;

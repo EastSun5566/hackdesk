@@ -98,12 +98,13 @@ test('a remote image upload finishes in its original tab after switching, and is
     await expect(editor).not.toContainText('first.png');
 
     await page.getByRole('tab', { name: /^Alpha(?:, .+)?$/ }).click();
+    // An image's source shows only while the cursor is in it; the line end touches it.
+    await editor.click();
+    await page.keyboard.press('End');
     await expect(editor).toContainText('Alpha body![first.png](https://assets.example/first.png)');
     await expect(editor).not.toContainText('Uploading image');
 
     // An upload whose tab was closed is not applied anywhere.
-    await editor.click();
-    await page.keyboard.press('End');
     await pasteImage(page, 'second.png');
     await expect(editor).toContainText('Uploading image');
     // Closing a dirty tab asks for confirmation in the in-app dialog.

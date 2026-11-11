@@ -3,7 +3,7 @@ import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 
-import { hackmdCodeLanguages } from './hackmd-code-languages';
+import { resolveCodeLanguage } from './hackmd-code-languages';
 import { getRichPreviewBoundaryTarget } from './rich-preview-navigation';
 import { getRichPreviewSourceRanges } from './rich-preview-ranges';
 import { hackmdRichPreviewWidgets } from './rich-preview-widgets';
@@ -14,7 +14,7 @@ function createMarkdownState(markdownSource: string): EditorState {
     extensions: [
       markdown({
         base: markdownLanguage,
-        codeLanguages: hackmdCodeLanguages,
+        codeLanguages: resolveCodeLanguage,
       }),
     ],
   });

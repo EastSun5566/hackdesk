@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
-import { renderMath, renderMermaid } from './rich-preview-adapters';
+import { renderMath, renderMermaid, withWoff2FontFace } from './rich-preview-adapters';
 
 describe('rich-preview-adapters', () => {
   it('renders inline math with KaTeX markup', async () => {
@@ -56,5 +58,19 @@ describe('rich-preview-adapters', () => {
     });
 
     expect(new Set(scopes).size).toBe(2);
+  });
+});
+
+describe('withWoff2FontFace', () => {
+  it('replaces Font Awesome 4.7 font sources with the bundled woff2 only', () => {
+    const css = readFileSync(`${process.cwd()}/node_modules/font-awesome/css/font-awesome.css`, 'utf8');
+    const result = withWoff2FontFace(css, '/assets/fontawesome-webfont.woff2');
+
+    expect(result).toContain("src: url(\"/assets/fontawesome-webfont.woff2\") format('woff2')");
+    expect(result).not.toMatch(/\.(?:eot|ttf|svg|woff)\?v=4\.7\.0/);
+    // The icon names HackMD notes use are all there.
+    for (const name of ['fa-pencil', 'fa-file-text-o', 'fa-github', 'fa-fw']) {
+      expect(result).toContain(`.${name}`);
+    }
   });
 });

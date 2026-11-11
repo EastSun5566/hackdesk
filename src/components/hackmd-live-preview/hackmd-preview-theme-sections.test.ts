@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { HACKDESK_THEME_PRESETS, resolveHackDeskTheme, type ResolvedThemeMode } from '@/lib/themes';
 
 import {
+  CODE_PANEL_BACKGROUNDS,
   codeAndBlockTheme,
   EDITOR_LINE_WIDTH,
   EDITOR_SELECTION_BACKGROUND,
@@ -24,7 +25,9 @@ const editorThemeSections = {
 
 function getReferencedThemeTokens() {
   const serializedTheme = JSON.stringify(editorThemeSections);
-  return new Set(Array.from(serializedTheme.matchAll(/var\((--[\w-]+)/g), (match) => match[1]));
+  // `--cm-*` variables are per-line layout values set by decorations (like a code gutter's width),
+  // not palette tokens.
+  return new Set(Array.from(serializedTheme.matchAll(/var\((--(?!cm-)[\w-]+)/g), (match) => match[1]));
 }
 
 describe('HackMD preview widget theme', () => {
@@ -57,22 +60,32 @@ describe('HackMD preview widget theme', () => {
       });
     expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
       fontFamily: 'var(--font-sans)',
-      height: '32px',
+      height: '26px',
     });
   });
 
-  it('aligns editor chrome controls with shared component states', () => {
-    expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
+  it('floats find over the note as a compact card instead of a bar that pushes it down', () => {
+    expect(searchPanelTheme['.cm-panel.cm-search.cm-hackdesk-search-panel']).toMatchObject({
+      position: 'absolute',
+      top: '10px',
+      right: '16px',
       border: '1px solid var(--border-default)',
       borderRadius: '6px',
-      backgroundColor: 'var(--background-default)',
+    });
+    expect(searchPanelTheme['.cm-panel.cm-search.cm-hackdesk-search-panel:focus-within'].borderColor).toBe('var(--focus-ring)');
+  });
+
+  it('aligns editor chrome controls with shared component states', () => {
+    // Inside the card, the field and buttons are borderless like the app's ghost controls.
+    expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
+      border: '1px solid transparent',
+      backgroundColor: 'transparent',
     });
     expect(searchPanelTheme['.cm-hackdesk-search-button']).toMatchObject({
-      width: '32px',
-      height: '32px',
-      border: '1px solid var(--border-default)',
-      borderRadius: '6px',
-      backgroundColor: 'var(--background-default)',
+      width: '26px',
+      height: '26px',
+      border: '1px solid transparent',
+      backgroundColor: 'transparent',
     });
     expect(searchPanelTheme['.cm-hackdesk-search-button:hover']).toHaveProperty(
       'backgroundColor',
@@ -111,7 +124,8 @@ describe('HackMD preview widget theme', () => {
 
   it('keeps rich block widget spacing inside the measured border box', () => {
     expect(widgetTheme['.cm-hackmd-table']).not.toHaveProperty('margin');
-    expect(widgetTheme['.cm-hackmd-image-preview']).not.toHaveProperty('margin');
+    // A <figure> has a browser default margin, so the image preview must zero it rather than omit it.
+    expect(widgetTheme['.cm-hackmd-image-preview']).toHaveProperty('margin', '0');
     expect(widgetTheme['.cm-hackmd-rich-block']).not.toHaveProperty('margin');
 
     expect(widgetTheme['.cm-hackmd-table']).toHaveProperty('padding');
@@ -149,16 +163,34 @@ describe('HackMD preview widget theme', () => {
   });
 
   it('uses semantic status tokens for alert blocks and headings', () => {
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo'].boxShadow)
-      .toContain('var(--link-text-default)');
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-tip'].boxShadow)
-      .toContain('var(--success-default)');
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-warning'].boxShadow)
-      .toContain('var(--warning-default)');
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger'].boxShadow)
-      .toContain('var(--destructive-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo'].borderLeftColor)
+      .toBe('var(--link-text-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-tip'].borderLeftColor)
+      .toBe('var(--success-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-warning'].borderLeftColor)
+      .toBe('var(--warning-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger'].borderLeftColor)
+      .toBe('var(--destructive-default)');
     expect(inlineMarksTheme['.cm-hackmd-alert-heading-important'].color)
       .toBe('var(--primary-default)');
+  });
+
+  it('draws block edges with borders, never inset shadows on rounded lines', () => {
+    // An inset box-shadow on a line with border-radius bleeds a hairline across each line edge.
+    for (const [selector, style] of Object.entries(codeAndBlockTheme)) {
+      if (!/alert-block|container-block|table-block|blockquote-meta/.test(selector)) continue;
+      expect(String((style as { boxShadow?: string }).boxShadow ?? ''), selector).not.toContain('inset');
+    }
+  });
+
+  it('draws containers and math delimiters without an edge bar', () => {
+    // A bar beside a rounded tinted panel reads as a stray stroke.
+    for (const [selector, style] of Object.entries(codeAndBlockTheme)) {
+      if (!/container-block|math-block-line/.test(selector)) continue;
+      expect(style, selector).not.toHaveProperty('borderLeft');
+      expect(style, selector).not.toHaveProperty('borderLeftColor');
+    }
+    expect(codeAndBlockTheme['.cm-hackmd-math-block-line']).toEqual({ color: 'var(--text-subtle)' });
   });
 
   it('does not retain obsolete aliases or fixed light and dark alert colors', () => {
@@ -215,11 +247,17 @@ describe('HackMD preview widget theme', () => {
 
   it('keeps code blocks highlighted without selection-like token backgrounds', () => {
     expect(codeAndBlockTheme['.cm-hackmd-fenced-code']).toMatchObject({
-      backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
-      boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
+      backgroundColor: 'var(--cm-code-panel)',
+      color: 'var(--text-default)',
     });
-    expect(codeAndBlockTheme['.cm-hackmd-fenced-code'].boxShadow)
-      .not.toContain('inset 0 1px');
+    // Light uses the theme's muted surface as is; mixing in text colour turned it a muddy grey.
+    expect(CODE_PANEL_BACKGROUNDS.light).toBe('var(--background-muted)');
+    expect(CODE_PANEL_BACKGROUNDS.dark).toContain('var(--background-muted)');
+    // One flat panel: no accent stripe, whose per-line shadow shows a seam at every line edge.
+    expect(codeAndBlockTheme['.cm-hackmd-fenced-code']).not.toHaveProperty('boxShadow');
+    expect(codeAndBlockTheme['.cm-hackmd-indented-code']).not.toHaveProperty('boxShadow');
+    expect(codeAndBlockTheme['.cm-hackmd-fenced-code:not(.cm-hackmd-code-footer, .cm-hackmd-code-last), .cm-hackmd-indented-code'].boxShadow)
+      .not.toContain('inset');
     expect(codeAndBlockTheme['.cm-hackmd-fenced-code'].backgroundColor)
       .not.toContain('var(--background-selected)');
     expect(inlineMarksTheme['.cm-hackmd-inline-code']).toHaveProperty('backgroundColor', 'var(--primary-soft)');

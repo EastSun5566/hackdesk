@@ -5,6 +5,7 @@ import { EditorView } from '@codemirror/view';
 import type { ResolvedThemeMode } from '@/lib/themes';
 
 import {
+  CODE_PANEL_BACKGROUNDS,
   codeAndBlockTheme,
   editorChromeTheme,
   inlineMarksTheme,
@@ -24,6 +25,9 @@ export function createHackmdPreviewTheme(mode: ResolvedThemeMode): Extension[] {
 
   const theme = [
     syntaxHighlighting(hackmdMarkdownHighlightStyle),
+    EditorView.theme({
+      '&': { '--cm-code-panel': CODE_PANEL_BACKGROUNDS[mode] },
+    }),
     EditorView.theme({
       ...editorChromeTheme,
       ...searchPanelTheme,
