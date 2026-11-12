@@ -41,3 +41,25 @@ test('closing the window takes down one layer at a time, in the workbench priori
   await expect(settings).toBeHidden();
   expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
 });
+
+test('the sidebar shows one panel at a time: Show Trash replaces History', async ({ hackdesk }) => {
+  const { page } = await hackdesk({ settings: { hackmdApiToken: 'fake-hackmd-token' }, fakeHackmd: true, hackmdNotes: notes });
+  await expect(page.getByRole('treeitem', { name: /^Alpha\b/ })).toBeVisible();
+
+  await page.getByLabel('History', { exact: true }).click();
+  const historyEmpty = page.getByText('No matching recent notes');
+  await expect(historyEmpty).toBeVisible();
+
+  await page.keyboard.press(`${primary}+K`);
+  const palette = page.getByRole('dialog', { name: 'Command Palette' });
+  await expect(palette).toBeVisible();
+  await palette.getByRole('combobox').fill('Show Trash');
+  await palette.getByRole('option', { name: /^Show Trash/ }).click();
+  await expect(palette).toBeHidden();
+
+  // The header and the list both show Trash; History is closed, not hidden behind it.
+  await expect(page.getByRole('button', { name: 'Back to notes' })).toBeVisible();
+  await expect(historyEmpty).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back to notes' }).click();
+  await expect(historyEmpty).toHaveCount(0);
+});

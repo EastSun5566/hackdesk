@@ -11,6 +11,7 @@ import type { RevealNoteOptions } from './useWorkbenchNavigator';
 import type { CommandPaletteState, WorkspaceScope } from './types';
 import { usePendingRecentNoteRestore } from './usePendingRecentNoteRestore';
 import { useWorkbenchQuickOpen } from './useWorkbenchQuickOpen';
+import type { OverlayControls } from './workbench-overlays';
 
 export type ElectronHomeCommandPaletteOptions = {
   localVaultId?: string | null;
@@ -32,7 +33,7 @@ export type ElectronHomeCommandPaletteOptions = {
   scope: WorkspaceScope;
   selectedFolderId: string | null;
   selectedNoteId: string | null;
-  setPalette: (state: CommandPaletteState) => void;
+  overlayControls: OverlayControls;
   setSelectedFolderId: (folderId: string | null) => void;
   setWorkspaceScope: (scope: WorkspaceScope) => void;
   teams: TeamSummary[];
@@ -59,19 +60,19 @@ export function useElectronHomeCommandPalette({
   scope,
   selectedFolderId,
   selectedNoteId,
-  setPalette,
+  overlayControls,
   setSelectedFolderId,
   setWorkspaceScope,
   teams,
   tree,
 }: ElectronHomeCommandPaletteOptions) {
   const openPalette = useCallback(() => {
-    setPalette({ mode: 'commands', open: true, search: '' });
-  }, [setPalette]);
+    overlayControls.set('palette', { mode: 'commands', open: true, search: '' });
+  }, [overlayControls]);
 
   const openQuickOpen = useCallback(() => {
-    setPalette({ mode: 'quick-open', open: true, search: '' });
-  }, [setPalette]);
+    overlayControls.set('palette', { mode: 'quick-open', open: true, search: '' });
+  }, [overlayControls]);
 
   const {
     clearPendingRecentNote,
@@ -139,7 +140,7 @@ export function useElectronHomeCommandPalette({
       onSelectRecentNote: handleQuickOpenRecentNote,
       onSelectWorkspace: handleQuickOpenWorkspace,
       onShowFinderResults: handleShowFinderResults,
-      onStateChange: setPalette,
+      onStateChange: (next: CommandPaletteState) => overlayControls.set('palette', next),
       recentNotes,
       scope: displayScope,
       selectedFolderId,

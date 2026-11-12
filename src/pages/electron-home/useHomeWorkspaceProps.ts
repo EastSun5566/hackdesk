@@ -35,6 +35,7 @@ import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 
 import type { OpenNoteTarget } from './useNoteLinkOpener';
 import type { WorkspaceFolderTree } from './FolderNavigator';
+import type { OverlayControls, WorkbenchOverlays } from './workbench-overlays';
 
 const EMPTY_WORKSPACE_FOLDERS: WorkspaceFolderTree[] = [];
 
@@ -79,10 +80,6 @@ type WorkspaceActions = {
   openPalette: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenPalette'];
   openQuickOpen: () => void;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
-  setShareOpen: (open: boolean) => void;
-  setTrashOpen: (open: boolean) => void;
-  setHistoryOpen: (open: boolean) => void;
-  setVersionsOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
   openTrashNote: (note: NoteSummary) => void;
   renameNoteInline: (note: NoteSummary, name: string) => void;
@@ -122,22 +119,17 @@ export function useHomeWorkspaceProps({
   selectedFolderId,
   selectedNote,
   setNavigatorWidth,
-  setSettingsOpen,
   settings,
-  shareOpen,
-  versionsOpen,
   tabLifecycle,
   teams,
   toggleInspectorCollapsed,
   toggleNavigatorCollapsed,
   user,
   uploadingTabIds = [],
-  workspaceSwitcherOpen,
-  setWorkspaceSwitcherOpen,
+  overlays,
+  overlayControls,
   onNewTab,
   recentNotes,
-  trashOpen,
-  historyOpen,
   workspaceFolders = EMPTY_WORKSPACE_FOLDERS,
 }: {
   api?: HackDeskElectronAPI;
@@ -172,10 +164,7 @@ export function useHomeWorkspaceProps({
   selectedFolderId: string | null;
   selectedNote: { id: string } | null;
   setNavigatorWidth: (width: number) => void;
-  setSettingsOpen: (open: boolean) => void;
   settings: ElectronSafeSettings | undefined;
-  shareOpen: boolean;
-  versionsOpen: boolean;
   tabLifecycle: Pick<
     ElectronHomeWorkspaceProps['titlebar']['actions'],
     'requestCloseOtherTabs' | 'requestCloseTab' | 'requestCloseTabsToRight'
@@ -185,12 +174,10 @@ export function useHomeWorkspaceProps({
   toggleNavigatorCollapsed: () => void;
   user: UserSummary | undefined;
   uploadingTabIds?: readonly string[];
-  workspaceSwitcherOpen: boolean;
-  setWorkspaceSwitcherOpen: (open: boolean) => void;
+  overlays: WorkbenchOverlays;
+  overlayControls: OverlayControls;
   onNewTab: () => void;
   recentNotes: ElectronRecentNote[];
-  trashOpen: boolean;
-  historyOpen: boolean;
   /** Every folder of the open named set, in its stored order. */
   workspaceFolders?: WorkspaceFolderTree[];
 }): ElectronHomeWorkspaceProps {
@@ -353,14 +340,14 @@ export function useHomeWorkspaceProps({
         platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
         pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
         accountStatus: homeStatus.accountStatus,
-        switcherOpen: workspaceSwitcherOpen,
-        onSwitcherOpenChange: setWorkspaceSwitcherOpen,
+        switcherOpen: overlays.workspaceSwitcher,
+        onSwitcherOpenChange: (open) => overlayControls.set('workspaceSwitcher', open),
         onChooseLocalVault: () => {
           void localVaultActions.chooseLocalVault();
         },
         onScopeChange: (next) => {
-          actions.setTrashOpen(false);
-          actions.setHistoryOpen(false);
+          overlayControls.close('trash');
+          overlayControls.close('history');
           actions.switchWorkspaceScope(next);
         },
         localVaults: settings?.localVault.vaults ?? [],
@@ -368,13 +355,13 @@ export function useHomeWorkspaceProps({
         activeLocalVaultId: settings?.localVault.activeVaultId ?? null,
         activeLocalWorkspaceId: settings?.localVault.activeWorkspaceId ?? null,
         onActivateLocalWorkspace: (workspaceId: string | null) => {
-          setWorkspaceSwitcherOpen(false);
+          overlayControls.close('workspaceSwitcher');
           void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
             toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
           });
         },
         onOpenLocalWorkspaceFolder: (workspaceId, vaultId) => {
-          setWorkspaceSwitcherOpen(false);
+          overlayControls.close('workspaceSwitcher');
           if (activeLocalWorkspace?.id === workspaceId && displayScope.type === 'local') {
             openWorkspaceFolder(vaultId, []);
             return;
@@ -386,19 +373,19 @@ export function useHomeWorkspaceProps({
           });
         },
         onOpenStandaloneLocalVault: (vaultId) => {
-          setWorkspaceSwitcherOpen(false);
+          overlayControls.close('workspaceSwitcher');
           void localVaultActions.openStandaloneLocalVault(vaultId).catch((error) => {
             toast.error(error instanceof Error ? error.message : 'Failed to open the local folder.');
           });
         },
         onSwitchLocalVault: (vaultId: string) => {
-          setWorkspaceSwitcherOpen(false);
+          overlayControls.close('workspaceSwitcher');
           void localVaultActions.switchLocalVault(vaultId).catch((error) => {
             toast.error(error instanceof Error ? error.message : 'Failed to switch local vault.');
           });
         },
         onOpenInNewWindow: api?.app.newWindow ? (scope: WorkspaceScope) => {
-          setWorkspaceSwitcherOpen(false);
+          overlayControls.close('workspaceSwitcher');
           const workspace: NewWindowWorkspaceScope = scope.type === 'team'
             ? { type: scope.type, label: scope.label, teamPath: scope.teamPath }
             : scope.type === 'local'
@@ -408,7 +395,7 @@ export function useHomeWorkspaceProps({
             toast.error(error instanceof Error ? error.message : 'Failed to open a new window.');
           });
         } : undefined,
-        onOpenSettings: () => setSettingsOpen(true),
+        onOpenSettings: () => overlayControls.openSettings(),
         onSignOut: settings?.hasHackmdApiToken
           ? () => mutations.disconnectHackmdMutation.mutate(undefined, { onSuccess: actions.handleHackmdDisconnected })
           : undefined,
@@ -434,12 +421,12 @@ export function useHomeWorkspaceProps({
       emptyState: homeStatus.emptyState,
       status: homeStatus.navigatorStatus,
       trash: settings?.hasHackmdApiToken && (displayScope.type === 'personal' || displayScope.type === 'team') ? {
-        open: trashOpen,
-        onOpenChange: (open) => { if (open) actions.setHistoryOpen(false); actions.setTrashOpen(open); },
+        open: overlays.trash,
+        onOpenChange: (open) => overlayControls.set('trash', open),
         onOpenNote: actions.openTrashNote,
         scope: displayScope,
       } : undefined,
-      history: { open: historyOpen, onOpenChange: (open) => { if (open) actions.setTrashOpen(false); actions.setHistoryOpen(open); } },
+      history: { open: overlays.history, onOpenChange: (open) => overlayControls.set('history', open) },
       actions: {
         onFolderSelect: navigator.handleFolderSelect,
         onFolderToggle: navigator.toggleFolderCollapsed,
@@ -509,8 +496,8 @@ export function useHomeWorkspaceProps({
       onEditorRequestHandled: consumeEditorRequest,
       editorMode,
       folderTree,
-      shareOpen,
-      versionsOpen,
+      shareOpen: overlays.share,
+      versionsOpen: overlays.versions,
       isInspectorCollapsed: inspectorCollapsed,
       getPaneView: (pane) => {
         const view = documents.getPaneView(pane);
@@ -580,8 +567,8 @@ export function useHomeWorkspaceProps({
       // A new draft never reuses the original note's identity.
       onOpenAsNewDraft: (title, content, paneId) => noteWorkspace.openDraftNote({ title, content, paneId }),
       onRetryLoad: actions.retryDocumentLoad,
-      onShareOpenChange: actions.setShareOpen,
-      onVersionsOpenChange: actions.setVersionsOpen,
+      onShareOpenChange: (open) => overlayControls.set('share', open),
+      onVersionsOpenChange: (open) => overlayControls.set('versions', open),
     },
   };
 }

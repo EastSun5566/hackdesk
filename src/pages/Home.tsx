@@ -120,45 +120,15 @@ export function Home() {
   const selectionRefs = useElectronHomeSelectionRefs();
   const initialWorkspaceResolvedRef = useRef(false);
   const panelState = useWorkbenchPanelState();
-  const dialogState = useWorkbenchOverlays();
-  const {
-    closeTopOverlay,
-    palette,
-    shareOpen,
-    trashOpen,
-    versionsOpen,
-    historyOpen,
-    destinationOpen,
-    onboardingOpen,
-    workspaceSwitcherOpen,
-    shortcutHelp,
-    leaderPath,
-    settingsInitialTab,
-    setCreateDialog,
-    setCreateFolderDialog,
-    setDeleteFolderTarget,
-    setDeleteTarget,
-    setPalette,
-    setRenameFolderDialog,
-    setSettingsOpen,
-    openSettings,
-    setShareOpen,
-    setTrashOpen,
-    setVersionsOpen,
-    setHistoryOpen,
-    setDestinationOpen,
-    setOnboardingOpen,
-    setWorkspaceSwitcherOpen,
-    setShortcutHelp,
-    setLeaderPath,
-  } = dialogState;
+  const { overlays, controls: overlayControls, closeTopOverlay } = useWorkbenchOverlays();
+  const { shortcutHelp } = overlays;
   useEffect(() => {
-    if (palette.open) return;
+    if (overlays.palette.open) return;
     const action = folderPickerAction.current;
     folderPickerAction.current = null;
-    if (action?.type === 'create') setCreateDialog({ open: true, title: action.title });
-  }, [palette.open, setCreateDialog]);
-  const openLeaderMenu = useCallback(() => setLeaderPath([]), [setLeaderPath]);
+    if (action?.type === 'create') overlayControls.set('createNote', { open: true, title: action.title });
+  }, [overlays.palette.open, overlayControls]);
+  const openLeaderMenu = useCallback(() => overlayControls.set('leaderPath', []), [overlayControls]);
   // The named set the open folder belongs to: its folders share one scope (tabs, search).
   const openLocalWorkspace = getActiveLocalWorkspace(settingsQuery.data);
   const localWorkspaceId = openLocalWorkspace && settingsQuery.data?.localVault.activeVaultId
@@ -182,7 +152,7 @@ export function Home() {
     setSelectedFolderId,
     setWorkspaceScope: setWorkspaceScopeState,
   } = workspaceState;
-  useEffect(() => { setHistoryOpen(false); }, [scopeStorageKey, setHistoryOpen]);
+  useEffect(() => { overlayControls.set('history', false); }, [scopeStorageKey, overlayControls]);
   const {
     inspectorCollapsed,
     navigatorCollapsed,
@@ -200,14 +170,14 @@ export function Home() {
   // Hiding the sidebar unmounts the switcher, so it must not come back open. In Hack Mode the
   // sidebar is hidden with everything else, so the key leaves Hack Mode and shows it.
   const toggleSidebar = useCallback(() => {
-    setWorkspaceSwitcherOpen(false);
+    overlayControls.set('workspaceSwitcher', false);
     if (hackMode) {
       setHackMode(false);
       expandNavigator();
       return;
     }
     toggleNavigatorCollapsed();
-  }, [expandNavigator, hackMode, setWorkspaceSwitcherOpen, toggleNavigatorCollapsed]);
+  }, [expandNavigator, hackMode, overlayControls, toggleNavigatorCollapsed]);
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey, usingInitialDrafts && settingsQuery.data?.shouldShowHackmdOnboarding === true);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
@@ -301,8 +271,8 @@ export function Home() {
     }
   }, [usingInitialDrafts, activeTab, focusZone]);
   const openKeyboardShortcuts = useCallback(() => {
-    setShortcutHelp({ region: focusedZone, target: getLastFocusedTarget() });
-  }, [focusedZone, getLastFocusedTarget, setShortcutHelp]);
+    overlayControls.set('shortcutHelp', { region: focusedZone, target: getLastFocusedTarget() });
+  }, [focusedZone, getLastFocusedTarget, overlayControls]);
   // Note Details floats over the note: opening it moves focus inside, and closing it from inside
   // returns to the note rather than leaving focus nowhere.
   const toggleNoteDetails = useCallback(() => {
@@ -556,14 +526,14 @@ export function Home() {
     scope,
     selectedNote,
     selectedParentFolderId: selectedParentFolderIdForMutation,
-    onSettingsSaved: () => setSettingsOpen(false),
+    onSettingsSaved: () => overlayControls.close('settings'),
     onNoteCreated: (note) => {
       if (currentScopeKeyRef.current !== scopeStorageKey) {
         noteWorkspace.openNote(note);
         trackRecentNote(note);
         return;
       }
-      setCreateDialog({ open: false, title: '' });
+      overlayControls.set('createNote', { open: false, title: '' });
       void requestSelectNote(note, { trackRecent: true });
     },
     onDraftNoteCreated: (tabId, note, submittedDraft) => {
@@ -585,28 +555,28 @@ export function Home() {
     },
     onFolderCreated: (folder: FolderSummary) => {
       if (currentScopeKeyRef.current !== scopeStorageKey) return;
-      setCreateFolderDialog(createClosedFolderDialogState());
+      overlayControls.set('createFolder', createClosedFolderDialogState());
       if (folder.id) {
         setSelectedFolderId(folder.id);
       }
     },
     onFolderRenamed: (folder: FolderSummary) => {
       if (currentScopeKeyRef.current !== scopeStorageKey) return;
-      setRenameFolderDialog(createClosedRenameFolderDialogState());
+      overlayControls.set('renameFolder', createClosedRenameFolderDialogState());
       if (folder.id) {
         setSelectedFolderId(folder.id);
       }
     },
     onFolderDeleted: (_folderId, parentFolderId) => {
       if (currentScopeKeyRef.current !== scopeStorageKey) return;
-      setDeleteFolderTarget(null);
+      overlayControls.set('deleteFolder', null);
       setSelectedFolderId(parentFolderId ?? UNFILED_FOLDER_ID);
     },
     onNoteDeleted: (note) => {
       dispatchSyncActivity({ type: 'save_abandoned', key: noteSyncKey(note) });
       removeRecentNoteEntry(note.id, note.teamPath ?? null);
       noteWorkspace.closeByNoteIdentity(note);
-      if (currentScopeKeyRef.current === scopeStorageKey) setDeleteTarget(null);
+      if (currentScopeKeyRef.current === scopeStorageKey) overlayControls.set('deleteNote', null);
     },
     onNoteMoved: (note, targetFolderId) => {
       noteWorkspace.syncNoteSummary(note);
@@ -622,11 +592,11 @@ export function Home() {
         return;
       }
       pendingInitialSave.current = tab.tabId;
-      setDestinationOpen(true);
+      overlayControls.set('destination', true);
     } else {
       mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input });
     }
-  }, [flushWorkspace, mutations.createDraftNoteMutation, setDestinationOpen, usingInitialDrafts]);
+  }, [flushWorkspace, mutations.createDraftNoteMutation, overlayControls, usingInitialDrafts]);
   useEffect(() => {
     const tabId = pendingInitialSave.current;
     if (usingInitialDrafts || !tabId || !scopeStorageKey || noteWorkspace.state.scopeKey !== scopeStorageKey) return;
@@ -776,12 +746,8 @@ export function Home() {
     },
     openTemplatePicker: () => noteTemplates.setPickerOpen(true),
     scopeType: scope.type,
-    setCreateDialog,
-    setCreateFolderDialog,
-    setDeleteFolderTarget,
-    setRenameFolderDialog,
     setSelectedFolderId,
-    setSettingsOpen,
+    overlayControls,
   });
 
   const {
@@ -804,7 +770,7 @@ export function Home() {
     selectedDocument,
     selectedNote,
     selectedParentFolderId,
-    setDeleteTarget,
+    overlayControls,
     trackRecentNote,
   });
 
@@ -829,7 +795,7 @@ export function Home() {
     handleShowFinderResults,
     isWorkspaceFetching,
     isWorkspaceLoading,
-    palette,
+    palette: overlays.palette,
     recentNotes,
     removeRecentNoteEntry,
     requestSelectNote,
@@ -838,7 +804,7 @@ export function Home() {
     scope,
     selectedFolderId,
     selectedNoteId: selectedNote?.id ?? null,
-    setPalette,
+    overlayControls,
     setSelectedFolderId,
     setWorkspaceScope,
     teams,
@@ -888,8 +854,8 @@ export function Home() {
     copyNoteLink: handleCopyNoteLink,
     copyNoteMarkdownLink: handleCopyNoteMarkdownLink,
     duplicateNote: handleDuplicateNote,
-    openMoveNotePicker: () => { folderPickerAction.current = null; setPalette({ mode: 'move-note', open: true, search: '' }); },
-    openShare: () => setShareOpen(true),
+    openMoveNotePicker: () => { folderPickerAction.current = null; overlayControls.set('palette', { mode: 'move-note', open: true, search: '' }); },
+    openShare: () => overlayControls.set('share', true),
     reorderTab: noteWorkspace.reorderTab,
     revealLocalNote: localVaultActions.revealLocalNote,
     revealLocalVault: localVaultActions.openLocalVault,
@@ -968,11 +934,9 @@ export function Home() {
     },
     selectedDocument,
     selectedFolderId: selectedFolder?.id ?? null,
-    setSettingsOpen,
-    setTrashOpen,
-    setVersionsOpen,
+    overlayControls,
     splitActiveTab: noteWorkspace.splitActiveTab,
-    switchToHistory: () => { if (scope.type !== 'local') { setTrashOpen(false); setHistoryOpen(true); } },
+    switchToHistory: () => { if (scope.type !== 'local') { overlayControls.set('history', true); } },
     toggleInspector: toggleNoteDetails,
     toggleKeyHints: () => {
       const keyboardNavigation = settings?.keyboardNavigation ?? defaultSettings.keyboardNavigation;
@@ -986,7 +950,7 @@ export function Home() {
     openWorkspaceSwitcher: () => {
       setHackMode(false);
       expandNavigator();
-      setWorkspaceSwitcherOpen(true);
+      overlayControls.set('workspaceSwitcher', true);
     },
     toggleHackMode,
     // Sort, scope and filters live in the sidebar's View options menu; show the sidebar and open it.
@@ -1098,9 +1062,9 @@ export function Home() {
   });
 
   const openHackmdTokenSetup = useCallback(() => {
-    setOnboardingOpen(true);
-  }, [setOnboardingOpen]);
-  const openSettingsTab = openSettings;
+    overlayControls.set('onboarding', true);
+  }, [overlayControls]);
+  const openSettingsTab = overlayControls.openSettings;
   const { handleNoteMove } = workbenchNavigator;
   const moveSelectedNoteToFolder = useCallback((folder: QuickOpenFolderResult) => {
     const action = folderPickerAction.current;
@@ -1236,10 +1200,6 @@ export function Home() {
       openPalette,
       openQuickOpen,
       setFinderState,
-      setShareOpen,
-      setTrashOpen,
-      setHistoryOpen,
-      setVersionsOpen,
       switchWorkspaceScope,
       openTrashNote: (note) => void requestSelectNote(note, { focusEditor: true }),
       renameNoteInline: (note, name) => {
@@ -1255,8 +1215,8 @@ export function Home() {
           mutations.updateNoteMutation.mutate({ note: result, input: { title: name }, intent: 'metadata' });
         })().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to rename note.'));
       },
-      moveNoteRequest: (note) => { folderPickerAction.current = { type: 'note', note }; setPalette({ mode: 'move-note', open: true, search: '' }); },
-      moveFolderRequest: (id) => { folderPickerAction.current = { type: 'folder', id }; setPalette({ mode: 'move-folder', open: true, search: '' }); },
+      moveNoteRequest: (note) => { folderPickerAction.current = { type: 'note', note }; overlayControls.set('palette', { mode: 'move-note', open: true, search: '' }); },
+      moveFolderRequest: (id) => { folderPickerAction.current = { type: 'folder', id }; overlayControls.set('palette', { mode: 'move-folder', open: true, search: '' }); },
       chooseNewNoteLocation: (folderId) => {
         folderCommands.handleCreateNoteInside(folderId);
       },
@@ -1285,10 +1245,7 @@ export function Home() {
     selectedFolderId,
     selectedNote,
     setNavigatorWidth,
-    setSettingsOpen,
     settings,
-    shareOpen,
-    versionsOpen,
     tabLifecycle: {
       requestCloseOtherTabs,
       requestCloseTab,
@@ -1298,12 +1255,10 @@ export function Home() {
     toggleInspectorCollapsed: toggleNoteDetails,
     toggleNavigatorCollapsed: toggleSidebar,
     user,
-    workspaceSwitcherOpen,
-    setWorkspaceSwitcherOpen,
+    overlays,
+    overlayControls,
     onNewTab: () => runShortcutAction('new-tab'),
     recentNotes,
-    trashOpen,
-    historyOpen,
   });
   const overlayProps = useHomeOverlayProps({
     actionContext,
@@ -1314,9 +1269,9 @@ export function Home() {
         if (!next.open && folderPickerAction.current?.type === 'create') {
           const { title } = folderPickerAction.current;
           folderPickerAction.current = null;
-          setCreateDialog({ open: true, title });
+          overlayControls.set('createNote', { open: true, title });
         }
-        setPalette(next);
+        overlayControls.set('palette', next);
       },
     },
     commandPaletteTheme: {
@@ -1332,7 +1287,8 @@ export function Home() {
       onMoveNoteToFolder: moveSelectedNoteToFolder,
       onOpenSettingsTab: openSettingsTab,
     },
-    dialogState,
+    overlays,
+    overlayControls,
     displayScope,
     localVaultActions,
     localVaultError: vaultSession.error ?? (localVault.snapshotQuery.error instanceof Error
@@ -1342,20 +1298,18 @@ export function Home() {
     mutations,
     onHackmdDisconnected: handleHackmdDisconnected,
     onChooseNoteLocation: () => {
-      folderPickerAction.current = { type: 'create', title: dialogState.createDialog.title };
-      setCreateDialog({ ...dialogState.createDialog, open: false });
-      setPalette({ mode: 'choose-note-folder', open: true, search: '' });
+      folderPickerAction.current = { type: 'create', title: overlays.createNote.title };
+      overlayControls.set('createNote', { ...overlays.createNote, open: false });
+      overlayControls.set('palette', { mode: 'choose-note-folder', open: true, search: '' });
     },
-    onboardingOpen,
     runAction: runPaletteAction,
     selectedFolderLabel,
     onOnboardingConnected: handleOnboardingConnected,
-    setOnboardingOpen,
     settings,
     user,
   });
 
-  const leaderLevel = leaderPath && getLeaderLevel(leaderPath, {
+  const leaderLevel = overlays.leaderPath && getLeaderLevel(overlays.leaderPath, {
     actionContext,
     shortcuts: settings?.shortcuts,
     platform: api?.platform ?? navigator.platform,
@@ -1364,11 +1318,11 @@ export function Home() {
   const shortcutContext = useMemo(() => ({ shortcuts: settings?.shortcuts, platform: api?.platform ?? navigator.platform, characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true }), [settings?.shortcuts, settings?.keyboardNavigation?.characterShortcutsEnabled, api?.platform]);
 
   const chooseDraftDestination = async (destination: 'local' | 'hackmd') => {
-    setDestinationOpen(false);
+    overlayControls.set('destination', false);
     try {
       if (destination === 'hackmd') {
         if (hasToken) setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
-        else setOnboardingOpen(true);
+        else overlayControls.set('onboarding', true);
       } else if (settings?.hasLocalVault && vaultSession.vaultId && !vaultSession.isChanging) {
         const activePath = getActiveLocalVaultPath(settings);
         setWorkspaceScope({ type: 'local', label: activePath ? localVaultFolderName(activePath) : 'Local Vault', vaultId: vaultSession.vaultId });
@@ -1411,8 +1365,8 @@ export function Home() {
           {leaderLevel ? (
             <LeaderMenu
               level={leaderLevel}
-              onPathChange={setLeaderPath}
-              onClose={() => setLeaderPath(null)}
+              onPathChange={(path) => overlayControls.set('leaderPath', path)}
+              onClose={() => overlayControls.set('leaderPath', null)}
               onRun={id => runPaletteAction(id)}
             />
           ) : null}
@@ -1433,20 +1387,20 @@ export function Home() {
           ) : null}
 
           <DraftDestinationDialog
-            open={destinationOpen}
+            open={overlays.destination}
             onCloseComplete={() => { if (!pendingInitialSave.current) requestEditorFocus(); }}
             onOpenChange={open => {
-              setDestinationOpen(open);
+              overlayControls.set('destination', open);
               if (!open) { pendingInitialSave.current = null; requestEditorFocus(); }
             }}
             onChoose={destination => { void chooseDraftDestination(destination); }}
           />
           <ElectronHomeOverlays {...overlayProps} dialogs={{
             ...overlayProps.dialogs,
-            settingsInitialTab,
-            onSettingsOpenChange: setSettingsOpen,
+            settingsInitialTab: overlays.settings.tab,
+            onSettingsOpenChange: (open) => (open ? overlayControls.openSettings() : overlayControls.close('settings')),
             onOnboardingOpenChange: open => {
-              setOnboardingOpen(open);
+              overlayControls.set('onboarding', open);
               const configured = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
               if (!open && !configured?.hasHackmdApiToken && !configured?.hasLocalVault) {
                 pendingInitialSave.current = null;
@@ -1467,8 +1421,8 @@ export function Home() {
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}
             shortcuts={settings?.shortcuts} platform={api.platform}
             characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}
-            onOpenChange={open => { if (!open) { setShortcutHelp(null); focusZone(shortcutHelp.region); } }}
-            onCustomize={() => { setShortcutHelp(null); openSettings('shortcuts'); }}
+            onOpenChange={open => { if (!open) { overlayControls.set('shortcutHelp', null); focusZone(shortcutHelp.region); } }}
+            onCustomize={() => { overlayControls.set('shortcutHelp', null); overlayControls.openSettings('shortcuts'); }}
           /> : null}
         </div>
       </KeyboardNavigation>

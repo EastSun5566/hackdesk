@@ -21,6 +21,7 @@ import {
 import { noteIdentityMatches, type NoteIdentity } from './note-workspace';
 import type { WorkspaceScope } from './types';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import type { OverlayControls } from './workbench-overlays';
 
 function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
   return {
@@ -40,7 +41,7 @@ export type DocumentCommandOptions = {
   selectedDocument?: DocumentSummary;
   selectedNote: NoteIdentity | null;
   selectedParentFolderId?: string;
-  setDeleteTarget: (note: DocumentSummary | null) => void;
+  overlayControls: OverlayControls;
   trackRecentNote: (note: NoteSummary) => void;
 };
 
@@ -54,7 +55,7 @@ export function useDocumentCommands({
   selectedDocument,
   selectedNote,
   selectedParentFolderId,
-  setDeleteTarget,
+  overlayControls,
   trackRecentNote,
 }: DocumentCommandOptions) {
   const handleExportMarkdown = useCallback((_note: DocumentSummary, title: string, content: string) => {
@@ -144,9 +145,9 @@ export function useDocumentCommands({
   const handleDeleteRequest = useCallback((note: NoteSummary) => {
     const deleteTarget = createDeleteNoteTarget(note);
     // The in-app delete dialog asks, so the question matches the app rather than the system.
-    setDeleteTarget(deleteTarget);
+    overlayControls.set('deleteNote', deleteTarget);
 
-  }, [setDeleteTarget]);
+  }, [overlayControls]);
 
   const handleOpenEditor = useCallback((note: NoteSummary) => {
     if (!api) {
