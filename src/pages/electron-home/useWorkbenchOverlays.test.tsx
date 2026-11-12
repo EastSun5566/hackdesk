@@ -6,7 +6,7 @@ import type { FolderTreeNode } from '@/lib/hackmd-folders';
 
 import { useWorkbenchOverlays, type WorkbenchOverlayState } from './useWorkbenchOverlays';
 
-describe('useWorkbenchOverlayState', () => {
+describe('useWorkbenchOverlays', () => {
   it('closes the top transient layer before allowing the workbench close policy to continue', () => {
     const { result } = renderHook(() => useWorkbenchOverlays());
 
@@ -39,7 +39,7 @@ describe('useWorkbenchOverlayState', () => {
  * can be open at the same time, Escape and window close take them down in a fixed priority (not in
  * the order they opened), and each one is reset to its closed value.
  */
-describe('useWorkbenchOverlayState layers', () => {
+describe('useWorkbenchOverlays layers', () => {
   const note = { id: 'note-1', title: 'Note' } as DocumentSummary;
   const folder = { id: 'folder-1', name: 'Folder' } as FolderTreeNode;
 
