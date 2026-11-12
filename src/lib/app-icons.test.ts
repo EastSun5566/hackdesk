@@ -44,6 +44,17 @@ describe('app icon catalog', () => {
     expect(svg.match(/fill="#FF6A2B"/g)?.length).toBeGreaterThan(10);
   });
 
+  it('draws the Pixel icons as shaded pixel art on a dithered screen', () => {
+    const svg = renderAppIconSvg('pixel');
+    const fills = new Set([...svg.matchAll(/<rect [^>]*fill="(#[0-9A-F]{6})"/g)].map(([, fill]) => fill));
+    expect(svg).toContain('shape-rendering="crispEdges"');
+    // Outline, body, face, the three sprite shades, two screen tones, and the drop shadow.
+    for (const tone of ['#0F380F', '#306230', '#9BBC0F', '#4F7F2A', '#1E4A1E', '#86A70F', '#8BAC0F', '#77970B', '#5E7E0A']) {
+      expect(fills, tone).toContain(tone);
+    }
+    expect(renderAppIconSvg('pixel-purple')).toContain('fill="#453AFF"');
+  });
+
   it('resolves the system option from the OS appearance', () => {
     expect(resolveAppIconVariant('system', false)).toBe('color-light');
     expect(resolveAppIconVariant('system', true)).toBe('color-dark');

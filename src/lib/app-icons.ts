@@ -34,6 +34,8 @@ type MarkLayer = {
   towerFills?: string[];
   /** Fill for the mark's open top faces (its inner holes), drawn beneath the mark. */
   innerFill?: string;
+  /** Draws the mark as pixel art on a grid of `cell` mark units, four-tone like an old handheld. */
+  pixel?: PixelStyle;
   /** A soft pile of powder on each top face: a haze, a mound, and a faint shadow under it. */
   dusting?: { color: string; shade: string };
   /** Dots laid on the mark, in the mark's own coordinates: [x, y, radius]. */
@@ -42,6 +44,24 @@ type MarkLayer = {
   sprouts?: { stem: string; leaf: string; leafShade: string; at: [number, number, number][] };
   glow?: string;
   opacity?: number;
+};
+
+/**
+ * Pixel-art mark. The four base tones are required; every other key turns on
+ * one more layer of shading.
+ */
+type PixelStyle = {
+  /** Cell size, in mark units. */
+  cell: number;
+  outline: string;
+  body: string;
+  face: string;
+  /** Lit top row and shadowed, dithered bottom rows of the body. */
+  sprite?: { light: string; shadow: string; faceShade: string };
+  /** Screen colour behind the mark, dithered from `top` to `bottom` on the same grid. */
+  screen?: { top: string; bottom: string };
+  /** The silhouette repeated one cell down and right, like LCD ghosting. */
+  dropShadow?: string;
 };
 
 type Decoration = 'stars' | 'grid' | 'scanlines' | 'highlight' | 'bento';
@@ -187,6 +207,38 @@ const DESIGNS = {
     background: { stops: ['#3B4252', '#2E3440'], from: [0.5, 0], to: [0.5, 1] },
     mark: { shape: 'double', fill: { stops: ['#8FBCBB', '#5E81AC'], from: [0.2, 0], to: [0.8, 1] } },
   },
+  pixel: {
+    background: '#8BAC0F',
+    mark: {
+      shape: 'double',
+      fill: 'none',
+      pixel: {
+        cell: 4.4,
+        outline: '#0F380F',
+        body: '#306230',
+        face: '#9BBC0F',
+        sprite: { light: '#4F7F2A', shadow: '#1E4A1E', faceShade: '#86A70F' },
+        screen: { top: '#8BAC0F', bottom: '#77970B' },
+        dropShadow: '#5E7E0A',
+      },
+    },
+  },
+  'pixel-purple': {
+    background: '#F1EFFF',
+    mark: {
+      shape: 'double',
+      fill: 'none',
+      pixel: {
+        cell: 4.4,
+        outline: '#1B1464',
+        body: BRAND_DEEP,
+        face: '#D9D5FF',
+        sprite: { light: '#7B73FF', shadow: '#2C22C9', faceShade: '#B4AEFF' },
+        screen: { top: '#F1EFFF', bottom: '#DCD8FF' },
+        dropShadow: '#BDB6F7',
+      },
+    },
+  },
   matcha: {
     // A matcha latte: a glazed cup, milk foam, and a small pile of powder on top.
     background: { stops: ['#F1E6D3', '#D9C4A3'], from: [0.5, 0], to: [0.5, 1] },
@@ -267,6 +319,8 @@ export const APP_ICON_OPTIONS: readonly AppIconOption[] = [
   { id: 'dracula', label: 'Dracula', group: 'fun' },
   { id: 'solarized', label: 'Solarized', group: 'fun' },
   { id: 'nord', label: 'Nord', group: 'fun' },
+  { id: 'pixel', label: 'Pixel', group: 'fun' },
+  { id: 'pixel-purple', label: 'Pixel Purple', group: 'fun' },
   { id: 'matcha', label: 'Matcha', group: 'fun' },
   { id: 'garden', label: 'Garden', group: 'fun' },
   { id: 'blocks', label: 'Building Blocks', group: 'secret' },
@@ -378,6 +432,178 @@ function renderDecorations(decorations: Decoration[], plate: { x: number; size: 
   }).join('');
 }
 
+/** Flattens a path of absolute M/L/H/V/C/Z commands into one polygon per subpath. */
+function flattenPath(d: string): Point[][] {
+  const tokens = d.match(/[MLHVCZ]|-?\d*\.?\d+(?:e-?\d+)?/gi) ?? [];
+  const polygons: Point[][] = [];
+  let current: Point[] = [];
+  let pen: Point = [0, 0];
+  let index = 0;
+  let command = '';
+  const next = () => Number(tokens[index++]);
+  while (index < tokens.length) {
+    if (/^[MLHVCZ]$/i.test(tokens[index])) {
+      command = tokens[index++].toUpperCase();
+    }
+    switch (command) {
+      case 'M':
+        if (current.length) polygons.push(current);
+        pen = [next(), next()];
+        current = [pen];
+        command = 'L';
+        break;
+      case 'L':
+        pen = [next(), next()];
+        current.push(pen);
+        break;
+      case 'H':
+        pen = [next(), pen[1]];
+        current.push(pen);
+        break;
+      case 'V':
+        pen = [pen[0], next()];
+        current.push(pen);
+        break;
+      case 'C': {
+        const [x0, y0] = pen;
+        const x1 = next(); const y1 = next(); const x2 = next(); const y2 = next(); const x3 = next(); const y3 = next();
+        for (let step = 1; step <= 12; step += 1) {
+          const t = step / 12;
+          const u = 1 - t;
+          current.push([
+            u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
+            u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3,
+          ]);
+        }
+        pen = [x3, y3];
+        break;
+      }
+      case 'Z':
+        if (current.length) polygons.push(current);
+        current = [];
+        break;
+      default:
+        index += 1;
+    }
+  }
+  if (current.length) polygons.push(current);
+  return polygons;
+}
+
+function insidePolygon([x, y]: Point, polygon: Point[]) {
+  let inside = false;
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+    const [xi, yi] = polygon[index];
+    const [xj, yj] = polygon[previous];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+const BAYER_4 = [
+  [0, 8, 2, 10],
+  [12, 4, 14, 6],
+  [3, 11, 1, 9],
+  [15, 7, 13, 5],
+];
+
+/**
+ * Samples the mark on a grid and draws each cell as a square: outline, body, or
+ * open top face, plus whichever shading layers the style turns on. `area` is
+ * the plate in mark units, so a dithered screen lines up with the mark's cells.
+ */
+function renderPixelMark(
+  source: { width: number; height: number; path: string },
+  pixel: PixelStyle,
+  area: { x: number; y: number; size: number },
+) {
+  const [outer, ...holes] = flattenPath(source.path);
+  const { cell } = pixel;
+  const cols = Math.ceil(source.width / cell);
+  const rows = Math.ceil(source.height / cell);
+  const offsetX = (source.width - cols * cell) / 2;
+  const offsetY = (source.height - rows * cell) / 2;
+  const kinds = new Map<string, 'solid' | 'face' | 'empty'>();
+  const kind = (col: number, row: number): 'solid' | 'face' | 'empty' => {
+    const key = `${col},${row}`;
+    const cached = kinds.get(key);
+    if (cached) return cached;
+    let value: 'solid' | 'face' | 'empty' = 'empty';
+    if (col >= 0 && row >= 0 && col < cols && row < rows) {
+      const point: Point = [offsetX + (col + 0.5) * cell, offsetY + (row + 0.5) * cell];
+      if (insidePolygon(point, outer)) {
+        value = holes.some((hole) => insidePolygon(point, hole)) ? 'face' : 'solid';
+      }
+    }
+    kinds.set(key, value);
+    return value;
+  };
+  const isEdge = (col: number, row: number) => kind(col, row) === 'solid'
+    && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => kind(col + dx, row + dy) !== 'solid');
+
+  // A hair of overlap hides seams between neighbouring squares when scaled.
+  const square = (col: number, row: number, color: string) =>
+    `<rect x="${round(offsetX + col * cell)}" y="${round(offsetY + row * cell)}" width="${round(cell + 0.05)}" height="${round(cell + 0.05)}" fill="${color}"/>`;
+
+  const layers: string[] = [];
+
+  if (pixel.screen) {
+    const firstCol = Math.floor((area.x - offsetX) / cell) - 1;
+    const firstRow = Math.floor((area.y - offsetY) / cell) - 1;
+    const span = Math.ceil(area.size / cell) + 3;
+    for (let row = firstRow; row < firstRow + span; row += 1) {
+      // Dither only across the middle band; the top and bottom stay solid.
+      const t = Math.min(1, Math.max(0, ((row - firstRow) / span - 0.2) / 0.6));
+      for (let col = firstCol; col < firstCol + span; col += 1) {
+        const threshold = (BAYER_4[((row % 4) + 4) % 4][((col % 4) + 4) % 4] + 0.5) / 16;
+        layers.push(square(col, row, t > threshold ? pixel.screen.bottom : pixel.screen.top));
+      }
+    }
+  }
+
+  if (pixel.dropShadow) {
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        // Only where the shifted copy lands outside the mark; elsewhere the mark covers it.
+        if (kind(col, row) !== 'empty' && kind(col + 1, row + 1) === 'empty') {
+          layers.push(square(col + 1, row + 1, pixel.dropShadow));
+        }
+      }
+    }
+  }
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const here = kind(col, row);
+      if (here === 'empty') continue;
+      let color: string;
+      if (here === 'face') {
+        // The rim casts a shadow onto the face just below and right of it.
+        const underRim = isEdge(col, row - 1) || isEdge(col - 1, row);
+        color = pixel.sprite && underRim ? pixel.sprite.faceShade : pixel.face;
+      } else if (isEdge(col, row)) {
+        color = pixel.outline;
+      } else if (pixel.sprite) {
+        const nearBottom = isEdge(col, row + 1) ? 1 : isEdge(col, row + 2) ? 2 : 0;
+        if (isEdge(col, row - 1) && kind(col, row - 2) !== 'solid') {
+          color = pixel.sprite.light;
+        } else if (nearBottom === 1 || (nearBottom === 2 && (col + row) % 2 === 0)) {
+          color = pixel.sprite.shadow;
+        } else {
+          color = pixel.body;
+        }
+      } else {
+        color = pixel.body;
+      }
+      layers.push(square(col, row, color));
+    }
+  }
+
+  return `<g shape-rendering="crispEdges">${layers.join('')}</g>`;
+}
+
 /** A curved stem with two pointed leaves; drawn back to front so nearer plants overlap. */
 function renderSprouts({ stem, leaf, leafShade, at }: NonNullable<MarkLayer['sprouts']>) {
   return [...at].sort(([, a], [, b]) => a - b).map(([x, y, height]) => {
@@ -424,6 +650,13 @@ function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: s
       const tileFill = fills[index] ?? fill.ref;
       return `<path transform="translate(0 ${y})" d="${source.path}" fill-rule="evenodd" fill="${tileFill}" stroke="#FFF6E5" stroke-width="3" paint-order="stroke"/>`;
     }).join('');
+  } else if (mark.pixel) {
+    const markScale = round(scale);
+    body = renderPixelMark(source, mark.pixel, {
+      x: (plate.x - tx) / markScale,
+      y: (plate.x - ty) / markScale,
+      size: plate.size / markScale,
+    });
   } else {
     // The first subpath is the outline; the rest are the open top faces.
     const holes = source.path.split(/(?=M)/).slice(1).join('');
