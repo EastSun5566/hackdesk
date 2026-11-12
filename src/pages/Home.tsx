@@ -17,8 +17,6 @@ import { useAskNotes } from './electron-home/useAskNotes';
 import { AskNotesDialog } from './electron-home/AskNotesDialog';
 import { toRecentNote, type InPlaceTarget } from './electron-home/useNoteLinkOpener';
 import { toast } from '@/components/ui/toast';
-import type { SettingsTab } from './electron-home/SettingsDialogConfig';
-import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -61,11 +59,8 @@ import { useDocumentCommands } from './electron-home/useDocumentCommands';
 import { useLocalDocumentRecovery } from './electron-home/useLocalDocumentRecovery';
 import { useRemoteDocumentRecovery } from './electron-home/useRemoteDocumentRecovery';
 import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
-import {
-  createClosedFolderDialogState,
-  createClosedRenameFolderDialogState,
-  useWorkbenchDialogState,
-} from './electron-home/useWorkbenchDialogState';
+import { createClosedFolderDialogState, createClosedRenameFolderDialogState } from './electron-home/workbench-overlays';
+import { useWorkbenchOverlays } from './electron-home/useWorkbenchOverlays';
 import {
   useWorkbenchActions,
 } from './electron-home/useWorkbenchActions';
@@ -114,8 +109,6 @@ export function Home() {
   const setupMissing = settingsQuery.data !== undefined && !settingsQuery.data.hasHackmdApiToken && !settingsQuery.data.hasLocalVault;
   const usingInitialDrafts = settingsReady && (initialDraftsPending || setupMissing);
   if (setupMissing && !initialDraftsPending) setInitialDraftsPending(true);
-  const [destinationOpen, setDestinationOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const pendingInitialSave = useRef<string | null>(null);
   const folderPickerAction = useRef<{ type: 'note'; note: NoteSummary } | { type: 'folder'; id: string } | { type: 'create'; title: string } | null>(null);
   const beforeVaultChange = useRef<() => void>(() => {});
@@ -125,26 +118,39 @@ export function Home() {
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
   const { recentNotes, removeRecentNoteEntry, trackRecentNote, syncLocalRecentNotes } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId);
   const selectionRefs = useElectronHomeSelectionRefs();
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const initialWorkspaceResolvedRef = useRef(false);
   const panelState = useWorkbenchPanelState();
-  const dialogState = useWorkbenchDialogState();
+  const dialogState = useWorkbenchOverlays();
   const {
-    closeTransientLayer,
+    closeTopOverlay,
     palette,
     shareOpen,
     trashOpen,
     versionsOpen,
+    historyOpen,
+    destinationOpen,
+    onboardingOpen,
+    workspaceSwitcherOpen,
+    shortcutHelp,
+    leaderPath,
+    settingsInitialTab,
     setCreateDialog,
     setCreateFolderDialog,
     setDeleteFolderTarget,
     setDeleteTarget,
     setPalette,
     setRenameFolderDialog,
-    setSettingsOpen: setSettingsOpenState,
+    setSettingsOpen,
+    openSettings,
     setShareOpen,
     setTrashOpen,
     setVersionsOpen,
+    setHistoryOpen,
+    setDestinationOpen,
+    setOnboardingOpen,
+    setWorkspaceSwitcherOpen,
+    setShortcutHelp,
+    setLeaderPath,
   } = dialogState;
   useEffect(() => {
     if (palette.open) return;
@@ -152,21 +158,7 @@ export function Home() {
     folderPickerAction.current = null;
     if (action?.type === 'create') setCreateDialog({ open: true, title: action.title });
   }, [palette.open, setCreateDialog]);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
-  const setSettingsOpen = useCallback((open: boolean) => {
-    if (open) setSettingsInitialTab('general');
-    setSettingsOpenState(open);
-  }, [setSettingsOpenState]);
-  // The letters typed into the leader menu so far, or null while it is closed.
-  const [leaderPath, setLeaderPath] = useState<string[] | null>(null);
-  const openLeaderMenu = useCallback(() => setLeaderPath([]), []);
-  const [shortcutHelp, setShortcutHelp] = useState<{ region: ElectronFocusZone; target: HTMLElement | null } | null>(null);
-  const closeTransientLayerWithHelp = useCallback(() => {
-    if (shortcutHelp) { setShortcutHelp(null); return true; }
-    if (closeTransientLayer()) return true;
-    if (historyOpen) { setHistoryOpen(false); return true; }
-    return false;
-  }, [shortcutHelp, closeTransientLayer, historyOpen]);
+  const openLeaderMenu = useCallback(() => setLeaderPath([]), [setLeaderPath]);
   // The named set the open folder belongs to: its folders share one scope (tabs, search).
   const openLocalWorkspace = getActiveLocalWorkspace(settingsQuery.data);
   const localWorkspaceId = openLocalWorkspace && settingsQuery.data?.localVault.activeVaultId
@@ -190,7 +182,7 @@ export function Home() {
     setSelectedFolderId,
     setWorkspaceScope: setWorkspaceScopeState,
   } = workspaceState;
-  useEffect(() => { setHistoryOpen(false); }, [scopeStorageKey]);
+  useEffect(() => { setHistoryOpen(false); }, [scopeStorageKey, setHistoryOpen]);
   const {
     inspectorCollapsed,
     navigatorCollapsed,
@@ -201,7 +193,6 @@ export function Home() {
     toggleInspectorCollapsed,
     toggleNavigatorCollapsed,
   } = panelState;
-  const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   // Hack Mode hides everything but the note. It is not saved, so the app always opens as usual.
   const [hackMode, setHackMode] = useState(false);
   const splitStatusLine = useSplitStatusLine();
@@ -216,7 +207,7 @@ export function Home() {
       return;
     }
     toggleNavigatorCollapsed();
-  }, [expandNavigator, hackMode, toggleNavigatorCollapsed]);
+  }, [expandNavigator, hackMode, setWorkspaceSwitcherOpen, toggleNavigatorCollapsed]);
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey, usingInitialDrafts && settingsQuery.data?.shouldShowHackmdOnboarding === true);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
@@ -311,7 +302,7 @@ export function Home() {
   }, [usingInitialDrafts, activeTab, focusZone]);
   const openKeyboardShortcuts = useCallback(() => {
     setShortcutHelp({ region: focusedZone, target: getLastFocusedTarget() });
-  }, [focusedZone, getLastFocusedTarget]);
+  }, [focusedZone, getLastFocusedTarget, setShortcutHelp]);
   // Note Details floats over the note: opening it moves focus inside, and closing it from inside
   // returns to the note rather than leaving focus nowhere.
   const toggleNoteDetails = useCallback(() => {
@@ -635,7 +626,7 @@ export function Home() {
     } else {
       mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input });
     }
-  }, [flushWorkspace, mutations.createDraftNoteMutation, usingInitialDrafts]);
+  }, [flushWorkspace, mutations.createDraftNoteMutation, setDestinationOpen, usingInitialDrafts]);
   useEffect(() => {
     const tabId = pendingInitialSave.current;
     if (usingInitialDrafts || !tabId || !scopeStorageKey || noteWorkspace.state.scopeKey !== scopeStorageKey) return;
@@ -1050,7 +1041,7 @@ export function Home() {
   useWorkbenchClosePolicy({
     api,
     backupFailed: noteWorkspace.backupFailed,
-    closeTransientLayer: closeTransientLayerWithHelp,
+    closeTransientLayer: closeTopOverlay,
     confirmCloseUnsafeTabs,
     openTabs: noteWorkspace.state.tabs,
   });
@@ -1109,10 +1100,7 @@ export function Home() {
   const openHackmdTokenSetup = useCallback(() => {
     setOnboardingOpen(true);
   }, [setOnboardingOpen]);
-  const openSettingsTab = useCallback((tab: SettingsTab) => {
-    setSettingsInitialTab(tab);
-    setSettingsOpenState(true);
-  }, [setSettingsOpenState]);
+  const openSettingsTab = openSettings;
   const { handleNoteMove } = workbenchNavigator;
   const moveSelectedNoteToFolder = useCallback((folder: QuickOpenFolderResult) => {
     const action = folderPickerAction.current;
@@ -1155,7 +1143,7 @@ export function Home() {
 
   useWorkbenchShortcuts({
     activeFinderState,
-    closeTransientLayer: closeTransientLayerWithHelp,
+    closeTransientLayer: closeTopOverlay,
     characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
     handleCreateNote: folderCommands.handleCreateNote,
     noteDirty,
@@ -1480,7 +1468,7 @@ export function Home() {
             shortcuts={settings?.shortcuts} platform={api.platform}
             characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}
             onOpenChange={open => { if (!open) { setShortcutHelp(null); focusZone(shortcutHelp.region); } }}
-            onCustomize={() => { setShortcutHelp(null); setSettingsInitialTab('shortcuts'); setSettingsOpenState(true); }}
+            onCustomize={() => { setShortcutHelp(null); openSettings('shortcuts'); }}
           /> : null}
         </div>
       </KeyboardNavigation>
