@@ -11,9 +11,7 @@ import {
   UNFILED_FOLDER_ID,
 } from '@/lib/hackmd-folders';
 
-import {
-  createClosedFolderDialogState,
-} from './useWorkbenchDialogState';
+import { createClosedFolderDialogState } from './workbench-overlays';
 import type {
   CreateFolderDialogState,
   CreateNoteDialogState,

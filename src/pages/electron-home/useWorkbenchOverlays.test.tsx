@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest';
 import type { DocumentSummary } from '@/lib/electron-api';
 import type { FolderTreeNode } from '@/lib/hackmd-folders';
 
-import { useWorkbenchDialogState, type WorkbenchDialogState } from './useWorkbenchDialogState';
+import { useWorkbenchOverlays, type WorkbenchOverlayState } from './useWorkbenchOverlays';
 
-describe('useWorkbenchDialogState', () => {
+describe('useWorkbenchOverlayState', () => {
   it('closes the top transient layer before allowing the workbench close policy to continue', () => {
-    const { result } = renderHook(() => useWorkbenchDialogState());
+    const { result } = renderHook(() => useWorkbenchOverlays());
 
     act(() => {
       result.current.setSettingsOpen(true);
@@ -16,20 +16,20 @@ describe('useWorkbenchDialogState', () => {
     });
 
     act(() => {
-      expect(result.current.closeTransientLayer()).toBe(true);
+      expect(result.current.closeTopOverlay()).toBe(true);
     });
 
     expect(result.current.palette.open).toBe(false);
     expect(result.current.settingsOpen).toBe(true);
 
     act(() => {
-      expect(result.current.closeTransientLayer()).toBe(true);
+      expect(result.current.closeTopOverlay()).toBe(true);
     });
 
     expect(result.current.settingsOpen).toBe(false);
 
     act(() => {
-      expect(result.current.closeTransientLayer()).toBe(false);
+      expect(result.current.closeTopOverlay()).toBe(false);
     });
   });
 });
@@ -39,11 +39,11 @@ describe('useWorkbenchDialogState', () => {
  * can be open at the same time, Escape and window close take them down in a fixed priority (not in
  * the order they opened), and each one is reset to its closed value.
  */
-describe('useWorkbenchDialogState layers', () => {
+describe('useWorkbenchOverlayState layers', () => {
   const note = { id: 'note-1', title: 'Note' } as DocumentSummary;
   const folder = { id: 'folder-1', name: 'Folder' } as FolderTreeNode;
 
-  const layers: Array<{ name: string; open: (state: WorkbenchDialogState) => void; isOpen: (state: WorkbenchDialogState) => boolean }> = [
+  const layers: Array<{ name: string; open: (state: WorkbenchOverlayState) => void; isOpen: (state: WorkbenchOverlayState) => boolean }> = [
     {
       name: 'palette',
       open: (state) => state.setPalette({ mode: 'move-note', open: true, search: 'plan' }),
@@ -76,10 +76,10 @@ describe('useWorkbenchDialogState layers', () => {
     { name: 'settings', open: (state) => state.setSettingsOpen(true), isOpen: (state) => state.settingsOpen },
   ];
 
-  const openNames = (state: WorkbenchDialogState) => layers.filter((layer) => layer.isOpen(state)).map((layer) => layer.name);
+  const openNames = (state: WorkbenchOverlayState) => layers.filter((layer) => layer.isOpen(state)).map((layer) => layer.name);
 
   it('closes one layer at a time in a fixed priority, whatever order they opened in', () => {
-    const { result } = renderHook(() => useWorkbenchDialogState());
+    const { result } = renderHook(() => useWorkbenchOverlays());
     // Open them in reverse priority, so closing by recency would give the opposite order.
     act(() => {
       for (const layer of [...layers].reverse()) layer.open(result.current);
@@ -91,7 +91,7 @@ describe('useWorkbenchDialogState layers', () => {
       const before = openNames(result.current);
       let handled = false;
       act(() => {
-        handled = result.current.closeTransientLayer();
+        handled = result.current.closeTopOverlay();
       });
       if (!handled) break;
       const after = openNames(result.current);
@@ -114,13 +114,13 @@ describe('useWorkbenchDialogState layers', () => {
   });
 
   it('resets each layer to its closed value', () => {
-    const { result } = renderHook(() => useWorkbenchDialogState());
+    const { result } = renderHook(() => useWorkbenchOverlays());
     act(() => {
       for (const layer of layers) layer.open(result.current);
     });
     for (let index = 0; index < layers.length; index += 1) {
       act(() => {
-        result.current.closeTransientLayer();
+        result.current.closeTopOverlay();
       });
     }
 

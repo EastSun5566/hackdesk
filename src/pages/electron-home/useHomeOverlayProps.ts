@@ -5,9 +5,9 @@ import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
 import type { WorkspaceScope } from './types';
 import type { useElectronNoteMutations } from './useElectronNoteMutations';
 import type { useWorkbenchActions } from './useWorkbenchActions';
-import type { useWorkbenchDialogState } from './useWorkbenchDialogState';
+import type { WorkbenchOverlayState } from './useWorkbenchOverlays';
 
-type DialogState = ReturnType<typeof useWorkbenchDialogState>;
+type DialogState = WorkbenchOverlayState;
 type NoteMutations = ReturnType<typeof useElectronNoteMutations>;
 type WorkbenchActions = ReturnType<typeof useWorkbenchActions>;
 type CommandPaletteInjectedProps =
