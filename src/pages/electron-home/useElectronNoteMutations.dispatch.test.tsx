@@ -466,6 +466,9 @@ describe('workspace operations by workspace kind', () => {
     expect(await record('local', remove, LOCAL_NOTE)).toEqual({
       calls: [['localVault.trashNote', { noteId: 'local-source' }]],
     });
+    expect(await record('personal', remove, LOCAL_NOTE)).toEqual({
+      calls: [['localVault.trashNote', { noteId: 'local-source' }]],
+    });
     expect(await record('personal', remove, PERSONAL_NOTE)).toEqual({
       calls: [['hackmd.deleteNote', 'note-1']],
     });
