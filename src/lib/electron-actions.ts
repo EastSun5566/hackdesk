@@ -508,6 +508,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireSelectedNote,
   },
   {
+    id: 'copy-note-content',
+    label: 'Copy Note Content',
+    description: 'Copy the selected note’s Markdown to the clipboard.',
+    keywords: ['copy', 'content', 'markdown', 'text', 'body', 'clipboard'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireSelectedNote,
+  },
+  {
     id: 'share-note',
     label: 'Share Note…',
     description: 'Change who can read and edit the selected HackMD note.',

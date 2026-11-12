@@ -6,8 +6,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { useLocalVaultSession } from './useLocalVaultSession';
 import { useElectronSettings } from './useElectronSettings';
+
+vi.mock('@/components/ConfirmDialogHost', () => ({ confirmDialog: vi.fn(async () => ({ confirmed: true })) }));
 import { useNoteWorkspaceTabs } from './useNoteWorkspaceTabs';
 import { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey, getLocalVaultVaultSnapshotQueryKey, guardLocalVaultApi, type VaultAccess } from './local-vault-query';
 
@@ -40,6 +43,7 @@ function fixture(pickFolder?: () => Promise<string | null>) {
         return snapshot(path ? path.split('/').at(-1) ?? 'A' : 'A');
       }),
       choose: vi.fn(async () => ({ canceled: false, settings: settings('/tmp/B'), snapshot: snapshot('B') })),
+      measure: vi.fn(async ({ path }: { path: string }) => ({ path, name: path.split('/').at(-1), notes: 2, exceedsLimit: false, limit: 20_000 })),
       choosePath: vi.fn(async ({ path }: { path: string }) => ({
         canceled: false as const,
         settings: settings(path),
@@ -357,9 +361,28 @@ describe('Local Vault session', () => {
     });
 
     expect(f.api.localVault.choose).not.toHaveBeenCalled();
+    // The app's own dialog asks first, saying how much it will read.
+    expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Use “C” as a vault folder?',
+      detail: expect.stringContaining('2 Markdown notes in /tmp/C'),
+    }));
     expect(f.api.localVault.choosePath).toHaveBeenCalledWith({ path: '/tmp/C' });
     await waitFor(() => expect(f.result.current.session.vaultId).toBe('C'));
     expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/C'))).toEqual(snapshot('C'));
+  });
+
+  it('adds nothing when the folder is not confirmed', async () => {
+    vi.mocked(confirmDialog).mockResolvedValueOnce({ confirmed: false });
+    const f = fixture(() => Promise.resolve('/tmp/C'));
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+
+    await act(async () => {
+      await f.result.current.session.api!.localVault.choose();
+    });
+
+    expect(f.api.localVault.measure).toHaveBeenCalledWith({ path: '/tmp/C' });
+    expect(f.api.localVault.choosePath).not.toHaveBeenCalled();
+    expect(f.result.current.session.vaultId).toBe('A');
   });
 
   it('keeps the vault when the in-app picker is cancelled', async () => {

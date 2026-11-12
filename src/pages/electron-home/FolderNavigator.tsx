@@ -53,6 +53,7 @@ import {
   applyNoteFinder,
   getNoteFinderOptions,
   isNoteFinderActive,
+  sortFolderTreeNotes,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
 import { buildNoteTagIndex } from '@/lib/electron-note-tags';
@@ -192,8 +193,9 @@ export type FolderTagGrouping = {
   onToggle: (tag: string) => void;
 };
 
-function useFolderTagGrouping(unfiledNotes: FolderTreeNote[]): FolderTagGrouping | null {
-  const enabled = useTagGroupingEnabled();
+/** Local folders have no HackMD tags to group by, so their trees are never grouped. */
+function useFolderTagGrouping(unfiledNotes: FolderTreeNote[], available: boolean): FolderTagGrouping | null {
+  const enabled = useTagGroupingEnabled() && available;
   const order = useTagGroupOrder();
   const collapsed = useCollapsedTagGroups();
   const groups = useMemo(
@@ -280,6 +282,7 @@ export type FolderNavigatorActions = {
   onRenameFolderInline?: (folderId: string, name: string) => void;
   onMoveNoteRequest?: (note: NoteSummary) => void;
   onMoveFolderRequest?: (folderId: string) => void;
+  onCopyNoteContent?: (note: NoteSummary) => void;
 };
 
 export type WorkspaceFolderTree = {
@@ -337,9 +340,16 @@ export function FolderNavigator(props: FolderNavigatorProps) {
   const workspace = useStableCallbacks(props.workspace);
   // Its callbacks are rebuilt each render too (openTrashNote is inline), which would defeat the memo.
   const trash = useStableCallbacks(props.trash ?? NO_TRASH);
+  // Sorting reorders each folder's notes in place; the folders stay.
+  const sortMode = props.finderState.sortMode;
+  const tree = useMemo(() => sortFolderTreeNotes(props.tree, sortMode), [props.tree, sortMode]);
+  const workspaceFolders = useMemo(
+    () => props.workspaceFolders?.map((folder) => ({ ...folder, tree: sortFolderTreeNotes(folder.tree, sortMode) })),
+    [props.workspaceFolders, sortMode],
+  );
   // Read in the top component: the memoized panels below would miss a preference change.
-  const tagGrouping = useFolderTagGrouping(props.tree.unfiled.notes);
-  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashPanelSource : undefined} tagGrouping={tagGrouping} />;
+  const tagGrouping = useFolderTagGrouping(tree.unfiled.notes, props.scope.type !== 'local');
+  return <MemoFolderNavigator {...props} tree={tree} workspaceFolders={workspaceFolders} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashPanelSource : undefined} tagGrouping={tagGrouping} />;
 }
 
 const NO_TRASH = {};
@@ -408,7 +418,7 @@ function FolderNavigatorPanel({
           to the left with that edge rather than sitting still under the note card. The width queries
           (note-navigator) read this full width, so rows never change mid-animation. */}
       <div className="note-navigator scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col self-end">
-        <RowOperationsContext.Provider value={{ renameNote: actions.onRenameNoteInline, renameFolder: actions.onRenameFolderInline, moveNote: actions.onMoveNoteRequest, moveFolder: actions.onMoveFolderRequest }}><ExpandedNavigator
+        <RowOperationsContext.Provider value={{ renameNote: actions.onRenameNoteInline, renameFolder: actions.onRenameFolderInline, moveNote: actions.onMoveNoteRequest, moveFolder: actions.onMoveFolderRequest, copyNoteContent: actions.onCopyNoteContent }}><ExpandedNavigator
           actions={actions}
           emptyState={emptyState}
           entries={entries}
@@ -713,7 +723,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0
     || Boolean(workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length));
   const trashActive = Boolean(trash?.open || history?.open);
-  // The pinned workspace row (8px of cover plus its 32px row) stays solid; rows fade under it.
+  // The pinned workspace row (32px) stays solid; rows fade under it.
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const overflow = useScrollOverflow(scroller, 'y');
@@ -723,7 +733,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
     // Around the scroller, not inside it, so the scroller's children stay the rows' real boxes.
     <RowOverlayHost>
       {/* While the workspace row is pinned, rows scrolled into view (keyboard, reveal, hints) stop
-          below it instead of under it: 2.5rem is its 8px cover plus its 32px row. */}
+          below it instead of under it: 2rem is its row. */}
       <div
         ref={setScroller}
         // One listener for every note row (tree, search results and the other folders of a set): a
@@ -739,11 +749,11 @@ const MemoNavigatorContent = memo(function NavigatorContent({
         } : undefined}
         data-overflow-start={overflow.start || undefined}
         data-overflow-end={overflow.end || undefined}
-        className={cn('scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2', pinnedRootShown && 'scroll-pt-10')}
+        className={cn('scroll-edges-source min-h-0 min-w-0 mt-2 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2', pinnedRootShown && 'scroll-pt-8')}
       >
         {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows.
             Each shows only while rows lie past its edge, so a list that fits shows neither. */}
-        <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : '-top-2')}>
+        <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : 'top-0')}>
           <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />
         </div>
         {history?.open ? (

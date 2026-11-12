@@ -63,6 +63,7 @@ type WorkspaceActions = {
   copyDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onCopyDraft'];
   exportDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onExportDraft'];
   retryDocumentLoad: ElectronHomeWorkspaceProps['documentWorkspace']['onRetryLoad'];
+  handleCopyNoteContent: NonNullable<ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteContent']>;
   handleCopyNoteLink: ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteLink'];
   handleCopyNoteMarkdownLink: ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteMarkdownLink'];
   handleDeleteRequest: ElectronHomeWorkspaceProps['navigator']['actions']['onDeleteNote'];
@@ -77,6 +78,7 @@ type WorkspaceActions = {
   handleOpenEditor: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenNote'];
   handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
   openHackmdTokenSetup: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenSettings'];
+  openVaultSettings: () => void;
   openPalette: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenPalette'];
   openQuickOpen: () => void;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
@@ -341,6 +343,7 @@ export function useHomeWorkspaceProps({
         onChooseLocalVault: () => {
           void localVaultActions.chooseLocalVault();
         },
+        onManageLocalVaults: actions.openVaultSettings,
         onScopeChange: (next) => {
           overlayControls.close('trash');
           overlayControls.close('history');
@@ -466,6 +469,7 @@ export function useHomeWorkspaceProps({
         },
         onCopyNoteLink: actions.handleCopyNoteLink,
         onCopyNoteMarkdownLink: actions.handleCopyNoteMarkdownLink,
+        onCopyNoteContent: actions.handleCopyNoteContent,
         onDuplicateNote: actions.handleDuplicateNote,
         onExportNoteMarkdown: actions.handleExportNoteMarkdown,
         onDeleteNote: actions.handleDeleteRequest,

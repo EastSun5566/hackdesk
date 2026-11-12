@@ -20,7 +20,7 @@ export const LEADER_KEYS: Record<string, LeaderEntry> = {
     label: 'Note',
     keys: {
       n: 'new-note', t: 'new-note-from-template', r: 'rename-note', d: 'duplicate-note', m: 'move-note-to-folder',
-      s: 'save-note', l: 'copy-note-link', k: 'copy-markdown-link', h: 'share-note', v: 'show-note-versions',
+      s: 'save-note', l: 'copy-note-link', k: 'copy-markdown-link', c: 'copy-note-content', h: 'share-note', v: 'show-note-versions',
       e: 'export-note-markdown', b: 'open-as-book', p: 'present-note', x: 'delete-note',
     },
   },

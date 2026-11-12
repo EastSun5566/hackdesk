@@ -8,14 +8,9 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu';
+import { ContextMenuItem } from '@/components/ui/context-menu';
 import { toast } from '@/components/ui/toast';
-import { Tooltip, TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 import {
   getHackDeskAPI,
   type NoteSummary,
@@ -23,7 +18,9 @@ import {
   type TrashedNoteSummary,
 } from '@/lib/electron-api';
 import { EmptyState, EntityRow } from './interaction-primitives';
-import { FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
+import { TrashedNoteSummaryCard } from './NoteSummaryCard';
+import { useRowOverlays } from './row-overlays';
+import { FOCUS_RING_INSET_CLASS, formatCompactDate } from './ui';
 import {
   HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE,
   isTeamTrashForbiddenError,
@@ -121,7 +118,7 @@ function TrashRow({
       title={title}
       subtitle={subtitle}
       trailing={(
-        <time title={`Deleted ${formatDate(note.deletedAtMillis)}`} dateTime={note.deletedAtMillis ? new Date(note.deletedAtMillis).toISOString() : undefined}>
+        <time dateTime={note.deletedAtMillis ? new Date(note.deletedAtMillis).toISOString() : undefined}>
           {formatCompactDate(note.deletedAtMillis)}
         </time>
       )}
@@ -151,33 +148,22 @@ function TrashRow({
     />
   );
 
-  const row = note.permanentDeleteAtMillis ? (
-    <TooltipRoot>
-      <TooltipTrigger delay={300} render={<div className="min-w-0" data-trash-row-index={index} />}>
-        {entity}
-      </TooltipTrigger>
-      <TooltipContent side="right" sideOffset={10}>
-        Deleted {formatDate(note.deletedAtMillis)} · Kept until {formatDate(note.permanentDeleteAtMillis)}
-      </TooltipContent>
-    </TooltipRoot>
-  ) : (
-    <div className="min-w-0" data-trash-row-index={index}>{entity}</div>
+  // Like a tree row: the list's one context menu and hover card (see RowOverlayHost), which shows
+  // the full title, tags and dates the one-line row leaves out.
+  const overlayRef = useRowOverlays(
+    () => (
+      <ContextMenuItem onSelect={() => onRestore()}>
+        <RotateCcw aria-hidden="true" className="h-4 w-4" />
+        Restore
+      </ContextMenuItem>
+    ),
+    () => <TrashedNoteSummaryCard note={note} />,
   );
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <li role="listitem" className="min-w-0">
-          {row}
-        </li>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onSelect={() => onRestore()}>
-          <RotateCcw aria-hidden="true" className="h-4 w-4" />
-          Restore
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <li role="listitem" className="min-w-0">
+      <div ref={overlayRef} className="min-w-0" data-trash-row-index={index}>{entity}</div>
+    </li>
   );
 }
 
@@ -368,7 +354,9 @@ export function TrashNavigatorList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ul aria-label="Deleted notes" className="m-0 grid min-w-0 flex-1 list-none gap-0.5 overflow-y-auto p-0">
+      {/* The sidebar scrolls the list. A scroller here of its own clipped each row's 40px icon slot,
+          which overhangs its row, and showed a scrollbar over a single note. */}
+      <ul aria-label="Deleted notes" className="m-0 grid min-w-0 list-none gap-0.5 p-0">
         {notes.map((note, index) => (
           <TrashRow
             key={note.id}

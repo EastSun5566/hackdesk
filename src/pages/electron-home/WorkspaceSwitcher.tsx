@@ -87,6 +87,8 @@ export type WorkspaceSidebarProps = {
   onScopeChange: (scope: WorkspaceScope) => void;
   onSwitchLocalVault: (vaultId: string) => void;
   onChooseLocalVault: () => void;
+  /** Opens Settings on the Vault tab, where folders and workspaces are managed. */
+  onManageLocalVaults?: () => void;
   /** Opens a workspace in a new window. Leave it out to hide the open-out buttons. */
   onOpenInNewWindow?: (scope: WorkspaceScope) => void;
   onOpenSettings: () => void;
@@ -492,6 +494,7 @@ export function WorkspaceSwitcher({
   onScopeChange,
   onSwitchLocalVault,
   onChooseLocalVault,
+  onManageLocalVaults,
   onOpenInNewWindow,
   onPinnedTeamIdsChange,
 }: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onSignOut'>) {
@@ -589,6 +592,22 @@ export function WorkspaceSwitcher({
               <div className="flex flex-col border-t border-border-subtle pt-1">
                 <div className="flex items-center justify-between pl-2 pr-0.5">
                   <p className="text-2xs font-medium uppercase text-text-subtle">{localWorkspaces.length ? 'Local workspaces' : 'Local folders'}</p>
+                  <span className="flex items-center">
+                  {onManageLocalVaults ? (
+                    <Tooltip content="Manage local folders">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Manage local folders"
+                        onClick={() => {
+                          onSwitcherOpenChange(false);
+                          onManageLocalVaults();
+                        }}
+                      >
+                        <Settings2 aria-hidden="true" className="h-3.5 w-3.5" />
+                      </Button>
+                    </Tooltip>
+                  ) : null}
                   <Tooltip content="Add local folder">
                     <Button
                       variant="ghost"
@@ -602,6 +621,7 @@ export function WorkspaceSwitcher({
                       <FolderPlus aria-hidden="true" className="h-3.5 w-3.5" />
                     </Button>
                   </Tooltip>
+                  </span>
                 </div>
                 <ul className="max-h-64 list-none space-y-0.5 overflow-y-auto p-0 scroll-py-1">
                   {localWorkspaces.map((workspace) => {

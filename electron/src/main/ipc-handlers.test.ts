@@ -576,38 +576,27 @@ describe('registerIpcHandlers', () => {
     });
   });
 
-  it('chooses a vault from an in-app picker path after resolving it and confirming it natively', async () => {
+  it('chooses a vault from an in-app picker path after resolving it, with no native dialog', async () => {
     localVaultServiceMock.resolveLocalDirectory.mockResolvedValueOnce('/tmp/picked');
-    vi.mocked(dialog.showMessageBox).mockResolvedValueOnce({ response: 0, checkboxChecked: false });
     registerIpcHandlers(windowManager);
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultChoosePath);
 
     expect(await handler?.({}, { path: '/tmp/picked' })).toMatchObject({ canceled: false });
-    expect(dialog.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Use “picked” as a vault folder?',
-      detail: expect.stringContaining('3 Markdown notes'),
-    }));
-
+    // The page confirms the folder in its own dialog first.
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
     expect(localVaultServiceMock.resolveLocalDirectory).toHaveBeenCalledWith('/tmp/picked');
     expect(localVaultServiceMock.scanLocalVault).toHaveBeenCalledWith('/tmp/picked');
     expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({ localVaultPath: '/tmp/picked' });
     expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalled();
   });
 
-  it('changes nothing when the picked folder is not confirmed, and warns about a huge one', async () => {
+  it('measures a picked folder for the confirmation without scanning, writing or watching it', async () => {
     localVaultServiceMock.resolveLocalDirectory.mockResolvedValueOnce('/home/test');
     localVaultServiceMock.measureLocalVaultFolder.mockResolvedValueOnce({ notes: 900, entries: 20_000, exceedsLimit: true });
-    vi.mocked(dialog.showMessageBox).mockResolvedValueOnce({ response: 1, checkboxChecked: false });
     registerIpcHandlers(windowManager);
-    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultChoosePath);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultMeasure);
 
-    expect(await handler?.({}, { path: '/home/test' })).toEqual({ canceled: true });
-    expect(dialog.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'warning',
-      defaultId: 1,
-      detail: expect.stringContaining('more than 20,000 files and folders'),
-    }));
-    // Nothing is scanned, written or watched until the folder is confirmed.
+    expect(await handler?.({}, { path: '/home/test' })).toEqual({ path: '/home/test', name: 'test', notes: 900, exceedsLimit: true, limit: 20_000 });
     expect(localVaultServiceMock.scanLocalVault).not.toHaveBeenCalled();
     expect(settingsMock.updateStoredSettings).not.toHaveBeenCalled();
     expect(localVaultServiceMock.watchLocalVault).not.toHaveBeenCalled();

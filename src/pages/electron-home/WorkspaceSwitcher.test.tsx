@@ -189,6 +189,19 @@ describe('WorkspaceSwitcher', () => {
     expect(props.onChooseLocalVault).toHaveBeenCalledOnce();
   });
 
+  it('opens the Vault settings from the local section and closes the switcher', async () => {
+    const onManageLocalVaults = vi.fn();
+    renderSwitcher({
+      localVaults: [{ id: 'vault-a', path: '/Users/michael/A' }],
+      onManageLocalVaults,
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Manage local folders' }));
+    expect(onManageLocalVaults).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).not.toBeInTheDocument());
+  });
+
   it('switches vaults from their rows and marks the active one', async () => {
     const props = renderSwitcher({
       scope: { type: 'local', label: 'Notes', vaultId: 'vault-notes' },

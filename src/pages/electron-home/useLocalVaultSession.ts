@@ -9,6 +9,7 @@ import type {
   LocalWorkspaceMutation,
   LocalWorkspaceMutationResult,
 } from '@/lib/local-vault';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
 import {
   cacheLocalVaultSnapshot,
@@ -24,6 +25,32 @@ import { migrateLocalWorkspaceStorage } from './local-workspace-storage';
  * routed through the change transition (like choose/disconnect), so concurrent
  * vault reads are cancelled instead of racing the switch.
  */
+
+/**
+ * Asks, in the app's own dialog, whether to use the picked folder, saying how much HackDesk would
+ * read. Nothing is scanned, written or watched until it is confirmed.
+ */
+async function confirmVaultFolder(api: HackDeskElectronAPI, path: string) {
+  const folder = await api.localVault.measure({ path });
+  const notes = folder.notes === 1 ? '1 Markdown note' : `${folder.notes.toLocaleString()} Markdown notes`;
+  const { confirmed } = await confirmDialog({
+    message: `Use “${folder.name}” as a vault folder?`,
+    detail: folder.exceedsLimit
+      ? `${folder.path} holds more than ${folder.limit.toLocaleString()} files and folders. HackDesk reads and watches every Markdown file in it, which can be slow; a smaller folder is usually better.`
+      : `HackDesk will read and watch the ${notes} in ${folder.path}. Your files stay where they are.`,
+    confirmLabel: 'Use Folder',
+  });
+  return confirmed;
+}
+
+/** The folder that holds `path`, or `path` itself at a root. */
+function parentDirectory(path: string) {
+  const trimmed = path.replace(/[\\/]+$/, '');
+  const index = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+  if (index <= 0) return trimmed.slice(0, index + 1) || path;
+  return /^[A-Za-z]:$/.test(trimmed.slice(0, index)) ? trimmed.slice(0, index + 1) : trimmed.slice(0, index);
+}
+
 export type LocalVaultSessionApi = Omit<HackDeskElectronAPI, 'localVault'> & {
   localVault: HackDeskElectronAPI['localVault'] & {
     switchVault: (vaultId: string) => Promise<LocalVaultActivateResult>;
@@ -45,7 +72,7 @@ export function useLocalVaultSession(
   settings: ElectronSafeSettings | undefined,
   beforeChange: MutableRefObject<() => void>,
   /** Opens the in-app folder picker; falls back to the native dialog when absent. */
-  pickFolder?: (startPath?: string | null) => Promise<string | null>,
+  pickFolder?: (startPath?: string | null, addedPaths?: readonly string[]) => Promise<string | null>,
 ) {
   const queryClient = useQueryClient();
   const path = getActiveLocalVaultPath(settings);
@@ -146,10 +173,15 @@ export function useLocalVaultSession(
         ...guarded.localVault,
         choose: () => transition(async () => {
           if (pickFolder) {
-            // Start where the current vault is, so changing vaults is one step.
+            // Start beside the current vault, among its siblings: the folder to add is usually a
+            // neighbour, and starting inside the vault offered to add it again.
             const current = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
-            const path = await pickFolder(getActiveLocalVaultPath(current) ?? undefined);
-            if (!path) {
+            const activePath = getActiveLocalVaultPath(current);
+            const path = await pickFolder(
+              activePath ? parentDirectory(activePath) : undefined,
+              current?.localVault.vaults.map((vault) => vault.path) ?? [],
+            );
+            if (!path || !(await confirmVaultFolder(api, path))) {
               return { canceled: true };
             }
             const picked = await api.localVault.choosePath({ path });

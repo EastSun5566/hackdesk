@@ -5,7 +5,9 @@ import { EditorView } from '@codemirror/view';
 import type { ResolvedThemeMode } from '@/lib/themes';
 
 import {
+  BLOCK_SURFACES,
   CODE_PANEL_BACKGROUNDS,
+  CONTAINER_TINTS,
   codeAndBlockTheme,
   editorChromeTheme,
   inlineMarksTheme,
@@ -26,7 +28,14 @@ export function createHackmdPreviewTheme(mode: ResolvedThemeMode): Extension[] {
   const theme = [
     syntaxHighlighting(hackmdMarkdownHighlightStyle),
     EditorView.theme({
-      '&': { '--cm-code-panel': CODE_PANEL_BACKGROUNDS[mode] },
+      '&': {
+        '--cm-block-surface': BLOCK_SURFACES[mode],
+        '--cm-code-panel': CODE_PANEL_BACKGROUNDS[mode],
+        '--cm-tint-info': CONTAINER_TINTS[mode].info,
+        '--cm-tint-success': CONTAINER_TINTS[mode].success,
+        '--cm-tint-warning': CONTAINER_TINTS[mode].warning,
+        '--cm-tint-danger': CONTAINER_TINTS[mode].danger,
+      },
     }),
     EditorView.theme({
       ...editorChromeTheme,
