@@ -39,7 +39,7 @@ type MarkLayer = {
   /** A soft pile of powder on each top face: a haze, a mound, and a faint shadow under it. */
   dusting?: { color: string; shade: string };
   /** Dots laid on the mark, in the mark's own coordinates: [x, y, radius]. */
-  toppings?: { color: string; shine?: string; dots: [number, number, number][] };
+  toppings?: { color: string; shade?: string; shine?: string; dots: [number, number, number][] };
   /** Seedlings standing on the mark, in its coordinates: [x, y of the soil, height]. */
   sprouts?: { stem: string; leaf: string; leafShade: string; at: [number, number, number][] };
   glow?: string;
@@ -132,6 +132,96 @@ const DOUBLE_FACES: Point[][] = [
 
 function dotsOnFaces(radius: number, coverage?: number, keep?: number) {
   return DOUBLE_FACES.flatMap((face) => dotsOn(face, radius, coverage, keep));
+}
+
+/**
+ * Stacks beads on each face the way real roe settles. The face is treated as
+ * a square tray seen from above at an angle: the bottom layer is a touching
+ * hexagonal pack, and each bead above rests in a hollow of the layer below at
+ * the height where it first touches its neighbours. Upper layers shrink toward
+ * the middle into a mound. A few beads go missing and the rest shift a little,
+ * seeded so every build is the same. Beads are painted far to near.
+ */
+function heapOnFaces(radius: number) {
+  // The face's foreshortening: how far a unit of height rises on screen, and
+  // how screen depth and height combine into distance from the viewer.
+  const rise = 0.85;
+  const depthPerY = 1.6;
+  const depthPerZ = 0.53;
+  const layers = [
+    { reach: Infinity, offset: [0, 0] },
+    { reach: 0.6, offset: [1, 1 / Math.sqrt(3)] },
+    { reach: 0.22, offset: [0, 2 / Math.sqrt(3)] },
+  ];
+
+  return DOUBLE_FACES.flatMap(([left, top, , bottom], face) => {
+    const back: Point = [top[0] - left[0], top[1] - left[1]];
+    const front: Point = [bottom[0] - left[0], bottom[1] - left[1]];
+    const side = (Math.hypot(...back) + Math.hypot(...front)) / 2;
+    const wall = radius * 0.85;
+    const beads: [number, number, number, number][] = [];
+
+    layers.forEach(({ reach, offset }, layer) => {
+      // Each piece and layer gets its own seed, so no two settle alike.
+      const salt = face * 13.7 + layer * 5.3;
+      // A grid centred in the tray, keeping beads whose edge stays clear of the nori wall.
+      const stepY = radius * Math.sqrt(3);
+      const startU = ((side - wall * 2) % (radius * 2)) / 2 + wall - radius * 2;
+      const startV = ((side - wall * 2) % stepY) / 2 + wall - stepY * 2;
+      const placed: Point[] = [];
+      for (let row = 0, v = startV + offset[1] * radius; v <= side - wall; row += 1, v += stepY) {
+        for (let u = startU + ((row % 2) + offset[0]) * radius; u <= side - wall; u += radius * 2) {
+          const seed = hash(u + salt, v - salt);
+          const fromMiddle = Math.hypot(u - side / 2, v - side / 2) / (side / 2);
+          if (u < wall || v < wall || seed < 0.1 || fromMiddle > reach + (seed - 0.5) * 0.3) {
+            continue;
+          }
+          // Knocked well off the grid; the settling pass below sorts out the overlaps.
+          placed.push([u + (hash(v, u + salt) - 0.5) * radius * 0.9, v + (hash(u * 1.7, v + salt) - 0.5) * radius * 0.9]);
+        }
+      }
+
+      // Settle: push overlapping neighbours apart until they just touch, inside the tray.
+      for (let pass = 0; pass < 12; pass += 1) {
+        placed.forEach((a, i) => placed.slice(i + 1).forEach((b) => {
+          const gap = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          const overlap = radius * 2 - gap;
+          if (overlap > 0 && gap > 0) {
+            const push = overlap / 2 / gap;
+            const dx = (b[0] - a[0]) * push;
+            const dy = (b[1] - a[1]) * push;
+            a[0] -= dx; a[1] -= dy; b[0] += dx; b[1] += dy;
+          }
+        }));
+        placed.forEach((point) => {
+          point[0] = Math.min(Math.max(point[0], wall), side - wall);
+          point[1] = Math.min(Math.max(point[1], wall), side - wall);
+        });
+      }
+
+      placed.forEach(([x, y]) => {
+        // Rest where it first touches a bead below; the bottom layer sits on the rice.
+        const supports = beads.filter(([bx, by, , below]) => below < layer && Math.hypot(x - bx, y - by) < radius * 2);
+        if (layer > 0 && supports.length < 2) {
+          return;
+        }
+        const z = supports.reduce(
+          (height, [bx, by, bz]) => Math.max(height, bz + Math.sqrt(4 * radius ** 2 - (x - bx) ** 2 - (y - by) ** 2)),
+          0,
+        );
+        beads.push([x, y, z, layer]);
+      });
+    });
+
+    return beads
+      .map(([u, v, z]) => {
+        const sx = left[0] + (back[0] * u + front[0] * v) / side;
+        const sy = left[1] + (back[1] * u + front[1] * v) / side;
+        return { dot: [round(sx), round(sy - z * rise), round(radius)] as Dot, depth: sy * depthPerY + z * depthPerZ };
+      })
+      .sort((a, b) => a.depth - b.depth)
+      .map(({ dot }) => dot);
+  });
 }
 
 const DESIGNS = {
@@ -297,7 +387,7 @@ const DESIGNS = {
       shape: 'double',
       fill: { stops: ['#34473A', '#141C17'], from: [0.2, 0], to: [0.8, 1] },
       innerFill: '#FBF6EA',
-      toppings: { color: '#FF6A2B', shine: '#FFD2B8', dots: dotsOnFaces(1.9) },
+      toppings: { color: '#FF6A2B', shade: '#C9360F', shine: '#FFD2B8', dots: heapOnFaces(4.1) },
     },
     decorations: ['bento'],
   },
@@ -735,7 +825,10 @@ function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: s
         const shine = mark.toppings?.shine
           ? `<circle cx="${round(cx - r * 0.35)}" cy="${round(cy - r * 0.35)}" r="${round(r * 0.3)}" fill="${mark.toppings.shine}"/>`
           : '';
-        return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${mark.toppings?.color}"/>${shine}`;
+        const shade = mark.toppings?.shade
+          ? ` stroke="${mark.toppings.shade}" stroke-width="${round(r * 0.22)}"`
+          : '';
+        return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${mark.toppings?.color}"${shade}/>${shine}`;
       }).join('')
       : '';
     const sprouts = mark.sprouts ? renderSprouts(mark.sprouts) : '';
