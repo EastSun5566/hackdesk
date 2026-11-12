@@ -92,7 +92,8 @@ export function ElectronHomeDialogs({
   onSaveToken,
   onSetupLater,
 }: ElectronHomeDialogsProps) {
-  // Each dialog's state comes from the workbench overlays, so only its own changes re-render it.
+  // Each dialog's state comes from the workbench overlays store. This still re-renders with Home,
+  // which reads every overlay, until Home narrows what it reads (#362).
   const overlayControls = useOverlayControls();
   const createFolderDialog = useOverlay((overlays) => overlays.createFolder);
   const createNoteDialog = useOverlay((overlays) => overlays.createNote);
