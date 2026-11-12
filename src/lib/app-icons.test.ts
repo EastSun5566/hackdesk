@@ -30,6 +30,42 @@ describe('app icon catalog', () => {
     expect(new Set(APP_ICON_OPTIONS.map((option) => option.group))).toEqual(new Set(['classic', 'single', 'fun', 'secret']));
   });
 
+  it('keeps Gold, Building Blocks, and Sushi behind the secret unlock', () => {
+    const secret = APP_ICON_OPTIONS.filter((option) => option.group === 'secret').map((option) => option.id);
+    expect(secret).toEqual(['blocks', 'gold', 'sushi']);
+  });
+
+  it('fills the mark\'s open top faces beneath the mark for gunkan-style icons', () => {
+    const svg = renderAppIconSvg('sushi');
+    const rice = svg.indexOf('fill="#FBF6EA"');
+    const nori = svg.indexOf('fill="url(#mark-fill)"');
+    expect(rice).toBeGreaterThan(-1);
+    expect(rice).toBeLessThan(nori);
+    expect(svg.match(/fill="#FF6A2B"/g)?.length).toBeGreaterThan(10);
+  });
+
+  it('draws the Pixel icons as shaded pixel art on a dithered screen', () => {
+    const svg = renderAppIconSvg('pixel');
+    const fills = new Set([...svg.matchAll(/<rect [^>]*fill="(#[0-9A-F]{6})"/g)].map(([, fill]) => fill));
+    expect(svg).toContain('shape-rendering="crispEdges"');
+    // Outline, body, face, the three sprite shades, two screen tones, and the drop shadow.
+    for (const tone of ['#0F380F', '#306230', '#9BBC0F', '#4F7F2A', '#1E4A1E', '#86A70F', '#8BAC0F', '#77970B', '#5E7E0A']) {
+      expect(fills, tone).toContain(tone);
+    }
+    expect(renderAppIconSvg('pixel-purple')).toContain('fill="#453AFF"');
+  });
+
+  it('draws the CRT icon with bloom behind the mark and tube effects over it', () => {
+    const svg = renderAppIconSvg('crt');
+    const bloom = svg.indexOf('filter="url(#pixel-bloom)"');
+    const outline = svg.indexOf('fill="#4A2600"');
+    const vignette = svg.indexOf('fill="url(#pixel-vignette)"');
+    expect(bloom).toBeGreaterThan(-1);
+    expect(bloom).toBeLessThan(outline);
+    expect(vignette).toBeGreaterThan(outline);
+    expect(svg).toContain('stroke="rgba(0,0,0,0.2)"');
+  });
+
   it('resolves the system option from the OS appearance', () => {
     expect(resolveAppIconVariant('system', false)).toBe('color-light');
     expect(resolveAppIconVariant('system', true)).toBe('color-dark');
