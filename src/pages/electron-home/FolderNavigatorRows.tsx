@@ -1023,9 +1023,9 @@ export function WorkspaceRootTreeRow({
           ref={setRowRef}
           data-folder-tree-row-id={WORKSPACE_ROOT_FOCUS_ID}
           data-folder-tree-kind="root"
-          // Sticks to the scroll area's very top, covering its 8px padding too, so rows scrolling
-          // past never show through the strip above the root.
-          className="sticky -top-2 z-10 -mt-2 min-w-0 bg-background-muted pt-2"
+          // Sticks to the scroll area's very top. The gap above it is the scroller's margin, not
+          // padding (see FolderNavigator), so the scrollbar starts level with this row.
+          className="sticky top-0 z-10 min-w-0 bg-background-muted"
         >
           <EntityRow
             selected={selected}
