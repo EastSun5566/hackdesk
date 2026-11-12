@@ -27,6 +27,16 @@ export type LaunchOptions = {
   vault?: Record<string, string>;
   /** Runs the real main process against the in-memory HackMD in fake-hackmd.cjs. */
   fakeHackmd?: boolean;
+  /** Notes the fake HackMD starts with, instead of its single default note. */
+  hackmdNotes?: Array<{ id: string; title: string; content: string }>;
+};
+
+/** Faults the fake HackMD applies to note writes while the app runs. */
+export type FakeHackmdFaults = {
+  /** PATCH requests for these note ids fail with a server error. */
+  failPatch?: string[];
+  /** PATCH requests for these note ids wait this long before they are handled. */
+  delayPatchMs?: Record<string, number>;
 };
 
 export type HackDesk = {
@@ -37,6 +47,7 @@ export type HackDesk = {
   settingsPath: string;
   readSettings: () => Promise<Record<string, unknown>>;
   hackmdRequests: () => Promise<FakeHackmdRequest[]>;
+  setHackmdFaults: (faults: FakeHackmdFaults) => Promise<void>;
   /** Quits like a user would and starts again with the same home, vault and fake HackMD state. */
   restart: () => Promise<HackDesk>;
 };
@@ -110,6 +121,7 @@ export const test = base.extend<{ hackdesk: Launch }>({
           const log = await readFile(join(home, 'fake-hackmd-requests.jsonl'), 'utf8').catch(() => '');
           return log.split('\n').filter(Boolean).map(line => JSON.parse(line) as FakeHackmdRequest);
         },
+        setHackmdFaults: (faults) => writeFile(join(home, 'fake-hackmd-faults.json'), JSON.stringify(faults)),
         restart: async () => {
           await quit(app, page);
           return start(home, vault, fakeHackmd);
@@ -117,7 +129,7 @@ export const test = base.extend<{ hackdesk: Launch }>({
       };
     };
 
-    await provide(async ({ settings, vault: files, fakeHackmd = false } = {}) => {
+    await provide(async ({ settings, vault: files, fakeHackmd = false, hackmdNotes } = {}) => {
       const home = await mkdtemp(join(tmpdir(), 'hackdesk-e2e-'));
       const vault = join(home, 'vault');
       await mkdir(join(home, '.hackdesk'), { recursive: true });
@@ -137,6 +149,16 @@ export const test = base.extend<{ hackdesk: Launch }>({
         };
       if (resolvedSettings) {
         await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify(resolvedSettings));
+      }
+      if (hackmdNotes) {
+        // The same shape fake-hackmd.cjs persists; it reads this file instead of its default state.
+        await writeFile(join(home, 'fake-hackmd.json'), JSON.stringify({
+          token: 'fake-hackmd-token',
+          user: { id: 'fake-user', name: 'Fake User', userPath: 'fake-user', email: null, photo: null, upgraded: false },
+          nextId: 1,
+          notes: hackmdNotes.map(note => ({ ...note, tags: [], revision: 1 })),
+          trash: [],
+        }));
       }
       return start(home, vault, fakeHackmd);
     });

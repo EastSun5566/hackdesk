@@ -102,7 +102,7 @@ function createOptions(overrides: Partial<Parameters<typeof useLocalDocumentReco
     getTabsMatching: vi.fn(() => [tab]),
     notes: [toNoteSummary(document, snapshot)],
     openNote: vi.fn(),
-    resetSaveMutation: vi.fn(),
+    clearSaveFailure: vi.fn(),
     syncNoteSummary: vi.fn(),
     tabs: { [tab.tabId]: tab },
     trackRecentNote: vi.fn(),
@@ -162,7 +162,7 @@ describe('useLocalDocumentRecovery', () => {
     await waitFor(() => {
       expect(options.clearDraft).toHaveBeenCalledWith('tab-1');
     });
-    expect(options.resetSaveMutation).toHaveBeenCalledOnce();
+    expect(options.clearSaveFailure).toHaveBeenCalledWith({ id: document.id, teamPath: document.teamPath });
   });
 
   it('saves the current draft as a copy in the same local folder', async () => {

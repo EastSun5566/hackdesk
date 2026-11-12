@@ -22,7 +22,7 @@ function setup(result: unknown) {
     clearDraft: vi.fn(),
     documentQueries: { refetchByIdentity: vi.fn(async () => result) },
     getTabsMatching: vi.fn(() => tabs),
-    resetSaveMutation: vi.fn(),
+    clearSaveFailure: vi.fn(),
   };
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   const hook = renderHook(() => useRemoteDocumentRecovery(options), { wrapper });
@@ -37,7 +37,7 @@ describe('useRemoteDocumentRecovery', () => {
     ['a direct read', { source: 'remote' as const, data: document }, { source: 'remote' as const, data: document }],
   ])('clears drafts after %s returns the note from HackMD', async (_label, result, cached) => {
     const { options, queryClient } = setup(result);
-    await waitFor(() => expect(options.resetSaveMutation).toHaveBeenCalledOnce());
+    await waitFor(() => expect(options.clearSaveFailure).toHaveBeenCalledWith({ id: 'note-1', teamPath: 'team-a' }));
     expect(options.documentQueries.refetchByIdentity).toHaveBeenCalledWith({ id: 'note-1', teamPath: 'team-a' });
     expect(options.getTabsMatching).toHaveBeenCalledWith({ id: 'note-1', teamPath: 'team-a' });
     expect(options.clearDraft.mock.calls).toEqual([['tab-1'], ['tab-2']]);
@@ -52,6 +52,6 @@ describe('useRemoteDocumentRecovery', () => {
     const { options } = setup(result);
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining(message)));
     expect(options.clearDraft).not.toHaveBeenCalled();
-    expect(options.resetSaveMutation).not.toHaveBeenCalled();
+    expect(options.clearSaveFailure).not.toHaveBeenCalled();
   });
 });

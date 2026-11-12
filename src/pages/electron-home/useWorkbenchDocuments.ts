@@ -26,6 +26,15 @@ import {
   type OpenNoteTab,
 } from './note-workspace';
 import {
+  draftSyncKey,
+  getSyncSaveFailure,
+  isSyncDeleting,
+  isSyncSaving,
+  isSyncUploading,
+  noteSyncKey,
+  type SyncActivityState,
+} from './note-sync-activity';
+import {
   getRepositoryError,
   isShowingCachedFallback,
   unwrapRepositoryValue,
@@ -39,52 +48,40 @@ export type WorkbenchDocumentQueryState = {
 export type WorkbenchDocumentsOptions = {
   activeTab: OpenNoteTab | null;
   clearDraft: (tabId: string) => void;
-  deletingNote: NoteIdentity | null;
   documentQueriesByKey: Map<string, WorkbenchDocumentQueryState | undefined>;
   documentsByKey: Map<string, RepositoryValue<DocumentSummary> | undefined>;
   drafts: Record<string, NoteDocumentDraft>;
-  isDeletingNote: boolean;
-  isSavingNote: boolean;
-  isSavingDraftNote?: boolean;
-  isUploadingImage: boolean;
   latestLocalRevisionByNoteId?: Map<string, LocalRevision>;
-  saveError: unknown;
-  draftSaveError?: unknown;
-  saveFailedNote: NoteIdentity | null;
-  saveFailedDraftTabId?: string | null;
-  savingDraftTabId?: string | null;
-  savingNote: NoteIdentity | null;
+  /** Each note's own save, delete and upload progress. */
+  syncActivity: SyncActivityState;
   tabs: Record<string, OpenNoteTab>;
   updateDraft: (tabId: string, draft: NoteDocumentDraft) => void;
-  uploadingNote: NoteIdentity | null;
 };
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error ?? '');
+}
 
 export function useWorkbenchDocuments({
   activeTab,
   clearDraft,
-  deletingNote,
   documentQueriesByKey,
   documentsByKey,
   drafts,
-  isDeletingNote,
-  isSavingNote,
-  isSavingDraftNote = false,
-  isUploadingImage,
   latestLocalRevisionByNoteId,
-  saveError,
-  draftSaveError,
-  saveFailedNote,
-  saveFailedDraftTabId = null,
-  savingDraftTabId = null,
-  savingNote,
+  syncActivity,
   tabs,
   updateDraft,
-  uploadingNote,
 }: WorkbenchDocumentsOptions) {
   const getTabIdentity = useCallback((tab: OpenNoteTab): NoteIdentity => ({
     id: getSavedTabNoteIdentity(tab)?.id ?? '',
     teamPath: getSavedTabNoteIdentity(tab)?.teamPath ?? null,
   }), []);
+
+  // A draft has no note yet, so its progress is kept under its tab; a saved note's under the note.
+  const getTabSyncKey = useCallback((tab: OpenNoteTab) => (
+    isDraftNoteTab(tab) ? draftSyncKey(tab.tabId) : noteSyncKey(getTabIdentity(tab))
+  ), [getTabIdentity]);
 
   const getTabDocumentResult = useCallback((tab: OpenNoteTab) => (
     isDraftNoteTab(tab) || isBlankNoteTab(tab)
@@ -191,12 +188,13 @@ export function useWorkbenchDocuments({
       return 'saved';
     }
 
+    const syncKey = getTabSyncKey(tab);
     if (isDraftNoteTab(tab)) {
-      if (isSavingDraftNote && savingDraftTabId === tab.tabId) {
+      if (isSyncSaving(syncActivity, syncKey)) {
         return 'saving';
       }
 
-      if (saveFailedDraftTabId === tab.tabId) {
+      if (getSyncSaveFailure(syncActivity, syncKey)) {
         return 'save_failed';
       }
 
@@ -209,8 +207,8 @@ export function useWorkbenchDocuments({
     const documentMissing = isNoteNotFoundError(getRepositoryError(documentResult));
     const documentIsStale = Boolean(documentResultValue && !noteIdentityMatches(documentResultValue, identity));
     const documentQuery = documentQueriesByKey.get(getNoteIdentityKey(identity));
-    const isSavingTab = isSavingNote && noteIdentityMatches(savingNote, identity);
-    const saveFailedTab = noteIdentityMatches(saveFailedNote, identity);
+    const isSavingTab = isSyncSaving(syncActivity, syncKey);
+    const saveFailedTab = Boolean(getSyncSaveFailure(syncActivity, syncKey));
 
     if (documentIsStale || ((documentQuery?.isLoading || documentQuery?.isFetching) && !documentResultValue)) {
       return 'loading';
@@ -251,13 +249,9 @@ export function useWorkbenchDocuments({
     getTabDocumentResult,
     getTabDiskChanged,
     getTabIdentity,
-    isSavingDraftNote,
-    isSavingNote,
+    getTabSyncKey,
     isTabDirty,
-    saveFailedDraftTabId,
-    saveFailedNote,
-    savingDraftTabId,
-    savingNote,
+    syncActivity,
   ]);
 
   const handleDocumentTitleChange = useCallback((tab: OpenNoteTab, nextTitle: string) => {
@@ -299,20 +293,17 @@ export function useWorkbenchDocuments({
   }, [documentQueriesByKey, getTabDocument, getTabDocumentResult, getTabDraft, getTabIdentity]);
 
   const getTabRecovery = useCallback((tab: OpenNoteTab): DocumentPaneView['recovery'] => {
+    const failure = getSyncSaveFailure(syncActivity, getTabSyncKey(tab));
+    const message = failure ? errorMessage(failure.error) : '';
     if (isDraftNoteTab(tab)) {
-      const message = draftSaveError instanceof Error ? draftSaveError.message : String(draftSaveError ?? '');
-      return saveFailedDraftTabId === tab.tabId && message
-        ? { kind: 'save_failed', message }
-        : null;
+      return message ? { kind: 'save_failed', message } : null;
     }
 
-    const identity = getTabIdentity(tab);
-    const message = saveError instanceof Error ? saveError.message : String(saveError ?? '');
-    if (noteIdentityMatches(saveFailedNote, identity) && isRemoteNoteChangedError(message)) {
+    if (failure && isRemoteNoteChangedError(message)) {
       return { kind: 'remote_changed', message };
     }
 
-    if (noteIdentityMatches(saveFailedNote, identity) && message.toLowerCase().includes('file changed on disk')) {
+    if (failure && message.toLowerCase().includes('file changed on disk')) {
       return {
         kind: 'disk_changed',
         message,
@@ -327,7 +318,7 @@ export function useWorkbenchDocuments({
     }
 
     return null;
-  }, [draftSaveError, getTabDiskChanged, getTabIdentity, isTabDirty, saveError, saveFailedDraftTabId, saveFailedNote]);
+  }, [getTabDiskChanged, getTabSyncKey, isTabDirty, syncActivity]);
 
   const handleDocumentContentChange = useCallback((tab: OpenNoteTab, nextContent: string) => {
     if (isDraftNoteTab(tab)) {
@@ -368,10 +359,11 @@ export function useWorkbenchDocuments({
     const documentValue = tab ? getTabDocument(tab) : undefined;
     const syncState = tab ? getTabSyncState(tab) : 'idle';
     const identity = tab && !isDraftNoteTab(tab) && !isBlankNoteTab(tab) ? getTabIdentity(tab) : null;
-    const isSavingTab = Boolean(identity && isSavingNote && noteIdentityMatches(savingNote, identity));
-    const isSavingDraftTab = Boolean(tab && isDraftNoteTab(tab) && isSavingDraftNote && savingDraftTabId === tab.tabId);
-    const isUploadingTab = Boolean(identity && isUploadingImage && noteIdentityMatches(uploadingNote, identity));
-    const isDeletingTab = Boolean(identity && isDeletingNote && noteIdentityMatches(deletingNote, identity));
+    const noteKey = identity ? noteSyncKey(identity) : null;
+    const isSavingTab = Boolean(noteKey && isSyncSaving(syncActivity, noteKey));
+    const isSavingDraftTab = Boolean(tab && isDraftNoteTab(tab) && isSyncSaving(syncActivity, draftSyncKey(tab.tabId)));
+    const isUploadingTab = Boolean(noteKey && isSyncUploading(syncActivity, noteKey));
+    const isDeletingTab = Boolean(noteKey && isSyncDeleting(syncActivity, noteKey));
 
     return {
       pane,
@@ -392,7 +384,6 @@ export function useWorkbenchDocuments({
       isDeleting: isDeletingTab,
     };
   }, [
-    deletingNote,
     getTabContent,
     getTabDocument,
     getTabDocumentResult,
@@ -401,14 +392,8 @@ export function useWorkbenchDocuments({
     getTabSyncState,
     getTabTitle,
     getTabUnavailable,
-    isDeletingNote,
-    isSavingDraftNote,
-    isSavingNote,
-    isUploadingImage,
-    savingDraftTabId,
-    savingNote,
+    syncActivity,
     tabs,
-    uploadingNote,
   ]);
 
   return {

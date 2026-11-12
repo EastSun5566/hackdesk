@@ -19,7 +19,7 @@ import { toRecentNote, type InPlaceTarget } from './electron-home/useNoteLinkOpe
 import { toast } from '@/components/ui/toast';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
@@ -90,7 +90,8 @@ import { localVaultFolderName } from './electron-home/workspace-root-labels';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
 import { useWorkspaceFolderTrees } from './electron-home/useWorkspaceFolderTrees';
-import { getSavedTabNoteIdentity, isBlankNoteTab, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
+import { getSavedTabNoteIdentity, isBlankNoteTab, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type NoteIdentity, type OpenNoteTab } from './electron-home/note-workspace';
+import { closedSyncKeys, draftSyncKey, EMPTY_SYNC_ACTIVITY, isSyncSaving, noteSyncKey, syncActivityReducer } from './electron-home/note-sync-activity';
 import { EMPTY_FOLDERS, EMPTY_NOTES, getScopeStorageKey } from './electron-home/repository';
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -535,8 +536,32 @@ export function Home() {
     });
   }, [allFolderIds, setExpandedFolderIds]);
 
+  // Each note's own save, delete and upload progress; one tab's work never shows on another (#360).
+  const [syncActivity, dispatchSyncActivity] = useReducer(syncActivityReducer, EMPTY_SYNC_ACTIVITY);
+  const clearSaveFailure = useCallback((identity: NoteIdentity) => {
+    dispatchSyncActivity({ type: 'save_failure_cleared', key: noteSyncKey(identity) });
+  }, []);
+  // When a note's or draft's last tab closes, its save is over: the edits were discarded or saved
+  // another way, and a save still in flight must not mark the note when it settles. Switching
+  // workspace swaps the tabs without closing them, so it keeps them.
+  const { scopeKey: tabsScopeKey, tabs: openTabs } = noteWorkspace.state;
+  const previousTabsRef = useRef({ scope: tabsScopeKey, tabs: openTabs });
+  useEffect(() => {
+    const previous = previousTabsRef.current;
+    previousTabsRef.current = { scope: tabsScopeKey, tabs: openTabs };
+    if (previous.scope !== tabsScopeKey) return;
+    for (const key of closedSyncKeys(previous.tabs, openTabs)) {
+      dispatchSyncActivity({ type: 'save_abandoned', key });
+    }
+  }, [openTabs, tabsScopeKey]);
+  // Save commands wait only for the active tab's own save, not for another tab's.
+  const activeTabIdentity = activeTab && !isDraftNoteTab(activeTab) ? getSavedTabNoteIdentity(activeTab) : null;
+  const isSavingActiveTab = activeTab
+    ? isSyncSaving(syncActivity, isDraftNoteTab(activeTab) ? draftSyncKey(activeTab.tabId) : activeTabIdentity ? noteSyncKey(activeTabIdentity) : '')
+    : false;
   const mutations = useElectronNoteMutations({
     api,
+    onSyncActivity: dispatchSyncActivity,
     scope,
     selectedNote,
     selectedParentFolderId: selectedParentFolderIdForMutation,
@@ -587,6 +612,7 @@ export function Home() {
       setSelectedFolderId(parentFolderId ?? UNFILED_FOLDER_ID);
     },
     onNoteDeleted: (note) => {
+      dispatchSyncActivity({ type: 'save_abandoned', key: noteSyncKey(note) });
       removeRecentNoteEntry(note.id, note.teamPath ?? null);
       noteWorkspace.closeByNoteIdentity(note);
       if (currentScopeKeyRef.current === scopeStorageKey) setDeleteTarget(null);
@@ -630,7 +656,7 @@ export function Home() {
     notes: workspaceLocalNotes,
     openNote: noteWorkspace.openNote,
     snapshotForNote: snapshotForLocalNote,
-    resetSaveMutation: mutations.updateNoteMutation.reset,
+    clearSaveFailure,
     syncNoteSummary: noteWorkspace.syncNoteSummary,
     tabs: noteWorkspace.state.tabs,
     trackRecentNote,
@@ -639,7 +665,7 @@ export function Home() {
     clearDraft: noteWorkspace.clearDraft,
     documentQueries: remoteDocumentQueries,
     getTabsMatching: noteWorkspace.getTabsMatching,
-    resetSaveMutation: mutations.updateNoteMutation.reset,
+    clearSaveFailure,
   });
   const textSearch = useNoteTextSearch(scope, finderActive ? deferredFinderState.query : '', folderTree);
   const workbenchNavigator = useWorkbenchNavigator({
@@ -709,28 +735,13 @@ export function Home() {
   const workbenchDocuments = useWorkbenchDocuments({
     activeTab,
     clearDraft: noteWorkspace.clearDraft,
-    deletingNote: mutations.deleteNoteMutation.variables ?? null,
     documentQueriesByKey: documentQueries.byKey,
     documentsByKey,
     drafts: noteWorkspace.state.drafts,
-    isDeletingNote: mutations.deleteNoteMutation.isPending,
-    isSavingNote: mutations.updateNoteMutation.isPending || mutations.createDraftNoteMutation.isPending,
-    isSavingDraftNote: mutations.createDraftNoteMutation.isPending,
-    isUploadingImage: mutations.uploadNoteImageMutation.isPending,
     latestLocalRevisionByNoteId: localDocumentRecovery.latestLocalRevisionByNoteId,
-    saveError: mutations.updateNoteMutation.error,
-    draftSaveError: mutations.createDraftNoteMutation.error,
-    saveFailedNote: mutations.updateNoteMutation.isError
-      ? mutations.updateNoteMutation.variables?.note ?? null
-      : null,
-    saveFailedDraftTabId: mutations.createDraftNoteMutation.isError
-      ? mutations.createDraftNoteMutation.variables?.tabId ?? null
-      : null,
-    savingDraftTabId: mutations.createDraftNoteMutation.variables?.tabId ?? null,
-    savingNote: mutations.updateNoteMutation.variables?.note ?? null,
+    syncActivity,
     tabs: noteWorkspace.state.tabs,
     updateDraft: noteWorkspace.updateDraft,
-    uploadingNote: mutations.uploadNoteImageMutation.variables?.note ?? null,
   });
   const {
     documentContent,
@@ -930,7 +941,7 @@ export function Home() {
     },
     focusZone: focusZoneShowingSidebar,
     importMarkdownNote: handleImportMarkdownNote,
-    isSavingNote: mutations.updateNoteMutation.isPending,
+    isSavingNote: isSavingActiveTab,
     moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
     navigateBack: noteWorkspace.navigateBack,
     navigateForward: noteWorkspace.navigateForward,
@@ -1010,7 +1021,7 @@ export function Home() {
     handlers: actionHandlers,
     hasToken: canUseCurrentWorkspace,
     inspectorCollapsed,
-    isSavingNote: mutations.updateNoteMutation.isPending || mutations.createDraftNoteMutation.isPending,
+    isSavingNote: isSavingActiveTab,
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
     hackMode,
     navigatorCollapsed,

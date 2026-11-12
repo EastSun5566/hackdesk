@@ -50,7 +50,7 @@ export function useLocalDocumentRecovery({
   getTabsMatching,
   notes,
   openNote,
-  resetSaveMutation,
+  clearSaveFailure,
   snapshotForNote,
   syncNoteSummary,
   tabs,
@@ -67,7 +67,8 @@ export function useLocalDocumentRecovery({
   /** The scan of the folder holding a note, when it is not the open folder. */
   snapshotForNote?: (note: NoteIdentity) => LocalVaultSnapshot | null;
   openNote: (note: NoteSummary) => void;
-  resetSaveMutation: () => void;
+  /** Clears a note's failed save once the person resolves it another way. */
+  clearSaveFailure: (identity: NoteIdentity) => void;
   syncNoteSummary: (note: NoteSummary) => void;
   tabs: Record<string, OpenNoteTab>;
   trackRecentNote: (note: NoteSummary) => void;
@@ -143,12 +144,12 @@ export function useLocalDocumentRecovery({
         for (const tab of getTabsMatching(identity)) {
           clearDraft(tab.tabId);
         }
-        resetSaveMutation();
+        clearSaveFailure(identity);
       })
       .catch((error) => {
         toast.error(error instanceof Error ? error.message : 'Failed to reload note from disk.');
       });
-  }, [clearDraft, getTabsMatching, refetchLocalDocument, resetSaveMutation]);
+  }, [clearDraft, getTabsMatching, refetchLocalDocument, clearSaveFailure]);
 
   const saveAsCopy = useCallback((document: DocumentSummary, input: UpdateNoteInput) => {
     if (!api) {
@@ -174,12 +175,13 @@ export function useLocalDocumentRecovery({
       const createdSummary = toDocumentSummary(createdDocument, snapshot);
       openNote(createdSummary);
       trackRecentNote(createdSummary);
-      resetSaveMutation();
+      // The edits went to the copy, so the original's failed save is resolved.
+      clearSaveFailure({ id: document.id, teamPath: document.teamPath ?? null });
       toast.success('Saved as a local copy.');
     })().catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to save note as copy.');
     });
-  }, [api, openNote, queryClient, resetSaveMutation, trackRecentNote]);
+  }, [api, openNote, queryClient, clearSaveFailure, trackRecentNote]);
 
   return {
     latestLocalRevisionByNoteId,
