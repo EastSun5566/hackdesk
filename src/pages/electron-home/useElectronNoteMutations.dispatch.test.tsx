@@ -283,15 +283,15 @@ describe('workspace operations by workspace kind', () => {
     });
   });
 
-  it('import-note: imports into the selected local folder, or as given remotely', async () => {
+  it('import-note: imports into the folder the import names', async () => {
     const importNote = (m: Mutations) => m.importMarkdownNoteMutation;
+    // The import command puts the selected folder in the input (buildMarkdownImportInput).
     const input = { title: 'Imported', content: '# Imported' };
-    expect(await record('local', importNote, input, { selectedParentFolderId: PARENT.local })).toEqual({
+    expect(await record('local', importNote, { ...input, parentFolderId: PARENT.local })).toEqual({
       calls: [['localVault.createNote', { ...input, parentPath: 'Projects' }]],
     });
-    // Remote imports keep the caller's input as is; the selected folder is not added.
-    expect(await record('personal', importNote, input, { selectedParentFolderId: PARENT.remote })).toEqual({
-      calls: [['hackmd.createNote', input]],
+    expect(await record('personal', importNote, { ...input, parentFolderId: PARENT.remote })).toEqual({
+      calls: [['hackmd.createNote', { ...input, parentFolderId: 'folder-1' }]],
     });
     expect(await record('team', importNote, input)).toEqual({
       calls: [['hackmd.createTeamNote', 'team-a', input]],
