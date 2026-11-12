@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { StrictMode } from 'react';
+import { fireEvent, render as renderUi, screen } from '@testing-library/react';
+import { StrictMode, type ComponentType, type ReactElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
@@ -8,6 +8,16 @@ import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import type { DocumentDetailProps } from './DocumentDetail';
 import type { NotePane } from './note-workspace';
 import { equalizeLayout, reconcileLayout, removeLayoutPane, splitLayoutPane } from './pane-layout';
+import { createOverlayWrapper } from './test-overlays';
+
+/** Renders with the workbench overlays the workspace reads, Share open as the active pane's. */
+function render(ui: ReactElement, options: { wrapper?: ComponentType<{ children: ReactNode }> } = {}) {
+  const overlays = createOverlayWrapper({ share: true });
+  const Outer = options.wrapper;
+  return renderUi(ui, {
+    wrapper: ({ children }) => <overlays.wrapper>{Outer ? <Outer>{children}</Outer> : children}</overlays.wrapper>,
+  });
+}
 
 const documentDetailMounts = vi.hoisted(() => ({ nextId: 0 }));
 
@@ -112,8 +122,6 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onSaveAsCopy: vi.fn(),
     onSaveMetadata: vi.fn(),
     onSaveSharing: vi.fn(),
-    onShareOpenChange: vi.fn(),
-    onVersionsOpenChange: vi.fn(),
     onTitleChange: vi.fn(),
     onToggleInspector: vi.fn(),
     onAttachImage: vi.fn(),
@@ -125,8 +133,6 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onCreateNote: vi.fn(),
     onQuickOpen: vi.fn(),
     panes,
-    shareOpen: true,
-    versionsOpen: false,
     ...overrides,
   };
 
@@ -167,7 +173,7 @@ describe('DocumentWorkspace', () => {
       fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
       const resized = panels();
       expect(resized).not.toEqual(['50', '50']);
-      rerender(<DocumentWorkspace {...props} layout={equalized} shareOpen={false} />);
+      rerender(<DocumentWorkspace {...props} layout={equalized} />);
       expect(panels()).toEqual(resized);
       unmount();
     } finally {

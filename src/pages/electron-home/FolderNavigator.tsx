@@ -106,6 +106,7 @@ import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './
 import type { NoteTextSearch } from './useNoteTextSearch';
 import { TrashNavigatorHeader, TrashNavigatorList, type TrashNavigatorViewProps } from './TrashView';
 import { trashTeamPathForScope, useTrashList } from './useTrash';
+import { useOverlay, useOverlayControls } from './WorkbenchOverlaysContext';
 
 /**
  * A pointer drop lands on the row under the pointer, found by where each row is on screen now.
@@ -315,8 +316,10 @@ export type FolderNavigatorProps = {
   /** Notes whose text matched the finder query, with snippets. */
   textSearch?: NoteTextSearch;
   tree: FolderTree;
-  trash?: TrashNavigatorViewProps;
-  history?: { open: boolean; onOpenChange: (open: boolean) => void };
+  /** The Trash panel's notes, where this workspace has a trash. Whether it is open is a workbench overlay. */
+  trash?: TrashPanelSource;
+  /** Whether the History panel is offered; without it the History row switches to the History workspace. */
+  history?: boolean;
   /** How the tree's root notes group by first tag while the view option is on. */
   tagGrouping?: FolderTagGrouping | null;
   /** The workspace switcher in the title and the account row at the bottom. */
@@ -336,10 +339,33 @@ export function FolderNavigator(props: FolderNavigatorProps) {
   const trash = useStableCallbacks(props.trash ?? NO_TRASH);
   // Read in the top component: the memoized panels below would miss a preference change.
   const tagGrouping = useFolderTagGrouping(props.tree.unfiled.notes);
-  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashNavigatorViewProps : undefined} tagGrouping={tagGrouping} />;
+  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashPanelSource : undefined} tagGrouping={tagGrouping} />;
 }
 
 const NO_TRASH = {};
+
+type TrashPanelSource = Omit<TrashNavigatorViewProps, 'open' | 'onOpenChange'>;
+type HistoryPanel = { open: boolean; onOpenChange: (open: boolean) => void };
+
+/**
+ * Trash and History open in place of the tree. Whether they are open lives in the workbench
+ * overlays; reading just those two keeps the sidebar from re-rendering for other overlays.
+ */
+function useSidebarPanels(trashSource: TrashPanelSource | undefined, historyOffered: boolean | undefined) {
+  const overlayControls = useOverlayControls();
+  const trashOpen = useOverlay((overlays) => overlays.trash);
+  const historyOpen = useOverlay((overlays) => overlays.history);
+  const trash = useMemo<TrashNavigatorViewProps | undefined>(() => (trashSource ? {
+    ...trashSource,
+    open: trashOpen,
+    onOpenChange: (open) => overlayControls.set('trash', open),
+  } : undefined), [overlayControls, trashOpen, trashSource]);
+  const history = useMemo<HistoryPanel | undefined>(() => (historyOffered ? {
+    open: historyOpen,
+    onOpenChange: (open) => overlayControls.set('history', open),
+  } : undefined), [historyOffered, historyOpen, overlayControls]);
+  return { trash, history };
+}
 
 const MemoFolderNavigator = memo(FolderNavigatorPanel, arePanelPropsEqual);
 
@@ -358,11 +384,12 @@ function FolderNavigatorPanel({
   status,
   textSearch,
   tree,
-  trash,
-  history,
+  trash: trashSource,
+  history: historyOffered,
   workspace,
   tagGrouping,
 }: FolderNavigatorProps) {
+  const { trash, history } = useSidebarPanels(trashSource, historyOffered);
   return (
     <PanelShell
       id={id}
@@ -437,7 +464,7 @@ function ExpandedNavigator({
   history,
   workspace,
   tagGrouping,
-}: Omit<FolderNavigatorProps, 'id'>) {
+}: Omit<FolderNavigatorProps, 'id' | 'trash' | 'history'> & { trash?: TrashNavigatorViewProps; history?: HistoryPanel }) {
   const [historyFinder, setHistoryFinder] = useState(DEFAULT_NOTE_FINDER_STATE);
   const historyQuery = useQuery({
     queryKey: ['electron', 'hackmd', 'history'],

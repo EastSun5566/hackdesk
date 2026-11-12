@@ -9,6 +9,7 @@ import type { DocumentPaneView } from './DocumentWorkspace';
 import { ElectronHomeWorkspace, type ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
 import type { NotePane, OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
 import { reconcileLayout } from './pane-layout';
+import { createOverlayWrapper } from './test-overlays';
 
 vi.mock('./AppTopBar', () => ({
   AppTopBar: (props: {
@@ -181,8 +182,6 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         user: user(),
         teams: [] as TeamSummary[],
         localVaults: [],
-        switcherOpen: false,
-        onSwitcherOpenChange: noop,
         onChooseLocalVault: noop,
         onSwitchLocalVault: noop,
         onScopeChange: noop,
@@ -256,8 +255,6 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       activePaneId: 'pane-b',
       editorMode: 'standard',
       folderTree: tree,
-      shareOpen: false,
-      versionsOpen: false,
       isInspectorCollapsed: false,
       getPaneView: (pane) => createView(pane, pane.activeTabId ? tabs[pane.activeTabId] ?? null : null),
       scopeKey: 'personal',
@@ -279,8 +276,6 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       onTitleChange: noop,
       onContentChange: noop,
       onToggleInspector: noop,
-      onShareOpenChange: noop,
-      onVersionsOpenChange: noop,
       onRevealInFinder: noop,
       onReloadFromDisk: noop,
       onReloadFromHackmd: noop,
@@ -305,7 +300,7 @@ describe('ElectronHomeWorkspace', () => {
   it('renders the shell composition and derives titlebar tabs from the active pane', () => {
     const props = createProps();
 
-    render(<ElectronHomeWorkspace {...props} />);
+    render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
     expect(screen.getByTestId('app-topbar')).toBeInTheDocument();
     expect(screen.getByTestId('folder-navigator')).toHaveAttribute('id', 'note-navigator-panel');
@@ -317,7 +312,7 @@ describe('ElectronHomeWorkspace', () => {
   it('passes active-pane titlebar tab actions through with the active pane id', () => {
     const props = createProps();
 
-    render(<ElectronHomeWorkspace {...props} />);
+    render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: 'select tab' }));
     fireEvent.click(screen.getByRole('button', { name: 'close others' }));
@@ -333,7 +328,7 @@ describe('ElectronHomeWorkspace', () => {
   it('passes navigator and titlebar shell callbacks without changing behavior', () => {
     const props = createProps();
 
-    render(<ElectronHomeWorkspace {...props} />);
+    render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: 'create note' }));
     fireEvent.click(screen.getByRole('button', { name: 'delete folder' }));

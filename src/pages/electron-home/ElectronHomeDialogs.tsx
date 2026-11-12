@@ -1,4 +1,3 @@
-import type { SettingsTab } from './SettingsDialogConfig';
 import { toast } from '@/components/ui/toast';
 
 import type {
@@ -27,22 +26,15 @@ import type {
   RenameFolderDialogState,
   SettingsFormInput,
 } from './types';
+import { useOverlay, useOverlayControls } from './WorkbenchOverlaysContext';
 
 export type ElectronHomeDialogsProps = {
   api?: HackDeskElectronAPI;
-  createFolderDialog: CreateFolderDialogState;
-  createNoteDialog: CreateNoteDialogState;
-  deleteFolderTarget: FolderTreeNode | null;
-  deleteNoteTarget: DocumentSummary | null;
   folderLabel: string | null;
-  onboardingOpen: boolean;
-  renameFolderDialog: RenameFolderDialogState;
   scopeLabel: string;
   settings?: ElectronSafeSettings;
   localVaultError?: string | null;
   localVaultSnapshot?: LocalVaultSnapshot | null;
-  settingsOpen: boolean;
-  settingsInitialTab?: SettingsTab;
   status: {
     creatingFolder: boolean;
     creatingNote: boolean;
@@ -52,17 +44,13 @@ export type ElectronHomeDialogsProps = {
     savingSettings: boolean;
   };
   onCreateFolder: (input: CreateFolderInput) => void;
-  onCreateFolderStateChange: (state: CreateFolderDialogState) => void;
   onCreateNote: (title: string) => void;
   onChooseNoteLocation?: () => void;
-  onCreateNoteStateChange: (state: CreateNoteDialogState) => void;
   onChooseLocalVault: () => Promise<void | boolean>;
   onDisconnectHackmd: () => void;
   onOnboardingConnected: () => void;
   onDeleteFolder: (folder: FolderTreeNode) => void;
-  onDeleteFolderCancel: () => void;
   onDeleteNote: (note: DocumentSummary) => void;
-  onDeleteNoteCancel: () => void;
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
   onForgetLocalVault: (vaultId?: string) => Promise<void>;
   onSwitchLocalVault: (vaultId: string) => Promise<void>;
@@ -71,41 +59,27 @@ export type ElectronHomeDialogsProps = {
   onOnboardingOpenChange: (open: boolean) => void;
   onRefreshLocalVault: () => Promise<void>;
   onRenameFolder: (folderId: string, input: UpdateFolderInput) => void;
-  onRenameFolderStateChange: (state: RenameFolderDialogState) => void;
   onSaveSettings: (input: SettingsFormInput) => void;
   onSaveToken: (token: string, label?: string) => Promise<void>;
-  onSettingsOpenChange: (open: boolean) => void;
   onSetupLater: () => Promise<void>;
 };
 
 export function ElectronHomeDialogs({
   api,
-  createFolderDialog,
-  createNoteDialog,
-  deleteFolderTarget,
-  deleteNoteTarget,
   folderLabel,
-  onboardingOpen,
-  renameFolderDialog,
   scopeLabel,
   settings,
   localVaultError,
   localVaultSnapshot,
-  settingsOpen,
-  settingsInitialTab,
   status,
   onCreateFolder,
-  onCreateFolderStateChange,
   onCreateNote,
   onChooseNoteLocation,
-  onCreateNoteStateChange,
   onChooseLocalVault,
   onDisconnectHackmd,
   onOnboardingConnected,
   onDeleteFolder,
-  onDeleteFolderCancel,
   onDeleteNote,
-  onDeleteNoteCancel,
   onImportHackmdCliToken,
   onForgetLocalVault,
   onSwitchLocalVault,
@@ -114,12 +88,27 @@ export function ElectronHomeDialogs({
   onOnboardingOpenChange,
   onRefreshLocalVault,
   onRenameFolder,
-  onRenameFolderStateChange,
   onSaveSettings,
   onSaveToken,
-  onSettingsOpenChange,
   onSetupLater,
 }: ElectronHomeDialogsProps) {
+  // Each dialog's state comes from the workbench overlays store. This still re-renders with Home,
+  // which reads every overlay, until Home narrows what it reads (#362).
+  const overlayControls = useOverlayControls();
+  const createFolderDialog = useOverlay((overlays) => overlays.createFolder);
+  const createNoteDialog = useOverlay((overlays) => overlays.createNote);
+  const renameFolderDialog = useOverlay((overlays) => overlays.renameFolder);
+  const deleteFolderTarget = useOverlay((overlays) => overlays.deleteFolder);
+  const deleteNoteTarget = useOverlay((overlays) => overlays.deleteNote);
+  const onboardingOpen = useOverlay((overlays) => overlays.onboarding);
+  const settingsOpen = useOverlay((overlays) => overlays.settings.open);
+  const settingsInitialTab = useOverlay((overlays) => overlays.settings.tab);
+  const onCreateFolderStateChange = (state: CreateFolderDialogState) => overlayControls.set('createFolder', state);
+  const onCreateNoteStateChange = (state: CreateNoteDialogState) => overlayControls.set('createNote', state);
+  const onRenameFolderStateChange = (state: RenameFolderDialogState) => overlayControls.set('renameFolder', state);
+  const onDeleteFolderCancel = () => overlayControls.close('deleteFolder');
+  const onDeleteNoteCancel = () => overlayControls.close('deleteNote');
+  const onSettingsOpenChange = (open: boolean) => (open ? overlayControls.openSettings() : overlayControls.close('settings'));
   const validateToken = (token: string) => {
     if (!api) {
       return Promise.reject(new Error('Electron API is unavailable.'));

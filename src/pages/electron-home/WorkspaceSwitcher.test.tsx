@@ -1,5 +1,4 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
@@ -7,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { NavigationHintsContext } from './KeyboardNavigationContext';
 import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './WorkspaceSwitcher';
+import { createOverlayWrapper } from './test-overlays';
 
 function user(overrides: Partial<UserSummary> = {}): UserSummary {
   return {
@@ -36,12 +36,7 @@ function team(overrides: Partial<TeamSummary> = {}): TeamSummary {
   };
 }
 
-type SwitcherProps = Omit<WorkspaceSidebarProps, 'switcherOpen' | 'onSwitcherOpenChange'>;
-
-function Harness(props: SwitcherProps & { initiallyOpen: boolean }) {
-  const [open, setOpen] = useState(props.initiallyOpen);
-  return <WorkspaceSwitcher {...props} switcherOpen={open} onSwitcherOpenChange={setOpen} />;
-}
+type SwitcherProps = WorkspaceSidebarProps;
 
 function renderSwitcher(overrides: Partial<SwitcherProps> = {}, initiallyOpen = true) {
   const props: SwitcherProps = {
@@ -59,10 +54,13 @@ function renderSwitcher(overrides: Partial<SwitcherProps> = {}, initiallyOpen = 
     onPinnedTeamIdsChange: vi.fn(),
     ...overrides,
   };
+  // Whether the list is open is a workbench overlay, so the switcher opens and closes it there.
+  const { wrapper } = createOverlayWrapper({ workspaceSwitcher: initiallyOpen });
   render(
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-      <Harness {...props} initiallyOpen={initiallyOpen} />
+      <WorkspaceSwitcher {...props} />
     </TooltipProvider>,
+    { wrapper },
   );
   return props;
 }
@@ -375,6 +373,7 @@ describe('WorkspaceSwitcher', () => {
 describe('WorkspaceSwitcher while the primary key is held', () => {
   function renderHeld(open: boolean, held = true) {
     const teams = Array.from({ length: 10 }, (_, index) => team({ id: `team-${index}`, name: `Team ${index}`, path: `team-${index}` }));
+    const { wrapper } = createOverlayWrapper({ workspaceSwitcher: open });
     render(
       <TooltipProvider delayDuration={0}>
         <NavigationHintsContext.Provider value={held}>
@@ -384,8 +383,6 @@ describe('WorkspaceSwitcher while the primary key is held', () => {
             localVaults={[]}
             platform="darwin"
             pinnedTeamIds={null}
-            switcherOpen={open}
-            onSwitcherOpenChange={vi.fn()}
             onScopeChange={vi.fn()}
             onSwitchLocalVault={vi.fn()}
             onChooseLocalVault={vi.fn()}
@@ -393,6 +390,7 @@ describe('WorkspaceSwitcher while the primary key is held', () => {
           />
         </NavigationHintsContext.Provider>
       </TooltipProvider>,
+      { wrapper },
     );
   }
 
