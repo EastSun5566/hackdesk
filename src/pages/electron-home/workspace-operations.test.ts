@@ -6,7 +6,7 @@ import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 
 import { toDocumentSummary } from './local-vault-adapter';
 import type { WorkspaceScope } from './types';
-import { getNoteOperations, getWorkspaceOperations, isLocalVaultNote } from './workspace-operations';
+import { getNoteOperations, getWorkspaceCapabilities, getWorkspaceOperations, isLocalVaultNote } from './workspace-operations';
 
 const document: LocalDocument = {
   content: '# Note',
@@ -78,12 +78,35 @@ describe('getNoteOperations', () => {
     expect(getNoteOperations(api, scopes.personal, { teamPath: null }, vi.fn()).checksRemoteChanges).toBe(true);
   });
 
+  it('offers Undo only for personal HackMD notes, which go to a trash they can come back from', () => {
+    const { api } = createApi();
+    const restores = (scope: WorkspaceScope, note: { teamPath: string | null }) => (
+      getNoteOperations(api, scope, note, vi.fn()).restoresFromTrash
+    );
+    expect(restores(scopes.personal, { teamPath: null })).toBe(true);
+    expect(restores(scopes.history, { teamPath: null })).toBe(true);
+    expect(restores(scopes.history, { teamPath: 'team-a' })).toBe(false);
+    expect(restores(scopes.personal, localNote)).toBe(false);
+    expect(restores(scopes.local, { teamPath: null })).toBe(false);
+  });
+
   it('does not write a local note when neither its title nor its content changed', async () => {
     const { api, calls } = createApi();
     const operations = getNoteOperations(api, scopes.local, localNote, vi.fn());
     await expect(operations.saveNote(localNote, { title: 'Note' })).resolves.toBe(localNote);
     await expect(operations.saveNote(localNote, { title: 'Renamed' }, { baseTitle: 'Renamed' })).resolves.toBe(localNote);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('getWorkspaceCapabilities', () => {
+  it.each([
+    ['local', { listsFromSnapshot: true, hasFolders: true }],
+    ['personal', { listsFromSnapshot: false, hasFolders: true }],
+    ['team', { listsFromSnapshot: false, hasFolders: true }],
+    ['history', { listsFromSnapshot: false, hasFolders: false }],
+  ] as const)('%s', (scope, expected) => {
+    expect(getWorkspaceCapabilities(scopes[scope])).toEqual(expected);
   });
 });
 

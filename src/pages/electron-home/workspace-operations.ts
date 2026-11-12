@@ -52,6 +52,8 @@ export type WorkspaceOperations = {
 export type NoteOperations = {
   /** Remote saves of content check HackMD for newer changes first; local ones check the file revision. */
   readonly checksRemoteChanges: boolean;
+  /** Deleted notes can come back from HackMD's trash. Only personal notes can; teams have no restore. */
+  readonly restoresFromTrash: boolean;
   saveNote(note: NoteSummary, payload: UpdateNoteInput, draft?: SaveDraftBase): Promise<DocumentSummary>;
   uploadImage(note: NoteSummary, input: UploadNoteImageInput, signal?: AbortSignal): Promise<UploadNoteImageResult>;
   deleteNote(note: NoteSummary): Promise<void>;
@@ -73,6 +75,7 @@ function localVaultBackend(localVault: HackDeskElectronAPI['localVault'], cacheS
   const folderPath = (folderId: string) => getLocalFolderPathFromFolderId(folderId) ?? folderId;
   return {
     checksRemoteChanges: false,
+    restoresFromTrash: false,
     async createNote({ title, content, parentFolderId }) {
       const { document, snapshot } = await localVault.createNote({
         title,
@@ -159,6 +162,7 @@ function hackmdBackend(hackmd: HackDeskElectronAPI['hackmd'], teamPath: string |
   );
   return {
     checksRemoteChanges: true,
+    restoresFromTrash: !teamPath,
     createNote({ parentFolderId, ...input }) {
       return createNote({ ...input, ...(parentFolderId ? { parentFolderId } : {}) });
     },
@@ -247,6 +251,24 @@ function historyOperations(hackmd: HackDeskElectronAPI['hackmd']): WorkspaceOper
       if (operation.orderChanged) return refuse('changing folder order')();
     },
     moveNote: refuse('moving notes'),
+  };
+}
+
+/** What a workspace has, for the cache and UI work around its operations. */
+export type WorkspaceCapabilities = {
+  /**
+   * Its notes and folders come from the Local Vault snapshot each change returns, which is cached
+   * as it arrives. Otherwise they come from HackMD queries that a change seeds and refreshes.
+   */
+  readonly listsFromSnapshot: boolean;
+  /** It has folders of its own. History lists notes from every workspace and has none. */
+  readonly hasFolders: boolean;
+};
+
+export function getWorkspaceCapabilities(scope: WorkspaceScope): WorkspaceCapabilities {
+  return {
+    listsFromSnapshot: scope.type === 'local',
+    hasFolders: scope.type !== 'history',
   };
 }
 

@@ -33,7 +33,7 @@ import type { NoteDocumentDraft, NoteIdentity } from './note-workspace';
 import { draftSyncKey, noteSyncKey, type SyncActivityEvent, type SyncKey } from './note-sync-activity';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
-import { getNoteOperations, getWorkspaceOperations, isLocalVaultNote } from './workspace-operations';
+import { getNoteOperations, getWorkspaceCapabilities, getWorkspaceOperations, isLocalVaultNote } from './workspace-operations';
 import { trashKeys } from './useTrash';
 
 const DEFAULT_DRAFT_NOTE_TITLE = 'Untitled';
@@ -277,6 +277,9 @@ export function useElectronNoteMutations({
   };
   const workspaceOperations = () => getWorkspaceOperations(requireApi(), scope, cacheLocalVaultSnapshot);
   const noteOperations = (note: Pick<NoteSummary, 'teamPath'>) => getNoteOperations(requireApi(), scope, note, cacheLocalVaultSnapshot);
+  const { listsFromSnapshot, hasFolders } = getWorkspaceCapabilities(scope);
+  /** HackMD folder lists are queries to refresh after a change; Local Vault ones arrive in its snapshot. */
+  const refreshesFolderQueries = hasFolders && !listsFromSnapshot;
 
   const clearHackmdQueryCache = useCallback(() => {
     queryClient.removeQueries({ queryKey: ['electron', 'hackmd'] });
@@ -303,11 +306,11 @@ export function useElectronNoteMutations({
   }, [queryClient, scope]);
 
   const invalidateCurrentFolderQueries = useCallback(() => {
-    if (scope.type !== 'history') {
+    if (hasFolders) {
       void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
       void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
     }
-  }, [queryClient, scope]);
+  }, [queryClient, scope, hasFolders]);
 
   const updateSettingsMutation = useMutation({
     scope: { id: 'settings' },
@@ -384,7 +387,7 @@ export function useElectronNoteMutations({
       parentFolderId: selectedParentFolderId,
     }),
     onSuccess: (createdNote) => {
-      if (scope.type !== 'local') {
+      if (!listsFromSnapshot) {
         seedWorkspaceNote(createdNote);
       }
       onNoteCreated(createdNote);
@@ -401,7 +404,7 @@ export function useElectronNoteMutations({
       parentFolderId: selectedParentFolderId,
     }),
     onSuccess: (createdNote, variables) => {
-      if (scope.type !== 'local') {
+      if (!listsFromSnapshot) {
         seedWorkspaceNote(createdNote);
       }
       // The draft's tab becomes the note's tab. Give it the saved document at once, as a save of an
@@ -431,7 +434,7 @@ export function useElectronNoteMutations({
   const duplicateNoteMutation = useWorkspaceMutation(scope, 'duplicate-note', {
     mutationFn: (note: NoteSummary) => workspaceOperations().duplicateNote(note),
     onSuccess: (createdNote) => {
-      if (scope.type !== 'local') {
+      if (!listsFromSnapshot) {
         seedWorkspaceNote(createdNote);
       }
       onNoteCreated(createdNote);
@@ -444,7 +447,7 @@ export function useElectronNoteMutations({
   const saveAsTemplateMutation = useWorkspaceMutation(scope, 'save-as-template', {
     mutationFn: (input: { title: string; content: string; templatesFolderId: string | null }) => workspaceOperations().saveTemplate(input),
     onSuccess: (createdNote) => {
-      if (scope.type !== 'local') {
+      if (!listsFromSnapshot) {
         seedWorkspaceNote(createdNote);
       }
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
@@ -456,7 +459,7 @@ export function useElectronNoteMutations({
   const importMarkdownNoteMutation = useWorkspaceMutation(scope, 'import-note', {
     mutationFn: (input: CreateNoteInput) => workspaceOperations().importNote(input),
     onSuccess: (createdNote) => {
-      if (scope.type !== 'local') {
+      if (!listsFromSnapshot) {
         seedWorkspaceNote(createdNote);
       }
       onNoteCreated(createdNote);
@@ -472,7 +475,7 @@ export function useElectronNoteMutations({
       parentFolderId: selectedParentFolderId,
     }),
     onSuccess: (createdFolder) => {
-      if (scope.type !== 'local' && scope.type !== 'history') {
+      if (refreshesFolderQueries) {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
@@ -578,23 +581,23 @@ export function useElectronNoteMutations({
       return note;
     },
     onSuccess: (note) => {
-      if (scope.type !== 'local') {
+      if (!listsFromSnapshot) {
         queryClient.setQueryData<RepositoryValue<NoteSummary[]> | undefined>(
           getWorkspaceQueryKey(scope),
           (current) => removeNoteFromRepositoryValue(current, note),
         );
       }
       onNoteDeleted(note);
-      if (scope.type !== 'local') {
+      if (!listsFromSnapshot) {
         void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
         void queryClient.invalidateQueries({
           queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
         });
-        if (!note.teamPath) void queryClient.invalidateQueries({ queryKey: trashKeys.list });
+        if (noteOperations(note).restoresFromTrash) void queryClient.invalidateQueries({ queryKey: trashKeys.list });
       }
       // HackMD keeps deleted personal notes in its trash. Team notes have no
       // restore endpoint, so only personal notes offer Undo.
-      const canRestore = scope.type !== 'local' && !note.teamPath;
+      const canRestore = noteOperations(note).restoresFromTrash;
       toast.success('Note deleted.', canRestore ? {
         duration: NOTE_RESTORE_TOAST_MS,
         action: { label: 'Undo', onClick: () => restoreNoteMutation.mutate(note) },
@@ -623,7 +626,7 @@ export function useElectronNoteMutations({
       targetFolderId,
     }),
     onSuccess: ({ note, targetFolderId }) => {
-      if (scope.type === 'local') {
+      if (listsFromSnapshot) {
         queryClient.setQueryData<LocalDocument | undefined>(
           getLocalVaultDocumentQueryKey(note.id, (note as LocalDocumentSummary).localVaultId),
           (current) => current ? {
@@ -653,7 +656,7 @@ export function useElectronNoteMutations({
       return workspaceOperations().renameFolder(folderId, { ...input, name });
     },
     onSuccess: (updatedFolder) => {
-      if (scope.type !== 'local' && scope.type !== 'history') {
+      if (refreshesFolderQueries) {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
@@ -668,7 +671,7 @@ export function useElectronNoteMutations({
       return { folderId, parentFolderId };
     },
     onSuccess: ({ folderId, parentFolderId }) => {
-      if (scope.type !== 'local' && scope.type !== 'history') {
+      if (refreshesFolderQueries) {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
@@ -686,7 +689,7 @@ export function useElectronNoteMutations({
       return operation;
     },
     onSuccess: () => {
-      if (scope.type !== 'local' && scope.type !== 'history') {
+      if (refreshesFolderQueries) {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
