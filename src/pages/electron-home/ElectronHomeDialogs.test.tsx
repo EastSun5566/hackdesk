@@ -5,6 +5,8 @@ import type { DocumentSummary } from '@/lib/electron-api';
 import { defaultSettings } from '@/lib/settings';
 
 import { ElectronHomeDialogs, type ElectronHomeDialogsProps } from './ElectronHomeDialogs';
+import { createOverlayWrapper } from './test-overlays';
+import type { WorkbenchOverlays } from './workbench-overlays';
 
 vi.mock('./CreateFolderDialog', () => ({
   CreateFolderDialog: () => null,
@@ -77,13 +79,7 @@ function createDocument(overrides: Partial<DocumentSummary> = {}): DocumentSumma
 function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): ElectronHomeDialogsProps {
   return {
     api: undefined,
-    createFolderDialog: { open: false, name: '', description: '', icon: '', color: '' },
-    createNoteDialog: { open: false, title: '' },
-    deleteFolderTarget: null,
-    deleteNoteTarget: null,
     folderLabel: null,
-    onboardingOpen: false,
-    renameFolderDialog: { open: false, folderId: null, name: '', description: '', icon: '', color: '' },
     scopeLabel: 'My Workspace',
     settings: {
       title: 'HackDesk',
@@ -99,7 +95,6 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
       onboarding: defaultSettings.onboarding,
       shouldShowHackmdOnboarding: false,
     },
-    settingsOpen: false,
     status: {
       creatingFolder: false,
       creatingNote: false,
@@ -109,13 +104,9 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
       savingSettings: false,
     },
     onCreateFolder: vi.fn(),
-    onCreateFolderStateChange: vi.fn(),
     onCreateNote: vi.fn(),
-    onCreateNoteStateChange: vi.fn(),
     onDeleteFolder: vi.fn(),
-    onDeleteFolderCancel: vi.fn(),
     onDeleteNote: vi.fn(),
-    onDeleteNoteCancel: vi.fn(),
     onChooseLocalVault: vi.fn(async () => undefined),
     onDisconnectHackmd: vi.fn(),
     onOnboardingConnected: vi.fn(),
@@ -150,28 +141,23 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
     onOnboardingOpenChange: vi.fn(),
     onRefreshLocalVault: vi.fn(async () => undefined),
     onRenameFolder: vi.fn(),
-    onRenameFolderStateChange: vi.fn(),
     onSaveSettings: vi.fn(),
     onSaveToken: vi.fn(async () => undefined),
-    onSettingsOpenChange: vi.fn(),
     onSetupLater: vi.fn(async () => undefined),
     ...overrides,
   };
 }
 
-function renderDialogs(props: ElectronHomeDialogsProps) {
-  render(<ElectronHomeDialogs {...props} />);
+/** Which dialogs are open, and with what, comes from the workbench overlays. */
+function renderDialogs(props: ElectronHomeDialogsProps, overlays: Partial<WorkbenchOverlays> = {}) {
+  const { wrapper } = createOverlayWrapper(overlays);
+  render(<ElectronHomeDialogs {...props} />, { wrapper });
 }
 
 describe('ElectronHomeDialogs', () => {
   it('wires create note through the dialog composition', () => {
     const onCreateNote = vi.fn();
-    const onCreateNoteStateChange = vi.fn();
-    renderDialogs(createProps({
-      createNoteDialog: { open: true, title: 'Draft' },
-      onCreateNote,
-      onCreateNoteStateChange,
-    }));
+    renderDialogs(createProps({ onCreateNote }), { createNote: { open: true, title: 'Draft' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Create note mock' }));
 
@@ -181,10 +167,7 @@ describe('ElectronHomeDialogs', () => {
   it('wires delete note through the dialog composition', () => {
     const note = createDocument();
     const onDeleteNote = vi.fn();
-    renderDialogs(createProps({
-      deleteNoteTarget: note,
-      onDeleteNote,
-    }));
+    renderDialogs(createProps({ onDeleteNote }), { deleteNote: note });
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete note mock' }));
 

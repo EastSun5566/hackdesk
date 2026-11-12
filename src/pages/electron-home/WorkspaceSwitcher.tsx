@@ -56,6 +56,7 @@ import {
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { ProfileMenu } from './ProfileMenu';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
+import { useOverlay, useOverlayControls } from './WorkbenchOverlaysContext';
 
 type WorkspaceUser = Pick<UserSummary, 'name' | 'username' | 'photo'>;
 
@@ -83,8 +84,6 @@ export type WorkspaceSidebarProps = {
   onOpenStandaloneLocalVault?: (vaultId: string) => void;
   platform: string;
   pinnedTeamIds: string[] | null;
-  switcherOpen: boolean;
-  onSwitcherOpenChange: (open: boolean) => void;
   onScopeChange: (scope: WorkspaceScope) => void;
   onSwitchLocalVault: (vaultId: string) => void;
   onChooseLocalVault: () => void;
@@ -490,14 +489,15 @@ export function WorkspaceSwitcher({
   onOpenStandaloneLocalVault,
   platform,
   pinnedTeamIds,
-  switcherOpen,
-  onSwitcherOpenChange,
   onScopeChange,
   onSwitchLocalVault,
   onChooseLocalVault,
   onOpenInNewWindow,
   onPinnedTeamIdsChange,
 }: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onSignOut'>) {
+  const overlayControls = useOverlayControls();
+  const switcherOpen = useOverlay((overlays) => overlays.workspaceSwitcher);
+  const onSwitcherOpenChange = (open: boolean) => overlayControls.set('workspaceSwitcher', open);
   const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hintsHeld = useContext(NavigationHintsContext) === true;

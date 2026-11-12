@@ -28,6 +28,7 @@ import type { OpenNoteTarget } from './useNoteLinkOpener';
 import { NoteIcon } from './note-kind';
 import { PaneTabIdContext } from './useBookSession';
 import { useNoteSummaryLookup } from './NoteSummaryCard';
+import { useOverlay, useOverlayControls } from './WorkbenchOverlaysContext';
 
 function PaneGroup({ layout, id, orientation, ...props }: Omit<GroupProps, 'defaultLayout' | 'groupRef'> & { layout: Record<string, number> }) {
   const groupRef = useRef<GroupImperativeHandle | null>(null);
@@ -191,8 +192,6 @@ export function DocumentWorkspace({
   activePaneId,
   editorMode,
   folderTree,
-  shareOpen,
-  versionsOpen,
   isInspectorCollapsed,
   getPaneView,
   scopeKey,
@@ -224,8 +223,6 @@ export function DocumentWorkspace({
   onTitleChange,
   onContentChange,
   onToggleInspector,
-  onShareOpenChange,
-  onVersionsOpenChange,
   onCopyDraft,
   onExportDraft,
   onOpenAsNewDraft,
@@ -243,8 +240,6 @@ export function DocumentWorkspace({
   activePaneId: string;
   editorMode: EditorMode;
   folderTree: FolderTree;
-  shareOpen: boolean;
-  versionsOpen: boolean;
   isInspectorCollapsed: boolean;
   getPaneView: (pane: NotePane) => DocumentPaneView;
   scopeKey: string;
@@ -279,8 +274,6 @@ export function DocumentWorkspace({
   onTitleChange: (tab: OpenNoteTab, title: string) => void;
   onContentChange: (tab: OpenNoteTab, content: string) => void;
   onToggleInspector: () => void;
-  onShareOpenChange: (open: boolean) => void;
-  onVersionsOpenChange: (open: boolean) => void;
   onCopyDraft: (content: string) => void;
   onExportDraft: (title: string, content: string) => void;
   onOpenAsNewDraft: (title: string, content: string, paneId: string) => void;
@@ -290,6 +283,12 @@ export function DocumentWorkspace({
   onQuickOpen: () => void;
   recentNotes?: ElectronRecentNote[];
 }) {
+  // Share and Versions open over the active pane; the workbench overlays hold whether they are open.
+  const overlayControls = useOverlayControls();
+  const shareOpen = useOverlay((overlays) => overlays.share);
+  const versionsOpen = useOverlay((overlays) => overlays.versions);
+  const onShareOpenChange = useCallback((open: boolean) => overlayControls.set('share', open), [overlayControls]);
+  const onVersionsOpenChange = useCallback((open: boolean) => overlayControls.set('versions', open), [overlayControls]);
   const [paneHosts] = useState(() => new Map<string, PaneHost>());
   const isEmpty = panes.every(pane => pane.tabIds.length === 0);
   useLayoutEffect(() => {

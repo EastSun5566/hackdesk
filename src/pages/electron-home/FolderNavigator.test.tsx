@@ -13,6 +13,8 @@ import {
 
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
 import { NoteSummaryCard } from './FolderNavigatorRows';
+import { createOverlayWrapper } from './test-overlays';
+import type { WorkbenchOverlays } from './workbench-overlays';
 
 const { treeRender } = vi.hoisted(() => ({ treeRender: vi.fn() }));
 vi.mock('@dnd-kit/core', async (importOriginal) => {
@@ -69,6 +71,8 @@ type FolderNavigatorPropsOverrides = Partial<Omit<FolderNavigatorProps, 'actions
   selection?: Partial<FolderNavigatorProps['selection']>;
   status?: Partial<FolderNavigatorProps['status']>;
   workspace?: Partial<FolderNavigatorProps['workspace']>;
+  /** The workbench overlays the navigator starts with, such as Trash being open. */
+  overlays?: Partial<WorkbenchOverlays>;
 };
 
 function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
@@ -104,8 +108,6 @@ function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
       scope: { type: 'personal', label: 'My Workspace' },
       teams: [],
       localVaults: [],
-      switcherOpen: false,
-      onSwitcherOpenChange: vi.fn(),
       onChooseLocalVault: vi.fn(),
       onSwitchLocalVault: vi.fn(),
       onScopeChange: vi.fn(),
@@ -176,13 +178,14 @@ function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
 
   // As a wrapper, the query client survives rerender() calls that pass only the navigator.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const overlays = createOverlayWrapper(overrides.overlays);
   const view = render(
     <TooltipProvider>
       <FolderNavigator {...mergedProps} />
     </TooltipProvider>,
-    { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider> },
+    { wrapper: ({ children }) => <QueryClientProvider client={queryClient}><overlays.wrapper>{children}</overlays.wrapper></QueryClientProvider> },
   );
-  return { ...view, props: mergedProps };
+  return { ...view, props: mergedProps, overlayStore: overlays.store };
 }
 
 function getFocusedTreeRowId() {
@@ -605,25 +608,24 @@ describe('FolderNavigator', () => {
   });
 
   it('pins Trash above the account row, outside the tree', () => {
-    const onOpenChange = vi.fn();
     window.hackdeskAPI = {
       hackmd: { listTrash: vi.fn(async () => []) },
     } as unknown as NonNullable<typeof window.hackdeskAPI>;
-    renderFolderNavigator({
-      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    const { overlayStore } = renderFolderNavigator({
+      trash: { onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
     });
 
     const tree = screen.getByTestId('folder-navigator-tree');
     const trashRow = screen.getByTestId('sidebar-trash-row');
     expect(tree).not.toContainElement(trashRow);
     fireEvent.click(within(trashRow).getByRole('button', { name: 'My Trash' }));
-    expect(onOpenChange).toHaveBeenCalledWith(true);
+    expect(overlayStore.getState().trash).toBe(true);
     delete window.hackdeskAPI;
   });
 
   it('places History beside Trash and opens the history view', () => {
     const onScopeChange = vi.fn();
-    renderFolderNavigator({ workspace: { onScopeChange }, trash: { open: false, onOpenChange: vi.fn(), onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } } });
+    renderFolderNavigator({ workspace: { onScopeChange }, trash: { onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } } });
     const history = screen.getByRole('button', { name: 'History' });
     expect(screen.getByTestId('sidebar-destinations')).toContainElement(history);
     expect(screen.getByTestId('sidebar-destinations')).toContainElement(screen.getByTestId('sidebar-trash-row'));
@@ -637,30 +639,29 @@ describe('FolderNavigator', () => {
   });
 
   it('shows History as a sidebar view with Back while keeping the workspace', async () => {
-    const onOpenChange = vi.fn();
     window.hackdeskAPI = { hackmd: { listHistory: vi.fn(async () => ({ source: 'remote', data: [note({ id: 'recent', title: 'Recent note' }), note({ id: 'alpha', title: 'Alpha' })] })) } } as unknown as NonNullable<typeof window.hackdeskAPI>;
-    const { props } = renderFolderNavigator({ history: { open: true, onOpenChange } });
+    const { props, overlayStore } = renderFolderNavigator({ history: true, overlays: { history: true } });
     expect(screen.getByRole('button', { name: 'Switch workspace, current: My Workspace' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Recent note' })).toBeVisible();
     fireEvent.pointerDown(screen.getByRole('button', { name: 'View options' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Title A-Z' }));
     expect(within(screen.getByRole('list', { name: 'Recently opened notes' })).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['Alpha', 'Recent note']);
     fireEvent.click(screen.getByRole('button', { name: 'Back to notes' }));
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(overlayStore.getState().history).toBe(false);
     expect(props.workspace.onScopeChange).not.toHaveBeenCalled();
     delete window.hackdeskAPI;
   });
 
   it('shows Trash in place of the tree, with a way back', async () => {
-    const onOpenChange = vi.fn();
-    renderFolderNavigator({
-      trash: { open: true, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    const { overlayStore } = renderFolderNavigator({
+      trash: { onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+      overlays: { trash: true },
     });
 
     expect(screen.getByText('Trash')).toBeInTheDocument();
     expect(screen.queryByRole('tree')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to notes' }));
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(overlayStore.getState().trash).toBe(false);
   });
 
   it('keeps search as a header icon that opens across the row, and View options on the workspace row', () => {
@@ -935,9 +936,8 @@ describe('FolderNavigator', () => {
   });
 
   it('moves focus to first and last visible tree rows with Home and End', () => {
-    const onOpenChange = vi.fn();
     const { container } = renderFolderNavigator({
-      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+      trash: { onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
     });
     const projects = focusTreeRow(container, 'folder:projects');
 
@@ -1193,9 +1193,8 @@ describe('FolderNavigator', () => {
 
   it('collapses the tree, persisting per scope', () => {
     window.localStorage.clear();
-    const onOpenChange = vi.fn();
     const { props, rerender } = renderFolderNavigator({
-      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+      trash: { onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Collapse My Notes' }));
     expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();

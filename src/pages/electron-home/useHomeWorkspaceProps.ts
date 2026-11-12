@@ -35,7 +35,7 @@ import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 
 import type { OpenNoteTarget } from './useNoteLinkOpener';
 import type { WorkspaceFolderTree } from './FolderNavigator';
-import type { OverlayControls, WorkbenchOverlays } from './workbench-overlays';
+import type { OverlayControls } from './workbench-overlays';
 
 const EMPTY_WORKSPACE_FOLDERS: WorkspaceFolderTree[] = [];
 
@@ -126,7 +126,6 @@ export function useHomeWorkspaceProps({
   toggleNavigatorCollapsed,
   user,
   uploadingTabIds = [],
-  overlays,
   overlayControls,
   onNewTab,
   recentNotes,
@@ -174,7 +173,6 @@ export function useHomeWorkspaceProps({
   toggleNavigatorCollapsed: () => void;
   user: UserSummary | undefined;
   uploadingTabIds?: readonly string[];
-  overlays: WorkbenchOverlays;
   overlayControls: OverlayControls;
   onNewTab: () => void;
   recentNotes: ElectronRecentNote[];
@@ -340,8 +338,6 @@ export function useHomeWorkspaceProps({
         platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
         pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
         accountStatus: homeStatus.accountStatus,
-        switcherOpen: overlays.workspaceSwitcher,
-        onSwitcherOpenChange: (open) => overlayControls.set('workspaceSwitcher', open),
         onChooseLocalVault: () => {
           void localVaultActions.chooseLocalVault();
         },
@@ -421,12 +417,10 @@ export function useHomeWorkspaceProps({
       emptyState: homeStatus.emptyState,
       status: homeStatus.navigatorStatus,
       trash: settings?.hasHackmdApiToken && (displayScope.type === 'personal' || displayScope.type === 'team') ? {
-        open: overlays.trash,
-        onOpenChange: (open) => overlayControls.set('trash', open),
         onOpenNote: actions.openTrashNote,
         scope: displayScope,
       } : undefined,
-      history: { open: overlays.history, onOpenChange: (open) => overlayControls.set('history', open) },
+      history: true,
       actions: {
         onFolderSelect: navigator.handleFolderSelect,
         onFolderToggle: navigator.toggleFolderCollapsed,
@@ -496,8 +490,6 @@ export function useHomeWorkspaceProps({
       onEditorRequestHandled: consumeEditorRequest,
       editorMode,
       folderTree,
-      shareOpen: overlays.share,
-      versionsOpen: overlays.versions,
       isInspectorCollapsed: inspectorCollapsed,
       getPaneView: (pane) => {
         const view = documents.getPaneView(pane);
@@ -567,8 +559,6 @@ export function useHomeWorkspaceProps({
       // A new draft never reuses the original note's identity.
       onOpenAsNewDraft: (title, content, paneId) => noteWorkspace.openDraftNote({ title, content, paneId }),
       onRetryLoad: actions.retryDocumentLoad,
-      onShareOpenChange: (open) => overlayControls.set('share', open),
-      onVersionsOpenChange: (open) => overlayControls.set('versions', open),
     },
   };
 }

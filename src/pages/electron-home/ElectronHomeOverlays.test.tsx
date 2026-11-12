@@ -5,6 +5,7 @@ import type { ElectronActionContext } from '@/lib/electron-actions';
 import { defaultSettings } from '@/lib/settings';
 
 import { ElectronHomeOverlays, type ElectronHomeOverlaysProps } from './ElectronHomeOverlays';
+import { createOverlayWrapper } from './test-overlays';
 
 vi.mock('./CommandPaletteDialog', () => ({
   CommandPaletteDialog: ({
@@ -98,20 +99,11 @@ function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): Electr
       themePresets: [],
     },
     dialogs: {
-      createFolderDialog: { open: false, name: '', description: '', icon: '', color: '' },
-      createNoteDialog: { open: false, title: '' },
-      deleteFolderTarget: null,
-      deleteNoteTarget: null,
       folderLabel: null,
-      onboardingOpen: false,
       onCreateFolder: vi.fn(),
-      onCreateFolderStateChange: vi.fn(),
       onCreateNote: vi.fn(),
-      onCreateNoteStateChange: vi.fn(),
       onDeleteFolder: vi.fn(),
-      onDeleteFolderCancel: vi.fn(),
       onDeleteNote: vi.fn(),
-      onDeleteNoteCancel: vi.fn(),
       onImportHackmdCliToken: vi.fn(async () => ({
         settings: {
           workspaceNavigation: defaultSettings.workspaceNavigation,
@@ -146,12 +138,9 @@ function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): Electr
       onOpenLocalVault: vi.fn(async () => undefined),
       onRefreshLocalVault: vi.fn(async () => undefined),
       onRenameFolder: vi.fn(),
-      onRenameFolderStateChange: vi.fn(),
       onSaveSettings: vi.fn(),
       onSaveToken: vi.fn(async () => undefined),
-      onSettingsOpenChange: vi.fn(),
       onSetupLater: vi.fn(async () => undefined),
-      renameFolderDialog: { open: false, folderId: null, name: '', description: '', icon: '', color: '' },
       scopeLabel: 'My Workspace',
       settings: {
         workspaceNavigation: defaultSettings.workspaceNavigation,
@@ -167,7 +156,6 @@ function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): Electr
         shouldShowHackmdOnboarding: false,
         title: 'HackDesk',
       },
-      settingsOpen: false,
       status: {
         creatingFolder: false,
         creatingNote: false,
@@ -195,7 +183,7 @@ describe('ElectronHomeOverlays', () => {
         onCreateNote,
       },
     })}
-    />);
+    />, { wrapper: createOverlayWrapper().wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: 'Palette mock' }));
     fireEvent.click(screen.getByRole('button', { name: 'Dialogs mock' }));
@@ -212,7 +200,7 @@ describe('ElectronHomeOverlays', () => {
         onDisconnectHackmd,
       },
     })}
-    />);
+    />, { wrapper: createOverlayWrapper().wrapper });
 
     fireEvent.click(screen.getByRole('button', { name: 'Palette disconnect mock' }));
     const dialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });

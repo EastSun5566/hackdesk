@@ -61,6 +61,7 @@ import { useRemoteDocumentRecovery } from './electron-home/useRemoteDocumentReco
 import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
 import { createClosedFolderDialogState, createClosedRenameFolderDialogState } from './electron-home/workbench-overlays';
 import { useWorkbenchOverlays } from './electron-home/useWorkbenchOverlays';
+import { OverlayStoreProvider } from './electron-home/WorkbenchOverlaysContext';
 import {
   useWorkbenchActions,
 } from './electron-home/useWorkbenchActions';
@@ -120,7 +121,7 @@ export function Home() {
   const selectionRefs = useElectronHomeSelectionRefs();
   const initialWorkspaceResolvedRef = useRef(false);
   const panelState = useWorkbenchPanelState();
-  const { overlays, controls: overlayControls, closeTopOverlay } = useWorkbenchOverlays();
+  const { store: overlayStore, overlays, controls: overlayControls, closeTopOverlay } = useWorkbenchOverlays();
   const { shortcutHelp } = overlays;
   useEffect(() => {
     if (overlays.palette.open) return;
@@ -1255,7 +1256,6 @@ export function Home() {
     toggleInspectorCollapsed: toggleNoteDetails,
     toggleNavigatorCollapsed: toggleSidebar,
     user,
-    overlays,
     overlayControls,
     onNewTab: () => runShortcutAction('new-tab'),
     recentNotes,
@@ -1287,7 +1287,6 @@ export function Home() {
       onMoveNoteToFolder: moveSelectedNoteToFolder,
       onOpenSettingsTab: openSettingsTab,
     },
-    overlays,
     overlayControls,
     displayScope,
     localVaultActions,
@@ -1346,6 +1345,7 @@ export function Home() {
   }
 
   return (
+    <OverlayStoreProvider store={overlayStore}>
     <DialogReturnFocusProvider value={getDialogReturnFocus}>
     <ActionShortcutContext.Provider value={shortcutContext}>
       <KeyboardNavigation workspaceKey={scopeStorageKey} shortcuts={settings?.shortcuts} platform={api.platform} characterEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}>
@@ -1397,8 +1397,6 @@ export function Home() {
           />
           <ElectronHomeOverlays {...overlayProps} dialogs={{
             ...overlayProps.dialogs,
-            settingsInitialTab: overlays.settings.tab,
-            onSettingsOpenChange: (open) => (open ? overlayControls.openSettings() : overlayControls.close('settings')),
             onOnboardingOpenChange: open => {
               overlayControls.set('onboarding', open);
               const configured = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
@@ -1428,5 +1426,6 @@ export function Home() {
       </KeyboardNavigation>
     </ActionShortcutContext.Provider>
     </DialogReturnFocusProvider>
+    </OverlayStoreProvider>
   );
 }
