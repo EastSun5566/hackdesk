@@ -32,11 +32,15 @@ type MarkLayer = {
   stroke?: { color: Fill; width: number };
   /** Per-tile fills when `shape` is `tower`, bottom to top. */
   towerFills?: string[];
+  /** Fill for the mark's open top faces (its inner holes), drawn beneath the mark. */
+  innerFill?: string;
+  /** Dots laid on the mark, in the mark's own coordinates: [x, y, radius]. */
+  toppings?: { color: string; shine?: string; dots: [number, number, number][] };
   glow?: string;
   opacity?: number;
 };
 
-type Decoration = 'stars' | 'grid' | 'scanlines' | 'highlight';
+type Decoration = 'stars' | 'grid' | 'scanlines' | 'highlight' | 'bento';
 
 type AppIconDesign = {
   background: Fill;
@@ -50,6 +54,45 @@ const LIGHT_PLATE: Fill = { stops: ['#FFFFFF', '#EEEEF4'], from: [0.5, 0], to: [
 const DARK_PLATE: Fill = { stops: ['#2A2A31', '#121216'], from: [0.5, 0], to: [0.5, 1] };
 const BRAND_MARK: Fill = { stops: [BRAND_LIGHT, BRAND_DEEP], from: [0.22, 0.08], to: [0.72, 0.95] };
 const BRAND_MARK_ON_DARK: Fill = { stops: ['#B3AFFF', '#5B51FF'], from: [0.22, 0.08], to: [0.72, 0.95] };
+
+type Point = [number, number];
+
+/**
+ * Packs roe in a hexagonal grid over a tile's rice, shrunk toward its centre so
+ * a sliver of rice still shows. `corners` go left, top, right, bottom. A small,
+ * deterministic jitter keeps the grid from looking machine-made.
+ */
+function roeOn(corners: Point[], radius: number, coverage = 0.86): [number, number, number][] {
+  const cx = corners.reduce((sum, [x]) => sum + x, 0) / corners.length;
+  const cy = corners.reduce((sum, [, y]) => sum + y, 0) / corners.length;
+  const shrunk = corners.map(([x, y]): Point => [cx + (x - cx) * coverage, cy + (y - cy) * coverage]);
+  const inside = (x: number, y: number) => shrunk.every(([x1, y1], index) => {
+    const [x2, y2] = shrunk[(index + 1) % shrunk.length];
+    return (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1) >= 0;
+  });
+
+  const xs = shrunk.map(([x]) => x);
+  const ys = shrunk.map(([, y]) => y);
+  const stepX = radius * 2;
+  const stepY = radius * Math.sqrt(3);
+  const dots: [number, number, number][] = [];
+  for (let row = 0, y = Math.min(...ys); y <= Math.max(...ys); row += 1, y += stepY) {
+    for (let x = Math.min(...xs) + (row % 2) * radius; x <= Math.max(...xs); x += stepX) {
+      if (inside(x, y)) {
+        const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        const jitter = seed - Math.floor(seed) - 0.5;
+        dots.push([round(x + jitter * radius * 0.4), round(y - jitter * radius * 0.3), round(radius * (1 + jitter * 0.18))]);
+      }
+    }
+  }
+  return dots;
+}
+
+// The double mark's two rice faces (left, top, right, bottom), measured from its path.
+const ROE = [
+  ...roeOn([[7, 23.6], [43, 4.3], [69.3, 17.9], [32.4, 37.5]], 1.9),
+  ...roeOn([[32.3, 53.3], [69.5, 36.1], [95.5, 50.9], [57.9, 71.5]], 1.9),
+];
 
 const DESIGNS = {
   'color-light': { background: LIGHT_PLATE, mark: { shape: 'double', fill: BRAND_MARK } },
@@ -108,6 +151,16 @@ const DESIGNS = {
     background: { stops: ['#FFF6E5', '#FDE7C2'], from: [0.5, 0], to: [0.5, 1] },
     mark: { shape: 'tower', fill: BRAND_DEEP, towerFills: [BRAND_DEEP, '#FFB020', '#FF5A5F'] },
   },
+  sushi: {
+    background: { stops: ['#EE5A45', '#C2301F'], from: [0.5, 0], to: [0.5, 1] },
+    mark: {
+      shape: 'double',
+      fill: { stops: ['#34473A', '#141C17'], from: [0.2, 0], to: [0.8, 1] },
+      innerFill: '#FBF6EA',
+      toppings: { color: '#FF6A2B', shine: '#FFD2B8', dots: ROE },
+    },
+    decorations: ['bento'],
+  },
   gold: {
     background: { stops: ['#1A1A1A', '#000000'], from: [0.5, 0], to: [0.5, 1] },
     mark: { shape: 'double', fill: { stops: ['#FFF1B8', '#E2B13C', '#9A6B12'], from: [0.2, 0], to: [0.8, 1] }, glow: '#E2B13C' },
@@ -145,6 +198,7 @@ export const APP_ICON_OPTIONS: readonly AppIconOption[] = [
   { id: 'sketch', label: 'Sketch', group: 'fun' },
   { id: 'blocks', label: 'Building Blocks', group: 'secret' },
   { id: 'gold', label: 'Gold', group: 'secret' },
+  { id: 'sushi', label: 'Sushi', group: 'secret' },
 ];
 
 export const APP_ICON_IDS = APP_ICON_OPTIONS.map((option) => option.id) as [AppIconId, ...AppIconId[]];
@@ -236,6 +290,13 @@ function renderDecorations(decorations: Decoration[], plate: { x: number; size: 
         }
         return `<path d="${lines.join('')}" stroke="#3DFF7A" stroke-opacity="0.06" stroke-width="${round(step)}"/>`;
       }
+      case 'bento': {
+        // A lacquer box: a gold rim inset from the plate edge, with a darker floor inside it.
+        const inset = round(size * 0.07);
+        const inner = round(size - inset * 2);
+        const rimRadius = round(plate.radius * 0.7);
+        return `<rect x="${round(x + inset)}" y="${round(x + inset)}" width="${inner}" height="${inner}" rx="${rimRadius}" fill="#000000" fill-opacity="0.08" stroke="#F2C14E" stroke-opacity="0.85" stroke-width="${round(size / 90)}"/>`;
+      }
       case 'highlight':
         return `<ellipse cx="${round(x + size * 0.3)}" cy="${round(x + size * 0.12)}" rx="${round(size * 0.55)}" ry="${round(size * 0.28)}" fill="#FFFFFF" opacity="0.18"/>`;
       default:
@@ -272,7 +333,18 @@ function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: s
       return `<path transform="translate(0 ${y})" d="${source.path}" fill-rule="evenodd" fill="${tileFill}" stroke="#FFF6E5" stroke-width="3" paint-order="stroke"/>`;
     }).join('');
   } else {
-    body = `<path d="${source.path}" fill-rule="evenodd" fill="${fill.ref}"${opacity}${strokeAttrs}/>`;
+    // The first subpath is the outline; the rest are the open top faces.
+    const holes = source.path.split(/(?=M)/).slice(1).join('');
+    const inner = mark.innerFill && holes ? `<path d="${holes}" fill="${mark.innerFill}"/>` : '';
+    const toppings = mark.toppings
+      ? mark.toppings.dots.map(([cx, cy, r]) => {
+        const shine = mark.toppings?.shine
+          ? `<circle cx="${round(cx - r * 0.35)}" cy="${round(cy - r * 0.35)}" r="${round(r * 0.3)}" fill="${mark.toppings.shine}"/>`
+          : '';
+        return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${mark.toppings?.color}"/>${shine}`;
+      }).join('')
+      : '';
+    body = `${inner}<path d="${source.path}" fill-rule="evenodd" fill="${fill.ref}"${opacity}${strokeAttrs}/>${toppings}`;
   }
 
   const group = `<g transform="translate(${tx} ${ty}) scale(${round(scale)})">${body}</g>`;

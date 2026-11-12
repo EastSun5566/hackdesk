@@ -30,6 +30,20 @@ describe('app icon catalog', () => {
     expect(new Set(APP_ICON_OPTIONS.map((option) => option.group))).toEqual(new Set(['classic', 'single', 'fun', 'secret']));
   });
 
+  it('keeps Gold, Building Blocks, and Sushi behind the secret unlock', () => {
+    const secret = APP_ICON_OPTIONS.filter((option) => option.group === 'secret').map((option) => option.id);
+    expect(secret).toEqual(['blocks', 'gold', 'sushi']);
+  });
+
+  it('fills the mark\'s open top faces beneath the mark for gunkan-style icons', () => {
+    const svg = renderAppIconSvg('sushi');
+    const rice = svg.indexOf('fill="#FBF6EA"');
+    const nori = svg.indexOf('fill="url(#mark-fill)"');
+    expect(rice).toBeGreaterThan(-1);
+    expect(rice).toBeLessThan(nori);
+    expect(svg.match(/fill="#FF6A2B"/g)?.length).toBeGreaterThan(10);
+  });
+
   it('resolves the system option from the OS appearance', () => {
     expect(resolveAppIconVariant('system', false)).toBe('color-light');
     expect(resolveAppIconVariant('system', true)).toBe('color-dark');
