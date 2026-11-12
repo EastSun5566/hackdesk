@@ -34,8 +34,12 @@ type MarkLayer = {
   towerFills?: string[];
   /** Fill for the mark's open top faces (its inner holes), drawn beneath the mark. */
   innerFill?: string;
+  /** A soft pile of powder on each top face: a haze, a mound, and a faint shadow under it. */
+  dusting?: { color: string; shade: string };
   /** Dots laid on the mark, in the mark's own coordinates: [x, y, radius]. */
   toppings?: { color: string; shine?: string; dots: [number, number, number][] };
+  /** Seedlings standing on the mark, in its coordinates: [x, y of the soil, height]. */
+  sprouts?: { stem: string; leaf: string; leafShade: string; at: [number, number, number][] };
   glow?: string;
   opacity?: number;
 };
@@ -57,12 +61,20 @@ const BRAND_MARK_ON_DARK: Fill = { stops: ['#B3AFFF', '#5B51FF'], from: [0.22, 0
 
 type Point = [number, number];
 
+type Dot = [number, number, number];
+
+function hash(x: number, y: number) {
+  const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return seed - Math.floor(seed);
+}
+
 /**
- * Packs roe in a hexagonal grid over a tile's rice, shrunk toward its centre so
- * a sliver of rice still shows. `corners` go left, top, right, bottom. A small,
- * deterministic jitter keeps the grid from looking machine-made.
+ * Packs dots in a hexagonal grid over a tile's top face, shrunk toward its
+ * centre so a sliver of the face still shows. `corners` go left, top, right,
+ * bottom. A small, deterministic jitter keeps the grid from looking
+ * machine-made; `keep` below 1 drops dots for a sparse scatter.
  */
-function roeOn(corners: Point[], radius: number, coverage = 0.86): [number, number, number][] {
+function dotsOn(corners: Point[], radius: number, coverage = 0.86, keep = 1): Dot[] {
   const cx = corners.reduce((sum, [x]) => sum + x, 0) / corners.length;
   const cy = corners.reduce((sum, [, y]) => sum + y, 0) / corners.length;
   const shrunk = corners.map(([x, y]): Point => [cx + (x - cx) * coverage, cy + (y - cy) * coverage]);
@@ -75,24 +87,28 @@ function roeOn(corners: Point[], radius: number, coverage = 0.86): [number, numb
   const ys = shrunk.map(([, y]) => y);
   const stepX = radius * 2;
   const stepY = radius * Math.sqrt(3);
-  const dots: [number, number, number][] = [];
+  const dots: Dot[] = [];
   for (let row = 0, y = Math.min(...ys); y <= Math.max(...ys); row += 1, y += stepY) {
     for (let x = Math.min(...xs) + (row % 2) * radius; x <= Math.max(...xs); x += stepX) {
-      if (inside(x, y)) {
-        const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        const jitter = seed - Math.floor(seed) - 0.5;
-        dots.push([round(x + jitter * radius * 0.4), round(y - jitter * radius * 0.3), round(radius * (1 + jitter * 0.18))]);
+      if (!inside(x, y) || (keep < 1 && hash(y, x) > keep)) {
+        continue;
       }
+      const jitter = hash(x, y) - 0.5;
+      dots.push([round(x + jitter * radius * 0.4), round(y - jitter * radius * 0.3), round(radius * (1 + jitter * 0.18))]);
     }
   }
   return dots;
 }
 
-// The double mark's two rice faces (left, top, right, bottom), measured from its path.
-const ROE = [
-  ...roeOn([[7, 23.6], [43, 4.3], [69.3, 17.9], [32.4, 37.5]], 1.9),
-  ...roeOn([[32.3, 53.3], [69.5, 36.1], [95.5, 50.9], [57.9, 71.5]], 1.9),
+/** The double mark's two open top faces (left, top, right, bottom), measured from its path. */
+const DOUBLE_FACES: Point[][] = [
+  [[7, 23.6], [43, 4.3], [69.3, 17.9], [32.4, 37.5]],
+  [[32.3, 53.3], [69.5, 36.1], [95.5, 50.9], [57.9, 71.5]],
 ];
+
+function dotsOnFaces(radius: number, coverage?: number, keep?: number) {
+  return DOUBLE_FACES.flatMap((face) => dotsOn(face, radius, coverage, keep));
+}
 
 const DESIGNS = {
   'color-light': { background: LIGHT_PLATE, mark: { shape: 'double', fill: BRAND_MARK } },
@@ -147,6 +163,55 @@ const DESIGNS = {
     background: '#FBF7EE',
     mark: { shape: 'double', fill: 'none', stroke: { color: '#26231F', width: 2 } },
   },
+  sunset: {
+    background: { stops: ['#FFC37A', '#FF6F91', '#7B5CF0'], from: [0.5, 0], to: [0.5, 1] },
+    mark: { shape: 'double', fill: '#FFF6EA' },
+  },
+  mint: {
+    background: { stops: ['#EAFBF3', '#B5ECD6'], from: [0.5, 0], to: [0.5, 1] },
+    mark: { shape: 'single', fill: { stops: ['#CFC4FF', '#8C7BFF'], from: [0.22, 0.08], to: [0.72, 0.95] } },
+  },
+  paper: {
+    background: { stops: ['#FCFBF7', '#EFECE3'], from: [0.5, 0], to: [0.5, 1] },
+    mark: { shape: 'double', fill: '#1E3A8A' },
+  },
+  dracula: {
+    background: { stops: ['#343746', '#21222C'], from: [0.5, 0], to: [0.5, 1] },
+    mark: { shape: 'double', fill: { stops: ['#FF79C6', '#BD93F9'], from: [0.2, 0], to: [0.8, 1] } },
+  },
+  solarized: {
+    background: { stops: ['#073642', '#002B36'], from: [0.5, 0], to: [0.5, 1] },
+    mark: { shape: 'double', fill: { stops: ['#B58900', '#CB4B16'], from: [0.2, 0], to: [0.8, 1] }, innerFill: '#2AA198' },
+  },
+  nord: {
+    background: { stops: ['#3B4252', '#2E3440'], from: [0.5, 0], to: [0.5, 1] },
+    mark: { shape: 'double', fill: { stops: ['#8FBCBB', '#5E81AC'], from: [0.2, 0], to: [0.8, 1] } },
+  },
+  matcha: {
+    // A matcha latte: a glazed cup, milk foam, and a small pile of powder on top.
+    background: { stops: ['#F1E6D3', '#D9C4A3'], from: [0.5, 0], to: [0.5, 1] },
+    mark: {
+      shape: 'double',
+      fill: { stops: ['#7D93A8', '#3E5266'], from: [0.2, 0], to: [0.8, 1] },
+      innerFill: '#FAF4E6',
+      dusting: { color: '#8DB356', shade: '#73983F' },
+      toppings: { color: 'rgba(125,163,72,0.55)', dots: dotsOnFaces(0.4, 0.58, 0.14) },
+    },
+  },
+  garden: {
+    background: { stops: ['#E4F4D8', '#B9DFA1'], from: [0.5, 0], to: [0.5, 1] },
+    mark: {
+      shape: 'double',
+      fill: { stops: ['#E79466', '#A9532C'], from: [0.2, 0], to: [0.8, 1] },
+      innerFill: '#5A3B24',
+      sprouts: {
+        stem: '#3F8F33',
+        leaf: '#6CCB4F',
+        leafShade: '#3FA03A',
+        at: [[30, 22, 12], [46, 20, 15], [56, 53, 13], [73, 52, 16]],
+      },
+    },
+  },
   blocks: {
     background: { stops: ['#FFF6E5', '#FDE7C2'], from: [0.5, 0], to: [0.5, 1] },
     mark: { shape: 'tower', fill: BRAND_DEEP, towerFills: [BRAND_DEEP, '#FFB020', '#FF5A5F'] },
@@ -157,7 +222,7 @@ const DESIGNS = {
       shape: 'double',
       fill: { stops: ['#34473A', '#141C17'], from: [0.2, 0], to: [0.8, 1] },
       innerFill: '#FBF6EA',
-      toppings: { color: '#FF6A2B', shine: '#FFD2B8', dots: ROE },
+      toppings: { color: '#FF6A2B', shine: '#FFD2B8', dots: dotsOnFaces(1.9) },
     },
     decorations: ['bento'],
   },
@@ -196,6 +261,14 @@ export const APP_ICON_OPTIONS: readonly AppIconOption[] = [
   { id: 'terminal', label: 'Terminal', group: 'fun' },
   { id: 'spectrum', label: 'Spectrum', group: 'fun' },
   { id: 'sketch', label: 'Sketch', group: 'fun' },
+  { id: 'sunset', label: 'Sunset', group: 'fun' },
+  { id: 'mint', label: 'Mint', group: 'fun' },
+  { id: 'paper', label: 'Paper', group: 'fun' },
+  { id: 'dracula', label: 'Dracula', group: 'fun' },
+  { id: 'solarized', label: 'Solarized', group: 'fun' },
+  { id: 'nord', label: 'Nord', group: 'fun' },
+  { id: 'matcha', label: 'Matcha', group: 'fun' },
+  { id: 'garden', label: 'Garden', group: 'fun' },
   { id: 'blocks', label: 'Building Blocks', group: 'secret' },
   { id: 'gold', label: 'Gold', group: 'secret' },
   { id: 'sushi', label: 'Sushi', group: 'secret' },
@@ -305,6 +378,25 @@ function renderDecorations(decorations: Decoration[], plate: { x: number; size: 
   }).join('');
 }
 
+/** A curved stem with two pointed leaves; drawn back to front so nearer plants overlap. */
+function renderSprouts({ stem, leaf, leafShade, at }: NonNullable<MarkLayer['sprouts']>) {
+  return [...at].sort(([, a], [, b]) => a - b).map(([x, y, height]) => {
+    const scale = height / 9;
+    const tx = x;
+    const ty = round(y - height);
+    const leafPath = (side: 1 | -1, lift: number, size: number) => {
+      const k = scale * size * side;
+      const v = scale * size;
+      const oy = ty - lift * scale;
+      return `M${tx} ${round(oy)}C${round(tx + 1.4 * k)} ${round(oy - 3.6 * v)} ${round(tx + 5 * k)} ${round(oy - 3.4 * v)} ${round(tx + 5.6 * k)} ${round(oy - 1.8 * v)}C${round(tx + 4.2 * k)} ${round(oy + 0.6 * v)} ${round(tx + 1.4 * k)} ${round(oy + 0.8 * v)} ${tx} ${round(oy)}Z`;
+    };
+    const stemPath = `M${x} ${y}Q${round(x + 1.2 * scale)} ${round(y - height / 2)} ${tx} ${ty}`;
+    return `<path d="${stemPath}" fill="none" stroke="${stem}" stroke-width="${round(1.5 * scale)}" stroke-linecap="round"/>`
+      + `<path d="${leafPath(-1, 0, 1.35)}" fill="${leafShade}"/>`
+      + `<path d="${leafPath(1, 0.6, 1.5)}" fill="${leaf}"/>`;
+  }).join('');
+}
+
 function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: string[]) {
   const towerStep = 30;
   const towerCount = 3;
@@ -336,6 +428,21 @@ function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: s
     // The first subpath is the outline; the rest are the open top faces.
     const holes = source.path.split(/(?=M)/).slice(1).join('');
     const inner = mark.innerFill && holes ? `<path d="${holes}" fill="${mark.innerFill}"/>` : '';
+    let dusting = '';
+    if (mark.dusting && holes) {
+      // objectBoundingBox units centre each gradient on its own face, so the
+      // ellipses follow the face's isometric squash. Each face is drawn alone.
+      const { color, shade } = mark.dusting;
+      const radial = (id: string, cx: number, cy: number, r: number, paint: string, stops: [number, number][]) =>
+        `<radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r}">${stops.map(([offset, alpha]) => `<stop offset="${offset}" stop-color="${paint}" stop-opacity="${alpha}"/>`).join('')}</radialGradient>`;
+      defs.push(
+        radial('dust-haze', 0.5, 0.5, 0.48, color, [[0, 0.32], [0.6, 0.14], [1, 0]]),
+        radial('dust-shade', 0.53, 0.58, 0.3, shade, [[0, 0.5], [0.55, 0.3], [1, 0]]),
+        radial('dust-pile', 0.49, 0.47, 0.27, color, [[0, 1], [0.5, 0.9], [0.8, 0.45], [1, 0]]),
+      );
+      dusting = holes.split(/(?=M)/).map((face) => ['dust-haze', 'dust-shade', 'dust-pile']
+        .map((id) => `<path d="${face}" fill="url(#${id})"/>`).join('')).join('');
+    }
     const toppings = mark.toppings
       ? mark.toppings.dots.map(([cx, cy, r]) => {
         const shine = mark.toppings?.shine
@@ -344,7 +451,8 @@ function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: s
         return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${mark.toppings?.color}"/>${shine}`;
       }).join('')
       : '';
-    body = `${inner}<path d="${source.path}" fill-rule="evenodd" fill="${fill.ref}"${opacity}${strokeAttrs}/>${toppings}`;
+    const sprouts = mark.sprouts ? renderSprouts(mark.sprouts) : '';
+    body = `${inner}${dusting}<path d="${source.path}" fill-rule="evenodd" fill="${fill.ref}"${opacity}${strokeAttrs}/>${toppings}${sprouts}`;
   }
 
   const group = `<g transform="translate(${tx} ${ty}) scale(${round(scale)})">${body}</g>`;
