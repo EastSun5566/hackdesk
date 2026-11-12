@@ -62,6 +62,10 @@ type PixelStyle = {
   screen?: { top: string; bottom: string };
   /** The silhouette repeated one cell down and right, like LCD ghosting. */
   dropShadow?: string;
+  /** Phosphor bloom: a blurred copy of the mark's cells behind the crisp ones. */
+  bloom?: string;
+  /** Tube effects drawn over everything: scanlines on the pixel grid and a vignette. */
+  crt?: { scanline: string; vignette: string };
 };
 
 type Decoration = 'stars' | 'grid' | 'scanlines' | 'highlight' | 'bento';
@@ -239,6 +243,25 @@ const DESIGNS = {
       },
     },
   },
+  crt: {
+    // An amber phosphor tube: bloom around the mark, scanlines and a vignette over the screen.
+    background: '#170D00',
+    mark: {
+      shape: 'double',
+      fill: 'none',
+      pixel: {
+        cell: 4.4,
+        outline: '#4A2600',
+        body: '#C77A00',
+        face: '#FFC94A',
+        sprite: { light: '#F2A21E', shadow: '#8A4F00', faceShade: '#E8A92A' },
+        screen: { top: '#2A1900', bottom: '#170D00' },
+        dropShadow: '#0E0800',
+        bloom: '#FFB020',
+        crt: { scanline: 'rgba(0,0,0,0.2)', vignette: '#000000' },
+      },
+    },
+  },
   matcha: {
     // A matcha latte: a glazed cup, milk foam, and a small pile of powder on top.
     background: { stops: ['#F1E6D3', '#D9C4A3'], from: [0.5, 0], to: [0.5, 1] },
@@ -321,6 +344,7 @@ export const APP_ICON_OPTIONS: readonly AppIconOption[] = [
   { id: 'nord', label: 'Nord', group: 'fun' },
   { id: 'pixel', label: 'Pixel', group: 'fun' },
   { id: 'pixel-purple', label: 'Pixel Purple', group: 'fun' },
+  { id: 'crt', label: 'CRT', group: 'fun' },
   { id: 'matcha', label: 'Matcha', group: 'fun' },
   { id: 'garden', label: 'Garden', group: 'fun' },
   { id: 'blocks', label: 'Building Blocks', group: 'secret' },
@@ -502,6 +526,10 @@ function insidePolygon([x, y]: Point, polygon: Point[]) {
   return inside;
 }
 
+const BLOOM_SPREAD = 0.8;
+const BLOOM_BLUR = 2;
+const BLOOM_OPACITY = 0.85;
+
 const BAYER_4 = [
   [0, 8, 2, 10],
   [12, 4, 14, 6],
@@ -518,6 +546,7 @@ function renderPixelMark(
   source: { width: number; height: number; path: string },
   pixel: PixelStyle,
   area: { x: number; y: number; size: number },
+  defs: string[],
 ) {
   const [outer, ...holes] = flattenPath(source.path);
   const { cell } = pixel;
@@ -574,6 +603,7 @@ function renderPixelMark(
     }
   }
 
+  const markCells: string[] = [];
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
       const here = kind(col, row);
@@ -597,8 +627,32 @@ function renderPixelMark(
       } else {
         color = pixel.body;
       }
-      layers.push(square(col, row, color));
+      markCells.push(square(col, row, color));
     }
+  }
+
+  if (pixel.bloom) {
+    // Spread the silhouette first, so the halo reaches past the dark outline and frames it.
+    defs.push(`<filter id="pixel-bloom" x="-40%" y="-40%" width="180%" height="180%"><feMorphology operator="dilate" radius="${round(cell * BLOOM_SPREAD)}"/><feGaussianBlur stdDeviation="${round(cell * BLOOM_BLUR)}"/></filter>`);
+    const glow = markCells.join('').replace(/fill="[^"]*"/g, `fill="${pixel.bloom}"`);
+    layers.push(`<g filter="url(#pixel-bloom)" opacity="${BLOOM_OPACITY}">${glow}</g>`);
+  }
+  layers.push(...markCells);
+
+  if (pixel.crt) {
+    // Two scanlines per pixel row, on the grid, across the whole screen.
+    const lines: string[] = [];
+    const firstRow = Math.floor((area.y - offsetY) / cell) - 1;
+    const span = Math.ceil(area.size / cell) + 3;
+    for (let row = firstRow; row < firstRow + span; row += 1) {
+      for (const half of [0.5, 1]) {
+        const y = round(offsetY + (row + half) * cell - cell * 0.12);
+        lines.push(`M${round(area.x)} ${y}H${round(area.x + area.size)}`);
+      }
+    }
+    layers.push(`<path d="${lines.join('')}" stroke="${pixel.crt.scanline}" stroke-width="${round(cell * 0.16)}" shape-rendering="auto"/>`);
+    defs.push(`<radialGradient id="pixel-vignette" cx="0.5" cy="0.5" r="0.72"><stop offset="0.55" stop-color="${pixel.crt.vignette}" stop-opacity="0"/><stop offset="1" stop-color="${pixel.crt.vignette}" stop-opacity="0.75"/></radialGradient>`);
+    layers.push(`<rect x="${round(area.x)}" y="${round(area.y)}" width="${round(area.size)}" height="${round(area.size)}" fill="url(#pixel-vignette)"/>`);
   }
 
   return `<g shape-rendering="crispEdges">${layers.join('')}</g>`;
@@ -656,7 +710,7 @@ function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: s
       x: (plate.x - tx) / markScale,
       y: (plate.x - ty) / markScale,
       size: plate.size / markScale,
-    });
+    }, defs);
   } else {
     // The first subpath is the outline; the rest are the open top faces.
     const holes = source.path.split(/(?=M)/).slice(1).join('');

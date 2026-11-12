@@ -55,6 +55,17 @@ describe('app icon catalog', () => {
     expect(renderAppIconSvg('pixel-purple')).toContain('fill="#453AFF"');
   });
 
+  it('draws the CRT icon with bloom behind the mark and tube effects over it', () => {
+    const svg = renderAppIconSvg('crt');
+    const bloom = svg.indexOf('filter="url(#pixel-bloom)"');
+    const outline = svg.indexOf('fill="#4A2600"');
+    const vignette = svg.indexOf('fill="url(#pixel-vignette)"');
+    expect(bloom).toBeGreaterThan(-1);
+    expect(bloom).toBeLessThan(outline);
+    expect(vignette).toBeGreaterThan(outline);
+    expect(svg).toContain('stroke="rgba(0,0,0,0.2)"');
+  });
+
   it('resolves the system option from the OS appearance', () => {
     expect(resolveAppIconVariant('system', false)).toBe('color-light');
     expect(resolveAppIconVariant('system', true)).toBe('color-dark');
