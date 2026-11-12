@@ -20,6 +20,7 @@ import {
   type WorkbenchActionHandlers,
 } from './useWorkbenchActions';
 import type { PaneDirection } from './pane-layout';
+import type { OverlayControls } from './workbench-overlays';
 
 export type WorkbenchActionHandlersOptions = {
   activePaneId: string;
@@ -78,9 +79,7 @@ export type WorkbenchActionHandlersOptions = {
   setEditorMode: (mode: EditorMode) => void;
   selectedDocument?: DocumentSummary;
   selectedFolderId: string | null;
-  setSettingsOpen: (open: boolean) => void;
-  setTrashOpen: (open: boolean) => void;
-  setVersionsOpen: (open: boolean) => void;
+  overlays: OverlayControls;
   splitActiveTab: () => void;
   switchToHistory: () => void;
   toggleInspector: () => void;
@@ -157,9 +156,7 @@ export function useWorkbenchActionHandlers({
   setEditorMode,
   selectedDocument,
   selectedFolderId,
-  setSettingsOpen,
-  setTrashOpen,
-  setVersionsOpen,
+  overlays,
   splitActiveTab,
   switchToHistory,
   toggleInspector,
@@ -273,7 +270,7 @@ export function useWorkbenchActionHandlers({
       });
     },
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
-    openSettings: () => setSettingsOpen(true),
+    openSettings: () => overlays.openSettings(),
     createNoteFromTemplate,
     askNotes,
     saveAsTemplate,
@@ -296,10 +293,10 @@ export function useWorkbenchActionHandlers({
         toast.info('Version history is only available for HackMD notes.');
         return;
       }
-      setVersionsOpen(true);
+      overlays.set('versions', true);
     },
     refreshWorkspace,
-    showTrash: () => setTrashOpen(true),
+    showTrash: () => overlays.set('trash', true),
     renameSelectedFolder: () => {
       if (selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID) {
         renameFolder(selectedFolderId);
@@ -422,9 +419,7 @@ export function useWorkbenchActionHandlers({
     setEditorMode,
     selectedDocument,
     selectedFolderId,
-    setSettingsOpen,
-    setTrashOpen,
-    setVersionsOpen,
+    overlays,
     splitActiveTab,
     splitActivePaneDown,
     focusPaneToward,

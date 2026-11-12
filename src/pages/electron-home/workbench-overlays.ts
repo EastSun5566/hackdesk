@@ -119,13 +119,29 @@ export type OverlayEvent =
   | { type: 'close'; key: OverlayKey }
   | { type: 'open_settings'; tab: SettingsTab };
 
+/** Trash and History take the same place in the sidebar, so opening one closes the other. */
+const SIDEBAR_PANELS = { trash: 'history', history: 'trash' } as const;
+
 export function overlaysReducer(state: WorkbenchOverlays, event: OverlayEvent): WorkbenchOverlays {
   switch (event.type) {
-    case 'set':
-      return Object.is(state[event.key], event.value) ? state : { ...state, [event.key]: event.value };
+    case 'set': {
+      if (Object.is(state[event.key], event.value)) return state;
+      const next = { ...state, [event.key]: event.value };
+      if ((event.key === 'trash' || event.key === 'history') && event.value) next[SIDEBAR_PANELS[event.key]] = false;
+      return next;
+    }
     case 'close':
       return isOverlayOpen(state, event.key) ? { ...state, [event.key]: closedValue(event.key, state[event.key]) } : state;
     case 'open_settings':
       return { ...state, settings: { open: true, tab: event.tab } };
   }
 }
+
+/** How the workbench changes its overlays. Stable for the life of the workbench. */
+export type OverlayControls = {
+  set: <K extends OverlayKey>(key: K, value: WorkbenchOverlays[K]) => void;
+  /** Closes an overlay and clears what it held. */
+  close: (key: OverlayKey) => void;
+  /** Opens Settings, on its first tab unless another is named. */
+  openSettings: (tab?: SettingsTab) => void;
+};

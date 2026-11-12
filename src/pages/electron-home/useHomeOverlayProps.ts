@@ -5,9 +5,8 @@ import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
 import type { WorkspaceScope } from './types';
 import type { useElectronNoteMutations } from './useElectronNoteMutations';
 import type { useWorkbenchActions } from './useWorkbenchActions';
-import type { WorkbenchOverlayState } from './useWorkbenchOverlays';
+import type { OverlayControls, WorkbenchOverlays } from './workbench-overlays';
 
-type DialogState = WorkbenchOverlayState;
 type NoteMutations = ReturnType<typeof useElectronNoteMutations>;
 type WorkbenchActions = ReturnType<typeof useWorkbenchActions>;
 type CommandPaletteInjectedProps =
@@ -31,7 +30,8 @@ export function useHomeOverlayProps({
   commandPaletteProps,
   commandPaletteTheme,
   commandPaletteUtilities,
-  dialogState,
+  overlays,
+  overlayControls,
   displayScope,
   localVaultActions,
   localVaultError,
@@ -39,11 +39,9 @@ export function useHomeOverlayProps({
   mutations,
   onHackmdDisconnected,
   onChooseNoteLocation,
-  onboardingOpen,
   runAction,
   selectedFolderLabel,
   onOnboardingConnected,
-  setOnboardingOpen,
   settings,
   user,
 }: {
@@ -61,7 +59,8 @@ export function useHomeOverlayProps({
     | 'onMoveNoteToFolder'
     | 'onOpenSettingsTab'
   >;
-  dialogState: DialogState;
+  overlays: WorkbenchOverlays;
+  overlayControls: OverlayControls;
   displayScope: WorkspaceScope;
   localVaultActions: HomeLocalVaultActions;
   localVaultError: string | null;
@@ -69,11 +68,9 @@ export function useHomeOverlayProps({
   mutations: NoteMutations;
   onHackmdDisconnected: () => void;
   onChooseNoteLocation?: () => void;
-  onboardingOpen: boolean;
   runAction: WorkbenchActions['runAction'];
   selectedFolderLabel: string | null;
   onOnboardingConnected: () => void;
-  setOnboardingOpen: (open: boolean) => void;
   settings: ElectronSafeSettings | undefined;
   user: UserSummary | undefined;
 }): ElectronHomeOverlaysProps {
@@ -90,18 +87,18 @@ export function useHomeOverlayProps({
     },
     dialogs: {
       api,
-      createFolderDialog: dialogState.createFolderDialog,
-      createNoteDialog: dialogState.createDialog,
-      deleteFolderTarget: dialogState.deleteFolderTarget,
-      deleteNoteTarget: dialogState.deleteTarget,
+      createFolderDialog: overlays.createFolder,
+      createNoteDialog: overlays.createNote,
+      deleteFolderTarget: overlays.deleteFolder,
+      deleteNoteTarget: overlays.deleteNote,
       folderLabel: selectedFolderLabel,
-      onboardingOpen,
-      renameFolderDialog: dialogState.renameFolderDialog,
+      onboardingOpen: overlays.onboarding,
+      renameFolderDialog: overlays.renameFolder,
       scopeLabel: displayScope.label,
       settings,
       localVaultError,
       localVaultSnapshot,
-      settingsOpen: dialogState.settingsOpen,
+      settingsOpen: overlays.settings.open,
       status: {
         creatingFolder: mutations.createFolderMutation.isPending,
         creatingNote: mutations.createNoteMutation.isPending,
@@ -112,10 +109,10 @@ export function useHomeOverlayProps({
           mutations.updateSettingsMutation.isPending || mutations.disconnectHackmdMutation.isPending,
       },
       onCreateFolder: (input) => mutations.createFolderMutation.mutate(input),
-      onCreateFolderStateChange: dialogState.setCreateFolderDialog,
+      onCreateFolderStateChange: (state) => overlayControls.set('createFolder', state),
       onCreateNote: (title) => mutations.createNoteMutation.mutate(title),
       onChooseNoteLocation,
-      onCreateNoteStateChange: dialogState.setCreateDialog,
+      onCreateNoteStateChange: (state) => overlayControls.set('createNote', state),
       onChooseLocalVault: localVaultActions.chooseLocalVault,
       onDisconnectHackmd: () => {
         mutations.disconnectHackmdMutation.mutate(undefined, {
@@ -126,9 +123,9 @@ export function useHomeOverlayProps({
         folderId: folder.id,
         parentFolderId: folder.parentId,
       }),
-      onDeleteFolderCancel: () => dialogState.setDeleteFolderTarget(null),
+      onDeleteFolderCancel: () => overlayControls.close('deleteFolder'),
       onDeleteNote: (note) => mutations.deleteNoteMutation.mutate(note),
-      onDeleteNoteCancel: () => dialogState.setDeleteTarget(null),
+      onDeleteNoteCancel: () => overlayControls.close('deleteNote'),
       onImportHackmdCliToken: () => mutations.importHackmdCliTokenMutation.mutateAsync(),
       onForgetLocalVault: localVaultActions.forgetLocalVault,
       onSwitchLocalVault: localVaultActions.switchLocalVault,
@@ -141,10 +138,10 @@ export function useHomeOverlayProps({
       },
       onOpenLocalVault: localVaultActions.openLocalVault,
       onOnboardingConnected,
-      onOnboardingOpenChange: setOnboardingOpen,
+      onOnboardingOpenChange: (open) => overlayControls.set('onboarding', open),
       onRefreshLocalVault: localVaultActions.refreshLocalVault,
       onRenameFolder: (folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input }),
-      onRenameFolderStateChange: dialogState.setRenameFolderDialog,
+      onRenameFolderStateChange: (state) => overlayControls.set('renameFolder', state),
       onSaveSettings: (input) => { void mutations.submitSettings(input); },
       onSaveToken: async (token, label) => {
         await mutations.updateSettingsMutation.mutateAsync({
@@ -153,7 +150,7 @@ export function useHomeOverlayProps({
           ...(label ? { hackmdAccountLabel: label } : {}),
         });
       },
-      onSettingsOpenChange: dialogState.setSettingsOpen,
+      onSettingsOpenChange: (open) => (open ? overlayControls.openSettings() : overlayControls.close('settings')),
       onSetupLater: async () => {
         await mutations.updateSettingsMutation.mutateAsync({
           title: settings?.title ?? 'HackDesk',

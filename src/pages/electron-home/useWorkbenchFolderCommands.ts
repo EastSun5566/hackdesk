@@ -7,17 +7,11 @@ import type {
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 import {
   type FolderTree,
-  type FolderTreeNode,
   UNFILED_FOLDER_ID,
 } from '@/lib/hackmd-folders';
 
-import { createClosedFolderDialogState } from './workbench-overlays';
-import type {
-  CreateFolderDialogState,
-  CreateNoteDialogState,
-  RenameFolderDialogState,
-  WorkspaceScope,
-} from './types';
+import { createClosedFolderDialogState, type OverlayControls } from './workbench-overlays';
+import type { WorkspaceScope } from './types';
 
 export type WorkbenchFolderCommandsOptions = {
   currentFolders: FolderSummary[];
@@ -31,12 +25,8 @@ export type WorkbenchFolderCommandsOptions = {
   /** Opens the Templates picker; absent where templates are not offered. */
   openTemplatePicker?: () => void;
   scopeType: WorkspaceScope['type'];
-  setCreateDialog: (state: CreateNoteDialogState) => void;
-  setCreateFolderDialog: (state: CreateFolderDialogState) => void;
-  setDeleteFolderTarget: (folder: FolderTreeNode | null) => void;
-  setRenameFolderDialog: (state: RenameFolderDialogState) => void;
   setSelectedFolderId: (folderId: string | null) => void;
-  setSettingsOpen: (open: boolean) => void;
+  overlays: OverlayControls;
 };
 
 export function useWorkbenchFolderCommands({
@@ -50,12 +40,8 @@ export function useWorkbenchFolderCommands({
   openDraftNote,
   openTemplatePicker,
   scopeType,
-  setCreateDialog,
-  setCreateFolderDialog,
-  setDeleteFolderTarget,
-  setRenameFolderDialog,
   setSelectedFolderId,
-  setSettingsOpen,
+  overlays,
 }: WorkbenchFolderCommandsOptions) {
   /** Whether a note can be created here; otherwise shows the user what to do first. */
   const canCreateNote = useCallback(() => {
@@ -65,7 +51,7 @@ export function useWorkbenchFolderCommands({
     }
 
     if (!hasToken && scopeType !== 'local') {
-      setSettingsOpen(true);
+      overlays.openSettings();
       return false;
     }
 
@@ -75,7 +61,7 @@ export function useWorkbenchFolderCommands({
     }
 
     return true;
-  }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, setSettingsOpen]);
+  }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, overlays]);
 
   const handleCreateNote = useCallback(() => {
     if (canStartDraft || canCreateNote()) openDraftNote();
@@ -92,7 +78,7 @@ export function useWorkbenchFolderCommands({
     }
 
     if (!hasToken && scopeType !== 'local') {
-      setSettingsOpen(true);
+      overlays.openSettings();
       return;
     }
 
@@ -101,8 +87,8 @@ export function useWorkbenchFolderCommands({
       return;
     }
 
-    setCreateFolderDialog({ ...createClosedFolderDialogState(), open: true });
-  }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, setCreateFolderDialog, setSettingsOpen]);
+    overlays.set('createFolder', { ...createClosedFolderDialogState(), open: true });
+  }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, overlays]);
 
   const handleCreateFolderInside = useCallback((folderId: string | null) => {
     setSelectedFolderId(folderId ?? UNFILED_FOLDER_ID);
@@ -118,7 +104,7 @@ export function useWorkbenchFolderCommands({
     }
 
     if (!hasToken && scopeType !== 'local') {
-      setSettingsOpen(true);
+      overlays.openSettings();
       return;
     }
 
@@ -127,7 +113,7 @@ export function useWorkbenchFolderCommands({
       return;
     }
 
-    setCreateDialog({ open: true, title: '' });
+    overlays.set('createNote', { open: true, title: '' });
   }, [
     canStartDraft,
     openDraftNote,
@@ -135,9 +121,8 @@ export function useWorkbenchFolderCommands({
     hasToken,
     onChooseLocalVault,
     scopeType,
-    setCreateDialog,
+    overlays,
     setSelectedFolderId,
-    setSettingsOpen,
   ]);
 
   const handleRenameFolder = useCallback((folderId: string) => {
@@ -148,7 +133,7 @@ export function useWorkbenchFolderCommands({
     }
 
     const folderSummary = currentFolders.find((candidate) => candidate.id === folderId);
-    setRenameFolderDialog({
+    overlays.set('renameFolder', {
       open: true,
       folderId,
       name: folder.name,
@@ -156,7 +141,7 @@ export function useWorkbenchFolderCommands({
       icon: folder.icon ?? '',
       color: folder.color ?? '',
     });
-  }, [currentFolders, folderTree.nodesById, setRenameFolderDialog]);
+  }, [currentFolders, folderTree.nodesById, overlays]);
 
   const handleDeleteFolderRequest = useCallback((folderId: string) => {
     const folder = folderTree.nodesById.get(folderId);
@@ -166,9 +151,9 @@ export function useWorkbenchFolderCommands({
     }
 
     // The in-app delete dialog asks, so the question matches the app rather than the system.
-    setDeleteFolderTarget(folder);
+    overlays.set('deleteFolder', folder);
 
-  }, [folderTree.nodesById, setDeleteFolderTarget]);
+  }, [folderTree.nodesById, overlays]);
 
   const handleFolderDrop = useCallback((operation: FolderDropOperation) => {
     moveFolder(operation);

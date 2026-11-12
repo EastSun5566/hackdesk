@@ -4,29 +4,31 @@ import { describe, expect, it } from 'vitest';
 import type { DocumentSummary } from '@/lib/electron-api';
 import type { FolderTreeNode } from '@/lib/hackmd-folders';
 
-import { useWorkbenchOverlays, type WorkbenchOverlayState } from './useWorkbenchOverlays';
+import { useWorkbenchOverlays } from './useWorkbenchOverlays';
+
+type WorkbenchOverlayState = ReturnType<typeof useWorkbenchOverlays>;
 
 describe('useWorkbenchOverlays', () => {
   it('closes the top transient layer before allowing the workbench close policy to continue', () => {
     const { result } = renderHook(() => useWorkbenchOverlays());
 
     act(() => {
-      result.current.setSettingsOpen(true);
-      result.current.setPalette({ mode: 'commands', open: true, search: 'note' });
+      result.current.controls.openSettings();
+      result.current.controls.set('palette', { mode: 'commands', open: true, search: 'note' });
     });
 
     act(() => {
       expect(result.current.closeTopOverlay()).toBe(true);
     });
 
-    expect(result.current.palette.open).toBe(false);
-    expect(result.current.settingsOpen).toBe(true);
+    expect(result.current.overlays.palette.open).toBe(false);
+    expect(result.current.overlays.settings.open).toBe(true);
 
     act(() => {
       expect(result.current.closeTopOverlay()).toBe(true);
     });
 
-    expect(result.current.settingsOpen).toBe(false);
+    expect(result.current.overlays.settings.open).toBe(false);
 
     act(() => {
       expect(result.current.closeTopOverlay()).toBe(false);
@@ -46,34 +48,34 @@ describe('useWorkbenchOverlays layers', () => {
   const layers: Array<{ name: string; open: (state: WorkbenchOverlayState) => void; isOpen: (state: WorkbenchOverlayState) => boolean }> = [
     {
       name: 'palette',
-      open: (state) => state.setPalette({ mode: 'move-note', open: true, search: 'plan' }),
-      isOpen: (state) => state.palette.open,
+      open: (state) => state.controls.set('palette', { mode: 'move-note', open: true, search: 'plan' }),
+      isOpen: (state) => state.overlays.palette.open,
     },
-    { name: 'share', open: (state) => state.setShareOpen(true), isOpen: (state) => state.shareOpen },
-    { name: 'versions', open: (state) => state.setVersionsOpen(true), isOpen: (state) => state.versionsOpen },
-    { name: 'trash', open: (state) => state.setTrashOpen(true), isOpen: (state) => state.trashOpen },
+    { name: 'share', open: (state) => state.controls.set('share', true), isOpen: (state) => state.overlays.share },
+    { name: 'versions', open: (state) => state.controls.set('versions', true), isOpen: (state) => state.overlays.versions },
+    { name: 'trash', open: (state) => state.controls.set('trash', true), isOpen: (state) => state.overlays.trash },
     {
       name: 'create note',
-      open: (state) => state.setCreateDialog({ open: true, title: 'Plan' }),
-      isOpen: (state) => state.createDialog.open,
+      open: (state) => state.controls.set('createNote', { open: true, title: 'Plan' }),
+      isOpen: (state) => state.overlays.createNote.open,
     },
     {
       name: 'create folder',
-      open: (state) => state.setCreateFolderDialog({ open: true, name: 'Specs', description: 'd', icon: 'i', color: 'c' }),
-      isOpen: (state) => state.createFolderDialog.open,
+      open: (state) => state.controls.set('createFolder', { open: true, name: 'Specs', description: 'd', icon: 'i', color: 'c' }),
+      isOpen: (state) => state.overlays.createFolder.open,
     },
-    { name: 'delete note', open: (state) => state.setDeleteTarget(note), isOpen: (state) => state.deleteTarget !== null },
+    { name: 'delete note', open: (state) => state.controls.set('deleteNote', note), isOpen: (state) => state.overlays.deleteNote !== null },
     {
       name: 'delete folder',
-      open: (state) => state.setDeleteFolderTarget(folder),
-      isOpen: (state) => state.deleteFolderTarget !== null,
+      open: (state) => state.controls.set('deleteFolder', folder),
+      isOpen: (state) => state.overlays.deleteFolder !== null,
     },
     {
       name: 'rename folder',
-      open: (state) => state.setRenameFolderDialog({ open: true, folderId: 'folder-1', name: 'Old', description: 'd', icon: 'i', color: 'c' }),
-      isOpen: (state) => state.renameFolderDialog.open,
+      open: (state) => state.controls.set('renameFolder', { open: true, folderId: 'folder-1', name: 'Old', description: 'd', icon: 'i', color: 'c' }),
+      isOpen: (state) => state.overlays.renameFolder.open,
     },
-    { name: 'settings', open: (state) => state.setSettingsOpen(true), isOpen: (state) => state.settingsOpen },
+    { name: 'settings', open: (state) => state.controls.openSettings(), isOpen: (state) => state.overlays.settings.open },
   ];
 
   const openNames = (state: WorkbenchOverlayState) => layers.filter((layer) => layer.isOpen(state)).map((layer) => layer.name);
@@ -124,15 +126,15 @@ describe('useWorkbenchOverlays layers', () => {
       });
     }
 
-    expect(result.current.palette).toEqual({ mode: 'commands', open: false, search: '' });
-    expect(result.current.createDialog).toEqual({ open: false, title: '' });
-    expect(result.current.createFolderDialog).toEqual({ open: false, name: '', description: '', icon: '', color: '' });
-    expect(result.current.renameFolderDialog).toEqual({
+    expect(result.current.overlays.palette).toEqual({ mode: 'commands', open: false, search: '' });
+    expect(result.current.overlays.createNote).toEqual({ open: false, title: '' });
+    expect(result.current.overlays.createFolder).toEqual({ open: false, name: '', description: '', icon: '', color: '' });
+    expect(result.current.overlays.renameFolder).toEqual({
       open: false, folderId: null, name: '', description: '', icon: '', color: '',
     });
-    expect(result.current.deleteTarget).toBeNull();
-    expect(result.current.deleteFolderTarget).toBeNull();
-    expect([result.current.settingsOpen, result.current.shareOpen, result.current.versionsOpen, result.current.trashOpen])
+    expect(result.current.overlays.deleteNote).toBeNull();
+    expect(result.current.overlays.deleteFolder).toBeNull();
+    expect([result.current.overlays.settings.open, result.current.overlays.share, result.current.overlays.versions, result.current.overlays.trash])
       .toEqual([false, false, false, false]);
   });
 });

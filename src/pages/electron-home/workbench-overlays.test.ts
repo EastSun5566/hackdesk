@@ -27,10 +27,19 @@ describe('workbench overlays', () => {
     const state = run([
       { type: 'set', key: 'history', value: true },
       { type: 'open_settings', tab: 'editor' },
-      { type: 'set', key: 'trash', value: true },
+      { type: 'set', key: 'palette', value: { mode: 'commands', open: true, search: '' } },
       { type: 'set', key: 'shortcutHelp', value: { region: 'editor', target: null } },
     ]);
-    expect(closeAll(state).closed).toEqual(['shortcutHelp', 'trash', 'settings', 'history']);
+    expect(closeAll(state).closed).toEqual(['shortcutHelp', 'palette', 'settings', 'history']);
+  });
+
+  it('shows one sidebar panel at a time: opening Trash closes History, and the other way round', () => {
+    const trash = run([{ type: 'set', key: 'history', value: true }, { type: 'set', key: 'trash', value: true }]);
+    expect([trash.trash, trash.history]).toEqual([true, false]);
+    const history = run([{ type: 'set', key: 'history', value: true }], trash);
+    expect([history.trash, history.history]).toEqual([false, true]);
+    // Closing one leaves the other closed.
+    expect(run([{ type: 'set', key: 'history', value: false }], history).trash).toBe(false);
   });
 
   it('leaves menus and pickers that close themselves to their own handling', () => {
