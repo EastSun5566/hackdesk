@@ -14,6 +14,7 @@ import {
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
 import { NoteSummaryCard } from './FolderNavigatorRows';
 import { createOverlayWrapper } from './test-overlays';
+import { WorkspaceNavigationProvider, type WorkspaceNavigation } from './WorkspaceNavigationContext';
 import type { WorkbenchOverlays } from './workbench-overlays';
 
 const { treeRender } = vi.hoisted(() => ({ treeRender: vi.fn() }));
@@ -64,13 +65,14 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
   };
 }
 
-type FolderNavigatorPropsOverrides = Partial<Omit<FolderNavigatorProps, 'actions' | 'emptyState' | 'layout' | 'selection' | 'status' | 'workspace'>> & {
+type FolderNavigatorPropsOverrides = Partial<Omit<FolderNavigatorProps, 'actions' | 'emptyState' | 'layout' | 'selection' | 'status'>> & {
   actions?: Partial<FolderNavigatorProps['actions']>;
   emptyState?: Partial<FolderNavigatorProps['emptyState']>;
   layout?: Partial<FolderNavigatorProps['layout']>;
   selection?: Partial<FolderNavigatorProps['selection']>;
   status?: Partial<FolderNavigatorProps['status']>;
-  workspace?: Partial<FolderNavigatorProps['workspace']>;
+  /** The workspace switcher and account row, read from the workspace navigation context. */
+  navigation?: Partial<WorkspaceNavigation>;
   /** The workbench overlays the navigator starts with, such as Trash being open. */
   overlays?: Partial<WorkbenchOverlays>;
 };
@@ -101,18 +103,6 @@ function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
     },
     finderState: DEFAULT_NOTE_FINDER_STATE,
     id: 'navigator-test',
-    workspace: {
-      platform: 'darwin',
-      pinnedTeamIds: null,
-      onPinnedTeamIdsChange: vi.fn(),
-      scope: { type: 'personal', label: 'My Workspace' },
-      teams: [],
-      localVaults: [],
-      onChooseLocalVault: vi.fn(),
-      onSwitchLocalVault: vi.fn(),
-      onScopeChange: vi.fn(),
-      onOpenSettings: vi.fn(),
-    },
     layout: {
       collapsed: false,
       collapsedFolderIds: new Set(),
@@ -165,27 +155,51 @@ function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
     },
     tree,
   };
+  const { navigation: navigationOverrides, overlays: initialOverlays, ...propOverrides } = overrides;
   const mergedProps: FolderNavigatorProps = {
     ...props,
-    ...overrides,
+    ...propOverrides,
     actions: { ...props.actions, ...overrides.actions },
     emptyState: { ...props.emptyState, ...overrides.emptyState },
     layout: { ...props.layout, ...overrides.layout },
     selection: { ...props.selection, ...overrides.selection },
     status: { ...props.status, ...overrides.status },
-    workspace: { ...props.workspace, ...overrides.workspace },
+  };
+  // Read on each render of the wrapper, so a test can change it before rerender().
+  const navigation: { current: WorkspaceNavigation } = {
+    current: {
+      platform: 'darwin',
+      pinnedTeamIds: null,
+      onPinnedTeamIdsChange: vi.fn(),
+      scope: { type: 'personal', label: 'My Workspace' },
+      teams: [],
+      localVaults: [],
+      onChooseLocalVault: vi.fn(),
+      onSwitchLocalVault: vi.fn(),
+      onScopeChange: vi.fn(),
+      onOpenSettings: vi.fn(),
+      ...navigationOverrides,
+    },
   };
 
   // As a wrapper, the query client survives rerender() calls that pass only the navigator.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const overlays = createOverlayWrapper(overrides.overlays);
+  const overlays = createOverlayWrapper(initialOverlays);
   const view = render(
     <TooltipProvider>
       <FolderNavigator {...mergedProps} />
     </TooltipProvider>,
-    { wrapper: ({ children }) => <QueryClientProvider client={queryClient}><overlays.wrapper>{children}</overlays.wrapper></QueryClientProvider> },
+    {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={queryClient}>
+          <overlays.wrapper>
+            <WorkspaceNavigationProvider value={navigation.current}>{children}</WorkspaceNavigationProvider>
+          </overlays.wrapper>
+        </QueryClientProvider>
+      ),
+    },
   );
-  return { ...view, props: mergedProps, overlayStore: overlays.store };
+  return { ...view, props: mergedProps, navigation, overlayStore: overlays.store };
 }
 
 function getFocusedTreeRowId() {
@@ -264,7 +278,7 @@ describe('FolderNavigator', () => {
         { id: 'vault-b', label: 'B', path: '/tmp/B', active: false, snapshotVaultId: 'B', tree: bTree, isLoading: false, error: null },
       ],
       actions: { onOpenWorkspaceFolder, onOpenWorkspaceNote },
-      workspace: { activeLocalVaultId: 'vault-a' },
+      navigation: { activeLocalVaultId: 'vault-a' },
     });
 
     expect(screen.getByRole('button', { name: 'Collapse Files' })).toBeVisible();
@@ -296,7 +310,7 @@ describe('FolderNavigator', () => {
         { id: 'vault-a', label: 'A', path: '/tmp/A', active: true, snapshotVaultId: 'A', tree: buildHackmdFolderTree([]), isLoading: false, error: null },
         { id: 'vault-b', label: 'B', path: '/tmp/B', active: false, snapshotVaultId: 'B', tree: bTree, isLoading: false, error: null },
       ],
-      workspace: { activeLocalVaultId: 'vault-a' },
+      navigation: { activeLocalVaultId: 'vault-a' },
       actions: { onWorkspaceFolderAction },
     });
 
@@ -327,7 +341,7 @@ describe('FolderNavigator', () => {
         { id: 'vault-a', label: 'A', path: '/tmp/A', active: true, snapshotVaultId: 'A', tree: buildHackmdFolderTree([]), isLoading: false, error: null },
         { id: 'vault-b', label: 'B', path: '/tmp/B', active: false, snapshotVaultId: 'B', tree: buildHackmdFolderTree([note({ id: 'b-note', title: 'B note' })]), isLoading: false, error: null },
       ],
-      workspace: { activeLocalVaultId: 'vault-a' },
+      navigation: { activeLocalVaultId: 'vault-a' },
     });
 
     expect(document.querySelectorAll('[data-workspace-folder-id]')).toHaveLength(0);
@@ -351,15 +365,16 @@ describe('FolderNavigator', () => {
     }));
     const sectionOrder = () => Array.from(document.querySelectorAll<HTMLElement>('[data-workspace-folder-id]'))
       .map((section) => section.dataset.workspaceFolderId);
-    const { props, rerender } = renderFolderNavigator({
+    const { props, navigation, rerender } = renderFolderNavigator({
       scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
       localWorkspaceName: 'Work',
       vaultFolderName: 'A',
       workspaceFolders: folders('vault-a'),
-      workspace: { activeLocalVaultId: 'vault-a' },
+      navigation: { activeLocalVaultId: 'vault-a' },
     });
     expect(sectionOrder()).toEqual(['vault-a', 'vault-b', 'vault-c']);
 
+    navigation.current = { ...navigation.current, activeLocalVaultId: 'vault-c' };
     rerender(
       <TooltipProvider>
         <FolderNavigator
@@ -367,7 +382,6 @@ describe('FolderNavigator', () => {
           scope={{ type: 'local', label: 'Work', vaultId: 'vault-c' }}
           vaultFolderName="C"
           workspaceFolders={folders('vault-c')}
-          workspace={{ ...props.workspace, activeLocalVaultId: 'vault-c' }}
         />
       </TooltipProvider>,
     );
@@ -391,7 +405,7 @@ describe('FolderNavigator', () => {
         error: null,
       })),
       actions: { onReorderWorkspaceFolders },
-      workspace: { activeLocalVaultId: 'vault-a' },
+      navigation: { activeLocalVaultId: 'vault-a' },
     });
 
     fireEvent.keyDown(screen.getByRole('button', { name: 'Open C' }), { key: 'ArrowUp', altKey: true });
@@ -625,7 +639,7 @@ describe('FolderNavigator', () => {
 
   it('places History beside Trash and opens the history view', () => {
     const onScopeChange = vi.fn();
-    renderFolderNavigator({ workspace: { onScopeChange }, trash: { onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } } });
+    renderFolderNavigator({ navigation: { onScopeChange }, trash: { onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } } });
     const history = screen.getByRole('button', { name: 'History' });
     expect(screen.getByTestId('sidebar-destinations')).toContainElement(history);
     expect(screen.getByTestId('sidebar-destinations')).toContainElement(screen.getByTestId('sidebar-trash-row'));
@@ -640,7 +654,7 @@ describe('FolderNavigator', () => {
 
   it('shows History as a sidebar view with Back while keeping the workspace', async () => {
     window.hackdeskAPI = { hackmd: { listHistory: vi.fn(async () => ({ source: 'remote', data: [note({ id: 'recent', title: 'Recent note' }), note({ id: 'alpha', title: 'Alpha' })] })) } } as unknown as NonNullable<typeof window.hackdeskAPI>;
-    const { props, overlayStore } = renderFolderNavigator({ history: true, overlays: { history: true } });
+    const { navigation, overlayStore } = renderFolderNavigator({ history: true, overlays: { history: true } });
     expect(screen.getByRole('button', { name: 'Switch workspace, current: My Workspace' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Recent note' })).toBeVisible();
     fireEvent.pointerDown(screen.getByRole('button', { name: 'View options' }));
@@ -648,7 +662,7 @@ describe('FolderNavigator', () => {
     expect(within(screen.getByRole('list', { name: 'Recently opened notes' })).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['Alpha', 'Recent note']);
     fireEvent.click(screen.getByRole('button', { name: 'Back to notes' }));
     expect(overlayStore.getState().history).toBe(false);
-    expect(props.workspace.onScopeChange).not.toHaveBeenCalled();
+    expect(navigation.current.onScopeChange).not.toHaveBeenCalled();
     delete window.hackdeskAPI;
   });
 

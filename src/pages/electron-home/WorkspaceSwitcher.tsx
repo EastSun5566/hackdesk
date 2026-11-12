@@ -57,6 +57,7 @@ import { ActionMenuShortcut } from './ActionShortcutContext';
 import { ProfileMenu } from './ProfileMenu';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 import { useOverlay, useOverlayControls } from './WorkbenchOverlaysContext';
+import { useWorkspaceNavigation } from './WorkspaceNavigationContext';
 
 type WorkspaceUser = Pick<UserSummary, 'name' | 'username' | 'photo'>;
 
@@ -478,26 +479,27 @@ function ScopeIcon({ scope, teams, user, isLocalWorkspace }: { scope: WorkspaceS
  * The sidebar title: the current workspace, which opens a list of the others. Up and Down move
  * between its rows, Enter switches, and Escape returns to the button.
  */
-export function WorkspaceSwitcher({
-  scope,
-  user,
-  teams,
-  localVaults,
-  localWorkspaces = [],
-  activeLocalVaultId = null,
-  activeLocalWorkspaceId = null,
-  onActivateLocalWorkspace,
-  onOpenLocalWorkspaceFolder,
-  onOpenStandaloneLocalVault,
-  platform,
-  pinnedTeamIds,
-  onScopeChange,
-  onSwitchLocalVault,
-  onChooseLocalVault,
-  onManageLocalVaults,
-  onOpenInNewWindow,
-  onPinnedTeamIdsChange,
-}: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onSignOut'>) {
+export function WorkspaceSwitcher() {
+  const {
+    scope,
+    user,
+    teams,
+    localVaults,
+    localWorkspaces = [],
+    activeLocalVaultId = null,
+    activeLocalWorkspaceId = null,
+    onActivateLocalWorkspace,
+    onOpenLocalWorkspaceFolder,
+    onOpenStandaloneLocalVault,
+    platform,
+    pinnedTeamIds,
+    onScopeChange,
+    onSwitchLocalVault,
+    onChooseLocalVault,
+    onManageLocalVaults,
+    onOpenInNewWindow,
+    onPinnedTeamIdsChange,
+  } = useWorkspaceNavigation();
   const overlayControls = useOverlayControls();
   const switcherOpen = useOverlay((overlays) => overlays.workspaceSwitcher);
   const onSwitcherOpenChange = (open: boolean) => overlayControls.set('workspaceSwitcher', open);
@@ -770,12 +772,8 @@ export function WorkspaceSwitcher({
 }
 
 /** The bottom of the sidebar: the account hub and Settings. */
-export function SidebarFooter({
-  accountStatus,
-  user,
-  onOpenSettings,
-  onSignOut,
-}: Pick<WorkspaceSidebarProps, 'accountStatus' | 'user' | 'onOpenSettings' | 'onSignOut'>) {
+export function SidebarFooter() {
+  const { accountStatus, user, onOpenSettings, onSignOut } = useWorkspaceNavigation();
   const hasAccountAttention = Boolean(accountStatus?.activeError);
   const isLoadingAccount = !user && Boolean(accountStatus?.isLoading || accountStatus?.isFetching);
 

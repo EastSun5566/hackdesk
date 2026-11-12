@@ -103,7 +103,8 @@ import { readRootSectionExpanded, writeRootSectionExpanded } from './workspace-r
 import { trashNavigatorRowLabel, workspaceRootLabel } from './workspace-root-labels';
 import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
-import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './WorkspaceSwitcher';
+import { useWorkspaceNavigation } from './WorkspaceNavigationContext';
+import { SidebarFooter, WorkspaceSwitcher } from './WorkspaceSwitcher';
 import type { NoteTextSearch } from './useNoteTextSearch';
 import { TrashNavigatorHeader, TrashNavigatorList, type TrashNavigatorViewProps } from './TrashView';
 import { trashTeamPathForScope, useTrashList } from './useTrash';
@@ -325,8 +326,6 @@ export type FolderNavigatorProps = {
   history?: boolean;
   /** How the tree's root notes group by first tag while the view option is on. */
   tagGrouping?: FolderTagGrouping | null;
-  /** The workspace switcher in the title and the account row at the bottom. */
-  workspace: WorkspaceSidebarProps;
 };
 
 /**
@@ -337,7 +336,6 @@ export type FolderNavigatorProps = {
 export function FolderNavigator(props: FolderNavigatorProps) {
   useEffect(() => applyTreeGuides(), []);
   const actions = useStableCallbacks(props.actions);
-  const workspace = useStableCallbacks(props.workspace);
   // Its callbacks are rebuilt each render too (openTrashNote is inline), which would defeat the memo.
   const trash = useStableCallbacks(props.trash ?? NO_TRASH);
   // Sorting reorders each folder's notes in place; the folders stay.
@@ -349,7 +347,7 @@ export function FolderNavigator(props: FolderNavigatorProps) {
   );
   // Read in the top component: the memoized panels below would miss a preference change.
   const tagGrouping = useFolderTagGrouping(tree.unfiled.notes, props.scope.type !== 'local');
-  return <MemoFolderNavigator {...props} tree={tree} workspaceFolders={workspaceFolders} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashPanelSource : undefined} tagGrouping={tagGrouping} />;
+  return <MemoFolderNavigator {...props} tree={tree} workspaceFolders={workspaceFolders} actions={actions} trash={props.trash ? trash as TrashPanelSource : undefined} tagGrouping={tagGrouping} />;
 }
 
 const NO_TRASH = {};
@@ -396,10 +394,10 @@ function FolderNavigatorPanel({
   tree,
   trash: trashSource,
   history: historyOffered,
-  workspace,
   tagGrouping,
 }: FolderNavigatorProps) {
   const { trash, history } = useSidebarPanels(trashSource, historyOffered);
+  const { onScopeChange } = useWorkspaceNavigation();
   return (
     <PanelShell
       id={id}
@@ -434,7 +432,6 @@ function FolderNavigatorPanel({
           tree={tree}
           trash={trash}
           history={history}
-          workspace={workspace}
           tagGrouping={tagGrouping}
         /></RowOperationsContext.Provider>
         {/* Pinned above the account row rather than at the end of the tree, so a long workspace
@@ -442,7 +439,7 @@ function FolderNavigatorPanel({
         {!isNoteFinderActive(finderState) && scope.type !== 'local' ? (
           // No rule: the list above fades out at its edge while it scrolls, which separates enough.
           <div data-testid="sidebar-destinations" className="mx-2 shrink-0 pt-1">
-            <SidebarHistoryRow selected={Boolean(history?.open) || scope.type === 'history'} onOpen={() => history ? history.onOpenChange(true) : workspace.onScopeChange({ type: 'history', label: 'History' })} />
+            <SidebarHistoryRow selected={Boolean(history?.open) || scope.type === 'history'} onOpen={() => history ? history.onOpenChange(true) : onScopeChange({ type: 'history', label: 'History' })} />
             {trash && (scope.type === 'personal' || scope.type === 'team') ? <SidebarTrashRow
               label={trashNavigatorRowLabel(scope)}
               selected={Boolean(trash.open)}
@@ -450,7 +447,7 @@ function FolderNavigatorPanel({
             /> : null}
           </div>
         ) : null}
-        <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onSignOut={workspace.onSignOut} />
+        <SidebarFooter />
       </div>
     </PanelShell>
   );
@@ -472,7 +469,6 @@ function ExpandedNavigator({
   tree,
   trash,
   history,
-  workspace,
   tagGrouping,
 }: Omit<FolderNavigatorProps, 'id' | 'trash' | 'history'> & { trash?: TrashNavigatorViewProps; history?: HistoryPanel }) {
   const [historyFinder, setHistoryFinder] = useState(DEFAULT_NOTE_FINDER_STATE);
@@ -519,7 +515,6 @@ function ExpandedNavigator({
   return (
     <>
       <NavigatorHeader
-        workspace={workspace}
         status={status}
         search={(
           <NoteSearchField
@@ -576,7 +571,6 @@ function ExpandedNavigator({
         vaultFolderName={vaultFolderName}
         localWorkspaceName={localWorkspaceName}
         workspaceFolders={workspaceFolders}
-        workspace={workspace}
         status={status}
         textSearch={textSearch}
         tree={tree}
@@ -594,11 +588,9 @@ function ExpandedNavigator({
 
 function NavigatorHeader({
   status,
-  workspace,
   search,
 }: {
   status: FolderNavigatorStatus;
-  workspace: WorkspaceSidebarProps;
   /** The search field: an icon at the row's end that opens across the row. */
   search: ReactNode;
 }) {
@@ -610,7 +602,7 @@ function NavigatorHeader({
     <PanelHeader
       title={(
         <div className="relative flex min-w-0 items-center gap-1">
-          <div className="min-w-0 flex-1"><WorkspaceSwitcher {...workspace} /></div>
+          <div className="min-w-0 flex-1"><WorkspaceSwitcher /></div>
           {/* A fixed slot beside search, so the spinner never moves anything when it appears. */}
           <span className="flex size-6 shrink-0 items-center justify-center text-icon-subtle">
             {busyLabel ? (
@@ -681,7 +673,6 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   vaultFolderName,
   localWorkspaceName,
   workspaceFolders,
-  workspace,
   status,
   textSearch,
   tree,
@@ -708,7 +699,6 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   vaultFolderName?: string | null;
   localWorkspaceName?: string | null;
   workspaceFolders?: WorkspaceFolderTree[];
-  workspace: WorkspaceSidebarProps;
   status: FolderNavigatorStatus;
   textSearch?: NoteTextSearch;
   tree: FolderTree;
@@ -720,6 +710,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   treeFocusRequestId: number;
   tagGrouping?: FolderTagGrouping | null;
 }) {
+  const { activeLocalVaultId, activeLocalWorkspaceId } = useWorkspaceNavigation();
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0
     || Boolean(workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length));
   const trashActive = Boolean(trash?.open || history?.open);
@@ -818,8 +809,8 @@ const MemoNavigatorContent = memo(function NavigatorContent({
                 vaultFolderName={vaultFolderName}
                 localWorkspaceName={localWorkspaceName}
                 workspaceFolders={workspaceFolders}
-                activeLocalVaultId={workspace.activeLocalVaultId ?? null}
-                activeLocalWorkspaceId={workspace.activeLocalWorkspaceId ?? null}
+                activeLocalVaultId={activeLocalVaultId ?? null}
+                activeLocalWorkspaceId={activeLocalWorkspaceId ?? null}
                 selectedFolderForNoteMove={selectedFolderForNoteMove}
                 selection={selection}
                 status={status}

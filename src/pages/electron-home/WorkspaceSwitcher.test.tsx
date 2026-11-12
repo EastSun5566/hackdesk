@@ -5,8 +5,9 @@ import type { TeamSummary, UserSummary } from '@/lib/electron-api';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { NavigationHintsContext } from './KeyboardNavigationContext';
-import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './WorkspaceSwitcher';
+import { SidebarFooter, WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { createOverlayWrapper } from './test-overlays';
+import { WorkspaceNavigationProvider, type WorkspaceNavigation } from './WorkspaceNavigationContext';
 
 function user(overrides: Partial<UserSummary> = {}): UserSummary {
   return {
@@ -36,7 +37,7 @@ function team(overrides: Partial<TeamSummary> = {}): TeamSummary {
   };
 }
 
-type SwitcherProps = WorkspaceSidebarProps;
+type SwitcherProps = WorkspaceNavigation;
 
 function renderSwitcher(overrides: Partial<SwitcherProps> = {}, initiallyOpen = true) {
   const props: SwitcherProps = {
@@ -58,7 +59,7 @@ function renderSwitcher(overrides: Partial<SwitcherProps> = {}, initiallyOpen = 
   const { wrapper } = createOverlayWrapper({ workspaceSwitcher: initiallyOpen });
   render(
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-      <WorkspaceSwitcher {...props} />
+      <WorkspaceNavigationProvider value={props}><WorkspaceSwitcher /></WorkspaceNavigationProvider>
     </TooltipProvider>,
     { wrapper },
   );
@@ -390,17 +391,20 @@ describe('WorkspaceSwitcher while the primary key is held', () => {
     render(
       <TooltipProvider delayDuration={0}>
         <NavigationHintsContext.Provider value={held}>
-          <WorkspaceSwitcher
-            scope={{ type: 'personal', label: 'My Workspace' }}
-            teams={teams}
-            localVaults={[]}
-            platform="darwin"
-            pinnedTeamIds={null}
-            onScopeChange={vi.fn()}
-            onSwitchLocalVault={vi.fn()}
-            onChooseLocalVault={vi.fn()}
-            onPinnedTeamIdsChange={vi.fn()}
-          />
+          <WorkspaceNavigationProvider value={{
+            scope: { type: 'personal', label: 'My Workspace' },
+            teams,
+            localVaults: [],
+            platform: 'darwin',
+            pinnedTeamIds: null,
+            onScopeChange: vi.fn(),
+            onSwitchLocalVault: vi.fn(),
+            onChooseLocalVault: vi.fn(),
+            onOpenSettings: vi.fn(),
+            onPinnedTeamIdsChange: vi.fn(),
+          }}>
+            <WorkspaceSwitcher />
+          </WorkspaceNavigationProvider>
         </NavigationHintsContext.Provider>
       </TooltipProvider>,
       { wrapper },
@@ -434,9 +438,25 @@ describe('WorkspaceSwitcher while the primary key is held', () => {
 });
 
 describe('SidebarFooter', () => {
-  function renderFooter(overrides: Partial<Parameters<typeof SidebarFooter>[0]> = {}) {
-    const props = { onOpenSettings: vi.fn(), ...overrides };
-    render(<TooltipProvider delayDuration={0}><SidebarFooter {...props} /></TooltipProvider>);
+  function renderFooter(overrides: Partial<WorkspaceNavigation> = {}) {
+    const props: WorkspaceNavigation = {
+      scope: { type: 'personal', label: 'My Workspace' },
+      teams: [],
+      localVaults: [],
+      platform: 'darwin',
+      pinnedTeamIds: null,
+      onScopeChange: vi.fn(),
+      onSwitchLocalVault: vi.fn(),
+      onChooseLocalVault: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onPinnedTeamIdsChange: vi.fn(),
+      ...overrides,
+    };
+    render(
+      <TooltipProvider delayDuration={0}>
+        <WorkspaceNavigationProvider value={props}><SidebarFooter /></WorkspaceNavigationProvider>
+      </TooltipProvider>,
+    );
     return props;
   }
 
