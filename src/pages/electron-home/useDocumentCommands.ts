@@ -41,7 +41,7 @@ export type DocumentCommandOptions = {
   selectedDocument?: DocumentSummary;
   selectedNote: NoteIdentity | null;
   selectedParentFolderId?: string;
-  overlays: OverlayControls;
+  overlayControls: OverlayControls;
   trackRecentNote: (note: NoteSummary) => void;
 };
 
@@ -55,7 +55,7 @@ export function useDocumentCommands({
   selectedDocument,
   selectedNote,
   selectedParentFolderId,
-  overlays,
+  overlayControls,
   trackRecentNote,
 }: DocumentCommandOptions) {
   const handleExportMarkdown = useCallback((_note: DocumentSummary, title: string, content: string) => {
@@ -145,9 +145,9 @@ export function useDocumentCommands({
   const handleDeleteRequest = useCallback((note: NoteSummary) => {
     const deleteTarget = createDeleteNoteTarget(note);
     // The in-app delete dialog asks, so the question matches the app rather than the system.
-    overlays.set('deleteNote', deleteTarget);
+    overlayControls.set('deleteNote', deleteTarget);
 
-  }, [overlays]);
+  }, [overlayControls]);
 
   const handleOpenEditor = useCallback((note: NoteSummary) => {
     if (!api) {

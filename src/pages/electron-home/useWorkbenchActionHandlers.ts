@@ -79,7 +79,7 @@ export type WorkbenchActionHandlersOptions = {
   setEditorMode: (mode: EditorMode) => void;
   selectedDocument?: DocumentSummary;
   selectedFolderId: string | null;
-  overlays: OverlayControls;
+  overlayControls: OverlayControls;
   splitActiveTab: () => void;
   switchToHistory: () => void;
   toggleInspector: () => void;
@@ -156,7 +156,7 @@ export function useWorkbenchActionHandlers({
   setEditorMode,
   selectedDocument,
   selectedFolderId,
-  overlays,
+  overlayControls,
   splitActiveTab,
   switchToHistory,
   toggleInspector,
@@ -270,7 +270,7 @@ export function useWorkbenchActionHandlers({
       });
     },
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
-    openSettings: () => overlays.openSettings(),
+    openSettings: () => overlayControls.openSettings(),
     createNoteFromTemplate,
     askNotes,
     saveAsTemplate,
@@ -293,10 +293,10 @@ export function useWorkbenchActionHandlers({
         toast.info('Version history is only available for HackMD notes.');
         return;
       }
-      overlays.set('versions', true);
+      overlayControls.set('versions', true);
     },
     refreshWorkspace,
-    showTrash: () => overlays.set('trash', true),
+    showTrash: () => overlayControls.set('trash', true),
     renameSelectedFolder: () => {
       if (selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID) {
         renameFolder(selectedFolderId);
@@ -419,7 +419,7 @@ export function useWorkbenchActionHandlers({
     setEditorMode,
     selectedDocument,
     selectedFolderId,
-    overlays,
+    overlayControls,
     splitActiveTab,
     splitActivePaneDown,
     focusPaneToward,

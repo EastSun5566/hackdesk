@@ -747,7 +747,7 @@ export function Home() {
     openTemplatePicker: () => noteTemplates.setPickerOpen(true),
     scopeType: scope.type,
     setSelectedFolderId,
-    overlays: overlayControls,
+    overlayControls,
   });
 
   const {
@@ -770,7 +770,7 @@ export function Home() {
     selectedDocument,
     selectedNote,
     selectedParentFolderId,
-    overlays: overlayControls,
+    overlayControls,
     trackRecentNote,
   });
 
@@ -804,7 +804,7 @@ export function Home() {
     scope,
     selectedFolderId,
     selectedNoteId: selectedNote?.id ?? null,
-    overlays: overlayControls,
+    overlayControls,
     setSelectedFolderId,
     setWorkspaceScope,
     teams,
@@ -934,7 +934,7 @@ export function Home() {
     },
     selectedDocument,
     selectedFolderId: selectedFolder?.id ?? null,
-    overlays: overlayControls,
+    overlayControls,
     splitActiveTab: noteWorkspace.splitActiveTab,
     switchToHistory: () => { if (scope.type !== 'local') { overlayControls.set('history', true); } },
     toggleInspector: toggleNoteDetails,

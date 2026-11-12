@@ -86,7 +86,7 @@ function createOptions(overrides: Partial<ElectronHomeCommandPaletteOptions> = {
     scope: { type: 'personal', label: 'My Workspace' },
     selectedFolderId: null,
     selectedNoteId: null,
-    overlays: { set: vi.fn(), close: vi.fn(), openSettings: vi.fn() },
+    overlayControls: { set: vi.fn(), close: vi.fn(), openSettings: vi.fn() },
     setSelectedFolderId: vi.fn(),
     setWorkspaceScope: vi.fn(),
     teams: [team()],
@@ -104,7 +104,7 @@ describe('useElectronHomeCommandPalette', () => {
       result.current.openPalette();
     });
 
-    expect(options.overlays.set).toHaveBeenCalledWith('palette', { mode: 'commands', open: true, search: '' });
+    expect(options.overlayControls.set).toHaveBeenCalledWith('palette', { mode: 'commands', open: true, search: '' });
   });
 
   it('opens Quick Open with an empty search', () => {
@@ -115,7 +115,7 @@ describe('useElectronHomeCommandPalette', () => {
       result.current.openQuickOpen();
     });
 
-    expect(options.overlays.set).toHaveBeenCalledWith('palette', { mode: 'quick-open', open: true, search: '' });
+    expect(options.overlayControls.set).toHaveBeenCalledWith('palette', { mode: 'quick-open', open: true, search: '' });
   });
 
   it('reveals a loaded recent note through command palette props', () => {

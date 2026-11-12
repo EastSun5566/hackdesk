@@ -43,7 +43,7 @@ function createOptions(overrides: Partial<WorkbenchFolderCommandsOptions> = {}):
     openDraftNote: vi.fn(),
     scopeType: 'personal',
     setSelectedFolderId: vi.fn(),
-    overlays: { set: vi.fn(), close: vi.fn(), openSettings: vi.fn() },
+    overlayControls: { set: vi.fn(), close: vi.fn(), openSettings: vi.fn() },
     ...overrides,
   };
 }
@@ -62,10 +62,10 @@ describe('useWorkbenchFolderCommands', () => {
       result.current.handleCreateFolder();
     });
 
-    expect(options.overlays.openSettings).toHaveBeenCalledTimes(2);
-    expect(options.overlays.openSettings).toHaveBeenCalled();
-    expect(options.overlays.set).not.toHaveBeenCalledWith('createNote', expect.anything());
-    expect(options.overlays.set).not.toHaveBeenCalledWith('createFolder', expect.anything());
+    expect(options.overlayControls.openSettings).toHaveBeenCalledTimes(2);
+    expect(options.overlayControls.openSettings).toHaveBeenCalled();
+    expect(options.overlayControls.set).not.toHaveBeenCalledWith('createNote', expect.anything());
+    expect(options.overlayControls.set).not.toHaveBeenCalledWith('createFolder', expect.anything());
   });
 
   it('shows the existing history-scope toast copy for create commands', () => {
@@ -79,8 +79,8 @@ describe('useWorkbenchFolderCommands', () => {
 
     expect(toast.info).toHaveBeenCalledWith('Choose My Workspace or a team before creating a note.');
     expect(toast.info).toHaveBeenCalledWith('Choose My Workspace or a team before creating a folder.');
-    expect(options.overlays.set).not.toHaveBeenCalledWith('createNote', expect.anything());
-    expect(options.overlays.set).not.toHaveBeenCalledWith('createFolder', expect.anything());
+    expect(options.overlayControls.set).not.toHaveBeenCalledWith('createNote', expect.anything());
+    expect(options.overlayControls.set).not.toHaveBeenCalledWith('createFolder', expect.anything());
   });
 
   it('opens the template picker only where a note can be created', () => {
@@ -93,7 +93,7 @@ describe('useWorkbenchFolderCommands', () => {
     const blocked = renderHook(() => useWorkbenchFolderCommands(options));
     act(() => blocked.result.current.handleCreateNoteFromTemplate());
     expect(openTemplatePicker).toHaveBeenCalledOnce();
-    expect(options.overlays.openSettings).toHaveBeenCalled();
+    expect(options.overlayControls.openSettings).toHaveBeenCalled();
   });
 
   it('selects the target folder before opening create-inside-folder', () => {
@@ -105,7 +105,7 @@ describe('useWorkbenchFolderCommands', () => {
     });
 
     expect(options.setSelectedFolderId).toHaveBeenCalledWith('folder-a');
-    expect(options.overlays.set).toHaveBeenCalledWith('createFolder', {
+    expect(options.overlayControls.set).toHaveBeenCalledWith('createFolder', {
       open: true,
       name: '',
       description: '',
@@ -129,7 +129,7 @@ describe('useWorkbenchFolderCommands', () => {
     });
 
     expect(options.setSelectedFolderId).toHaveBeenCalledWith('folder-a');
-    expect(options.overlays.set).toHaveBeenCalledWith('createNote', { open: true, title: '' });
+    expect(options.overlayControls.set).toHaveBeenCalledWith('createNote', { open: true, title: '' });
     expect(options.openDraftNote).not.toHaveBeenCalled();
 
     act(() => {
@@ -147,8 +147,8 @@ describe('useWorkbenchFolderCommands', () => {
       missingToken.result.current.handleCreateNoteInside('folder-a');
     });
 
-    expect(missingTokenOptions.overlays.openSettings).toHaveBeenCalled();
-    expect(missingTokenOptions.overlays.set).not.toHaveBeenCalledWith('createNote', expect.anything());
+    expect(missingTokenOptions.overlayControls.openSettings).toHaveBeenCalled();
+    expect(missingTokenOptions.overlayControls.set).not.toHaveBeenCalledWith('createNote', expect.anything());
 
     const historyOptions = createOptions({ scopeType: 'history' });
     const history = renderHook(() => useWorkbenchFolderCommands(historyOptions));
@@ -158,7 +158,7 @@ describe('useWorkbenchFolderCommands', () => {
     });
 
     expect(toast.info).toHaveBeenCalledWith('Choose My Workspace or a team before creating a note.');
-    expect(historyOptions.overlays.set).not.toHaveBeenCalledWith('createNote', expect.anything());
+    expect(historyOptions.overlayControls.set).not.toHaveBeenCalledWith('createNote', expect.anything());
   });
 
   it('opens the local vault picker before creating local notes or folders when no vault is configured', () => {
@@ -171,9 +171,9 @@ describe('useWorkbenchFolderCommands', () => {
     });
 
     expect(options.onChooseLocalVault).toHaveBeenCalledTimes(2);
-    expect(options.overlays.set).not.toHaveBeenCalledWith('createNote', expect.anything());
-    expect(options.overlays.set).not.toHaveBeenCalledWith('createFolder', expect.anything());
-    expect(options.overlays.openSettings).not.toHaveBeenCalled();
+    expect(options.overlayControls.set).not.toHaveBeenCalledWith('createNote', expect.anything());
+    expect(options.overlayControls.set).not.toHaveBeenCalledWith('createFolder', expect.anything());
+    expect(options.overlayControls.openSettings).not.toHaveBeenCalled();
   });
 
   it('allows local create commands after a vault is configured', () => {
@@ -186,8 +186,8 @@ describe('useWorkbenchFolderCommands', () => {
     });
 
     expect(options.openDraftNote).toHaveBeenCalledOnce();
-    expect(options.overlays.set).not.toHaveBeenCalledWith('createNote', expect.anything());
-    expect(options.overlays.set).toHaveBeenCalledWith('createFolder', {
+    expect(options.overlayControls.set).not.toHaveBeenCalledWith('createNote', expect.anything());
+    expect(options.overlayControls.set).toHaveBeenCalledWith('createFolder', {
       open: true,
       name: '',
       description: '',
@@ -216,7 +216,7 @@ describe('useWorkbenchFolderCommands', () => {
       result.current.handleRenameFolder('folder-a');
     });
 
-    expect(options.overlays.set).toHaveBeenCalledWith('renameFolder', {
+    expect(options.overlayControls.set).toHaveBeenCalledWith('renameFolder', {
       open: true,
       folderId: 'folder-a',
       name: 'Project',
@@ -234,7 +234,7 @@ describe('useWorkbenchFolderCommands', () => {
       result.current.handleDeleteFolderRequest('folder-a');
     });
 
-    expect(options.overlays.set).toHaveBeenCalledWith('deleteFolder', expect.objectContaining({
+    expect(options.overlayControls.set).toHaveBeenCalledWith('deleteFolder', expect.objectContaining({
       id: 'folder-a',
       name: 'Folder A',
     }));
@@ -248,7 +248,7 @@ describe('useWorkbenchFolderCommands', () => {
       result.current.handleDeleteFolderRequest('folder-a');
     });
 
-    expect(options.overlays.set).toHaveBeenCalledWith('deleteFolder', expect.objectContaining({
+    expect(options.overlayControls.set).toHaveBeenCalledWith('deleteFolder', expect.objectContaining({
       id: 'folder-a',
       name: 'Folder A',
     }));

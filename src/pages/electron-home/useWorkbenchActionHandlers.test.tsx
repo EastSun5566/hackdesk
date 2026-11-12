@@ -127,7 +127,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     setEditorMode: vi.fn(),
     selectedDocument: createDocument(),
     selectedFolderId: 'folder-1',
-    overlays: { set: vi.fn(), close: vi.fn(), openSettings: vi.fn() },
+    overlayControls: { set: vi.fn(), close: vi.fn(), openSettings: vi.fn() },
     splitActiveTab: vi.fn(),
     switchToHistory: vi.fn(),
     toggleInspector: vi.fn(),

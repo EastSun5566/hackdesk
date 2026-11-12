@@ -33,7 +33,7 @@ export type ElectronHomeCommandPaletteOptions = {
   scope: WorkspaceScope;
   selectedFolderId: string | null;
   selectedNoteId: string | null;
-  overlays: OverlayControls;
+  overlayControls: OverlayControls;
   setSelectedFolderId: (folderId: string | null) => void;
   setWorkspaceScope: (scope: WorkspaceScope) => void;
   teams: TeamSummary[];
@@ -60,19 +60,19 @@ export function useElectronHomeCommandPalette({
   scope,
   selectedFolderId,
   selectedNoteId,
-  overlays,
+  overlayControls,
   setSelectedFolderId,
   setWorkspaceScope,
   teams,
   tree,
 }: ElectronHomeCommandPaletteOptions) {
   const openPalette = useCallback(() => {
-    overlays.set('palette', { mode: 'commands', open: true, search: '' });
-  }, [overlays]);
+    overlayControls.set('palette', { mode: 'commands', open: true, search: '' });
+  }, [overlayControls]);
 
   const openQuickOpen = useCallback(() => {
-    overlays.set('palette', { mode: 'quick-open', open: true, search: '' });
-  }, [overlays]);
+    overlayControls.set('palette', { mode: 'quick-open', open: true, search: '' });
+  }, [overlayControls]);
 
   const {
     clearPendingRecentNote,
@@ -140,7 +140,7 @@ export function useElectronHomeCommandPalette({
       onSelectRecentNote: handleQuickOpenRecentNote,
       onSelectWorkspace: handleQuickOpenWorkspace,
       onShowFinderResults: handleShowFinderResults,
-      onStateChange: (next: CommandPaletteState) => overlays.set('palette', next),
+      onStateChange: (next: CommandPaletteState) => overlayControls.set('palette', next),
       recentNotes,
       scope: displayScope,
       selectedFolderId,
