@@ -82,10 +82,22 @@ describe('FolderPickerDialog', () => {
     const listbox = screen.getByRole('listbox', { name: 'Folders' });
     // Row 0 is the parent folder; arrows wrap around it.
     fireEvent.keyDown(listbox, { key: 'ArrowUp' });
-    expect(screen.getByRole('option', { name: '.hidden' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('option', { name: 'Projects' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.keyDown(listbox, { key: 'ArrowDown' });
     fireEvent.keyDown(listbox, { key: 'Backspace' });
     expect(await screen.findByRole('option', { name: 'Notes' })).toBeInTheDocument();
+  });
+
+  it('hides dot-folders until the filter starts with a dot, and marks folders already added', async () => {
+    renderDialog({ addedPaths: ['/home/user/Notes'] });
+    // The mark is a description, so the folder keeps its plain name.
+    expect(await screen.findByRole('option', { name: 'Notes' })).toHaveAttribute('aria-description', 'Already added');
+    expect(screen.getByRole('option', { name: 'Projects' })).not.toHaveAttribute('aria-description');
+    expect(screen.getByRole('option', { name: 'Projects' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: '.hidden' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter folders' }), { target: { value: '.hid' } });
+    expect(screen.getByRole('option', { name: '.hidden' })).toBeInTheDocument();
   });
 
   it('creates a folder and filters to it', async () => {

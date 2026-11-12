@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
+import { CODE_THEME_STORAGE_KEY } from '@/lib/code-themes';
 import { defaultSettings } from '@/lib/settings';
 import { THEME_STORAGE_KEYS } from '@/lib/themes';
 
@@ -346,6 +347,7 @@ describe('SettingsDialog', () => {
       },
     });
 
+    window.localStorage.setItem(CODE_THEME_STORAGE_KEY, 'github');
     fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
 
@@ -370,6 +372,8 @@ describe('SettingsDialog', () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       editor: { mode: 'standard' },
     }));
+    // The code palette lives on this computer, outside settings, and resets too.
+    expect(window.localStorage.getItem(CODE_THEME_STORAGE_KEY)).toBe('theme');
   });
 
   it('resets the current page from the header after confirming', () => {
@@ -1171,11 +1175,11 @@ describe('SettingsDialog', () => {
 
     expect(screen.getAllByText('/Users/michael/MyVault').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('MyVault').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Notes').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Folders').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('1')).toBeInTheDocument();
+    // The open folder is marked in the one folder list, with its note count; no separate card.
     expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('· 2 notes')).toBeInTheDocument();
+    expect(screen.queryByText('Currently open')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open in Finder' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Refresh Vault' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add Folder' })).toBeVisible();

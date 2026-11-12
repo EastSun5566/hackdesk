@@ -510,7 +510,7 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     await expect(page.getByRole('status').filter({ hasText: 'Deep, 1 of 1' })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('tab', { name: /^Deep(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
-    // A non-default sort also lists results instead of the tree; the location still reveals the folder.
+    // A non-default sort reorders notes but keeps the folders; the location still reveals the folder.
     await page.getByRole('button', { name: 'View options' }).click();
     await page.getByRole('menu').getByText('Title A-Z', { exact: true }).click();
     await page.keyboard.press('Escape');
@@ -863,9 +863,10 @@ test('tree guides connect mixed children and end at the last folder row', async 
       }));
       expect(problems).toEqual([]);
     };
-    // Four expanded folders' lists (Projects, Sub, Folders only, Last), plus the Untagged group the
-    // root notes sit in (tag grouping is on by default).
-    await expect(page.locator('[data-tree-children]')).toHaveCount(5);
+    // Four expanded folders' lists (Projects, Sub, Folders only, Last). A local folder is never
+    // grouped by tag, so its root notes sit in no group of their own.
+    await expect(page.locator('[data-tree-children]')).toHaveCount(4);
+    await expect(page.locator('[data-folder-tree-kind="tag-group"]')).toHaveCount(0);
     await assertGuides();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('09-tree-guides.png') });
     await page.getByRole('button', { name: 'Collapse Last', exact: true }).click();

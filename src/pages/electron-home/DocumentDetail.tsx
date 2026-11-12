@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CheckCircle2,
   CloudOff,
+  ClipboardCopy,
   Copy,
   Download,
   Edit3,
@@ -56,7 +57,9 @@ import type { EditorMode } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/markdown-image';
 
+import { getHackDeskAPI } from '@/lib/electron-api';
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
+import { copyNoteContentText } from './useDocumentCommands';
 import { LocalNoteInspector, NoteInspector } from './NoteInspector';
 import { useAiInline } from './useAiInline';
 import { useDictation } from './useDictation';
@@ -1035,6 +1038,11 @@ function DocumentActionsMenu({
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown
           <ActionMenuShortcut actionId="export-note-markdown" />
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void copyNoteContentText(getHackDeskAPI(), documentState.content)}>
+          <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
+          Copy Content
+          <ActionMenuShortcut actionId="copy-note-content" />
         </DropdownMenuItem>
         {isLocalDocument ? null : (
           <>

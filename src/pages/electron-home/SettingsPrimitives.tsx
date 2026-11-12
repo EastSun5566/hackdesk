@@ -24,6 +24,7 @@ export function SettingsSection({
   help,
   onRevert,
   revertLabel,
+  action,
   children,
 }: {
   title?: string;
@@ -31,6 +32,8 @@ export function SettingsSection({
   help?: ReactNode;
   onRevert?: () => void;
   revertLabel?: string;
+  /** The section's main action (Add Folder), at the far end of its title row. */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   const revertAccessibleLabel = revertLabel ?? (title ? `Reset ${title} to defaults` : 'Reset section to defaults');
@@ -41,8 +44,9 @@ export function SettingsSection({
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-semibold leading-5 text-text-emphasize text-balance">{title}</h3>
             {help ? <SettingsHelpTooltip label={title}>{help}</SettingsHelpTooltip> : null}
+            {/* Beside the title, so it reads as resetting this section, not the row at the far edge. */}
             {onRevert ? (
-              <span className="ml-auto inline-flex shrink-0">
+              <span className="inline-flex shrink-0">
                 <Tooltip content={revertAccessibleLabel} side="top">
                   <Button
                     type="button"
@@ -56,6 +60,7 @@ export function SettingsSection({
                 </Tooltip>
               </span>
             ) : null}
+            {action ? <span className="ml-auto inline-flex shrink-0">{action}</span> : null}
           </div>
           {description ? <p className="text-xs leading-5 text-text-subtle">{description}</p> : null}
         </div>

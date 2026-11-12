@@ -23,6 +23,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useTheme } from '@/components/theme-provider';
 import { useThemeAppearanceDraft } from '@/components/useThemeAppearanceDraft';
 import type { AppIconId } from '@/lib/app-icons';
+import { DEFAULT_CODE_THEME, setCodeTheme } from '@/lib/code-themes';
 import type { ElectronSafeSettings, UserSummary } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { defaultSettings, type EditorMode } from '@/lib/settings';
@@ -71,7 +72,7 @@ const TAB_RESET_COPY: Record<SettingsTab, { title: string; description: string; 
   },
   appearance: {
     title: 'Reset Appearance settings?',
-    description: 'Puts the theme, sidebar guides, and status line back to defaults.',
+    description: 'Puts the theme, code colors, sidebar guides, and status line back to defaults.',
     confirm: 'Reset Appearance',
   },
   vault: {
@@ -303,6 +304,7 @@ function SettingsDialogContent({
       appearanceActions.reset();
       setTreeGuides(true);
       setStatusLineVisible(true);
+      setCodeTheme(DEFAULT_CODE_THEME);
     } else if (tab === 'vault') {
       void onForgetLocalVault();
     } else if (tab === 'hackmd') {
@@ -415,6 +417,8 @@ function SettingsDialogContent({
       keyHintsVisible: true,
     });
     setAppearance(defaultSettings.appearance);
+    // Kept on this computer rather than in settings, so it resets here, as the Appearance reset does.
+    setCodeTheme(DEFAULT_CODE_THEME);
     onSave({
       title: defaultSettings.title,
       hackmdApiToken: '',

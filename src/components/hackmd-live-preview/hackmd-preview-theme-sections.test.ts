@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { HACKDESK_THEME_PRESETS, resolveHackDeskTheme, type ResolvedThemeMode } from '@/lib/themes';
 
 import {
+  BLOCK_SURFACES,
   CODE_PANEL_BACKGROUNDS,
   codeAndBlockTheme,
   EDITOR_LINE_WIDTH,
@@ -250,9 +251,15 @@ describe('HackMD preview widget theme', () => {
       backgroundColor: 'var(--cm-code-panel)',
       color: 'var(--text-default)',
     });
-    // Light uses the theme's muted surface as is; mixing in text colour turned it a muddy grey.
-    expect(CODE_PANEL_BACKGROUNDS.light).toBe('var(--background-muted)');
-    expect(CODE_PANEL_BACKGROUNDS.dark).toContain('var(--background-muted)');
+    // Panels start from the block surface (muted in light, lifted in dark) and lean toward the
+    // accent; mixing in text colour turned light mode a muddy grey.
+    expect(BLOCK_SURFACES.light).toBe('var(--background-muted)');
+    expect(BLOCK_SURFACES.dark).toContain('var(--text-default)');
+    for (const mode of ['light', 'dark'] as const) {
+      expect(CODE_PANEL_BACKGROUNDS[mode]).toContain('var(--cm-block-surface)');
+      expect(CODE_PANEL_BACKGROUNDS[mode]).toContain('var(--primary-default)');
+      expect(CODE_PANEL_BACKGROUNDS[mode]).not.toContain('var(--text-default)');
+    }
     // One flat panel: no accent stripe, whose per-line shadow shows a seam at every line edge.
     expect(codeAndBlockTheme['.cm-hackmd-fenced-code']).not.toHaveProperty('boxShadow');
     expect(codeAndBlockTheme['.cm-hackmd-indented-code']).not.toHaveProperty('boxShadow');

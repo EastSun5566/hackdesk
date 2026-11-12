@@ -1,5 +1,5 @@
 import type { NotePermissionRole } from './electron-api';
-import type { FolderTree, FolderTreeNote } from './hackmd-folders';
+import type { FolderTree, FolderTreeNode, FolderTreeNote } from './hackmd-folders';
 import { UNFILED_FOLDER_ID } from './hackmd-folders';
 import { trySetStorageItem } from './storage';
 
@@ -84,11 +84,13 @@ export function hasActiveNoteFinderFilters(state: NoteFinderState) {
   return getActiveNoteFinderFilterCount(state) > 0;
 }
 
+/**
+ * Whether the sidebar shows a flat result list instead of the tree: a search or a filter. Sorting
+ * reorders the tree's notes in place (see sortFolderTreeNotes) and the search scope only applies to
+ * a search, so neither one takes the folders away.
+ */
 export function isNoteFinderActive(state: NoteFinderState) {
-  return state.query.trim().length > 0
-    || state.searchScope !== DEFAULT_NOTE_FINDER_STATE.searchScope
-    || state.sortMode !== DEFAULT_NOTE_FINDER_STATE.sortMode
-    || hasActiveNoteFinderFilters(state);
+  return state.query.trim().length > 0 || hasActiveNoteFinderFilters(state);
 }
 
 export function clearNoteFinderQuery(state: NoteFinderState): NoteFinderState {
@@ -176,6 +178,24 @@ export function sortNoteFinderEntries(entries: FolderTreeNote[], sortMode: NoteF
         || left.note.title.localeCompare(right.note.title, undefined, { sensitivity: 'base' });
     }
   });
+}
+
+/**
+ * The tree with every folder's notes (and the top level's) in `sortMode` order. Folders keep their
+ * own order. The default order is the tree's own, so that returns the tree as it is.
+ */
+export function sortFolderTreeNotes(tree: FolderTree, sortMode: NoteFinderSortMode): FolderTree {
+  if (sortMode === DEFAULT_NOTE_FINDER_STATE.sortMode) return tree;
+  const nodesById = new Map<string, FolderTreeNode>();
+  const sortNode = (node: FolderTreeNode): FolderTreeNode => {
+    const sorted = { ...node, children: node.children.map(sortNode), notes: sortNoteFinderEntries(node.notes, sortMode) };
+    nodesById.set(sorted.id, sorted);
+    return sorted;
+  };
+  const roots = tree.roots.map(sortNode);
+  const unfiled = { ...tree.unfiled, notes: sortNoteFinderEntries(tree.unfiled.notes, sortMode) };
+  for (const [id, node] of tree.nodesById) if (!nodesById.has(id)) nodesById.set(id, id === unfiled.id ? unfiled : node);
+  return { roots, unfiled, nodesById, allNotes: sortNoteFinderEntries(tree.allNotes, sortMode) };
 }
 
 function getFinderBaseEntries(tree: FolderTree, state: NoteFinderState, selectedFolderId: string | null) {

@@ -752,6 +752,7 @@ export function Home() {
   });
 
   const {
+    handleCopyNoteContent,
     handleCopyNoteLink,
     handleCopyNoteMarkdownLink,
     handleDeleteRequest,
@@ -1184,6 +1185,7 @@ export function Home() {
       copyDraftText,
       exportDraftText,
       retryDocumentLoad,
+      handleCopyNoteContent,
       handleCopyNoteLink,
       handleCopyNoteMarkdownLink,
       handleDeleteRequest,
@@ -1198,6 +1200,7 @@ export function Home() {
       handleOpenEditor,
       handleOpenExternal,
       openHackmdTokenSetup,
+      openVaultSettings: () => openSettingsTab('vault'),
       openPalette,
       openQuickOpen,
       setFinderState,

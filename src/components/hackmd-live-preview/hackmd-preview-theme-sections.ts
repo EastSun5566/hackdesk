@@ -5,13 +5,43 @@ const EDITOR_CONTROL_HEIGHT = '32px';
 const EDITOR_CONTROL_RADIUS = '6px';
 const SEARCH_CONTROL_HEIGHT = '26px';
 const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)';
-/** Set per mode by createHackmdPreviewTheme: the muted surface in light, a lifted one in dark. */
+/** Set per mode by createHackmdPreviewTheme (see BLOCK_SURFACES). */
 const CODE_PANEL_BACKGROUND = 'var(--cm-code-panel)';
-export const CODE_PANEL_BACKGROUNDS = {
-  // Light: the theme's own muted surface, a clean tint of the page instead of a grey wash.
+/**
+ * The surface tinted blocks (code, containers, tables) start from, set per mode as --cm-block-surface.
+ * Light: the theme's muted surface. Dark: --background-muted sits below the page, so a tint of it
+ * reads as a hole; lift it a step toward the text instead so blocks stand above the page.
+ */
+export const BLOCK_SURFACES = {
   light: 'var(--background-muted)',
-  // Dark: --background-muted sits below the page, so lift the panel a step toward the text instead.
   dark: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
+} as const;
+/**
+ * Code panels lean a few percent toward the theme's accent, so a neutral grey panel doesn't read warm
+ * beside a cool accent (HackMD Neo's zinc against its violet).
+ */
+export const CODE_PANEL_BACKGROUNDS = {
+  light: 'color-mix(in oklch, var(--cm-block-surface) 97%, var(--primary-default) 3%)',
+  dark: 'color-mix(in oklch, var(--cm-block-surface) 93%, var(--primary-default) 7%)',
+} as const;
+/**
+ * Container tints per mode. Dark needs a stronger mix: the same few percent of an accent over a dark
+ * surface barely moves its lightness, so an info panel all but vanished into the page.
+ */
+export const CONTAINER_TINTS = {
+  // Light: each theme's hand-tuned soft fills, a step deeper so they hold against the page.
+  light: {
+    info: 'color-mix(in oklch, var(--primary-soft) 92%, var(--primary-default) 8%)',
+    success: 'color-mix(in oklch, var(--success-soft) 92%, var(--success-default) 8%)',
+    warning: 'color-mix(in oklch, var(--warning-soft) 92%, var(--warning-default) 8%)',
+    danger: 'color-mix(in oklch, var(--destructive-soft) 93%, var(--destructive-default) 7%)',
+  },
+  dark: {
+    info: 'color-mix(in oklch, var(--cm-block-surface) 83%, var(--primary-default) 17%)',
+    success: 'color-mix(in oklch, var(--cm-block-surface) 86%, var(--success-default) 14%)',
+    warning: 'color-mix(in oklch, var(--cm-block-surface) 88%, var(--warning-default) 12%)',
+    danger: 'color-mix(in oklch, var(--cm-block-surface) 85%, var(--destructive-default) 15%)',
+  },
 } as const;
 export const EDITOR_SELECTION_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 24%, transparent)';
 const EDITOR_BLOCK_CURSOR_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 55%, transparent)';
@@ -48,7 +78,7 @@ export const editorChromeTheme = {
     backgroundColor: 'color-mix(in oklch, var(--background-selected) 18%, transparent)',
   },
   '.cm-activeLine.cm-hackmd-fenced-code': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 96%, var(--primary-default) 4%)',
+    backgroundColor: 'color-mix(in oklch, var(--cm-code-panel) 92%, var(--primary-default) 8%)',
   },
   '.cm-matchingBracket': {
     backgroundColor: 'var(--primary-soft)',
@@ -441,7 +471,7 @@ export const codeAndBlockTheme = {
   // beside rounded corners reads as a stray stroke. Each line paints a 1px shadow of its own tint
   // below it to close the anti-aliased seam between fractionally tall lines.
   '.cm-hackmd-container-block': {
-    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
+    '--cm-container-tint': 'var(--cm-tint-info)',
     color: 'var(--text-default)',
     backgroundColor: 'var(--cm-container-tint)',
     boxShadow: '0 1px 0 var(--cm-container-tint)',
@@ -478,19 +508,19 @@ export const codeAndBlockTheme = {
     borderLeftColor: 'var(--destructive-default)',
   },
   '.cm-hackmd-container-block-success': {
-    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 90%, var(--success-default) 10%)',
+    '--cm-container-tint': 'var(--cm-tint-success)',
   },
   '.cm-hackmd-container-block-warning': {
-    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 88%, var(--warning-default) 12%)',
+    '--cm-container-tint': 'var(--cm-tint-warning)',
   },
   '.cm-hackmd-container-block-danger': {
-    '--cm-container-tint': 'color-mix(in oklch, var(--background-muted) 90%, var(--destructive-default) 10%)',
+    '--cm-container-tint': 'var(--cm-tint-danger)',
   },
   '.cm-hackmd-container-block-spoiler': {
-    '--cm-container-tint': 'var(--background-muted)',
+    '--cm-container-tint': 'var(--cm-block-surface)',
   },
   '.cm-hackmd-table-block': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
+    backgroundColor: 'var(--cm-tint-info)',
     paddingInlineStart: '0.75rem',
     paddingInlineEnd: '0.75rem',
   },
@@ -522,7 +552,7 @@ export const codeAndBlockTheme = {
   },
   '.cm-hackmd-external-line': {
     color: 'var(--text-subtle)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
+    backgroundColor: 'var(--cm-tint-info)',
     borderLeft: '2px solid color-mix(in oklch, var(--primary-default) 55%, var(--border-bold) 45%)',
     paddingInlineStart: '0.75rem',
   },
@@ -976,6 +1006,16 @@ export const widgetTheme = {
   },
   '.cm-hackmd-rich-math-inline .katex': {
     margin: '0',
+  },
+  // `$$…$$` within a line is display math: centred on a row of its own, as HackMD shows it.
+  '.cm-hackmd-rich-math-inline.cm-hackmd-rich-math-display': {
+    display: 'flex',
+    justifyContent: 'center',
+    width: '100%',
+    verticalAlign: 'baseline',
+  },
+  '.cm-hackmd-rich-math-display .katex-display': {
+    margin: '0.25em 0',
   },
   '.cm-hackmd-rich-math-inline-pending': {
     minWidth: '2.5rem',

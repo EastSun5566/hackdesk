@@ -4,6 +4,7 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
+  ClipboardCopy,
   Copy,
   CopyPlus,
   Download,
@@ -62,6 +63,7 @@ export const RowOperationsContext = createContext<{
   renameFolder?: (id: string, name: string) => void;
   moveNote?: (note: NoteSummary) => void;
   moveFolder?: (id: string) => void;
+  copyNoteContent?: (note: NoteSummary) => void;
 }>({});
 
 function InlineName({ value, label, icon, height, onCancel, onSave }: { value: string; label: string; icon: ReactNode; height: 'folder' | 'note' | 'detail'; onCancel: () => void; onSave: (name: string) => void }) {
@@ -342,9 +344,15 @@ function NoteRowView({
               <Copy aria-hidden="true" className="h-4 w-4" />
               Copy Markdown Link
             </ContextMenuItem>
-            <ContextMenuSeparator />
           </>
         )}
+        {operations.copyNoteContent ? (
+          <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => operations.copyNoteContent?.(entry.note))}>
+            <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
+            Copy Content
+          </ContextMenuItem>
+        ) : null}
+        {isLocalNote && !operations.copyNoteContent ? null : <ContextMenuSeparator />}
         {isLocalNote && onRevealInFinder ? (
           <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealInFinder(entry.note))}>
             <FolderOpen aria-hidden="true" className="h-4 w-4" />
@@ -1015,9 +1023,9 @@ export function WorkspaceRootTreeRow({
           ref={setRowRef}
           data-folder-tree-row-id={WORKSPACE_ROOT_FOCUS_ID}
           data-folder-tree-kind="root"
-          // Sticks to the scroll area's very top, covering its 8px padding too, so rows scrolling
-          // past never show through the strip above the root.
-          className="sticky -top-2 z-10 -mt-2 min-w-0 bg-background-muted pt-2"
+          // Sticks to the scroll area's very top. The gap above it is the scroller's margin, not
+          // padding (see FolderNavigator), so the scrollbar starts level with this row.
+          className="sticky top-0 z-10 min-w-0 bg-background-muted"
         >
           <EntityRow
             selected={selected}
@@ -1300,10 +1308,12 @@ export function TagGroupRow({
               FOCUS_RING_INSET_CLASS,
             )}
           >
-            <ChevronRight aria-hidden="true" className={cn('size-3.5', COLLAPSE_ICON_CLASS, expanded && 'rotate-90')} />
+            {/* One slot like a folder's: the tag icon, turning into the arrow on hover or focus,
+                so the label lines up with folder names at the same level. */}
+            <Tag aria-hidden="true" className="size-3.5 group-hover/entity-row:hidden group-focus-within/entity-row:hidden" />
+            <ChevronRight aria-hidden="true" className={cn('hidden size-3.5 group-hover/entity-row:block group-focus-within/entity-row:block', COLLAPSE_ICON_CLASS, expanded && 'rotate-90')} />
           </button>
         )}
-        icon={<Tag aria-hidden="true" className="size-3.5" />}
         title={label}
         contentOnClick={onToggle}
         contentAriaLabel={`${label} group`}

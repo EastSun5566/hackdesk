@@ -19,6 +19,8 @@ export type FolderPickerDialogProps = {
   api?: HackDeskElectronAPI;
   open: boolean;
   initialPath?: string | null;
+  /** Folders already in the vault list, marked so they aren't added twice by mistake. */
+  addedPaths?: readonly string[];
   onOpenChange: (open: boolean) => void;
   onChoose: (path: string) => void;
 };
@@ -39,7 +41,7 @@ function currentName(path: string) {
   return segments.at(-1) ?? path;
 }
 
-export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onChoose }: FolderPickerDialogProps) {
+export function FolderPickerDialog({ api, open, initialPath, addedPaths = [], onOpenChange, onChoose }: FolderPickerDialogProps) {
   const [listing, setListing] = useState<LocalDirectoryBrowseResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,11 +97,11 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
 
   const entries = useMemo(() => {
     const query = filter.trim().toLowerCase();
-    if (!query || !listing) {
-      return listing?.entries ?? [];
-    }
-    return listing.entries.filter((entry) => entry.name.toLowerCase().includes(query));
+    // Dot-folders (.git, .hackdesk, .config) are rarely a vault; typing a "." brings them back.
+    const visible = (listing?.entries ?? []).filter((entry) => query.startsWith('.') || !entry.name.startsWith('.'));
+    return query ? visible.filter((entry) => entry.name.toLowerCase().includes(query)) : visible;
   }, [filter, listing]);
+  const added = useMemo(() => new Set(addedPaths), [addedPaths]);
 
   const hasUpRow = Boolean(listing?.parent);
   // While filtering, the parent row steps aside so Enter opens the highlighted match.
@@ -188,7 +190,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
         <DialogHeader>
           <DialogTitle>Choose a Vault Folder</DialogTitle>
           <DialogDescription>
-            Browse to a folder of Markdown files. Enter opens a folder; ⌘ Enter adds the highlighted folder.
+            Open the folder that holds your Markdown files, then choose it. You confirm it once before HackDesk reads it.
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-w-0 items-center gap-1.5">
@@ -308,6 +310,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
                       tabIndex={-1}
                       aria-selected={highlighted}
                       data-highlighted={highlighted || undefined}
+                      aria-description={added.has(entry.path) ? 'Already added' : undefined}
                       onClick={() => descend(entry.path)}
                       onMouseMove={() => setHighlight(row)}
                       className={cn(
@@ -317,6 +320,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
                     >
                       <FolderOpen aria-hidden="true" className="size-3.5 shrink-0 text-text-subtle" />
                       <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                      {added.has(entry.path) ? <span aria-hidden="true" className="shrink-0 rounded-full bg-background-muted px-2 text-xs leading-5 text-text-subtle">Added</span> : null}
                       {loading ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" /> : null}
                     </button>
                   </li>
@@ -380,13 +384,15 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
 export function useFolderPicker(api: HackDeskElectronAPI | undefined) {
   const [open, setOpen] = useState(false);
   const [initialPath, setInitialPath] = useState<string | null>(null);
+  const [addedPaths, setAddedPaths] = useState<readonly string[]>([]);
   const resolveRef = useRef<((path: string | null) => void) | null>(null);
 
-  const pickFolder = useCallback((startPath?: string | null) => new Promise<string | null>((resolve) => {
+  const pickFolder = useCallback((startPath?: string | null, added: readonly string[] = []) => new Promise<string | null>((resolve) => {
     // A second request replaces the first: the earlier caller resumes with no folder.
     resolveRef.current?.(null);
     resolveRef.current = resolve;
     setInitialPath(startPath ?? null);
+    setAddedPaths(added);
     setOpen(true);
   }), []);
 
@@ -401,6 +407,7 @@ export function useFolderPicker(api: HackDeskElectronAPI | undefined) {
       api={api}
       open={open}
       initialPath={initialPath}
+      addedPaths={addedPaths}
       onOpenChange={(next) => {
         if (!next) {
           settle(null);

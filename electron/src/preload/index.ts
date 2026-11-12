@@ -33,6 +33,7 @@ import type {
   LocalVaultActivateResult,
   LocalVaultChangeEvent,
   LocalVaultChoosePathInput,
+  LocalVaultFolderMeasure,
   LocalVaultCreateDirectoryInput,
   LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
@@ -210,6 +211,9 @@ const api: HackDeskElectronAPI = {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),
     browse: (path?: string) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultBrowse, { path }) as Promise<LocalDirectoryBrowseResult>
+    ),
+    measure: (input: LocalVaultChoosePathInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultMeasure, input) as Promise<LocalVaultFolderMeasure>
     ),
     choosePath: (input: LocalVaultChoosePathInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoosePath, input),
     activate: (input: LocalVaultVaultIdInput) => (

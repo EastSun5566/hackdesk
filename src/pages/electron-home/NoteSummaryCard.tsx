@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import { Folder } from 'lucide-react';
 
+import type { TrashedNoteSummary } from '@/lib/electron-api';
 import type { FolderTreeNote } from '@/lib/hackmd-folders';
 
 import { formatDate } from './ui';
@@ -19,14 +20,31 @@ export function NoteSummaryCard({ entry }: { entry: FolderTreeNote }) {
           <span className="truncate">{entry.folderLabel}</span>
         </p>
       ) : null}
-      {note.tags.length ? (
-        <p className="flex flex-wrap gap-1">
-          {note.tags.map((tag) => (
-            <span key={tag} className="rounded-sm bg-background-hover px-1.5 text-xs leading-5 text-text-default">{tag}</span>
-          ))}
-        </p>
-      ) : null}
+      <NoteTags tags={note.tags} />
       {note.updatedAtMillis ? <p className="text-xs text-text-subtle">Edited {formatDate(note.updatedAtMillis)}</p> : null}
+    </div>
+  );
+}
+
+function NoteTags({ tags }: { tags: readonly string[] }) {
+  if (!tags.length) return null;
+  return (
+    <p className="flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <span key={tag} className="rounded-sm bg-background-hover px-1.5 text-xs leading-5 text-text-default">{tag}</span>
+      ))}
+    </p>
+  );
+}
+
+/** The hover card for a trashed note: the full title, its tags, and when it went and will go. */
+export function TrashedNoteSummaryCard({ note }: { note: TrashedNoteSummary }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="font-medium text-text-emphasize text-pretty">{note.title.trim() || 'Untitled'}</p>
+      <NoteTags tags={note.tags} />
+      {note.deletedAtMillis ? <p className="text-xs text-text-subtle">Deleted {formatDate(note.deletedAtMillis)}</p> : null}
+      {note.permanentDeleteAtMillis ? <p className="text-xs text-text-subtle">Kept until {formatDate(note.permanentDeleteAtMillis)}</p> : null}
     </div>
   );
 }

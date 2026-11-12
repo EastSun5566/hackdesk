@@ -88,6 +88,18 @@ plain fence with a very long line that should either wrap or scroll horizontally
 An info container.
 :::
 
+:::success
+A success container.
+:::
+
+:::warning
+A warning container.
+:::
+
+:::danger
+A danger container.
+:::
+
 | Column | Value |
 | ------ | ----- |
 | a      | 1     |
@@ -95,6 +107,10 @@ An info container.
 $$
 E = mc^2
 $$
+
+Inline math $a^2 + b^2 = c^2$ and display math within a line $$\sum_{i=1}^n i = \frac{n(n+1)}{2}$$ as HackMD shows it.
+
+$$e^{i\pi} + 1 = 0$$
 
 ```math
 \int_0^1 x^2 \, dx = \frac{1}{3}

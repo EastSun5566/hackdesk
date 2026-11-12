@@ -111,6 +111,7 @@ export type WorkbenchActionHandlers = {
   revealNoteInFinder: () => void;
   copyNoteLink: () => void;
   copyMarkdownLink: () => void;
+  copyNoteContent: () => void;
   shareNote: () => void;
   moveTab: (step: -1 | 1) => void;
   toggleBookContents: () => void;
@@ -430,6 +431,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'copy-markdown-link':
       handlers.copyMarkdownLink();
+      break;
+    case 'copy-note-content':
+      handlers.copyNoteContent();
       break;
     case 'share-note':
       handlers.shareNote();

@@ -92,10 +92,25 @@ test('restores one note from the trash and opens it', async () => {
     await expect(rows).toHaveCount(2);
     await expect(sidebar.getByRole('button', { name: 'Back to notes' })).toBeVisible();
     await expect(sidebar.getByText('Trash', { exact: true })).toBeVisible();
+    // Resting on a row shows the same hover card as a tree note: full title and dates.
+    await rows.filter({ hasText: 'Meeting' }).hover();
+    await expect(page.getByText(/^Kept until /)).toBeVisible();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('trash.png') });
+    await page.mouse.move(0, 0);
 
     await sidebar.getByRole('button', { name: 'Restore Roadmap' }).click();
     await expect(rows).toHaveCount(1);
+    // One row fits: nothing between the list and the sidebar scroller shows a scrollbar.
+    const overflows = await sidebar.getByRole('list', { name: 'Deleted notes' }).evaluate((list) => {
+      const scroller = list.closest('.scroll-edges-source')!;
+      const overflowing: string[] = [];
+      for (let element: Element | null = list; element; element = element === scroller ? null : element.parentElement) {
+        const scrolls = ['auto', 'scroll'].includes(getComputedStyle(element).overflowY);
+        if (scrolls && element.scrollHeight > element.clientHeight) overflowing.push(element.tagName);
+      }
+      return overflowing;
+    });
+    expect(overflows).toEqual([]);
     await expect(page.getByText('Restored “Roadmap”.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Open', exact: true }).click();

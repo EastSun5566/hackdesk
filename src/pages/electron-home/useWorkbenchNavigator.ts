@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 
 import {
   applyNoteFinder,
+  sortNoteFinderEntries,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
 import type { NoteDropOperation } from '@/lib/hackmd-note-dnd';
@@ -63,9 +64,11 @@ export function useWorkbenchNavigator({
 }: WorkbenchNavigatorOptions) {
   const textMatches = textSearch?.matches;
   const visibleEntries = useMemo(() => {
+    // Off the finder the sidebar still shows the tree in the chosen sort (sortFolderTreeNotes), so
+    // the notes opened on selection loss or the last tab closing come in that same order.
     const entries = finderActive
       ? applyNoteFinder(tree, deferredFinderState, selectedFolderId, textMatches)
-      : getFolderNoteEntries(tree, selectedFolderId);
+      : sortNoteFinderEntries(getFolderNoteEntries(tree, selectedFolderId), deferredFinderState.sortMode);
 
     const seen = new Set<string>();
     return entries.filter((entry) => {

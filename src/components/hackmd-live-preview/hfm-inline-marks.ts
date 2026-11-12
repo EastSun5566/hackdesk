@@ -8,6 +8,7 @@ import type {
   HfmInlineMark,
 } from './hfm-types';
 import { getInlineHtmlDecorations } from './inline-html';
+import { findInlineMath } from './inline-math';
 
 // HackMD's delimited inline marks (markdown-it-mark, -ins, -sub, -sup). Sub and sup content has no
 // unescaped whitespace, and a single `~` must not be half of a `~~strikethrough~~`.
@@ -30,7 +31,7 @@ export function getHackmdInlineMarks(text: string): HfmInlineMark[] {
     ...getRegexMarks(text, /^\*\[[^\]\n]+\]:/g, 'cm-hackmd-abbr-def'),
     ...getRegexMarks(text, /^\s*\[[^\]\n]+\]:\s+\S.+$/g, 'cm-hackmd-reference-def'),
     ...getRegexMarks(text, /!?\[[^\]\n]+\]\[[^\]\n]*\]/g, 'cm-hackmd-reference-link'),
-    ...getRegexMarks(text, /(?<!\\)\$(?!\s|\$)(?:\\.|[^\n$\\])+(?<!\s|\$)\$/g, 'cm-hackmd-inline-math'),
+    ...findInlineMath(text).map(({ from, to }) => ({ from, to, className: 'cm-hackmd-inline-math' })),
     ...getRegexMarks(text, /\^\[[^\]\n]+\]/g, 'cm-hackmd-inline-footnote'),
     ...getRegexMarks(text, /\bhttps?:\/\/[^\s<]+/g, 'cm-hackmd-autolink'),
     ...getRegexMarks(text, /<\/?[A-Za-z][^>\n]*>/g, 'cm-hackmd-raw-html', codeSpans),

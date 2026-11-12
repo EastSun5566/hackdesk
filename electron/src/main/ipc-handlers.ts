@@ -417,29 +417,18 @@ export function registerIpcHandlers(
 
     return chooseScannedVaultPath(result.filePaths[0]);
   });
-  ipcMain.handle(ELECTRON_CHANNELS.localVaultChoosePath, async (event, input: unknown) => {
-    const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultChoosePath, localVaultChoosePathInputSchema, input);
+  // What choosing a folder would read, for the page's confirmation: read-only, and stops early on
+  // a huge folder (a home folder, a drive).
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultMeasure, async (_event, input: unknown) => {
+    const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultMeasure, localVaultChoosePathInputSchema, input);
     const rootPath = await resolveLocalDirectory(path);
-    // The in-app picker is page UI, so the folder is confirmed here, outside the page, the way the
-    // native folder dialog confirmed it. The answer also says how much HackDesk will read and watch.
     const size = await measureLocalVaultFolder(rootPath);
-    const name = basename(rootPath) || rootPath;
-    const owner = windowManager.getMainWindowForWebContents(event.sender) ?? windowManager.getTargetWindow();
-    const confirmation: MessageBoxOptions = {
-      type: size.exceedsLimit ? 'warning' : 'question',
-      title: app.getName(),
-      message: `Use “${name}” as a vault folder?`,
-      detail: size.exceedsLimit
-        ? `${rootPath}\n\nIt holds more than ${LOCAL_VAULT_SIZE_LIMIT.toLocaleString('en-US')} files and folders. HackDesk reads and watches every Markdown file in it, which can be slow. A smaller folder is usually better.`
-        : `${rootPath}\n\nHackDesk will read and watch the ${size.notes === 1 ? '1 Markdown note' : `${size.notes.toLocaleString('en-US')} Markdown notes`} in it.`,
-      buttons: ['Use Folder', 'Cancel'],
-      defaultId: size.exceedsLimit ? 1 : 0,
-      cancelId: 1,
-      noLink: true,
-    };
-    const { response } = owner ? await dialog.showMessageBox(owner, confirmation) : await dialog.showMessageBox(confirmation);
-    if (response !== 0) return { canceled: true };
-    return chooseScannedVaultPath(rootPath);
+    return { path: rootPath, name: basename(rootPath) || rootPath, notes: size.notes, exceedsLimit: size.exceedsLimit, limit: LOCAL_VAULT_SIZE_LIMIT };
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultChoosePath, async (_event, input: unknown) => {
+    const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultChoosePath, localVaultChoosePathInputSchema, input);
+    // The page asks the person to confirm the folder (see useLocalVaultSession) before calling this.
+    return chooseScannedVaultPath(await resolveLocalDirectory(path));
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultGetVaultSnapshot, async (_event, input: unknown) => {
     const { vaultId } = validateIpcInput(
