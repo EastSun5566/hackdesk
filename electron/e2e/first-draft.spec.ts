@@ -1,10 +1,12 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdir, mkdtemp, readdir, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { definedEnvironment } from './fixtures/environment';
 import { cancelFolderPicker, chooseFolderInPicker } from './fixtures/folder-picker';
+import { runCommand } from './fixtures/hackdesk';
 import { ELECTRON_CHANNELS } from '../src/shared/channels';
+import { defaultSettings } from '../../src/lib/settings';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const primary = process.platform === 'darwin' ? 'Meta' : 'Control';
@@ -161,4 +163,82 @@ test('HackMD setup failure keeps text and successful setup saves one draft throu
   } finally {
     if (app.process().exitCode === null) app.process().kill('SIGKILL');
   }
+});
+
+const initialDraftTabCount = (page: Page) => page.evaluate(
+  key => Object.keys(JSON.parse(localStorage.getItem(key) ?? '{}').tabs ?? {}).length,
+  initialKey,
+);
+
+const markdownFiles = async (folder: string) => (await readdir(folder)).filter(name => name.endsWith('.md')).sort();
+
+test('drafts left from before setup move into a vault set up since, without being saved', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'hackdesk-leftover-draft-'));
+  const vault = join(home, 'vault');
+  await mkdir(vault);
+  await writeFile(join(vault, 'Existing.md'), '# Existing\n');
+  let { app, page } = await launch(home);
+  try {
+    await expect(page.locator('.cm-content')).toBeFocused();
+    await page.locator('.cm-content').fill('# Leftover\n\nCarried over from before setup');
+    await quit(app, page);
+    // The vault is set up while HackDesk is closed, so the drafts are still under the initial key.
+    await mkdir(join(home, '.hackdesk'), { recursive: true });
+    await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
+      ...defaultSettings,
+      localVault: { path: vault },
+      onboarding: { hackmdTokenSetupDeferred: true },
+    }));
+    ({ app, page } = await launch(home));
+    await expect(page.locator('.cm-content')).toContainText('Carried over from before setup');
+    await expect(page.getByRole('tree', { name: 'Folders and notes' }).getByRole('treeitem', { name: /^Existing/ })).toBeVisible();
+    await expect.poll(() => initialDraftTabCount(page)).toBe(0);
+    // Moving the drafts in does not save them as notes.
+    expect(await markdownFiles(vault)).toEqual(['Existing.md']);
+  } finally {
+    if (app.process().exitCode === null) app.process().kill('SIGKILL');
+  }
+});
+
+/** Starts on one unsaved draft, cancels saving it the way `cancel` does, then opens a folder. */
+async function cancelSaveThenOpenFolder(cancel: (page: Page) => Promise<void>) {
+  const home = await mkdtemp(join(tmpdir(), 'hackdesk-cancelled-save-'));
+  const vault = join(home, 'vault');
+  await mkdir(vault);
+  const { app, page } = await launch(home);
+  try {
+    await expect(page.locator('.cm-content')).toBeFocused();
+    await page.locator('.cm-content').fill('# Draft\n\nNot saved yet');
+    await page.keyboard.press(`${primary}+s`);
+    await cancel(page);
+    // Cancelling gives the editor back.
+    await expect(page.locator('.cm-content')).toBeFocused();
+
+    // Opening a folder afterwards moves the draft there, but the cancelled save does not happen.
+    await runCommand(page, 'Open Local Folder…');
+    await chooseFolderInPicker(app, page, 'vault');
+    await expect.poll(() => initialDraftTabCount(page)).toBe(0);
+    await expect(page.locator('.cm-content')).toContainText('Not saved yet');
+    await expect(page.getByRole('tab')).toHaveCount(1);
+    expect(await markdownFiles(vault)).toEqual([]);
+  } finally {
+    if (app.process().exitCode === null) app.process().kill('SIGKILL');
+  }
+}
+
+test('a draft is not saved later when choosing where to save it was cancelled', async () => {
+  await cancelSaveThenOpenFolder(async (page) => {
+    await expect(page.getByRole('dialog', { name: 'Save note', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+  });
+});
+
+test('a draft is not saved later when HackMD setup was closed without connecting', async () => {
+  await cancelSaveThenOpenFolder(async (page) => {
+    await page.getByRole('button', { name: 'HackMD', exact: true }).click();
+    const connect = page.getByRole('dialog', { name: 'Connect HackMD' });
+    await expect(connect).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(connect).toBeHidden();
+  });
 });
