@@ -730,6 +730,70 @@ export function getRuntimeEnvironment(): RuntimeEnvironment {
   return 'web';
 }
 
+/**
+ * Settings as the renderer may rely on them. A main process from an older build (a renderer reload
+ * in development, or a test serving its own settings) can send a local-vault section without its
+ * lists; this fills them in once, where settings enter the renderer, so `ElectronSafeSettings`
+ * holds true for every reader after it. Complete settings come back as the same object.
+ */
+export function normalizeSafeSettings(settings: ElectronSafeSettings): ElectronSafeSettings {
+  const localVault = settings.localVault as Partial<ElectronSafeSettings['localVault']> | undefined;
+  if (
+    Array.isArray(localVault?.vaults) && Array.isArray(localVault.workspaces)
+    && localVault.activeVaultId !== undefined && localVault.activeWorkspaceId !== undefined
+  ) {
+    return settings;
+  }
+  return {
+    ...settings,
+    localVault: {
+      vaults: Array.isArray(localVault?.vaults) ? localVault.vaults : [],
+      activeVaultId: localVault?.activeVaultId ?? null,
+      workspaces: Array.isArray(localVault?.workspaces) ? localVault.workspaces : [],
+      activeWorkspaceId: localVault?.activeWorkspaceId ?? null,
+    },
+  };
+}
+
+function withNormalizedSettings<T extends { settings?: ElectronSafeSettings }>(result: T): T {
+  if (!result.settings) return result;
+  const settings = normalizeSafeSettings(result.settings);
+  return settings === result.settings ? result : { ...result, settings };
+}
+
+const normalizedApis = new WeakMap<HackDeskElectronAPI, HackDeskElectronAPI>();
+
+/**
+ * The API with every call that returns settings passing them through `normalizeSafeSettings`.
+ * One wrapper per exposed API, so callers that depend on its identity keep it.
+ */
+function normalizeSettingsResults(api: HackDeskElectronAPI): HackDeskElectronAPI {
+  const cached = normalizedApis.get(api);
+  if (cached) return cached;
+  const { settings, localVault } = api;
+  const wrapped: HackDeskElectronAPI = {
+    ...api,
+    settings: settings && {
+      ...settings,
+      get: () => settings.get().then(normalizeSafeSettings),
+      update: (update) => settings.update(update).then(normalizeSafeSettings),
+      importHackmdCliToken: () => settings.importHackmdCliToken().then(withNormalizedSettings),
+    },
+    localVault: localVault && {
+      ...localVault,
+      choose: () => localVault.choose().then(withNormalizedSettings),
+      choosePath: (input) => localVault.choosePath(input).then(withNormalizedSettings),
+      activate: (input) => localVault.activate(input).then(withNormalizedSettings),
+      forget: (input) => localVault.forget(input).then(withNormalizedSettings),
+      updateWorkspace: (mutation) => localVault.updateWorkspace(mutation).then(withNormalizedSettings),
+      disconnect: () => localVault.disconnect().then(normalizeSafeSettings),
+    },
+  };
+  normalizedApis.set(api, wrapped);
+  return wrapped;
+}
+
 export function getHackDeskAPI() {
-  return typeof window === 'undefined' ? undefined : window.hackdeskAPI;
+  const api = typeof window === 'undefined' ? undefined : window.hackdeskAPI;
+  return api && normalizeSettingsResults(api);
 }
