@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
     createEmpty: vi.fn(() => ({ ...image, isEmpty: () => true })),
     setDockIcon: vi.fn(),
     existsSync: vi.fn((_path: string) => true),
+    persistBundleIcon: vi.fn(),
   };
 });
 
@@ -34,6 +35,8 @@ vi.mock('electron', () => ({
   nativeImage: { createFromPath: mocks.createFromPath, createEmpty: mocks.createEmpty },
   nativeTheme: mocks.nativeTheme,
 }));
+
+vi.mock('./app-icon-bundle', () => ({ persistBundleIcon: mocks.persistBundleIcon }));
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
@@ -94,6 +97,8 @@ describe('app icon', () => {
     mocks.nativeTheme.shouldUseDarkColors = true;
     mocks.nativeThemeListeners.forEach((listener) => listener());
     expect(mocks.createFromPath).toHaveBeenLastCalledWith(expect.stringMatching(/color-dark\.png$/));
+    // The installed bundle follows too, so the closed app shows the same variant.
+    expect(mocks.persistBundleIcon).toHaveBeenLastCalledWith('color-dark', expect.stringMatching(/color-dark\.png$/));
 
     setAppIcon('gold');
     expect(mocks.nativeThemeListeners.size).toBe(0);

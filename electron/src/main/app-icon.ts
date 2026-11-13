@@ -8,6 +8,7 @@ import {
   type AppIconId,
   type AppIconVariantId,
 } from '../../../src/lib/app-icons';
+import { persistBundleIcon } from './app-icon-bundle';
 
 let currentAppIcon: AppIconId = DEFAULT_APP_ICON;
 let followsSystemTheme = false;
@@ -69,6 +70,7 @@ function applyAppIcon() {
   }
 
   app.dock?.setIcon(icon);
+  void persistBundleIcon(getCurrentVariant(), getAppIconPath());
   if (process.platform !== 'darwin') {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) {
@@ -84,8 +86,9 @@ function handleNativeThemeUpdated() {
 }
 
 /**
- * Switches the running app's dock and window icons. The packaged icon shown by
- * Finder, Explorer, and the Dock while the app is closed stays the build-time one.
+ * Switches the running app's dock and window icons. On macOS the installed bundle gets the
+ * icon too, so it stays while the app is closed; Explorer and Linux launchers keep the
+ * build-time one.
  */
 export function setAppIcon(id: AppIconId) {
   currentAppIcon = id;
