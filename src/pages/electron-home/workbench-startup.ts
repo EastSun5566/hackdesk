@@ -1,3 +1,4 @@
+import { createFlowStore, type FlowPlan, type FlowStore } from './flow-store';
 import type { WorkspaceScope } from './types';
 import { DEFAULT_WORKSPACE_SCOPE } from './useWorkbenchWorkspaceState';
 
@@ -131,7 +132,7 @@ function resolveWorkspace(world: StartupWorld): StartupCommand[] {
  * The next steps from where startup stands: the events to record and the commands to run. Pure,
  * so every transition is a table test; the window runs it whenever what it reads changes.
  */
-export function planStartup(state: StartupState, world: StartupWorld): { events: StartupEvent[]; commands: StartupCommand[] } {
+export function planStartup(state: StartupState, world: StartupWorld): FlowPlan<StartupEvent, StartupCommand> {
   if (!world.settings) return { events: [], commands: [] };
   const events: StartupEvent[] = [];
   const commands: StartupCommand[] = [];
@@ -160,40 +161,8 @@ export function planStartup(state: StartupState, world: StartupWorld): { events:
   return { events, commands };
 }
 
-export type StartupStore = {
-  getState: () => StartupState;
-  subscribe: (listener: () => void) => () => void;
-  dispatch: (event: StartupEvent) => void;
-  /**
-   * Plans from the current state, records the plan's events at once and returns its commands.
-   * Recording before the commands run means a second call finds the steps already taken and
-   * repeats none of them: the driver can run again before React has rendered a step, when a
-   * command's own update renders first (TanStack Query's mutation state renders synchronously) or
-   * when React runs a new effect twice in development.
-   */
-  advance: (world: StartupWorld) => StartupCommand[];
-};
+export type StartupStore = FlowStore<StartupState, StartupEvent, StartupWorld, StartupCommand>;
 
 export function createStartupStore(initial: StartupState): StartupStore {
-  let state = initial;
-  const listeners = new Set<() => void>();
-  const dispatch = (event: StartupEvent) => {
-    const next = startupReducer(state, event);
-    if (next === state) return;
-    state = next;
-    for (const listener of listeners) listener();
-  };
-  return {
-    getState: () => state,
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => { listeners.delete(listener); };
-    },
-    dispatch,
-    advance: (world) => {
-      const { events, commands } = planStartup(state, world);
-      for (const event of events) dispatch(event);
-      return commands;
-    },
-  };
+  return createFlowStore(initial, startupReducer, planStartup);
 }
