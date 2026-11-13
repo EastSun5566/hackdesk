@@ -1,21 +1,63 @@
 import { fireEvent, render as renderUi, screen } from '@testing-library/react';
 import { StrictMode, type ComponentType, type ReactElement, type ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import type { DocumentDetailProps } from './DocumentDetail';
+import { useDocumentActions, WorkbenchDocumentActionsProvider, type WorkbenchDocumentActions } from './DocumentActionsContext';
 import type { NotePane } from './note-workspace';
 import { equalizeLayout, reconcileLayout, removeLayoutPane, splitLayoutPane } from './pane-layout';
 import { createOverlayWrapper } from './test-overlays';
 
-/** Renders with the workbench overlays the workspace reads, Share open as the active pane's. */
+function createDocumentActions(): WorkbenchDocumentActions {
+  return {
+    onContentChange: vi.fn(),
+    onCopyLink: vi.fn(),
+    onCopyMarkdownLink: vi.fn(),
+    onDelete: vi.fn(),
+    onExportMarkdown: vi.fn(),
+    onOpenEditor: vi.fn(),
+    onOpenExternal: vi.fn(),
+    onReloadFromDisk: vi.fn(),
+    onReloadFromHackmd: vi.fn(),
+    onRevealInFinder: vi.fn(),
+    onSave: vi.fn(),
+    onSaveAsCopy: vi.fn(),
+    onSaveMetadata: vi.fn(),
+    onSaveSharing: vi.fn(),
+    onTitleChange: vi.fn(),
+    onToggleInspector: vi.fn(),
+    onAttachImage: vi.fn(),
+    onCopyDraft: vi.fn(),
+    onExportDraft: vi.fn(),
+    onOpenAsNewDraft: vi.fn(),
+    onRetryLoad: vi.fn(),
+  };
+}
+
+/** The workbench's document actions for the current test. */
+let documentActions = createDocumentActions();
+beforeEach(() => {
+  documentActions = createDocumentActions();
+});
+
+/**
+ * Renders with what the workspace reads from the workbench: its document actions, and its
+ * overlays with Share open as the active pane's.
+ */
 function render(ui: ReactElement, options: { wrapper?: ComponentType<{ children: ReactNode }> } = {}) {
   const overlays = createOverlayWrapper({ share: true });
   const Outer = options.wrapper;
   return renderUi(ui, {
-    wrapper: ({ children }) => <overlays.wrapper>{Outer ? <Outer>{children}</Outer> : children}</overlays.wrapper>,
+    wrapper: ({ children }) => (
+      <overlays.wrapper>
+        <WorkbenchDocumentActionsProvider value={documentActions}>
+          {Outer ? <Outer>{children}</Outer> : children}
+        </WorkbenchDocumentActionsProvider>
+      </overlays.wrapper>
+    ),
   });
 }
 
@@ -25,8 +67,9 @@ vi.mock('./DocumentDetail', async () => {
   const { useState } = await import('react');
 
   return {
-    DocumentDetail: ({ actions, documentState, editorKey, layout }: DocumentDetailProps) => {
+    DocumentDetail: ({ documentState, editorKey, layout }: DocumentDetailProps) => {
       const [mountId] = useState(() => ++documentDetailMounts.nextId);
+      const actions = useDocumentActions();
 
       return (
         <article
@@ -105,30 +148,9 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     folderTree: buildHackmdFolderTree([]),
     getPaneView: vi.fn(createView),
     isInspectorCollapsed: false,
-    onContentChange: vi.fn(),
-    onCopyLink: vi.fn(),
-    onCopyMarkdownLink: vi.fn(),
-    onDelete: vi.fn(),
-    onExportMarkdown: vi.fn(),
     onFocusPane: vi.fn(),
-    onOpenEditor: vi.fn(),
-    onOpenExternal: vi.fn(),
-    onReloadFromDisk: vi.fn(),
-    onReloadFromHackmd: vi.fn(),
     onResizeSplit: vi.fn(),
     onTogglePaneZoom: vi.fn(),
-    onRevealInFinder: vi.fn(),
-    onSave: vi.fn(),
-    onSaveAsCopy: vi.fn(),
-    onSaveMetadata: vi.fn(),
-    onSaveSharing: vi.fn(),
-    onTitleChange: vi.fn(),
-    onToggleInspector: vi.fn(),
-    onAttachImage: vi.fn(),
-    onCopyDraft: vi.fn(),
-    onExportDraft: vi.fn(),
-    onOpenAsNewDraft: vi.fn(),
-    onRetryLoad: vi.fn(),
     canCreateNote: true,
     onCreateNote: vi.fn(),
     onQuickOpen: vi.fn(),
@@ -144,7 +166,7 @@ function renderWorkspace(overrides: Partial<Parameters<typeof DocumentWorkspace>
 
   render(<DocumentWorkspace {...props} />);
 
-  return props;
+  return { ...props, ...documentActions };
 }
 
 describe('DocumentWorkspace', () => {

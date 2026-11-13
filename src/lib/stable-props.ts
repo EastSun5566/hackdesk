@@ -8,12 +8,25 @@ type AnyFunction = (...args: never[]) => unknown;
  * through this lets a memoized child skip renders without ever calling a stale callback.
  */
 export function useStableCallbacks<T extends object>(value: T): T {
+  return { ...value, ...useCallbackWrappers(value) };
+}
+
+/**
+ * For an object holding only callbacks: one object of stable wrappers, which keeps its identity
+ * while the same callbacks are present. An absent (undefined) callback stays absent, so a consumer
+ * can still check whether it is offered.
+ */
+export function useStableCallbackObject<T extends { [K in keyof T]?: AnyFunction }>(value: T): T {
+  return useCallbackWrappers(value) as T;
+}
+
+function useCallbackWrappers(value: object): Record<string, AnyFunction> {
   const latest = useRef(value);
   latest.current = value;
   const wrappers = useRef(new Map<string, AnyFunction>());
 
   const keys = Object.keys(value).filter((key) => typeof (value as Record<string, unknown>)[key] === 'function').join('\0');
-  const stable = useMemo(() => {
+  return useMemo(() => {
     const result: Record<string, AnyFunction> = {};
     for (const key of keys ? keys.split('\0') : []) {
       let wrapper = wrappers.current.get(key);
@@ -25,8 +38,6 @@ export function useStableCallbacks<T extends object>(value: T): T {
     }
     return result;
   }, [keys]);
-
-  return { ...value, ...stable };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

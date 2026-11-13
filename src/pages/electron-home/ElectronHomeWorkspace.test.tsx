@@ -263,6 +263,11 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       onResizeSplit: noop,
       onTogglePaneZoom: noop,
       onFocusPane: noop,
+      onCreateNote: noop,
+      canCreateNote: true,
+      onQuickOpen: noop,
+    },
+    documentActions: {
       onOpenEditor: noop,
       onOpenExternal: noop,
       onCopyLink: noop,
@@ -281,12 +286,9 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       onReloadFromHackmd: noop,
       onSaveAsCopy: noop,
       onOpenAsNewDraft: noop,
-      onCreateNote: noop,
       onCopyDraft: noop,
       onExportDraft: noop,
       onRetryLoad: noop,
-      canCreateNote: true,
-      onQuickOpen: noop,
     },
   };
 

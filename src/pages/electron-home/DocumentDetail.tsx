@@ -64,6 +64,7 @@ import { LocalNoteInspector, NoteInspector } from './NoteInspector';
 import { useAiInline } from './useAiInline';
 import { useDictation } from './useDictation';
 import { useNoteLinkOpener, type OpenNoteTarget } from './useNoteLinkOpener';
+import { useDocumentActions } from './DocumentActionsContext';
 import { BookPane, ChapterNav } from './BookContents';
 import { useBookSessionContext, usePaneTabId } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
@@ -161,7 +162,6 @@ export type DocumentDetailActions = {
 };
 
 export type DocumentDetailProps = {
-  actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState;
   editorKey: string;
   editorMode: EditorMode;
@@ -341,7 +341,6 @@ function getDocumentHeaderPath(document: Pick<NoteSummary, 'description' | 'fold
 }
 
 export function DocumentDetail({
-  actions,
   documentState,
   editorKey,
   editorMode,
@@ -349,6 +348,7 @@ export function DocumentDetail({
   layout,
   status,
 }: DocumentDetailProps) {
+  const actions = useDocumentActions();
   const focusZone = layout.focusZone === undefined ? 'editor' : layout.focusZone ?? undefined;
 
   return (
@@ -364,7 +364,6 @@ export function DocumentDetail({
         <EmptyDocumentDetail />
       ) : (
         <ActiveDocumentDetail
-          actions={actions}
           documentState={documentState}
           editorKey={editorKey}
           editorMode={editorMode}
@@ -439,7 +438,6 @@ function EmptyDocumentDetail() {
 }
 
 function ActiveDocumentDetail({
-  actions,
   documentState,
   editorKey,
   editorMode,
@@ -448,7 +446,6 @@ function ActiveDocumentDetail({
   layout,
   status,
 }: {
-  actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState;
   editorKey: string;
   editorMode: EditorMode;
@@ -457,6 +454,7 @@ function ActiveDocumentDetail({
   layout: DocumentDetailLayout;
   status: DocumentDetailStatus;
 }) {
+  const actions = useDocumentActions();
   const editorRef = useRef<MarkdownEditorHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastHandledAttachImageRequestRef = useRef(0);
@@ -622,7 +620,6 @@ function ActiveDocumentDetail({
       className="h-full min-w-0 flex-1 bg-background-default"
     >
       <DocumentHeader
-        actions={actions}
         actionsOpen={actionsOpen}
         documentState={documentState}
         inspectorPanelId={inspectorPanelId}
@@ -648,7 +645,6 @@ function ActiveDocumentDetail({
       ) : null}
       <DocumentRecoveryBanner
         key={`${documentState.document?.teamPath}:${documentState.document?.id}:${getLocalImageContext(documentState.document)?.vaultId ?? ''}`}
-        actions={actions}
         documentState={documentState}
       />
 
@@ -677,7 +673,6 @@ function ActiveDocumentDetail({
           onChange={handleFileInputChange}
         />
         <InspectorPanel
-          actions={actions}
           onRevealComment={revealComment}
           document={documentState.document}
           folderTree={folderTree}
@@ -729,12 +724,11 @@ function ActiveDocumentDetail({
 
 
 function DocumentRecoveryBanner({
-  actions,
   documentState,
 }: {
-  actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState;
 }) {
+  const actions = useDocumentActions();
   const [comparing, setComparing] = useState(false);
   const kind = documentState.recovery?.kind;
   if (!documentState.document || (kind !== 'disk_changed' && kind !== 'remote_changed')) {
@@ -795,7 +789,6 @@ function DocumentRecoveryBanner({
 }
 
 function DocumentHeader({
-  actions,
   actionsOpen,
   documentState,
   inspectorPanelId,
@@ -809,7 +802,6 @@ function DocumentHeader({
   onOpenRenameDialog,
   status,
 }: {
-  actions: DocumentDetailActions;
   actionsOpen: boolean;
   documentState: DocumentDetailDocumentState;
   inspectorPanelId: string;
@@ -823,6 +815,7 @@ function DocumentHeader({
   onOpenRenameDialog: () => void;
   status: DocumentDetailStatus;
 }) {
+  const actions = useDocumentActions();
   const isLocalDocument = documentState.document?.teamPath === LOCAL_VAULT_TEAM_PATH;
   const effectiveSyncState = getEffectiveSyncState({
     noteDirty,
@@ -909,7 +902,6 @@ function DocumentHeader({
           )}
           {documentState.document ? (
             <DocumentActionsMenu
-              actions={actions}
               documentState={{ ...documentState, document: documentState.document }}
               open={actionsOpen}
               onOpenChange={onActionsOpenChange}
@@ -928,7 +920,6 @@ function DocumentHeader({
 }
 
 function DocumentActionsMenu({
-  actions,
   documentState,
   open,
   onOpenChange,
@@ -939,7 +930,6 @@ function DocumentActionsMenu({
   onOpenRenameDialog,
   status,
 }: {
-  actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState & { document: DocumentSummary };
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -950,6 +940,7 @@ function DocumentActionsMenu({
   onOpenRenameDialog: () => void;
   status: DocumentDetailStatus;
 }) {
+  const actions = useDocumentActions();
   const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
   const bookSession = useBookSessionContext();
 
@@ -1110,7 +1101,6 @@ function DocumentBody({
 }
 
 function InspectorPanel({
-  actions,
   onRevealComment,
   document,
   folderTree,
@@ -1119,7 +1109,6 @@ function InspectorPanel({
   isLocalDocument,
   status,
 }: {
-  actions: DocumentDetailActions;
   document?: DocumentSummary;
   folderTree: FolderTree;
   inspectorCollapsed: boolean;
@@ -1128,6 +1117,7 @@ function InspectorPanel({
   onRevealComment: (comment: NoteComment) => boolean;
   status: DocumentDetailStatus;
 }) {
+  const actions = useDocumentActions();
   // The details mount when first opened and stay through the closing slide, then unmount, so a
   // note opened with them closed loads nothing extra.
   const [showContent, setShowContent] = useState(!inspectorCollapsed);

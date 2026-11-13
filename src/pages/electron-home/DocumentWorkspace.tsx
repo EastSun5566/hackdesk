@@ -7,8 +7,6 @@ import { Group, Panel, Separator, type GroupImperativeHandle, type GroupProps } 
 import type {
   DocumentSummary,
   NoteSummary,
-  PresentationDeck,
-  UpdateNoteInput,
 } from '@/lib/electron-api';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import type { FolderTree } from '@/lib/hackmd-folders';
@@ -24,11 +22,11 @@ import { layoutNodeId, layoutPaneIds, type PaneLayoutNode } from './pane-layout'
 import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
-import type { OpenNoteTarget } from './useNoteLinkOpener';
 import { NoteIcon } from './note-kind';
 import { PaneTabIdContext } from './useBookSession';
 import { useNoteSummaryLookup } from './NoteSummaryCard';
-import { useOverlay, useOverlayControls } from './WorkbenchOverlaysContext';
+import { useOverlay } from './WorkbenchOverlaysContext';
+import { PaneDocumentActions, useWorkbenchDocumentActions } from './DocumentActionsContext';
 
 function PaneGroup({ layout, id, orientation, ...props }: Omit<GroupProps, 'defaultLayout' | 'groupRef'> & { layout: Record<string, number> }) {
   const groupRef = useRef<GroupImperativeHandle | null>(null);
@@ -200,33 +198,6 @@ export function DocumentWorkspace({
   onResizeSplit,
   onTogglePaneZoom,
   onFocusPane,
-  onOpenEditor,
-  onOpenExternal,
-  onOpenNoteTarget,
-  onRevealFolder,
-  onSaveAsTemplate,
-  onPresent,
-  onRevealInFinder,
-  onCopyLink,
-  onCopyMarkdownLink,
-  onExportMarkdown,
-  onReadComparison,
-  onReloadFromDisk,
-  onReloadFromHackmd,
-  onSave,
-  onSaveAsCopy,
-  onSaveMetadata,
-  onSaveSharing,
-  onAttachImage,
-  onCancelImageUpload,
-  onDelete,
-  onTitleChange,
-  onContentChange,
-  onToggleInspector,
-  onCopyDraft,
-  onExportDraft,
-  onOpenAsNewDraft,
-  onRetryLoad,
   canCreateNote,
   onCreateNote,
   onQuickOpen,
@@ -249,46 +220,15 @@ export function DocumentWorkspace({
   /** Zooms the active pane or restores the others; a pane's button makes it active first. */
   onTogglePaneZoom: () => void;
   onFocusPane: (paneId: string) => void;
-  onOpenEditor: (document: DocumentSummary) => void;
-  onOpenExternal: (url: string) => void;
-  /** Opens a linked note in a tab, switching workspace when needed. */
-  onOpenNoteTarget?: OpenNoteTarget;
-  /** Shows a folder of the note's location in the sidebar; no IDs means the workspace root. */
-  onRevealFolder?: (folderIds: string[]) => void;
-  onSaveAsTemplate?: () => void;
-  onPresent?: (deck: PresentationDeck) => void;
-  onRevealInFinder: (document: DocumentSummary) => void;
-  onCopyLink: (document: DocumentSummary) => void;
-  onCopyMarkdownLink: (document: DocumentSummary) => void;
-  onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
-  onReadComparison?: (document: DocumentSummary, signal: AbortSignal) => Promise<{ title: string; content: string }>;
-  onReloadFromDisk: (document: DocumentSummary) => void;
-  onReloadFromHackmd: (document: DocumentSummary) => void;
-  onSave: (tab: OpenNoteTab, input: UpdateNoteInput, options?: { successMessage?: string }) => void;
-  onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
-  onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
-  onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
-  onAttachImage: (tab: OpenNoteTab, file: File, placeholder: string) => Promise<unknown>;
-  onCancelImageUpload?: (tab: OpenNoteTab) => void;
-  onDelete: (document: DocumentSummary) => void;
-  onTitleChange: (tab: OpenNoteTab, title: string) => void;
-  onContentChange: (tab: OpenNoteTab, content: string) => void;
-  onToggleInspector: () => void;
-  onCopyDraft: (content: string) => void;
-  onExportDraft: (title: string, content: string) => void;
-  onOpenAsNewDraft: (title: string, content: string, paneId: string) => void;
-  onRetryLoad: (tab: OpenNoteTab) => void;
   canCreateNote: boolean;
   onCreateNote: () => void;
   onQuickOpen: () => void;
   recentNotes?: ElectronRecentNote[];
 }) {
+  const { onOpenNoteTarget, onCopyDraft, onExportDraft, onOpenAsNewDraft, onRetryLoad } = useWorkbenchDocumentActions();
   // Share and Versions open over the active pane; the workbench overlays hold whether they are open.
-  const overlayControls = useOverlayControls();
   const shareOpen = useOverlay((overlays) => overlays.share);
   const versionsOpen = useOverlay((overlays) => overlays.versions);
-  const onShareOpenChange = useCallback((open: boolean) => overlayControls.set('share', open), [overlayControls]);
-  const onVersionsOpenChange = useCallback((open: boolean) => overlayControls.set('versions', open), [overlayControls]);
   const [paneHosts] = useState(() => new Map<string, PaneHost>());
   const isEmpty = panes.every(pane => pane.tabIds.length === 0);
   useLayoutEffect(() => {
@@ -380,6 +320,7 @@ export function DocumentWorkspace({
       ) : (
         // Book reading shows in the book's own tab only; this pane says which tab it shows.
         <PaneTabIdContext.Provider value={view.activeTab?.tabId ?? null}>
+          <PaneDocumentActions tab={view.activeTab} paneId={pane.paneId}>
           <DocumentDetail
             // With the tab's note: a book's tab turns chapters in place, and each needs its own editor and undo history.
             editorKey={view.activeTab ? getNoteTabEditorKey(view.activeTab) : `${pane.paneId}:empty`}
@@ -416,35 +357,8 @@ export function DocumentWorkspace({
               uploadingImage: view.isUploadingImage,
               deleting: view.isDeleting,
             }}
-            actions={{
-              onOpenEditor,
-              onOpenExternal,
-              onOpenNoteTarget,
-              onRevealFolder,
-              onSaveAsTemplate,
-              onPresent,
-              onRevealInFinder,
-              onCopyLink,
-              onCopyMarkdownLink,
-              onExportMarkdown,
-              onReadComparison,
-              onReloadFromDisk,
-              onReloadFromHackmd,
-              onOpenAsNewDraft: (title, content) => onOpenAsNewDraft(title, content, pane.paneId),
-              onSave: (input, options) => view.activeTab && onSave(view.activeTab, input, options),
-              onSaveAsCopy,
-              onSaveMetadata,
-              onSaveSharing,
-              onAttachImage: (file, placeholder) => (view.activeTab ? onAttachImage(view.activeTab, file, placeholder) : Promise.resolve()),
-              onCancelImageUpload: onCancelImageUpload && (() => view.activeTab && onCancelImageUpload(view.activeTab)),
-              onDelete,
-              onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
-              onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),
-              onToggleInspector,
-              onShareOpenChange,
-              onVersionsOpenChange,
-            }}
           />
+          </PaneDocumentActions>
         </PaneTabIdContext.Provider>
       )}
     </section>
