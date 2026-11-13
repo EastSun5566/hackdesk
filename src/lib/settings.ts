@@ -173,6 +173,15 @@ export const defaultAiSettings: AiSettings = {
   customCommands: [],
 };
 
+export type QuickCaptureSettings = {
+  /** Starts Quick Hack pinned: the popup stays open after a capture for the next one. */
+  keepOpen: boolean;
+};
+
+export const defaultQuickCaptureSettings: QuickCaptureSettings = {
+  keepOpen: false,
+};
+
 export const defaultOfflineSettings: OfflineSettings = {
   keepHackmdNotes: true,
 };
@@ -742,6 +751,9 @@ const aiSettingsSchema = z.object({
 const offlineSettingsSchema = z.object({
   keepHackmdNotes: z.boolean().default(true),
 }).default(defaultOfflineSettings);
+const quickCaptureSettingsSchema = z.object({
+  keepOpen: z.boolean().default(false),
+}).default(defaultQuickCaptureSettings);
 const dictationSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   locale: z.string().trim().min(1).max(MAX_DICTATION_LOCALE_LENGTH).nullable().default(null),
@@ -792,6 +804,7 @@ export const settingsSchema = z.object({
   ai: aiSettingsSchema,
   dictation: dictationSettingsSchema,
   offline: offlineSettingsSchema,
+  quickCapture: quickCaptureSettingsSchema,
   appIcon: z.enum(APP_ICON_IDS).catch(DEFAULT_APP_ICON),
 });
 
@@ -811,6 +824,7 @@ export const defaultSettings: AppSettings = {
   ai: defaultAiSettings,
   dictation: defaultDictationSettings,
   offline: defaultOfflineSettings,
+  quickCapture: defaultQuickCaptureSettings,
   appIcon: DEFAULT_APP_ICON,
 };
 
@@ -844,6 +858,7 @@ const storedSettingsSchema = z.object({
   ai: settingsSchema.shape.ai.catch(defaultSettings.ai),
   dictation: settingsSchema.shape.dictation.catch(defaultSettings.dictation),
   offline: settingsSchema.shape.offline.catch(defaultSettings.offline),
+  quickCapture: settingsSchema.shape.quickCapture.catch(defaultSettings.quickCapture),
   appIcon: settingsSchema.shape.appIcon,
 });
 

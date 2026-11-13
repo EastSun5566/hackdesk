@@ -192,6 +192,13 @@ describe('IPC runtime validation', () => {
     })).toThrow();
   });
 
+  it('validates Quick Hack settings updates', () => {
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { keepOpen: true } }))
+      .toEqual({ quickCapture: { keepOpen: true } });
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { keepOpen: 'yes' } })).toThrow();
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { keepOpen: true, extra: 1 } })).toThrow();
+  });
+
   it('accepts known app icons in settings updates', () => {
     expect(validateIpcInput('settings:update', settingsUpdateSchema, { appIcon: 'nightly' })).toEqual({ appIcon: 'nightly' });
   });

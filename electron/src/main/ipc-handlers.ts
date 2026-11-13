@@ -163,6 +163,7 @@ import {
   openTextFileInputSchema,
   presentationDeckSchema,
   quickCaptureContentSchema,
+  quickCapturePinnedSchema,
   quickCaptureSubmissionAckSchema,
   saveTextFileInputSchema,
   settingsUpdateSchema,
@@ -195,7 +196,7 @@ export function registerIpcHandlers(
     | 'getMainWindow' | 'getMainWindows' | 'getMainWindowForWebContents' | 'getTargetWindow' | 'sendToAllMainWindows'
     | 'getWindowPresentationState' | 'getWindowPresentationStateForSender' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
     | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface' | 'setWindowTranslucency' | 'newMainWindow'
-    | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
+    | 'submitQuickCapture' | 'getQuickCaptureState' | 'setQuickCapturePinned' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
   >,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
 ) {
@@ -860,6 +861,14 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appHideQuickCapture, () => {
     windowManager.hideQuickCaptureWindow();
   });
+  ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureState, () => windowManager.getQuickCaptureState());
+  ipcMain.handle(ELECTRON_CHANNELS.appSetQuickCapturePinned, (_event, pinned: boolean) => (
+    windowManager.setQuickCapturePinned(validateIpcInput(
+      ELECTRON_CHANNELS.appSetQuickCapturePinned,
+      quickCapturePinnedSchema,
+      pinned,
+    ))
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.appResolveQuickCaptureSubmission, (_event, ack: QuickCaptureSubmissionAck) => {
     windowManager.resolveQuickCaptureSubmission(validateIpcInput(
       ELECTRON_CHANNELS.appResolveQuickCaptureSubmission,

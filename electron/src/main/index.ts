@@ -108,6 +108,7 @@ app.whenReady().then(async () => {
   disposeIpcHandlers = registerIpcHandlers(windowManager, {
     onSettingsUpdated: (settings) => {
       refreshMenus(settings);
+      if (settings.quickCapture) windowManager.setQuickCaptureKeepOpen(settings.quickCapture.keepOpen);
       if (settings.appIcon) setAppIcon(settings.appIcon);
       updateDockMenu(settings, openWorkspaceWindow);
     },
@@ -120,6 +121,7 @@ app.whenReady().then(async () => {
   }
   const storedSettings = await readStoredSettings();
   setAppIcon(storedSettings.appIcon);
+  windowManager.setQuickCaptureKeepOpen(storedSettings.quickCapture.keepOpen);
   refreshMenus(storedSettings);
   updateDockMenu(storedSettings, openWorkspaceWindow);
   windowManager.createMainWindow();

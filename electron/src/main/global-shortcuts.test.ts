@@ -31,8 +31,8 @@ describe('quick capture global shortcut', () => {
     mocks.globalShortcut.unregister.mockClear();
   });
 
-  it('registers Control+Alt+H and opens quick capture when triggered', () => {
-    const windowManager = { showQuickCaptureWindow: vi.fn() };
+  it('registers Control+Alt+H and toggles quick capture when triggered', () => {
+    const windowManager = { toggleQuickCaptureWindow: vi.fn() };
 
     const registered = registerQuickCaptureGlobalShortcut(windowManager as never, mocks.globalShortcut);
 
@@ -45,7 +45,7 @@ describe('quick capture global shortcut', () => {
     const callback = mocks.globalShortcut.register.mock.calls[0]?.[1];
     callback?.();
 
-    expect(windowManager.showQuickCaptureWindow).toHaveBeenCalledOnce();
+    expect(windowManager.toggleQuickCaptureWindow).toHaveBeenCalledOnce();
     expect(getQuickCaptureShortcutStatus()).toEqual({
       accelerator: 'Control+Alt+H',
       registered: true,
@@ -53,7 +53,7 @@ describe('quick capture global shortcut', () => {
   });
 
   it('logs a warning when registration fails without throwing', () => {
-    const windowManager = { showQuickCaptureWindow: vi.fn() };
+    const windowManager = { toggleQuickCaptureWindow: vi.fn() };
     mocks.globalShortcut.register.mockReturnValueOnce(false);
 
     const registered = registerQuickCaptureGlobalShortcut(windowManager as never, mocks.globalShortcut);
@@ -72,7 +72,7 @@ describe('quick capture global shortcut', () => {
   });
 
   it('unregisters the quick capture shortcut', () => {
-    const windowManager = { showQuickCaptureWindow: vi.fn() };
+    const windowManager = { toggleQuickCaptureWindow: vi.fn() };
     registerQuickCaptureGlobalShortcut(windowManager as never, mocks.globalShortcut);
 
     unregisterQuickCaptureGlobalShortcut(mocks.globalShortcut);

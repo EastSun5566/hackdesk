@@ -7,6 +7,7 @@ import type {
   NewWindowInput,
   PresentationDeck,
   PresentedDeck,
+  QuickCaptureState,
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
 } from '../../../src/lib/electron-api';
@@ -38,12 +39,31 @@ const QUICK_CAPTURE_PRESENTATION_TIMEOUT_MS = 1000;
 const QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS = 15_000;
 
 // Channels only the Quick Hack and presentation windows may call; the main window may call the rest.
-const QUICK_CAPTURE_CHANNELS = new Set<string>([ELECTRON_CHANNELS.appSubmitQuickCapture, ELECTRON_CHANNELS.appHideQuickCapture]);
+const QUICK_CAPTURE_CHANNELS = new Set<string>([
+  ELECTRON_CHANNELS.appSubmitQuickCapture,
+  ELECTRON_CHANNELS.appHideQuickCapture,
+  ELECTRON_CHANNELS.appGetQuickCaptureState,
+  ELECTRON_CHANNELS.appSetQuickCapturePinned,
+]);
 const PRESENTATION_CHANNELS = new Set<string>([
   ELECTRON_CHANNELS.appGetPresentation,
   ELECTRON_CHANNELS.appClosePresentation,
   ELECTRON_CHANNELS.appTogglePresentationFullScreen,
 ]);
+
+type QuickCaptureKeyInput = Pick<Electron.Input, 'type' | 'key' | 'meta' | 'control' | 'alt' | 'shift'>;
+
+/**
+ * Keys the Quick Hack editor handles itself (bold, italic, pin). The application menu also serves
+ * the popup, so without this its accelerators, such as Toggle Sidebar on Mod+B, would fire too.
+ */
+export function isQuickCaptureOwnedShortcut(input: QuickCaptureKeyInput, platform: NodeJS.Platform = process.platform) {
+  if (input.type !== 'keyDown' && input.type !== 'rawKeyDown') return false;
+  const mod = platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta;
+  if (!mod || input.alt) return false;
+  const key = input.key?.toLowerCase();
+  return input.shift ? key === 'p' : key === 'b' || key === 'i';
+}
 
 type PendingQuickCaptureSubmission = {
   resolve: (result: QuickCaptureSubmitResult) => void;
@@ -70,6 +90,10 @@ export class WindowManager {
   private quickCaptureOpener: BrowserWindow | null = null;
   private quickCapturePresentationInProgress = false;
   private quickCapturePresentationTimeout: NodeJS.Timeout | null = null;
+  /** The Keep open setting: whether each Quick Hack opening starts pinned. */
+  private quickCaptureKeepOpen = false;
+  /** Pinned keeps the popup open after a capture; it lasts until the popup is dismissed. */
+  private quickCapturePinned = false;
 
   getMainWindow() {
     const focused = BrowserWindow.getFocusedWindow();
@@ -495,6 +519,7 @@ export class WindowManager {
       this.completeQuickCapturePresentation();
     });
     window.webContents.on('before-input-event', (event, input) => {
+      window.webContents.setIgnoreMenuShortcuts(isQuickCaptureOwnedShortcut(input));
       if (process.platform === 'darwin' && input.type === 'keyDown'
         && input.key?.toLowerCase() === 'q' && input.meta
         && !input.alt && !input.control && !input.shift) {
@@ -525,9 +550,44 @@ export class WindowManager {
     return window;
   }
 
+  /** The Quick Hack hotkey: dismisses the popup while it is in front, otherwise opens or focuses it. */
+  toggleQuickCaptureWindow() {
+    const existingWindow = this.getQuickCaptureWindow();
+    if (existingWindow?.isVisible() && existingWindow.isFocused()) {
+      this.hideQuickCaptureWindow();
+      return null;
+    }
+
+    return this.showQuickCaptureWindow();
+  }
+
+  getQuickCaptureState(): QuickCaptureState {
+    return { pinned: this.quickCapturePinned };
+  }
+
+  setQuickCapturePinned(pinned: boolean): QuickCaptureState {
+    if (this.quickCapturePinned !== pinned) {
+      this.quickCapturePinned = pinned;
+      const contents = this.getQuickCaptureWindow()?.webContents;
+      if (contents && !contents.isDestroyed()) {
+        contents.send(ELECTRON_CHANNELS.appQuickCaptureStateChanged, this.getQuickCaptureState());
+      }
+    }
+    return this.getQuickCaptureState();
+  }
+
+  /** Applies the Keep open setting; a change also re-pins or unpins a popup that is open now. */
+  setQuickCaptureKeepOpen(keepOpen: boolean) {
+    if (this.quickCaptureKeepOpen === keepOpen) return;
+    this.quickCaptureKeepOpen = keepOpen;
+    this.setQuickCapturePinned(keepOpen);
+  }
+
   hideQuickCaptureWindow() {
     this.completeQuickCapturePresentation();
     this.getQuickCaptureWindow()?.hide();
+    // The pin covers one opening; the next one starts from the setting again.
+    this.setQuickCapturePinned(this.quickCaptureKeepOpen);
 
     if (process.platform !== 'darwin') {
       return;
@@ -594,7 +654,10 @@ export class WindowManager {
     }
 
     this.getMainWindow()?.webContents.session.flushStorageData();
-    this.hideQuickCaptureWindow();
+    // Pinned, the popup stays for the next capture; the renderer clears the accepted text.
+    if (!this.quickCapturePinned) {
+      this.hideQuickCaptureWindow();
+    }
     pending.resolve({ accepted: true });
   }
 

@@ -227,6 +227,9 @@ export const settingsUpdateSchema = z.strictObject({
   offline: z.strictObject({
     keepHackmdNotes: z.boolean(),
   }).optional(),
+  quickCapture: z.strictObject({
+    keepOpen: z.boolean(),
+  }).optional(),
   hackmdAccountLabel: z.string().trim().min(1).max(200).optional(),
   hackmdAddAccount: z.boolean().optional(),
   hackmdActiveAccountId: z.string().trim().min(1).max(200).optional(),
@@ -521,6 +524,8 @@ export const quickCaptureSubmissionAckSchema = z.discriminatedUnion('accepted', 
     error: nonEmptyStringSchema,
   }),
 ]);
+
+export const quickCapturePinnedSchema = z.boolean();
 
 export const quickCaptureContentSchema = z.string().refine((value) => value.trim().length > 0, {
   message: 'Content must not be blank',

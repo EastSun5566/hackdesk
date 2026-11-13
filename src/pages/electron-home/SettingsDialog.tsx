@@ -32,6 +32,7 @@ import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { AiSettingsPanel } from './AiSettingsPanel';
 import { DictationSettingsPanel } from './DictationSettingsPanel';
 import { OfflineSettingsSection } from './OfflineSettingsSection';
+import { QuickCaptureSettingsSection } from './QuickCaptureSettingsSection';
 import { AppearanceSettingsPanel } from './AppearanceSettingsPanel';
 import { EditorSettingsPanel } from './EditorSettingsPanel';
 import { GeneralSettingsPanel } from './GeneralSettingsPanel';
@@ -529,6 +530,10 @@ function SettingsDialogContent({
                       }}
                     />
                     <OfflineSettingsSection
+                      active={open && activeTab === 'general'}
+                      resetSignal={resetRequest?.tab === 'general' ? resetRequest.nonce : 0}
+                    />
+                    <QuickCaptureSettingsSection
                       active={open && activeTab === 'general'}
                       resetSignal={resetRequest?.tab === 'general' ? resetRequest.nonce : 0}
                     />

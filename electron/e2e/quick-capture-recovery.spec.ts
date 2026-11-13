@@ -88,6 +88,55 @@ test('recovers an accepted Quick Hack after restart and clears recovery after sa
   }
 });
 
+test('a pinned Quick Hack stays open across captures with Markdown kept as typed', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'hackdesk-smoke-'));
+  const vault = join(home, 'vault');
+  await mkdir(join(home, '.hackdesk'), { recursive: true });
+  await mkdir(vault, { recursive: true });
+  await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
+    ...defaultSettings,
+    localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
+    quickCapture: { keepOpen: true },
+  }));
+
+  const app = await launchApp(home, join(home, 'user-data'), true);
+  try {
+    await expect.poll(() => app.windows().map((page) => page.url())).toEqual(expect.arrayContaining([
+      expect.stringContaining('#/electron'),
+      expect.stringContaining('#/quick-capture'),
+    ]));
+    const main = app.windows().find((page) => page.url().includes('#/electron'))!;
+    const popup = app.windows().find((page) => page.url().includes('#/quick-capture'))!;
+    const popupVisible = () => app.evaluate(({ BrowserWindow }) => (
+      BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes('#/quick-capture'))?.isVisible() ?? false
+    ));
+    await expect(main.getByRole('button', { name: 'Switch workspace, current: vault', exact: true })).toBeVisible();
+    const pin = popup.getByRole('button', { name: 'Pin Quick Hack' });
+    await expect(pin).toHaveAttribute('aria-pressed', 'true');
+
+    const note = popup.getByLabel('Quick Hack note');
+    await note.fill('# First pinned idea');
+    await expect(note.locator('.cm-line').first()).toHaveText('# First pinned idea');
+    await popup.getByRole('button', { name: 'Capture', exact: true }).click();
+    await expect(main.locator('.cm-content')).toContainText('First pinned idea');
+    await expect(popup.getByRole('status')).toHaveText('Captured');
+    await expect(note.locator('.cm-placeholder')).toBeVisible();
+    expect(await popupVisible()).toBe(true);
+
+    // Unpinned, the next capture closes the popup as before.
+    await pin.click();
+    await expect(pin).toHaveAttribute('aria-pressed', 'false');
+    await note.fill('Second idea');
+    await popup.getByRole('button', { name: 'Capture', exact: true }).click();
+    await expect(main.locator('.cm-content')).toContainText('Second idea');
+    await expect.poll(popupVisible).toBe(false);
+    // The next opening starts pinned again, from the setting.
+    await expect(pin).toHaveAttribute('aria-pressed', 'true');
+  } finally {
+    app.process().kill('SIGKILL');
+  }
+});
+
 test('renderer recovery targets the failing window and keeps Quick Hack text on its route', async () => {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-window-recovery-'));
   const vault = join(home, 'vault');
@@ -124,7 +173,7 @@ test('renderer recovery targets the failing window and keeps Quick Hack text on 
     }).recoveryCalls);
     // Playwright's Page remains marked crashed; inspect the recovered renderer through Electron.
     const rendererState = (id: number) => app.evaluate(({ BrowserWindow }, id) => (
-      BrowserWindow.fromId(id)!.webContents.executeJavaScript('({ url: location.href, text: document.body.textContent, input: document.querySelector("textarea")?.value ?? null, workspace: document.querySelector("[aria-label^=\'Switch workspace, current: \']")?.getAttribute("aria-label") ?? null })')
+      BrowserWindow.fromId(id)!.webContents.executeJavaScript('({ url: location.href, text: document.body.textContent, input: document.querySelector("[aria-label=\'Quick Hack note\']")?.textContent ?? null, workspace: document.querySelector("[aria-label^=\'Switch workspace, current: \']")?.getAttribute("aria-label") ?? null })')
     ), id);
 
     // Crashes one renderer while the other window has focus. The polls that follow wait for the
@@ -140,7 +189,7 @@ test('renderer recovery targets the failing window and keeps Quick Hack text on 
     // The recovered window is back on the folder it showed.
     await expect.poll(async () => (await rendererState(mainId)).workspace, recovery).toBe('Switch workspace, current: vault');
     await expect(capture).toHaveURL(/#\/quick-capture$/);
-    await expect(capture.getByLabel('Quick Hack note')).toHaveValue('Recover this Quick Hack');
+    await expect(capture.getByLabel('Quick Hack note')).toHaveText('Recover this Quick Hack');
 
     await crash(captureId, mainId);
     await expect.poll(recoveryCalls, recovery).toEqual([

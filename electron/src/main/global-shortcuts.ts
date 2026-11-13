@@ -11,8 +11,9 @@ export function registerQuickCaptureGlobalShortcut(
   windowManager: WindowManager,
   shortcut: Pick<typeof globalShortcut, 'register'> = globalShortcut,
 ) {
+  // Pressed again while Quick Hack is in front, the shortcut dismisses it, like Escape.
   quickCaptureShortcutRegistered = shortcut.register(QUICK_CAPTURE_GLOBAL_SHORTCUT, () => {
-    windowManager.showQuickCaptureWindow();
+    windowManager.toggleQuickCaptureWindow();
   });
 
   if (!quickCaptureShortcutRegistered) {

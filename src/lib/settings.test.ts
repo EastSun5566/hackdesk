@@ -50,6 +50,7 @@ describe('settings helpers', () => {
       ai: defaultSettings.ai,
       dictation: defaultSettings.dictation,
       offline: defaultSettings.offline,
+      quickCapture: defaultSettings.quickCapture,
       appIcon: defaultSettings.appIcon,
     });
   });
@@ -59,6 +60,14 @@ describe('settings helpers', () => {
       .toEqual({ keepHackmdNotes: false });
     expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', offline: { keepHackmdNotes: 'no' } })).offline)
       .toEqual(defaultSettings.offline);
+  });
+
+  it('closes Quick Hack after capture by default and drops a damaged Quick Hack section', () => {
+    expect(defaultSettings.quickCapture).toEqual({ keepOpen: false });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: { keepOpen: true } })).quickCapture)
+      .toEqual({ keepOpen: true });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: { keepOpen: 'yes' } })).quickCapture)
+      .toEqual(defaultSettings.quickCapture);
   });
 
   it('keeps dictation off until turned on and drops a damaged dictation section', () => {
@@ -125,6 +134,7 @@ describe('settings helpers', () => {
       ai: defaultSettings.ai,
       dictation: defaultSettings.dictation,
       offline: defaultSettings.offline,
+      quickCapture: defaultSettings.quickCapture,
       appIcon: defaultSettings.appIcon,
     });
   });
@@ -561,6 +571,9 @@ describe('settings helpers', () => {
   },
   "offline": {
     "keepHackmdNotes": true
+  },
+  "quickCapture": {
+    "keepOpen": false
   },
   "appIcon": "system"
 }`);

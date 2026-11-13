@@ -66,11 +66,12 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   ai?: AppSettings['ai'];
   dictation?: AppSettings['dictation'];
   offline?: AppSettings['offline'];
+  quickCapture?: AppSettings['quickCapture'];
   appIcon?: AppSettings['appIcon'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline' | 'appIcon'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline' | 'quickCapture' | 'appIcon'>> & {
   hackmdApiToken?: string;
   /** Labels a newly connected account; also renames the active one when replacing its token. */
   hackmdAccountLabel?: string;
@@ -524,6 +525,12 @@ export type QuickCaptureSubmitResult =
   | { accepted: true }
   | { accepted: false; error: string };
 
+/** The Quick Hack popup's runtime state, owned by the main process. */
+export type QuickCaptureState = {
+  /** Pinned keeps the popup open after a capture. Each opening starts from the Keep open setting. */
+  pinned: boolean;
+};
+
 export type HackDeskElectronAPI = {
   getRuntimeEnvironment: () => RuntimeEnvironment;
   platform: string;
@@ -720,6 +727,9 @@ export type HackDeskPresentationAPI = {
 export type HackDeskQuickCaptureAPI = {
   submit: (content: string) => Promise<QuickCaptureSubmitResult>;
   hide: () => Promise<void>;
+  getState: () => Promise<QuickCaptureState>;
+  setPinned: (pinned: boolean) => Promise<QuickCaptureState>;
+  onStateChange: (listener: (state: QuickCaptureState) => void) => () => void;
 };
 
 export function getRuntimeEnvironment(): RuntimeEnvironment {

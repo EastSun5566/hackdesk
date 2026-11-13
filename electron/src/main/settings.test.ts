@@ -83,6 +83,15 @@ describe('Electron settings', () => {
     expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).keyboardNavigation).toEqual(keyboardNavigation);
   });
 
+  it('persists Quick Hack keep-open through the settings update', async () => {
+    expect((await getSafeSettings()).quickCapture).toEqual({ keepOpen: false });
+    const saved = await updateStoredSettings({ quickCapture: { keepOpen: true } });
+    expect(saved.quickCapture).toEqual({ keepOpen: true });
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).quickCapture).toEqual({ keepOpen: true });
+    // Saving another section keeps it.
+    expect((await updateStoredSettings({ title: 'Other' })).quickCapture).toEqual({ keepOpen: true });
+  });
+
   it('defaults onboarding state for old settings files without exposing the token', async () => {
     await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
     await writeFile(getSettingsPath(), JSON.stringify({

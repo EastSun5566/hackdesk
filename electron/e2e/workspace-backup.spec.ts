@@ -61,7 +61,7 @@ test('keeps drafts when workspace backup fails, rejects Quick Hack and clears af
     await quickCapture.getByLabel('Quick Hack note').fill('Rejected capture');
     await quickCapture.getByRole('button', { name: 'Capture' }).click();
     await expect(quickCapture.getByRole('alert')).toContainText('Your text is still here');
-    await expect(quickCapture.getByLabel('Quick Hack note')).toHaveValue('Rejected capture');
+    await expect(quickCapture.getByLabel('Quick Hack note')).toHaveText('Rejected capture');
     await expect(main.locator('.cm-content')).not.toContainText('Rejected capture');
 
     await notice.getByRole('button', { name: 'Copy draft' }).click();
