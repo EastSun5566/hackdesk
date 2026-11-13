@@ -714,7 +714,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0
     || Boolean(workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length));
   const trashActive = Boolean(trash?.open || history?.open);
-  // The pinned workspace row (32px) stays solid; rows fade under it.
+  // The pinned workspace row (36px, 2.25rem) stays on top; rows fade under it.
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const overflow = useScrollOverflow(scroller, 'y');
@@ -724,7 +724,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
     // Around the scroller, not inside it, so the scroller's children stay the rows' real boxes.
     <RowOverlayHost>
       {/* While the workspace row is pinned, rows scrolled into view (keyboard, reveal, hints) stop
-          below it instead of under it: 2rem is its row. */}
+          below it instead of under it: 2.25rem is its row. */}
       <div
         ref={setScroller}
         // One listener for every note row (tree, search results and the other folders of a set): a
@@ -740,11 +740,11 @@ const MemoNavigatorContent = memo(function NavigatorContent({
         } : undefined}
         data-overflow-start={overflow.start || undefined}
         data-overflow-end={overflow.end || undefined}
-        className={cn('scroll-edges-source min-h-0 min-w-0 mt-2 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2', pinnedRootShown && 'scroll-pt-8')}
+        className={cn('scroll-edges-source min-h-0 min-w-0 mt-2 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2', pinnedRootShown && 'scroll-pt-9')}
       >
         {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows.
             Each shows only while rows lie past its edge, so a list that fits shows neither. */}
-        <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : 'top-0')}>
+        <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'sidebar-pinned-fade top-9' : 'top-0')}>
           <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />
         </div>
         {history?.open ? (
@@ -1545,7 +1545,8 @@ function NavigatorTree({
                 id={workspaceChildrenGroupId}
                 role="group"
                 hidden={showRootRow && !rootSectionExpanded}
-                className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && cn('relative mt-0.5', TREE_CHILDREN_INDENT_CLASS))}
+                // sidebar-pinned-rows: masked out under the pinned root row with translucency on (styles.css).
+                className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && cn('sidebar-pinned-rows relative mt-0.5', TREE_CHILDREN_INDENT_CLASS))}
               >
                 {showWorkspaceFolders ? (
                   workspaceFolderSections.map((section, index) => (
