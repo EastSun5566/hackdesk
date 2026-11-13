@@ -9,6 +9,7 @@ import type { NotePane, NoteWorkspaceState, OpenNoteTab } from './note-workspace
 import { PanelResizeSash } from './PanelResizeSash';
 import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
 import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
+import { WorkspaceNavigationProvider, type WorkspaceNavigation } from './WorkspaceNavigationContext';
 
 export const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
 
@@ -19,6 +20,8 @@ export type ElectronHomeWorkspaceProps = {
   backupNotice?: WorkspaceBackupNoticeProps | null;
   documentWorkspace: ComponentProps<typeof DocumentWorkspace>;
   navigator: Omit<FolderNavigatorProps, 'id'>;
+  /** The workspace switcher in the sidebar title and the account row at its bottom. */
+  workspaceNavigation: WorkspaceNavigation;
   navigatorResize: {
     disabled: boolean;
     value: number;
@@ -57,6 +60,7 @@ export function ElectronHomeWorkspace({
   backupNotice,
   documentWorkspace,
   navigator,
+  workspaceNavigation,
   navigatorResize,
   titlebar,
 }: ElectronHomeWorkspaceProps) {
@@ -127,7 +131,9 @@ export function ElectronHomeWorkspace({
       {/* The gap left of the card while the sidebar is collapsed is the sidebar's own margin, so it
           grows as the sidebar narrows instead of shoving the sidebar aside the moment it starts. */}
       <main className="flex min-h-0 min-w-0 flex-1 pr-1.5 pb-1.5 [[data-hack-mode]_&]:p-0">
-        <FolderNavigator id={NOTE_NAVIGATOR_PANEL_ID} {...navigator} />
+        <WorkspaceNavigationProvider value={workspaceNavigation}>
+          <FolderNavigator id={NOTE_NAVIGATOR_PANEL_ID} {...navigator} />
+        </WorkspaceNavigationProvider>
         <PanelResizeSash
           label="Resize sidebar"
           value={navigatorResize.value}

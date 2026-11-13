@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { readComparisonSource } from './read-comparison-source';
@@ -38,6 +38,7 @@ import type { WorkspaceFolderTree } from './FolderNavigator';
 import type { OverlayControls } from './workbench-overlays';
 
 const EMPTY_WORKSPACE_FOLDERS: WorkspaceFolderTree[] = [];
+const NO_LOCAL_VAULTS: ElectronHomeWorkspaceProps['workspaceNavigation']['localVaults'] = [];
 
 type WorkspaceNavigationTarget =
   | { kind: 'root'; vaultId: string; action?: 'create-note' | 'create-folder' }
@@ -89,6 +90,20 @@ type WorkspaceActions = {
   moveFolderRequest: (folderId: string) => void;
   chooseNewNoteLocation: (folderId: string | null) => void;
 };
+
+type SwitcherLocalFolders = Pick<ElectronHomeWorkspaceProps['workspaceNavigation'], 'localVaults' | 'localWorkspaces'>;
+
+/**
+ * The local folders and workspaces the switcher lists. They keep their identity while the settings
+ * do: new arrays on every render would re-render the sidebar, which skips renders on purpose, on
+ * each keystroke in the editor.
+ */
+export function useSwitcherLocalFolders(localVault: ElectronSafeSettings['localVault'] | undefined): SwitcherLocalFolders {
+  return useMemo(() => ({
+    localVaults: localVault?.vaults ?? NO_LOCAL_VAULTS,
+    localWorkspaces: getLocalWorkspaces({ localVault }).map(({ id, name, vaultIds }) => ({ id, name, vaultIds })),
+  }), [localVault]);
+}
 
 export function useHomeWorkspaceProps({
   api,
@@ -186,6 +201,7 @@ export function useHomeWorkspaceProps({
     return activePath ? localVaultFolderName(activePath) : null;
   })();
   const activeLocalWorkspace = getActiveLocalWorkspace(settings);
+  const { localVaults, localWorkspaces } = useSwitcherLocalFolders(settings?.localVault);
   const localWorkspaceName = activeLocalWorkspace && settings?.localVault.activeVaultId
     && activeLocalWorkspace.vaultIds.includes(settings.localVault.activeVaultId)
     ? activeLocalWorkspace.name
@@ -327,84 +343,84 @@ export function useHomeWorkspaceProps({
         onNewTab,
       },
     },
+    workspaceNavigation: {
+      scope: displayScope,
+      user,
+      teams,
+      platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
+      pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
+      accountStatus: homeStatus.accountStatus,
+      onChooseLocalVault: () => {
+        void localVaultActions.chooseLocalVault();
+      },
+      onManageLocalVaults: actions.openVaultSettings,
+      onScopeChange: (next) => {
+        overlayControls.close('trash');
+        overlayControls.close('history');
+        actions.switchWorkspaceScope(next);
+      },
+      localVaults,
+      localWorkspaces,
+      activeLocalVaultId: settings?.localVault.activeVaultId ?? null,
+      activeLocalWorkspaceId: settings?.localVault.activeWorkspaceId ?? null,
+      onActivateLocalWorkspace: (workspaceId: string | null) => {
+        overlayControls.close('workspaceSwitcher');
+        void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
+        });
+      },
+      onOpenLocalWorkspaceFolder: (workspaceId, vaultId) => {
+        overlayControls.close('workspaceSwitcher');
+        if (activeLocalWorkspace?.id === workspaceId && displayScope.type === 'local') {
+          openWorkspaceFolder(vaultId, []);
+          return;
+        }
+        pendingSwitcherFolder.current = { workspaceId, vaultId };
+        void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
+          pendingSwitcherFolder.current = null;
+          toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
+        });
+      },
+      onOpenStandaloneLocalVault: (vaultId) => {
+        overlayControls.close('workspaceSwitcher');
+        void localVaultActions.openStandaloneLocalVault(vaultId).catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to open the local folder.');
+        });
+      },
+      onSwitchLocalVault: (vaultId: string) => {
+        overlayControls.close('workspaceSwitcher');
+        void localVaultActions.switchLocalVault(vaultId).catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to switch local vault.');
+        });
+      },
+      onOpenInNewWindow: api?.app.newWindow ? (scope: WorkspaceScope) => {
+        overlayControls.close('workspaceSwitcher');
+        const workspace: NewWindowWorkspaceScope = scope.type === 'team'
+          ? { type: scope.type, label: scope.label, teamPath: scope.teamPath }
+          : scope.type === 'local'
+            ? { type: scope.type, label: scope.label, vaultId: scope.vaultId, workspaceId: scope.workspaceId }
+            : { type: scope.type, label: scope.label };
+        void api?.app.newWindow?.({ workspace }).catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to open a new window.');
+        });
+      } : undefined,
+      onOpenSettings: () => overlayControls.openSettings(),
+      onSignOut: settings?.hasHackmdApiToken
+        ? () => mutations.disconnectHackmdMutation.mutate(undefined, { onSuccess: actions.handleHackmdDisconnected })
+        : undefined,
+      onPinnedTeamIdsChange: (pinnedTeamIds) => {
+        mutations.updateSettingsMutation.mutate({
+          title: settings?.title ?? defaultSettings.title,
+          workspaceNavigation: { pinnedTeamIds },
+        });
+      },
+    },
     navigator: {
       scope: displayScope,
       tree: folderTree,
       vaultFolderName: localVaultPathName,
       localWorkspaceName,
       workspaceFolders,
-      workspace: {
-        scope: displayScope,
-        user,
-        teams,
-        platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
-        pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
-        accountStatus: homeStatus.accountStatus,
-        onChooseLocalVault: () => {
-          void localVaultActions.chooseLocalVault();
-        },
-        onManageLocalVaults: actions.openVaultSettings,
-        onScopeChange: (next) => {
-          overlayControls.close('trash');
-          overlayControls.close('history');
-          actions.switchWorkspaceScope(next);
-        },
-        localVaults: settings?.localVault.vaults ?? [],
-        localWorkspaces: getLocalWorkspaces(settings).map(({ id, name, vaultIds }) => ({ id, name, vaultIds })),
-        activeLocalVaultId: settings?.localVault.activeVaultId ?? null,
-        activeLocalWorkspaceId: settings?.localVault.activeWorkspaceId ?? null,
-        onActivateLocalWorkspace: (workspaceId: string | null) => {
-          overlayControls.close('workspaceSwitcher');
-          void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
-            toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
-          });
-        },
-        onOpenLocalWorkspaceFolder: (workspaceId, vaultId) => {
-          overlayControls.close('workspaceSwitcher');
-          if (activeLocalWorkspace?.id === workspaceId && displayScope.type === 'local') {
-            openWorkspaceFolder(vaultId, []);
-            return;
-          }
-          pendingSwitcherFolder.current = { workspaceId, vaultId };
-          void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
-            pendingSwitcherFolder.current = null;
-            toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
-          });
-        },
-        onOpenStandaloneLocalVault: (vaultId) => {
-          overlayControls.close('workspaceSwitcher');
-          void localVaultActions.openStandaloneLocalVault(vaultId).catch((error) => {
-            toast.error(error instanceof Error ? error.message : 'Failed to open the local folder.');
-          });
-        },
-        onSwitchLocalVault: (vaultId: string) => {
-          overlayControls.close('workspaceSwitcher');
-          void localVaultActions.switchLocalVault(vaultId).catch((error) => {
-            toast.error(error instanceof Error ? error.message : 'Failed to switch local vault.');
-          });
-        },
-        onOpenInNewWindow: api?.app.newWindow ? (scope: WorkspaceScope) => {
-          overlayControls.close('workspaceSwitcher');
-          const workspace: NewWindowWorkspaceScope = scope.type === 'team'
-            ? { type: scope.type, label: scope.label, teamPath: scope.teamPath }
-            : scope.type === 'local'
-              ? { type: scope.type, label: scope.label, vaultId: scope.vaultId, workspaceId: scope.workspaceId }
-              : { type: scope.type, label: scope.label };
-          void api?.app.newWindow?.({ workspace }).catch((error) => {
-            toast.error(error instanceof Error ? error.message : 'Failed to open a new window.');
-          });
-        } : undefined,
-        onOpenSettings: () => overlayControls.openSettings(),
-        onSignOut: settings?.hasHackmdApiToken
-          ? () => mutations.disconnectHackmdMutation.mutate(undefined, { onSuccess: actions.handleHackmdDisconnected })
-          : undefined,
-        onPinnedTeamIdsChange: (pinnedTeamIds) => {
-          mutations.updateSettingsMutation.mutate({
-            title: settings?.title ?? defaultSettings.title,
-            workspaceNavigation: { pinnedTeamIds },
-          });
-        },
-      },
       entries: navigator.visibleEntries,
       textSearch: navigator.textSearch,
       finderState: activeFinderState,
