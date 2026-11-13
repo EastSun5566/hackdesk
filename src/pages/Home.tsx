@@ -18,7 +18,7 @@ import { useAskNotes } from './electron-home/useAskNotes';
 import { AskNotesDialog } from './electron-home/AskNotesDialog';
 import { toRecentNote, type InPlaceTarget } from './electron-home/useNoteLinkOpener';
 import { toast } from '@/components/ui/toast';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type SetStateAction } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
@@ -111,7 +111,11 @@ export function Home() {
   const [startupStore] = useState(() => createStartupStore(createStartupState(
     Object.keys(readNoteWorkspaceLayoutStorage(window.localStorage, INITIAL_DRAFT_SCOPE_KEY).tabs).length > 0,
   )));
-  const startup = useSyncExternalStore(startupStore.subscribe, startupStore.getState);
+  // React state follows the store, so a step renders together with the state updates it comes with
+  // (moving the drafts also switches the scope). A useSyncExternalStore read would render the step on
+  // its own, first, and show the window between the two for a render.
+  const [startup, setStartup] = useState(startupStore.getState);
+  useEffect(() => startupStore.subscribe(() => setStartup(startupStore.getState())), [startupStore]);
   const settingsReady = settingsQuery.data !== undefined;
   const usingInitialDrafts = isOnDrafts(startup, settingsQuery.data && {
     hasToken: settingsQuery.data.hasHackmdApiToken,
@@ -543,12 +547,15 @@ export function Home() {
       mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input });
     }
   }, [flushWorkspace, mutations.createDraftNoteMutation, overlayControls, startupStore, usingInitialDrafts]);
-  // Runs the startup plan whenever what it reads changes, drafts mode included; the store records
-  // each step as it is taken, so a step never runs twice.
+  // Runs the startup plan whenever what it reads changes; the store records each step as it is taken,
+  // so a step never runs twice.
   const hasActiveTab = Boolean(activeTab);
   const liveScopeKey = noteWorkspace.state.scopeKey;
   const { getWorkspaceSnapshot } = noteWorkspace;
   useEffect(() => {
+    // Plan only from the steps this render shows: one taken since has not reached the scope and tabs
+    // read below yet, and the render it causes runs this again.
+    if (startupStore.getState() !== startup) return;
     const activeVaultPath = settings ? getActiveLocalVaultPath(settings) : null;
     const commands = startupStore.advance({
       settings: settings && {
@@ -602,7 +609,7 @@ export function Home() {
         }
       }
     }
-  }, [activateLocalWorkspace, focusZone, getWorkspaceSnapshot, hasActiveTab, initialWorkspaceScope, liveScopeKey, mutations.createDraftNoteMutation, requestEditorFocus, scope.type, scopeStorageKey, setWorkspaceScope, settings, startupStore, switchLocalVault, usingInitialDrafts, vaultSession.isChanging, vaultSession.vaultId]);
+  }, [activateLocalWorkspace, focusZone, getWorkspaceSnapshot, hasActiveTab, initialWorkspaceScope, liveScopeKey, mutations.createDraftNoteMutation, requestEditorFocus, scope.type, scopeStorageKey, setWorkspaceScope, settings, startup, startupStore, switchLocalVault, vaultSession.isChanging, vaultSession.vaultId]);
   const localDocumentRecovery = useLocalDocumentRecovery({
     api,
     clearDraft: noteWorkspace.clearDraft,
