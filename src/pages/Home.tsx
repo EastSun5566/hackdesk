@@ -28,7 +28,7 @@ import type { ElectronSafeSettings, FolderSummary, NoteSummary } from '@/lib/ele
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
-import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace, getLocalVaults, getLocalWorkspaces } from '@/lib/settings';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace, NOTE_NAVIGATOR_PANEL_ID } from './electron-home/ElectronHomeWorkspace';
@@ -115,7 +115,12 @@ export function Home() {
   // (moving the drafts also switches the scope). A useSyncExternalStore read would render the step on
   // its own, first, and show the window between the two for a render.
   const [startup, setStartup] = useState(startupStore.getState);
-  useEffect(() => startupStore.subscribe(() => setStartup(startupStore.getState())), [startupStore]);
+  useEffect(() => {
+    const sync = () => setStartup(startupStore.getState());
+    // Catch up on any step taken before this subscribed, so the driver's agreement check always holds.
+    sync();
+    return startupStore.subscribe(sync);
+  }, [startupStore]);
   const settingsReady = settingsQuery.data !== undefined;
   const usingInitialDrafts = isOnDrafts(startup, settingsQuery.data && {
     hasToken: settingsQuery.data.hasHackmdApiToken,
@@ -563,8 +568,8 @@ export function Home() {
         hasLocalVault: settings.hasLocalVault,
         activeVaultId: settings.localVault.activeVaultId ?? null,
         activeVaultLabel: activeVaultPath ? localVaultFolderName(activeVaultPath) : 'Local Vault',
-        vaultIds: settings.localVault.vaults.map((vault) => vault.id),
-        workspaceIds: settings.localVault.workspaces.map((workspace) => workspace.id),
+        vaultIds: getLocalVaults(settings).map((vault) => vault.id),
+        workspaceIds: getLocalWorkspaces(settings).map((workspace) => workspace.id),
         activeWorkspaceId: settings.localVault.activeWorkspaceId ?? null,
       },
       vault: { id: vaultSession.vaultId, changing: vaultSession.isChanging },
