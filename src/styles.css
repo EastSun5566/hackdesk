@@ -145,6 +145,14 @@
   }
 }
 
+/* How far the pinned workspace row's bottom edge lies inside the rows scrolling under it; animated by
+   a scroll-driven animation (see .sidebar-pinned-rows), so it must interpolate as a length. */
+@property --pinned-rows-cut {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 @layer components {
   :root,
   :root.light {
@@ -610,16 +618,37 @@
     --background-sidebar: transparent;
   }
 
-  /* A sticky sidebar row (the pinned workspace root) is clear too while nothing is under it. Once the
-     list scrolls rows beneath it, it takes the sidebar's solid surface, the colour the top edge fade
-     below it starts from. A backdrop blur can't hide them: the page behind is transparent (the
-     material is drawn outside the page), so blurring it only smears the rows' text, still legible. */
-  .sidebar-sticky {
-    transition: background-color 150ms ease-out;
+  /* The pinned workspace root row stays as clear as the rest of the sidebar, and the rows scrolling
+     under it are masked out rather than covered. Nothing painted in the page can cover them: the
+     material is drawn outside the page, so a surface on the row is a band of another colour, and a
+     backdrop blur only smears their text. The rows (.sidebar-pinned-rows, the pinned row's sibling)
+     are cut at its bottom edge and fade in over the 1.5rem below it.
+     --pinned-rows-cut is how far that edge lies inside the rows' box. A view timeline inset by the
+     pinned row (2.25rem, as in FolderNavigator) starts its range as the rows' top meets the edge, and
+     the cut then grows a pixel per pixel scrolled (the range ends far past any real list). Before
+     that it is 0, which masks nothing, and the fade grows with the cut, so rows at rest never fade.
+     no-clip keeps the drop line drawn just above the first row, where the repeated tile is opaque. */
+  :root[data-window-vibrancy][data-sidebar-translucency] .sidebar-pinned-rows {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent var(--pinned-rows-cut),
+      #000 calc(var(--pinned-rows-cut) + min(var(--pinned-rows-cut), 1.5rem))
+    );
+    mask-clip: no-clip;
+    animation: pinned-rows-cut linear both;
+    animation-timeline: view(block 2.25rem 0px);
+    animation-range: exit-crossing 0px exit-crossing 100000px;
   }
 
-  :root[data-window-vibrancy][data-sidebar-translucency] [data-overflow-start] .sidebar-sticky {
-    --background-sidebar: var(--background-muted);
+  @keyframes pinned-rows-cut {
+    from { --pinned-rows-cut: 0px; }
+    to { --pinned-rows-cut: 100000px; }
+  }
+
+  /* The top edge fade paints the opaque sidebar colour, a grey haze over the material; the mask above
+     fades the rows instead. */
+  :root[data-window-vibrancy][data-sidebar-translucency] .edge-fade-top.sidebar-pinned-fade {
+    display: none;
   }
 
   .app-chrome input,

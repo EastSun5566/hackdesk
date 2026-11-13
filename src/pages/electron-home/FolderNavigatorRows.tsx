@@ -1025,7 +1025,7 @@ export function WorkspaceRootTreeRow({
           data-folder-tree-kind="root"
           // Sticks to the scroll area's very top. The gap above it is the scroller's margin, not
           // padding (see FolderNavigator), so the scrollbar starts level with this row.
-          className="sidebar-sticky sticky top-0 z-10 min-w-0 bg-(--background-sidebar)"
+          className="sticky top-0 z-10 min-w-0 bg-(--background-sidebar)"
         >
           <EntityRow
             selected={selected}

@@ -1024,6 +1024,63 @@ test('dropping a folder or a note on the workspace row moves it to the top level
   }
 });
 
+test('with translucency on, the pinned workspace row stays clear and masks out the rows under it', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'vault');
+    for (const name of ['Projects', 'Sub', 'Folders only', 'Last']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    await page.setViewportSize({ width: 1100, height: 420 });
+    // The window material itself needs macOS; what the page does over it is the same everywhere.
+    await page.evaluate(() => {
+      document.documentElement.dataset.windowVibrancy = '';
+      document.documentElement.dataset.sidebarTranslucency = 'medium';
+    });
+    const scroller = page.locator('aside .scroll-edges-source');
+    const measure = () => scroller.evaluate((element) => {
+      const pinned = element.querySelector<HTMLElement>('[data-folder-tree-kind="root"]')!;
+      const rows = element.querySelector<HTMLElement>('.sidebar-pinned-rows')!;
+      return {
+        // How far into the rows the mask hides them, and where the pinned row's bottom edge lies.
+        cut: Number.parseFloat(getComputedStyle(rows).getPropertyValue('--pinned-rows-cut')),
+        edge: pinned.getBoundingClientRect().bottom - rows.getBoundingClientRect().top,
+        mask: getComputedStyle(rows).maskImage,
+        pinnedBackground: getComputedStyle(pinned).backgroundColor,
+        topFade: getComputedStyle(element.querySelector('.edge-fade-top')!).display,
+      };
+    });
+
+    // At rest the rows start below the pinned row and nothing is masked.
+    let state = await measure();
+    expect(state.edge).toBeLessThanOrEqual(0);
+    expect(state.cut).toBe(0);
+    expect(state.mask).toContain('linear-gradient');
+
+    // Scrolled, the pinned row paints nothing (the material shows through it, as around it) and the
+    // rows are cut exactly at its bottom edge; no opaque fade is drawn over them either.
+    // The end of the list too: the cut must keep tracking 1:1 far from the range's start.
+    for (const top of [20, 60, Number.MAX_SAFE_INTEGER]) {
+      const scrolled = await scroller.evaluate((element, offset) => {
+        element.scrollTo({ top: offset });
+        return element.scrollTop;
+      }, top);
+      await expect.poll(async () => (await measure()).edge).toBeGreaterThan(scrolled - 10);
+      // The timeline catches up on the next frame.
+      await expect.poll(async () => {
+        const { cut, edge } = await measure();
+        return Math.abs(cut - edge);
+      }).toBeLessThan(1);
+    }
+    state = await measure();
+    expect(state.pinnedBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(state.topFade).toBe('none');
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('a folder dropped on the middle of another moves inside it, on its top edge before it', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
