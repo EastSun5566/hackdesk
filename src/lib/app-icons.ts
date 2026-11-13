@@ -42,6 +42,17 @@ type MarkLayer = {
   toppings?: { color: string; shade?: string; shine?: string; dots: [number, number, number][] };
   /** Seedlings standing on the mark, in its coordinates: [x, y of the soil, height]. */
   sprouts?: { stem: string; leaf: string; leafShade: string; at: [number, number, number][] };
+  /**
+   * Small boxes resting on the top faces, like a pat of butter, drawn in the
+   * faces' own perspective: [x, y of the base centre, edge, height].
+   */
+  pats?: { top: string; left: string; right: string; at: [number, number, number, number][] };
+  /** Lines across the side walls, following the mark's bottom edges `at` these heights above them: the layers of a stack. */
+  seams?: { color: string; width: number; at: number[] };
+  /** Runs of something thick poured over the edge, in the mark's coordinates: [x, y where it starts, length, width]. */
+  drips?: { color: string; shine?: string; at: [number, number, number, number][] };
+  /** A raised pattern on each top face, drawn in the face's perspective; see `renderRelief`. */
+  relief?: { path: string; color: string; shade: string; width: number };
   glow?: string;
   opacity?: number;
 };
@@ -68,7 +79,7 @@ type PixelStyle = {
   crt?: { scanline: string; vignette: string };
 };
 
-type Decoration = 'stars' | 'grid' | 'scanlines' | 'highlight' | 'bento';
+type Decoration = 'stars' | 'grid' | 'scanlines' | 'highlight' | 'bento' | 'full-moon';
 
 type AppIconDesign = {
   background: Fill;
@@ -223,6 +234,26 @@ function heapOnFaces(radius: number) {
       .map(({ dot }) => dot);
   });
 }
+
+/** Joins points into a closed path, in face units. */
+function loop(points: Point[]) {
+  return `M${points.map(([x, y]) => `${round(x * 100) / 100} ${round(y * 100) / 100}`).join('L')}Z`;
+}
+
+/** A polar curve r(θ) traced as a closed path around the face's centre. */
+function polar(radius: (angle: number) => number, steps = 96) {
+  return loop(Array.from({ length: steps }, (_, index) => {
+    const angle = (index / steps) * Math.PI * 2;
+    return [Math.cos(angle) * radius(angle), Math.sin(angle) * radius(angle)];
+  }));
+}
+
+/** A mooncake's moulded top: a scalloped border, an inner ring, and a four-petal flower. */
+const MOONCAKE_RELIEF = [
+  polar((angle) => 0.8 + 0.055 * Math.cos(angle * 14)),
+  polar(() => 0.54, 48),
+  polar((angle) => 0.1 + 0.28 * Math.abs(Math.cos(angle * 2)), 64),
+].join('');
 
 const DESIGNS = {
   'color-light': { background: LIGHT_PLATE, mark: { shape: 'double', fill: BRAND_MARK } },
@@ -391,6 +422,30 @@ const DESIGNS = {
     },
     decorations: ['bento'],
   },
+  pancake: {
+    // A short stack at a diner: golden cakes, maple syrup running over the edge, and a pat of butter.
+    background: { stops: ['#CFE8FA', '#86BDE8'], from: [0.5, 0], to: [0.5, 1] },
+    mark: {
+      shape: 'double',
+      fill: { stops: ['#F8D592', '#E6A955', '#C27A33'], from: [0.2, 0], to: [0.8, 1] },
+      innerFill: '#B9590F',
+      dusting: { color: '#D98634', shade: '#8E3E07' },
+      seams: { color: '#A85E24', width: 1.5, at: [5.5, 11] },
+      drips: { color: '#B9590F', shine: '#E39448', at: [[14, 25.2, 15, 4], [44, 59.4, 15, 4.2], [70, 62.7, 19, 4.4], [84, 55, 11, 3.8]] },
+      pats: { top: '#FFF4B8', left: '#F5D766', right: '#E2BC45', at: [[38, 20.5, 10, 4.5], [64, 53.5, 10, 4.5]] },
+    },
+  },
+  mooncake: {
+    // Mid-Autumn: two baked mooncakes with moulded tops under a full harvest moon.
+    background: { stops: ['#25306B', '#0C1030'], from: [0.5, 0], to: [0.5, 1] },
+    mark: {
+      shape: 'double',
+      fill: { stops: ['#F2C27A', '#D58E3E', '#9C5419'], from: [0.2, 0], to: [0.8, 1] },
+      innerFill: '#B4631F',
+      relief: { path: MOONCAKE_RELIEF, color: '#F0B868', shade: '#7A3A0C', width: 0.1 },
+    },
+    decorations: ['full-moon'],
+  },
   gold: {
     background: { stops: ['#1A1A1A', '#000000'], from: [0.5, 0], to: [0.5, 1] },
     mark: { shape: 'double', fill: { stops: ['#FFF1B8', '#E2B13C', '#9A6B12'], from: [0.2, 0], to: [0.8, 1] }, glow: '#E2B13C' },
@@ -440,6 +495,8 @@ export const APP_ICON_OPTIONS: readonly AppIconOption[] = [
   { id: 'blocks', label: 'Building Blocks', group: 'secret' },
   { id: 'gold', label: 'Gold', group: 'secret' },
   { id: 'sushi', label: 'Sushi', group: 'secret' },
+  { id: 'pancake', label: 'Pancake', group: 'secret' },
+  { id: 'mooncake', label: 'Mooncake', group: 'secret' },
 ];
 
 export const APP_ICON_IDS = APP_ICON_OPTIONS.map((option) => option.id) as [AppIconId, ...AppIconId[]];
@@ -537,6 +594,21 @@ function renderDecorations(decorations: Decoration[], plate: { x: number; size: 
         const inner = round(size - inset * 2);
         const rimRadius = round(plate.radius * 0.7);
         return `<rect x="${round(x + inset)}" y="${round(x + inset)}" width="${inner}" height="${inner}" rx="${rimRadius}" fill="#000000" fill-opacity="0.08" stroke="#F2C14E" stroke-opacity="0.85" stroke-width="${round(size / 90)}"/>`;
+      }
+      case 'full-moon': {
+        // A low harvest moon in the free top-right corner: a soft halo, faint maria, and a few stars.
+        const [mx, my] = at(0.775, 0.235);
+        const r = round(size * 0.105);
+        const maria: [number, number, number][] = [[-0.32, -0.18, 0.3], [0.3, 0.12, 0.22], [-0.08, 0.42, 0.14], [0.22, -0.42, 0.1]];
+        const stars: [number, number, number][] = [[0.16, 0.14, 4], [0.36, 0.09, 3], [0.1, 0.4, 3], [0.9, 0.55, 3], [0.14, 0.86, 3], [0.88, 0.88, 4]];
+        return `<defs><radialGradient id="moon-halo"><stop offset="0.4" stop-color="#FFE7A3" stop-opacity="0.35"/><stop offset="1" stop-color="#FFE7A3" stop-opacity="0"/></radialGradient></defs>`
+          + `<circle cx="${mx}" cy="${my}" r="${round(r * 2.3)}" fill="url(#moon-halo)"/>`
+          + `<circle cx="${mx}" cy="${my}" r="${r}" fill="#FFF1C4"/>`
+          + maria.map(([dx, dy, mr]) => `<circle cx="${round(mx + dx * r)}" cy="${round(my + dy * r)}" r="${round(mr * r)}" fill="#EAD28C" opacity="0.45"/>`).join('')
+          + stars.map(([fx, fy, sr]) => {
+            const [cx, cy] = at(fx, fy);
+            return `<circle cx="${cx}" cy="${cy}" r="${round(sr * size / 824)}" fill="#FFFFFF" opacity="0.7"/>`;
+          }).join('');
       }
       case 'highlight':
         return `<ellipse cx="${round(x + size * 0.3)}" cy="${round(x + size * 0.12)}" rx="${round(size * 0.55)}" ry="${round(size * 0.28)}" fill="#FFFFFF" opacity="0.18"/>`;
@@ -748,6 +820,98 @@ function renderPixelMark(
   return `<g shape-rendering="crispEdges">${layers.join('')}</g>`;
 }
 
+/** The top faces' two edge directions on screen, toward the back and the front corner, as unit vectors. */
+const FACE_AXES = (() => {
+  const [left, top, , bottom] = DOUBLE_FACES[0];
+  const unit = ([x, y]: Point): Point => [x / Math.hypot(x, y), y / Math.hypot(x, y)];
+  return { back: unit([top[0] - left[0], top[1] - left[1]]), front: unit([bottom[0] - left[0], bottom[1] - left[1]]) };
+})();
+
+/** Boxes on the faces: the two front sides and the lid, softened at the corners. Far ones first. */
+function renderPats({ top, left, right, at }: NonNullable<MarkLayer['pats']>) {
+  return [...at].sort(([, a], [, b]) => a - b).map(([x, y, edge, height]) => {
+    const corner = (back: number, front: number, lift = 0): Point => [
+      x + (FACE_AXES.back[0] * back + FACE_AXES.front[0] * front) * edge / 2,
+      y + (FACE_AXES.back[1] * back + FACE_AXES.front[1] * front) * edge / 2 - lift,
+    ];
+    const face = (points: Point[], fill: string) =>
+      `<path d="M${points.map(([px, py]) => `${round(px)} ${round(py)}`).join('L')}Z" fill="${fill}" stroke="${fill}" stroke-width="${round(edge * 0.14)}" stroke-linejoin="round"/>`;
+    return face([corner(-1, -1), corner(-1, 1), corner(-1, 1, height), corner(-1, -1, height)], left)
+      + face([corner(-1, 1), corner(1, 1), corner(1, 1, height), corner(-1, 1, height)], right)
+      + face([corner(-1, -1, height), corner(1, -1, height), corner(1, 1, height), corner(-1, 1, height)], top);
+  }).join('');
+}
+
+/** Runs of the outline whose body lies above them: the bottom edges of the side walls, left to right. */
+function bottomEdges(path: string): Point[][] {
+  const [outline] = flattenPath(path);
+  const runs: Point[][] = [];
+  let run: Point[] = [];
+  outline.forEach((point, index) => {
+    const next = outline[(index + 1) % outline.length];
+    const [mx, my] = [(point[0] + next[0]) / 2, (point[1] + next[1]) / 2];
+    // Steep runs are the walls' vertical edges, not their bottoms.
+    const facesDown = Math.abs(next[0] - point[0]) > Math.abs(next[1] - point[1]) * 0.25
+      && insidePolygon([mx, my - 0.5], outline) && !insidePolygon([mx, my + 0.5], outline);
+    if (facesDown) {
+      run.push(...(run.length ? [next] : [point, next]));
+    } else if (run.length) {
+      runs.push(run);
+      run = [];
+    }
+  });
+  if (run.length) runs.push(run);
+  return runs;
+}
+
+/**
+ * The mark's bottom edges raised by each height, so they cross the side walls
+ * like the layers of a stack. Clipped to the body to trim the line ends.
+ */
+function renderSeams({ color, width, at }: NonNullable<MarkLayer['seams']>, path: string, defs: string[]) {
+  const edges = bottomEdges(path);
+  defs.push(`<clipPath id="mark-body"><path d="${path}" fill-rule="evenodd"/></clipPath>`);
+  const d = at.flatMap((height) => edges.map((edge) => `M${edge.map(([x, y]) => `${round(x)} ${round(y - height)}`).join('L')}`)).join('');
+  return `<path d="${d}" clip-path="url(#mark-body)" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+/**
+ * A pattern pressed into each of the double mark's top faces. `path` is in face
+ * units, -1 to 1 along the back edge and along the front edge, so a circle
+ * lands as the face's own ellipse. The shade copy sits a little toward the
+ * front, so the lines read as raised.
+ */
+function renderRelief({ path, color, shade, width }: NonNullable<MarkLayer['relief']>) {
+  return DOUBLE_FACES.map(([left, top, right, bottom]) => {
+    const matrix = [
+      (top[0] - left[0]) / 2, (top[1] - left[1]) / 2,
+      (bottom[0] - left[0]) / 2, (bottom[1] - left[1]) / 2,
+      (left[0] + right[0]) / 2, (left[1] + right[1]) / 2,
+    ].map(round).join(' ');
+    const stroke = (paint: string) => `fill="none" stroke="${paint}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"`;
+    return `<g transform="matrix(${matrix})">`
+      + `<path transform="translate(${round(width * 0.4)} ${round(width * 0.7)})" d="${path}" ${stroke(shade)}/>`
+      + `<path d="${path}" ${stroke(color)}/></g>`;
+  }).join('');
+}
+
+/** A run that starts wide where it spills over, narrows, and hangs a bead at its foot; a thin highlight runs down it. */
+function renderDrips({ color, shine, at }: NonNullable<MarkLayer['drips']>) {
+  return at.map(([x, y, length, width]) => {
+    const spill = width * 0.75;
+    const neck = width * 0.34;
+    const bead = width * 0.5;
+    const foot = y + length;
+    const d = `M${round(x - spill)} ${y}C${round(x - spill)} ${round(y + length * 0.35)} ${round(x - neck)} ${round(y + length * 0.4)} ${round(x - neck)} ${round(foot - bead)}`
+      + `A${round(bead)} ${round(bead)} 0 1 0 ${round(x + neck)} ${round(foot - bead)}`
+      + `C${round(x + neck)} ${round(y + length * 0.4)} ${round(x + spill)} ${round(y + length * 0.35)} ${round(x + spill)} ${y}Z`;
+    const highlight = shine
+      ? `<path d="M${round(x - neck * 0.3)} ${round(y + length * 0.35)}V${round(foot - bead * 0.6)}" stroke="${shine}" stroke-width="${round(width * 0.18)}" stroke-linecap="round"/>`
+      : '';
+    return `<path d="${d}" fill="${color}"/>${highlight}`;
+  }).join('');
+}
+
 /** A curved stem with two pointed leaves; drawn back to front so nearer plants overlap. */
 function renderSprouts({ stem, leaf, leafShade, at }: NonNullable<MarkLayer['sprouts']>) {
   return [...at].sort(([, a], [, b]) => a - b).map(([x, y, height]) => {
@@ -832,7 +996,11 @@ function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: s
       }).join('')
       : '';
     const sprouts = mark.sprouts ? renderSprouts(mark.sprouts) : '';
-    body = `${inner}${dusting}<path d="${source.path}" fill-rule="evenodd" fill="${fill.ref}"${opacity}${strokeAttrs}/>${toppings}${sprouts}`;
+    const seams = mark.seams ? renderSeams(mark.seams, source.path, defs) : '';
+    const drips = mark.drips ? renderDrips(mark.drips) : '';
+    const pats = mark.pats ? renderPats(mark.pats) : '';
+    const relief = mark.relief ? renderRelief(mark.relief) : '';
+    body = `${inner}${relief}${dusting}<path d="${source.path}" fill-rule="evenodd" fill="${fill.ref}"${opacity}${strokeAttrs}/>${seams}${toppings}${sprouts}${drips}${pats}`;
   }
 
   const group = `<g transform="translate(${tx} ${ty}) scale(${round(scale)})">${body}</g>`;

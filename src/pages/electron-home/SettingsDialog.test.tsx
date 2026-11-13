@@ -765,12 +765,16 @@ describe('SettingsDialog', () => {
     const { onSave } = renderSettingsDialog();
 
     expect(screen.queryByRole('radio', { name: 'Building Blocks' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Pancake' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Mooncake' })).not.toBeInTheDocument();
     const selected = screen.getByRole('radio', { name: 'Match Appearance' });
     for (let click = 0; click < 5; click += 1) {
       fireEvent.click(selected);
     }
 
     expect(screen.getByRole('radio', { name: 'Building Blocks' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Pancake' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Mooncake' })).toBeInTheDocument();
     expect(toastSuccessMock).toHaveBeenCalledWith('Secret icons unlocked.');
     // Clicking the icon that is already selected changes nothing, so nothing saves.
     expect(onSave).not.toHaveBeenCalled();
