@@ -243,8 +243,8 @@ const windowManager = {
   setThemeSurface: vi.fn(),
   setWindowTranslucency: vi.fn(),
   submitQuickCapture: vi.fn(async () => ({ accepted: true as const })),
-  getQuickCaptureState: vi.fn(() => ({ pinned: false })),
-  setQuickCapturePinned: vi.fn((pinned: boolean) => ({ pinned })),
+  getQuickCaptureState: vi.fn(() => ({ pinned: false, pinShortcut: 'mod+shift+p' })),
+  setQuickCapturePinned: vi.fn((pinned: boolean) => ({ pinned, pinShortcut: 'mod+shift+p' })),
   showPresentationWindow: vi.fn(),
   getPresentationDeck: vi.fn(() => ({ title: 'Deck', content: '# One', fullScreen: false })),
   closePresentationWindow: vi.fn(),
@@ -889,8 +889,8 @@ describe('registerIpcHandlers', () => {
   it('reads and validates the Quick Hack pin', () => {
     registerIpcHandlers(windowManager);
 
-    expect(ipcHandlers.get(ELECTRON_CHANNELS.appGetQuickCaptureState)?.({})).toEqual({ pinned: false });
-    expect(ipcHandlers.get(ELECTRON_CHANNELS.appSetQuickCapturePinned)?.({}, true)).toEqual({ pinned: true });
+    expect(ipcHandlers.get(ELECTRON_CHANNELS.appGetQuickCaptureState)?.({})).toEqual({ pinned: false, pinShortcut: 'mod+shift+p' });
+    expect(ipcHandlers.get(ELECTRON_CHANNELS.appSetQuickCapturePinned)?.({}, true)).toEqual({ pinned: true, pinShortcut: 'mod+shift+p' });
     expect(windowManager.setQuickCapturePinned).toHaveBeenCalledWith(true);
     expect(() => ipcHandlers.get(ELECTRON_CHANNELS.appSetQuickCapturePinned)?.({}, 'yes')).toThrow(
       /Invalid app:set-quick-capture-pinned payload/,

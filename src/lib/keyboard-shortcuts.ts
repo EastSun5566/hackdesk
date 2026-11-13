@@ -148,7 +148,10 @@ function parseShortcutCombo(combo: string, platform: ShortcutPlatform): ParsedSh
   return shortcut.key ? shortcut : null;
 }
 
-export function matchShortcutConfig(config: string | undefined, event: KeyboardEvent, platform: ShortcutPlatform) {
+/** The parts of a key press a shortcut matches against, so main-process input can match too. */
+export type ShortcutKeyPress = Pick<KeyboardEvent, 'key' | 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>;
+
+export function matchShortcutConfig(config: string | undefined, event: ShortcutKeyPress, platform: ShortcutPlatform) {
   if (!config) {
     return false;
   }
@@ -327,6 +330,12 @@ export function getShortcutConflicts(
     const hasConflict = candidateSignatures.some((signature) => signatures.has(signature));
     return hasConflict ? [labels[id as ElectronActionId] ?? id] : [];
   });
+}
+
+/** Whether two shortcut configs share a key combination on this platform. */
+export function shortcutConfigsOverlap(first: string, second: string, platform: ShortcutPlatform) {
+  const signatures = new Set(shortcutSignatures(first, platform));
+  return shortcutSignatures(second, platform).some((signature) => signatures.has(signature));
 }
 
 function shortcutSignatures(config: string, platform: ShortcutPlatform) {

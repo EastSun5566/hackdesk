@@ -6,13 +6,15 @@ import type { HackDeskQuickCaptureAPI, QuickCaptureState } from '@/lib/electron-
 
 import { QUICK_CAPTURE_BUFFER_STORAGE_KEY, QuickCapture } from './QuickCapture';
 
-function renderQuickCapture(appOverrides: Partial<HackDeskQuickCaptureAPI> = {}, initialState: QuickCaptureState = { pinned: false }) {
+const DEFAULT_STATE: QuickCaptureState = { pinned: false, pinShortcut: 'mod+shift+p' };
+
+function renderQuickCapture(appOverrides: Partial<HackDeskQuickCaptureAPI> = {}, initialState: Partial<QuickCaptureState> = {}) {
   let stateListener: ((state: QuickCaptureState) => void) | null = null;
   const api = {
     hide: vi.fn(async () => undefined),
     submit: vi.fn(async () => ({ accepted: true as const })),
-    getState: vi.fn(async () => initialState),
-    setPinned: vi.fn(async (pinned: boolean) => ({ pinned })),
+    getState: vi.fn(async () => ({ ...DEFAULT_STATE, ...initialState })),
+    setPinned: vi.fn(async (pinned: boolean) => ({ ...DEFAULT_STATE, ...initialState, pinned })),
     onStateChange: vi.fn((listener: (state: QuickCaptureState) => void) => {
       stateListener = listener;
       return () => {
@@ -23,7 +25,10 @@ function renderQuickCapture(appOverrides: Partial<HackDeskQuickCaptureAPI> = {},
   } satisfies HackDeskQuickCaptureAPI;
   window.hackdeskQuickCaptureAPI = api;
   render(<QuickCapture />);
-  return { api, emitState: (state: QuickCaptureState) => act(() => stateListener?.(state)) };
+  return {
+    api,
+    emitState: (state: Partial<QuickCaptureState>) => act(() => stateListener?.({ ...DEFAULT_STATE, ...state })),
+  };
 }
 
 async function getEditor() {
@@ -208,6 +213,30 @@ describe('QuickCapture', () => {
     // Dismissing the popup resets the pin from the main process.
     emitState({ pinned: false });
     expect(pin).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('follows the pin shortcut chosen in Settings, also while open', async () => {
+    const { api, emitState } = renderQuickCapture({}, { pinShortcut: 'mod+alt+k' });
+    const editor = await getEditor();
+    const pin = screen.getByRole('button', { name: 'Pin Quick Hack' });
+    await waitFor(() => expect(pin).toHaveAttribute('aria-keyshortcuts', 'Control+Alt+K'));
+    expect(pin).toHaveAttribute('title', expect.stringContaining('Ctrl+Alt+K'));
+
+    fireEvent.keyDown(editor.content, { key: 'P', ctrlKey: true, shiftKey: true });
+    expect(api.setPinned).not.toHaveBeenCalled();
+
+    // Pressed in the editor, the pin wins over any editor binding on the same keys.
+    const reachedEditor = vi.fn();
+    editor.content.addEventListener('keydown', reachedEditor);
+    fireEvent.keyDown(editor.content, { key: 'k', ctrlKey: true, altKey: true });
+    await waitFor(() => expect(pin).toHaveAttribute('aria-pressed', 'true'));
+    expect(reachedEditor).not.toHaveBeenCalled();
+
+    emitState({ pinned: true, pinShortcut: 'none' });
+    await waitFor(() => expect(pin).not.toHaveAttribute('aria-keyshortcuts'));
+    expect(pin).toHaveAttribute('title', 'Pinned: stays open after capture');
+    fireEvent.keyDown(editor.content, { key: 'k', ctrlKey: true, altKey: true });
+    expect(api.setPinned).toHaveBeenCalledOnce();
   });
 
   it('reverts the pin when the main process refuses it', async () => {

@@ -71,7 +71,9 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline' | 'quickCapture' | 'appIcon'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline' | 'appIcon'>> & {
+  /** Each Quick Hack setting saves on its own; the ones left out keep their saved values. */
+  quickCapture?: Partial<AppSettings['quickCapture']>;
   hackmdApiToken?: string;
   /** Labels a newly connected account; also renames the active one when replacing its token. */
   hackmdAccountLabel?: string;
@@ -529,6 +531,8 @@ export type QuickCaptureSubmitResult =
 export type QuickCaptureState = {
   /** Pinned keeps the popup open after a capture. Each opening starts from the Keep open setting. */
   pinned: boolean;
+  /** The configured pin shortcut, such as `mod+shift+p`, or `none`. */
+  pinShortcut: string;
 };
 
 export type HackDeskElectronAPI = {

@@ -177,6 +177,7 @@ function SettingsDialogContent({
     shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
     characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
+    quickCapturePinShortcut: settings?.quickCapture?.pinShortcut ?? defaultSettings.quickCapture.pinShortcut,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
   // Appearance applies at once now, so closing only clears invalid, unapplied input.
@@ -200,7 +201,7 @@ function SettingsDialogContent({
     }
   }
   useEffect(() => cancelPreview, [cancelPreview]);
-  const { appIcon, editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible, addingAccount } = formState;
+  const { appIcon, editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, quickCapturePinShortcut, title, token, tokenTest, tokenVisible, addingAccount } = formState;
 
   // Every change saves at once; the footer is gone. Text fields debounce so typing saves once it pauses.
   const titleSaveTimer = useRef<number | undefined>(undefined);
@@ -265,6 +266,10 @@ function SettingsDialogContent({
       keyboardNavigation: { characterShortcutsEnabled, keyHintsVisible },
     });
   };
+  const handleQuickCapturePinShortcutChange = (next: string) => {
+    setFormState((current) => ({ ...current, quickCapturePinShortcut: next }));
+    onSave({ title: titleForSave, quickCapture: { pinShortcut: next } });
+  };
   const handleKeyboardNavigationChange = (next: { characterShortcutsEnabled: boolean; keyHintsVisible: boolean }) => {
     setFormState((current) => ({ ...current, ...next }));
     onSave({ title: titleForSave, shortcuts, keyboardNavigation: next });
@@ -298,8 +303,14 @@ function SettingsDialogContent({
       setNewTabOpens('empty');
     } else if (tab === 'shortcuts') {
       const navigation = { characterShortcutsEnabled: true, keyHintsVisible: true };
-      setFormState((current) => ({ ...current, shortcuts: defaultSettings.shortcuts, ...navigation }));
-      onSave({ title: titleForSave, shortcuts: defaultSettings.shortcuts, keyboardNavigation: navigation });
+      const quickCapturePinShortcut = defaultSettings.quickCapture.pinShortcut;
+      setFormState((current) => ({ ...current, shortcuts: defaultSettings.shortcuts, ...navigation, quickCapturePinShortcut }));
+      onSave({
+        title: titleForSave,
+        shortcuts: defaultSettings.shortcuts,
+        keyboardNavigation: navigation,
+        quickCapture: { pinShortcut: quickCapturePinShortcut },
+      });
       leaderSpacePreference.set(true);
       holdHintsPreference.set(true);
     } else if (tab === 'appearance') {
@@ -418,6 +429,7 @@ function SettingsDialogContent({
       shortcuts: defaultSettings.shortcuts,
       characterShortcutsEnabled: true,
       keyHintsVisible: true,
+      quickCapturePinShortcut: defaultSettings.quickCapture.pinShortcut,
     });
     setAppearance(defaultSettings.appearance);
     // Kept on this computer rather than in settings, so it resets here, as the Appearance reset does.
@@ -429,6 +441,7 @@ function SettingsDialogContent({
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
+      quickCapture: { pinShortcut: defaultSettings.quickCapture.pinShortcut },
       appIcon: defaultSettings.appIcon,
     });
   };
@@ -447,6 +460,7 @@ function SettingsDialogContent({
         shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
         characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
         keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
+        quickCapturePinShortcut: settings?.quickCapture?.pinShortcut ?? defaultSettings.quickCapture.pinShortcut,
       }));
     }
     onOpenChange(nextOpen);
@@ -576,6 +590,8 @@ function SettingsDialogContent({
                     })}
                     shortcuts={shortcuts}
                     onShortcutsChange={handleShortcutsChange}
+                    quickCapturePinShortcut={quickCapturePinShortcut}
+                    onQuickCapturePinShortcutChange={handleQuickCapturePinShortcutChange}
                   />
                 </TabsContent>
 

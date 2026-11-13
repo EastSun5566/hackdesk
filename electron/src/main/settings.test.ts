@@ -83,13 +83,17 @@ describe('Electron settings', () => {
     expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).keyboardNavigation).toEqual(keyboardNavigation);
   });
 
-  it('persists Quick Hack keep-open through the settings update', async () => {
-    expect((await getSafeSettings()).quickCapture).toEqual({ keepOpen: false });
+  it('persists Quick Hack keep-open and pin shortcut through the settings update', async () => {
+    expect((await getSafeSettings()).quickCapture).toEqual({ keepOpen: false, pinShortcut: 'mod+shift+p' });
     const saved = await updateStoredSettings({ quickCapture: { keepOpen: true } });
-    expect(saved.quickCapture).toEqual({ keepOpen: true });
-    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).quickCapture).toEqual({ keepOpen: true });
-    // Saving another section keeps it.
-    expect((await updateStoredSettings({ title: 'Other' })).quickCapture).toEqual({ keepOpen: true });
+    expect(saved.quickCapture).toEqual({ keepOpen: true, pinShortcut: 'mod+shift+p' });
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).quickCapture)
+      .toEqual({ keepOpen: true, pinShortcut: 'mod+shift+p' });
+    // Each saves from its own Settings tab without changing the other.
+    expect((await updateStoredSettings({ quickCapture: { pinShortcut: 'mod+alt+k' } })).quickCapture)
+      .toEqual({ keepOpen: true, pinShortcut: 'mod+alt+k' });
+    // Saving another section keeps both.
+    expect((await updateStoredSettings({ title: 'Other' })).quickCapture).toEqual({ keepOpen: true, pinShortcut: 'mod+alt+k' });
   });
 
   it('defaults onboarding state for old settings files without exposing the token', async () => {

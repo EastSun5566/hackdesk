@@ -62,11 +62,22 @@ describe('settings helpers', () => {
       .toEqual(defaultSettings.offline);
   });
 
-  it('closes Quick Hack after capture by default and drops a damaged Quick Hack section', () => {
-    expect(defaultSettings.quickCapture).toEqual({ keepOpen: false });
+  it('closes Quick Hack after capture by default and drops a damaged Quick Hack setting alone', () => {
+    expect(defaultSettings.quickCapture).toEqual({ keepOpen: false, pinShortcut: 'mod+shift+p' });
     expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: { keepOpen: true } })).quickCapture)
-      .toEqual({ keepOpen: true });
+      .toEqual({ keepOpen: true, pinShortcut: 'mod+shift+p' });
     expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: { keepOpen: 'yes' } })).quickCapture)
+      .toEqual(defaultSettings.quickCapture);
+    expect(parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      quickCapture: { keepOpen: true, pinShortcut: 'Mod+Alt+K' },
+    })).quickCapture).toEqual({ keepOpen: true, pinShortcut: 'mod+alt+k' });
+    // A shortcut Quick Hack already uses (Mod+B is bold) falls back without turning Keep open off.
+    expect(parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      quickCapture: { keepOpen: true, pinShortcut: 'mod+b' },
+    })).quickCapture).toEqual({ keepOpen: true, pinShortcut: 'mod+shift+p' });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: 'on' })).quickCapture)
       .toEqual(defaultSettings.quickCapture);
   });
 
@@ -573,7 +584,8 @@ describe('settings helpers', () => {
     "keepHackmdNotes": true
   },
   "quickCapture": {
-    "keepOpen": false
+    "keepOpen": false,
+    "pinShortcut": "mod+shift+p"
   },
   "appIcon": "system"
 }`);

@@ -1,5 +1,6 @@
 import type { ElectronSafeSettings } from '../../../src/lib/electron-api';
 import type { WindowWorkspaceScope } from '../../../src/lib/window-workspace';
+import type { QuickCaptureSettings } from '../../../src/lib/settings';
 import { app, type BrowserWindow } from 'electron';
 
 import { attachWindowMenu, createApplicationMenu, type ApplicationMenuOptions } from './app-menu';
@@ -103,12 +104,17 @@ function refreshMenus(settings: Pick<ElectronSafeSettings, 'shortcuts' | 'keyboa
   rebuildMenus();
 }
 
+function applyQuickCaptureSettings(settings: QuickCaptureSettings) {
+  windowManager.setQuickCaptureKeepOpen(settings.keepOpen);
+  windowManager.setQuickCapturePinShortcut(settings.pinShortcut);
+}
+
 app.whenReady().then(async () => {
   registerRendererProtocol();
   disposeIpcHandlers = registerIpcHandlers(windowManager, {
     onSettingsUpdated: (settings) => {
       refreshMenus(settings);
-      if (settings.quickCapture) windowManager.setQuickCaptureKeepOpen(settings.quickCapture.keepOpen);
+      if (settings.quickCapture) applyQuickCaptureSettings(settings.quickCapture);
       if (settings.appIcon) setAppIcon(settings.appIcon);
       updateDockMenu(settings, openWorkspaceWindow);
     },
@@ -121,7 +127,7 @@ app.whenReady().then(async () => {
   }
   const storedSettings = await readStoredSettings();
   setAppIcon(storedSettings.appIcon);
-  windowManager.setQuickCaptureKeepOpen(storedSettings.quickCapture.keepOpen);
+  applyQuickCaptureSettings(storedSettings.quickCapture);
   refreshMenus(storedSettings);
   updateDockMenu(storedSettings, openWorkspaceWindow);
   windowManager.createMainWindow();

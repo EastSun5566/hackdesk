@@ -3,6 +3,9 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
+import type { QuickCaptureState } from '@/lib/electron-api';
+import { displayShortcutConfig, matchShortcutConfig, parseShortcutConfig } from '@/lib/keyboard-shortcuts';
+import { DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT } from '@/lib/quick-capture-shortcuts';
 import { cn } from '@/lib/utils';
 
 import type { QuickCaptureEditorHandle } from './quick-capture/QuickCaptureEditor';
@@ -14,6 +17,22 @@ const QuickCaptureEditor = lazy(async () => {
 });
 
 const CAPTURED_STATUS_MS = 1600;
+
+/** The pin shortcut in `aria-keyshortcuts` form, such as `Meta+Shift+P`. */
+function ariaKeyShortcut(config: string, platform: string) {
+  const [shortcut] = parseShortcutConfig(config, platform);
+  if (!shortcut) return undefined;
+  const modifiers = [
+    shortcut.ctrl && 'Control',
+    shortcut.alt && 'Alt',
+    shortcut.shift && 'Shift',
+    shortcut.meta && 'Meta',
+  ].filter(Boolean);
+  const key = shortcut.key.length === 1
+    ? shortcut.key.toUpperCase()
+    : shortcut.key.replace(/^(arrow)?(\w)/, (_, arrow: string | undefined, letter: string) => `${arrow ? 'Arrow' : ''}${letter.toUpperCase()}`);
+  return [...modifiers, key].join('+');
+}
 
 export const QUICK_CAPTURE_BUFFER_STORAGE_KEY = 'hackdesk_quick_capture_buffer';
 
@@ -60,10 +79,16 @@ export function QuickCapture() {
   /** Capturing while a submission is in flight; captured briefly after a pinned capture lands. */
   const [status, setStatus] = useState<'idle' | 'submitting' | 'captured'>('idle');
   const submitting = status === 'submitting';
-  const [pinned, setPinnedState] = useState(false);
+  /** The pin and its shortcut, as the main process last reported them. */
+  const [popupState, setPopupState] = useState<QuickCaptureState>({
+    pinned: false,
+    pinShortcut: DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT,
+  });
+  const { pinned, pinShortcut } = popupState;
   const pinnedRef = useRef(pinned);
   const isMac = navigator.userAgent.includes('Mac');
-  const pinShortcut = isMac ? '⇧⌘P' : 'Ctrl+Shift+P';
+  const platform = isMac ? 'darwin' : 'win32';
+  const pinShortcutLabel = displayShortcutConfig(pinShortcut, platform);
 
   const focusEditor = useCallback(() => {
     if (focusFrameRef.current !== null) {
@@ -95,21 +120,26 @@ export function QuickCapture() {
 
   const applyPinned = useCallback((next: boolean) => {
     pinnedRef.current = next;
-    setPinnedState(next);
+    setPopupState(current => ({ ...current, pinned: next }));
+  }, []);
+
+  const applyState = useCallback((state: QuickCaptureState) => {
+    pinnedRef.current = state.pinned;
+    setPopupState(state);
   }, []);
 
   useEffect(() => {
     if (!api?.getState) return undefined;
     let cancelled = false;
     void api.getState().then((state) => {
-      if (!cancelled) applyPinned(state.pinned);
+      if (!cancelled) applyState(state);
     }).catch(() => undefined);
-    const unsubscribe = api.onStateChange?.((state) => applyPinned(state.pinned));
+    const unsubscribe = api.onStateChange?.(applyState);
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [api, applyPinned]);
+  }, [api, applyState]);
 
   const togglePinned = useCallback(async () => {
     if (!api?.setPinned) return;
@@ -153,16 +183,17 @@ export function QuickCapture() {
         return;
       }
 
-      const mod = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
-      if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'p') {
+      // Before the editor sees it: a chosen pin shortcut wins over an editor binding on the same keys.
+      if (matchShortcutConfig(pinShortcut, event, platform)) {
         event.preventDefault();
+        event.stopPropagation();
         void togglePinned();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hide, isMac, togglePinned]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [hide, pinShortcut, platform, togglePinned]);
 
   const updateContent = useCallback((nextContent: string) => {
     contentRef.current = nextContent;
@@ -275,8 +306,8 @@ export function QuickCapture() {
             type="button"
             aria-label="Pin Quick Hack"
             aria-pressed={pinned}
-            aria-keyshortcuts={isMac ? 'Meta+Shift+P' : 'Control+Shift+P'}
-            title={`${pinned ? 'Pinned: stays open after capture' : 'Pin to keep open after capture'} (${pinShortcut})`}
+            aria-keyshortcuts={ariaKeyShortcut(pinShortcut, platform)}
+            title={`${pinned ? 'Pinned: stays open after capture' : 'Pin to keep open after capture'}${pinShortcutLabel ? ` (${pinShortcutLabel})` : ''}`}
             onClick={() => void togglePinned()}
           >
             <Pin

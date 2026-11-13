@@ -459,7 +459,7 @@ async function updateStoredSettingsUnlocked(
     ai: update.ai ?? current.ai,
     dictation: update.dictation ?? current.dictation,
     offline: update.offline ?? current.offline,
-    quickCapture: update.quickCapture ?? current.quickCapture,
+    quickCapture: { ...current.quickCapture, ...update.quickCapture },
     appIcon: update.appIcon ?? current.appIcon,
     onboarding: nextOnboarding,
     // Choosing a folder adds it to the vault list and activates it; forgetting removes the

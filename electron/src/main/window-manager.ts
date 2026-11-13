@@ -11,6 +11,8 @@ import type {
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
 } from '../../../src/lib/electron-api';
+import { matchShortcutConfig } from '../../../src/lib/keyboard-shortcuts';
+import { DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT } from '../../../src/lib/quick-capture-shortcuts';
 import { WINDOW_TRANSLUCENCY_MATERIALS, type WindowTranslucency } from '../../../src/lib/window-translucency';
 import { appendWindowWorkspaceToUrl } from '../../../src/lib/window-workspace';
 import { getRendererEntryUrl, getRendererRouteUrl } from './paths';
@@ -54,15 +56,24 @@ const PRESENTATION_CHANNELS = new Set<string>([
 type QuickCaptureKeyInput = Pick<Electron.Input, 'type' | 'key' | 'meta' | 'control' | 'alt' | 'shift'>;
 
 /**
- * Keys the Quick Hack editor handles itself (bold, italic, pin). The application menu also serves
- * the popup, so without this its accelerators, such as Toggle Sidebar on Mod+B, would fire too.
+ * Keys the Quick Hack popup handles itself: bold, italic and the pin shortcut. The application menu
+ * also serves the popup, so without this its accelerators, such as Toggle Sidebar on Mod+B, would
+ * fire too.
  */
-export function isQuickCaptureOwnedShortcut(input: QuickCaptureKeyInput, platform: NodeJS.Platform = process.platform) {
+export function isQuickCaptureOwnedShortcut(
+  input: QuickCaptureKeyInput,
+  pinShortcut: string = DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT,
+  platform: NodeJS.Platform = process.platform,
+) {
   if (input.type !== 'keyDown' && input.type !== 'rawKeyDown') return false;
-  const mod = platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta;
-  if (!mod || input.alt) return false;
-  const key = input.key?.toLowerCase();
-  return input.shift ? key === 'p' : key === 'b' || key === 'i';
+  const press = {
+    key: input.key ?? '',
+    altKey: input.alt,
+    ctrlKey: input.control,
+    metaKey: input.meta,
+    shiftKey: input.shift,
+  };
+  return ['mod+b', 'mod+i', pinShortcut].some(config => matchShortcutConfig(config, press, platform));
 }
 
 type PendingQuickCaptureSubmission = {
@@ -94,6 +105,8 @@ export class WindowManager {
   private quickCaptureKeepOpen = false;
   /** Pinned keeps the popup open after a capture; it lasts until the popup is dismissed. */
   private quickCapturePinned = false;
+  /** The Pin Quick Hack shortcut from Settings, which the popup and its menu handling both follow. */
+  private quickCapturePinShortcut = DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT;
 
   getMainWindow() {
     const focused = BrowserWindow.getFocusedWindow();
@@ -519,7 +532,7 @@ export class WindowManager {
       this.completeQuickCapturePresentation();
     });
     window.webContents.on('before-input-event', (event, input) => {
-      window.webContents.setIgnoreMenuShortcuts(isQuickCaptureOwnedShortcut(input));
+      window.webContents.setIgnoreMenuShortcuts(isQuickCaptureOwnedShortcut(input, this.quickCapturePinShortcut));
       if (process.platform === 'darwin' && input.type === 'keyDown'
         && input.key?.toLowerCase() === 'q' && input.meta
         && !input.alt && !input.control && !input.shift) {
@@ -562,18 +575,29 @@ export class WindowManager {
   }
 
   getQuickCaptureState(): QuickCaptureState {
-    return { pinned: this.quickCapturePinned };
+    return { pinned: this.quickCapturePinned, pinShortcut: this.quickCapturePinShortcut };
+  }
+
+  private sendQuickCaptureState() {
+    const contents = this.getQuickCaptureWindow()?.webContents;
+    if (contents && !contents.isDestroyed()) {
+      contents.send(ELECTRON_CHANNELS.appQuickCaptureStateChanged, this.getQuickCaptureState());
+    }
   }
 
   setQuickCapturePinned(pinned: boolean): QuickCaptureState {
     if (this.quickCapturePinned !== pinned) {
       this.quickCapturePinned = pinned;
-      const contents = this.getQuickCaptureWindow()?.webContents;
-      if (contents && !contents.isDestroyed()) {
-        contents.send(ELECTRON_CHANNELS.appQuickCaptureStateChanged, this.getQuickCaptureState());
-      }
+      this.sendQuickCaptureState();
     }
     return this.getQuickCaptureState();
+  }
+
+  /** Applies the Pin Quick Hack shortcut from Settings, also to a popup that is open now. */
+  setQuickCapturePinShortcut(pinShortcut: string) {
+    if (this.quickCapturePinShortcut === pinShortcut) return;
+    this.quickCapturePinShortcut = pinShortcut;
+    this.sendQuickCaptureState();
   }
 
   /** Applies the Keep open setting; a change also re-pins or unpins a popup that is open now. */

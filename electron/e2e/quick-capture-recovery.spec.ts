@@ -96,7 +96,7 @@ test('a pinned Quick Hack stays open across captures with Markdown kept as typed
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
     localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
-    quickCapture: { keepOpen: true },
+    quickCapture: { keepOpen: true, pinShortcut: 'mod+alt+k' },
   }));
 
   const app = await launchApp(home, join(home, 'user-data'), true);
@@ -123,8 +123,8 @@ test('a pinned Quick Hack stays open across captures with Markdown kept as typed
     await expect(note.locator('.cm-placeholder')).toBeVisible();
     expect(await popupVisible()).toBe(true);
 
-    // Unpinned, the next capture closes the popup as before.
-    await pin.click();
+    // The pin shortcut chosen in Settings unpins it; unpinned, the next capture closes the popup.
+    await note.press('ControlOrMeta+Alt+k');
     await expect(pin).toHaveAttribute('aria-pressed', 'false');
     await note.fill('Second idea');
     await popup.getByRole('button', { name: 'Capture', exact: true }).click();

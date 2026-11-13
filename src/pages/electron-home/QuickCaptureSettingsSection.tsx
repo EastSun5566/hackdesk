@@ -23,13 +23,13 @@ export function QuickCaptureSettingsSection({ active, resetSignal = 0 }: { activ
       .catch(() => undefined);
   }, [active, api]);
 
-  const save = useCallback(async (next: QuickCaptureSettings) => {
+  const save = useCallback(async (next: Partial<QuickCaptureSettings>) => {
     if (!api) return;
     setBusy(true);
     setError(null);
     try {
       const saved = await api.settings.update({ quickCapture: next });
-      setSettings(saved.quickCapture ?? next);
+      setSettings(current => saved.quickCapture ?? { ...defaultQuickCaptureSettings, ...current, ...next });
     } catch (saveError) {
       setError(getAiErrorMessage(saveError));
     } finally {
@@ -37,8 +37,9 @@ export function QuickCaptureSettingsSection({ active, resetSignal = 0 }: { activ
     }
   }, [api]);
 
+  // The pin shortcut lives on the Shortcuts tab and resets there.
   const revertSection = useCallback(() => {
-    void save({ ...defaultQuickCaptureSettings });
+    void save({ keepOpen: defaultQuickCaptureSettings.keepOpen });
   }, [save]);
 
   // The header Reset button reaches this self-saving section through the page.

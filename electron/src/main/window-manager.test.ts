@@ -746,8 +746,8 @@ describe('WindowManager close intent', () => {
   it('keeps a pinned Quick Hack open after an accepted capture', async () => {
     const { manager, window } = createManagerWithWindow();
     const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
-    expect(manager.setQuickCapturePinned(true)).toEqual({ pinned: true });
-    expect(captureWindow.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appQuickCaptureStateChanged, { pinned: true });
+    expect(manager.setQuickCapturePinned(true)).toEqual({ pinned: true, pinShortcut: 'mod+shift+p' });
+    expect(captureWindow.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appQuickCaptureStateChanged, { pinned: true, pinShortcut: 'mod+shift+p' });
 
     const submission = manager.submitQuickCapture('# Pinned capture');
     const command = window.webContents.send.mock.calls.find(([channel]) => channel === ELECTRON_CHANNELS.appCommand)?.[1];
@@ -755,7 +755,7 @@ describe('WindowManager close intent', () => {
 
     await expect(submission).resolves.toEqual({ accepted: true });
     expect(captureWindow.hide).not.toHaveBeenCalled();
-    expect(manager.getQuickCaptureState()).toEqual({ pinned: true });
+    expect(manager.getQuickCaptureState()).toEqual({ pinned: true, pinShortcut: 'mod+shift+p' });
   });
 
   it('starts each Quick Hack opening from the keep-open setting', () => {
@@ -764,20 +764,20 @@ describe('WindowManager close intent', () => {
     manager.setQuickCapturePinned(true);
 
     manager.hideQuickCaptureWindow();
-    expect(manager.getQuickCaptureState()).toEqual({ pinned: false });
-    expect(captureWindow.webContents.send).toHaveBeenLastCalledWith(ELECTRON_CHANNELS.appQuickCaptureStateChanged, { pinned: false });
+    expect(manager.getQuickCaptureState()).toEqual({ pinned: false, pinShortcut: 'mod+shift+p' });
+    expect(captureWindow.webContents.send).toHaveBeenLastCalledWith(ELECTRON_CHANNELS.appQuickCaptureStateChanged, { pinned: false, pinShortcut: 'mod+shift+p' });
 
     // Turning the setting on pins the popup now and after each dismissal.
     manager.setQuickCaptureKeepOpen(true);
-    expect(manager.getQuickCaptureState()).toEqual({ pinned: true });
+    expect(manager.getQuickCaptureState()).toEqual({ pinned: true, pinShortcut: 'mod+shift+p' });
     manager.setQuickCapturePinned(false);
     manager.hideQuickCaptureWindow();
-    expect(manager.getQuickCaptureState()).toEqual({ pinned: true });
+    expect(manager.getQuickCaptureState()).toEqual({ pinned: true, pinShortcut: 'mod+shift+p' });
 
     // Re-applying the same setting (any settings save) leaves a changed pin alone.
     manager.setQuickCapturePinned(false);
     manager.setQuickCaptureKeepOpen(true);
-    expect(manager.getQuickCaptureState()).toEqual({ pinned: false });
+    expect(manager.getQuickCaptureState()).toEqual({ pinned: false, pinShortcut: 'mod+shift+p' });
   });
 
   it('keeps the application menu off the keys the Quick Hack editor handles', () => {
@@ -795,15 +795,42 @@ describe('WindowManager close intent', () => {
     const key = (key: string, modifiers: Partial<{ meta: boolean; control: boolean; alt: boolean; shift: boolean }>) => ({
       type: 'keyDown', key, meta: false, control: false, alt: false, shift: false, ...modifiers,
     });
-    expect(isQuickCaptureOwnedShortcut(key('b', { meta: true }), 'darwin')).toBe(true);
-    expect(isQuickCaptureOwnedShortcut(key('I', { meta: true }), 'darwin')).toBe(true);
-    expect(isQuickCaptureOwnedShortcut(key('P', { meta: true, shift: true }), 'darwin')).toBe(true);
-    expect(isQuickCaptureOwnedShortcut(key('p', { meta: true }), 'darwin')).toBe(false);
-    expect(isQuickCaptureOwnedShortcut(key('b', { meta: true, shift: true }), 'darwin')).toBe(false);
-    expect(isQuickCaptureOwnedShortcut(key('b', { control: true }), 'darwin')).toBe(false);
-    expect(isQuickCaptureOwnedShortcut(key('b', { control: true }), 'win32')).toBe(true);
-    expect(isQuickCaptureOwnedShortcut(key('b', { control: true, alt: true }), 'linux')).toBe(false);
-    expect(isQuickCaptureOwnedShortcut({ ...key('b', { control: true }), type: 'keyUp' }, 'linux')).toBe(false);
+    expect(isQuickCaptureOwnedShortcut(key('b', { meta: true }), 'mod+shift+p', 'darwin')).toBe(true);
+    expect(isQuickCaptureOwnedShortcut(key('I', { meta: true }), 'mod+shift+p', 'darwin')).toBe(true);
+    expect(isQuickCaptureOwnedShortcut(key('P', { meta: true, shift: true }), 'mod+shift+p', 'darwin')).toBe(true);
+    expect(isQuickCaptureOwnedShortcut(key('p', { meta: true }), 'mod+shift+p', 'darwin')).toBe(false);
+    expect(isQuickCaptureOwnedShortcut(key('b', { meta: true, shift: true }), 'mod+shift+p', 'darwin')).toBe(false);
+    expect(isQuickCaptureOwnedShortcut(key('b', { control: true }), 'mod+shift+p', 'darwin')).toBe(false);
+    expect(isQuickCaptureOwnedShortcut(key('b', { control: true }), 'mod+shift+p', 'win32')).toBe(true);
+    expect(isQuickCaptureOwnedShortcut(key('b', { control: true, alt: true }), 'mod+shift+p', 'linux')).toBe(false);
+    expect(isQuickCaptureOwnedShortcut({ ...key('b', { control: true }), type: 'keyUp' }, 'mod+shift+p', 'linux')).toBe(false);
+
+    // A pin shortcut chosen in Settings replaces the default one.
+    expect(isQuickCaptureOwnedShortcut(key('k', { control: true, alt: true }), 'mod+alt+k', 'win32')).toBe(true);
+    expect(isQuickCaptureOwnedShortcut(key('P', { control: true, shift: true }), 'mod+alt+k', 'win32')).toBe(false);
+    expect(isQuickCaptureOwnedShortcut(key('P', { control: true, shift: true }), 'none', 'win32')).toBe(false);
+  });
+
+  it('sends a changed pin shortcut to an open Quick Hack and its menu handling', () => {
+    const { manager } = createManagerWithWindow();
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
+
+    manager.setQuickCapturePinShortcut('mod+alt+k');
+    expect(manager.getQuickCaptureState()).toEqual({ pinned: false, pinShortcut: 'mod+alt+k' });
+    expect(captureWindow.webContents.send).toHaveBeenLastCalledWith(
+      ELECTRON_CHANNELS.appQuickCaptureStateChanged,
+      { pinned: false, pinShortcut: 'mod+alt+k' },
+    );
+
+    const mac = process.platform === 'darwin';
+    const input = { type: 'keyDown', key: 'k', meta: mac, control: !mac, alt: true, shift: false };
+    captureWindow.webContents.emit('before-input-event', { preventDefault: vi.fn() }, input);
+    expect(captureWindow.webContents.setIgnoreMenuShortcuts).toHaveBeenLastCalledWith(true);
+
+    // Every settings save applies it again; an unchanged shortcut sends nothing.
+    const sends = captureWindow.webContents.send.mock.calls.length;
+    manager.setQuickCapturePinShortcut('mod+alt+k');
+    expect(captureWindow.webContents.send).toHaveBeenCalledTimes(sends);
   });
 
   it('creates a hidden draft in background mode and reveals it only when HackDesk is opened', async () => {

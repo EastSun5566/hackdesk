@@ -197,6 +197,13 @@ describe('IPC runtime validation', () => {
       .toEqual({ quickCapture: { keepOpen: true } });
     expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { keepOpen: 'yes' } })).toThrow();
     expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { keepOpen: true, extra: 1 } })).toThrow();
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { pinShortcut: 'mod+alt+k' } }))
+      .toEqual({ quickCapture: { pinShortcut: 'mod+alt+k' } });
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { pinShortcut: 'none' } }))
+      .toEqual({ quickCapture: { pinShortcut: 'none' } });
+    for (const pinShortcut of ['mod+b', 'mod+enter', 'shift+k', 'k', 'mod+c', 7]) {
+      expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { pinShortcut } })).toThrow();
+    }
   });
 
   it('accepts known app icons in settings updates', () => {

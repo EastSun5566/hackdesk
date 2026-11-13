@@ -34,7 +34,7 @@ Quick Hack's global **Ctrl+Alt+H** is fixed. Its row shows whether registration 
 
 ## Keep Quick Hack open
 
-In **Settings → General → Quick Hack**, turn on **Keep open after capture** to start each Quick Hack pinned, so the popup stays open for the next idea. The pin in the popup overrides it until the popup closes. See [Quick Hack](./quick-hack.md#keep-the-popup-open).
+In **Settings → General → Quick Hack**, turn on **Keep open after capture** to start each Quick Hack pinned, so the popup stays open for the next idea. The pin in the popup overrides it until the popup closes. Its shortcut, **Pin Quick Hack**, is in **Settings → Shortcuts → Quick Hack**. See [Quick Hack](./quick-hack.md#keep-the-popup-open).
 
 ## Manage HackMD and Local Vault
 

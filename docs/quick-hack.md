@@ -35,7 +35,7 @@ The popup highlights Markdown with the note editor's colours and keeps the sourc
 
 ## Keep the popup open
 
-Choose the pin at the bottom left of the popup, or press **Cmd+Shift+P** / **Ctrl+Shift+P**, to keep the popup open after each capture. A pinned capture clears the text and shows **Captured**, ready for the next idea.
+Choose the pin at the bottom left of the popup, or press **Cmd+Shift+P** / **Ctrl+Shift+P**, to keep the popup open after each capture. To use other keys, record them for **Pin Quick Hack** in **Settings → Shortcuts → Quick Hack**; press Backspace while recording to turn the shortcut off. A pinned capture clears the text and shows **Captured**, ready for the next idea.
 
 The pin lasts until the popup closes. To start every Quick Hack pinned, turn on **Settings → General → Quick Hack → Keep open after capture**; unpinning then lasts until the popup closes.
 
@@ -47,6 +47,6 @@ Escape closes the popup without submitting and preserves the input for reopening
 
 ## Check the global shortcut
 
-Open **Settings → Shortcuts** and find **Quick Hack**. **Global** means the shortcut registered; **Unavailable** means registration failed, for example because another app owns it.
+Open **Settings → Shortcuts** and find **Open or close Quick Hack**. **Global** means the shortcut registered; **Unavailable** means registration failed, for example because another app owns it.
 
 This shortcut is fixed. The tray menu's **Quick Hack** action (in the macOS menu bar) is another way to open the popup. Fully quitting HackDesk stops the global shortcut; closing the macOS main window can leave HackDesk running in the background.

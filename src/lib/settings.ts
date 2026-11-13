@@ -14,6 +14,7 @@ import { MAX_DICTATION_LOCALE_LENGTH } from '@/lib/dictation';
 import { ELECTRON_ACTIONS } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import { isValidCustomShortcutConfig } from '@/lib/keyboard-shortcuts';
+import { DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT, isValidQuickCapturePinShortcut } from '@/lib/quick-capture-shortcuts';
 import {
   DEFAULT_EDITOR_FONT_SIZE,
   DEFAULT_UI_FONT_SIZE,
@@ -176,10 +177,13 @@ export const defaultAiSettings: AiSettings = {
 export type QuickCaptureSettings = {
   /** Starts Quick Hack pinned: the popup stays open after a capture for the next one. */
   keepOpen: boolean;
+  /** Pins or unpins the open popup; `none` turns the shortcut off. */
+  pinShortcut: string;
 };
 
 export const defaultQuickCaptureSettings: QuickCaptureSettings = {
   keepOpen: false,
+  pinShortcut: DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT,
 };
 
 export const defaultOfflineSettings: OfflineSettings = {
@@ -751,8 +755,17 @@ const aiSettingsSchema = z.object({
 const offlineSettingsSchema = z.object({
   keepHackmdNotes: z.boolean().default(true),
 }).default(defaultOfflineSettings);
+export const quickCapturePinShortcutSchema = z.string().trim().toLowerCase().refine(isValidQuickCapturePinShortcut, {
+  message: 'Use a shortcut with Command, Control or Alt that Quick Hack does not already use.',
+});
 const quickCaptureSettingsSchema = z.object({
-  keepOpen: z.boolean().default(false),
+  keepOpen: z.boolean().default(defaultQuickCaptureSettings.keepOpen),
+  pinShortcut: quickCapturePinShortcutSchema.default(defaultQuickCaptureSettings.pinShortcut),
+}).default(defaultQuickCaptureSettings);
+// One unreadable field falls back alone, so a hand-edited shortcut does not also turn off Keep open.
+const storedQuickCaptureSettingsSchema = z.object({
+  keepOpen: quickCaptureSettingsSchema.unwrap().shape.keepOpen.catch(defaultQuickCaptureSettings.keepOpen),
+  pinShortcut: quickCaptureSettingsSchema.unwrap().shape.pinShortcut.catch(defaultQuickCaptureSettings.pinShortcut),
 }).default(defaultQuickCaptureSettings);
 const dictationSettingsSchema = z.object({
   enabled: z.boolean().default(false),
@@ -858,7 +871,7 @@ const storedSettingsSchema = z.object({
   ai: settingsSchema.shape.ai.catch(defaultSettings.ai),
   dictation: settingsSchema.shape.dictation.catch(defaultSettings.dictation),
   offline: settingsSchema.shape.offline.catch(defaultSettings.offline),
-  quickCapture: settingsSchema.shape.quickCapture.catch(defaultSettings.quickCapture),
+  quickCapture: storedQuickCaptureSettingsSchema.catch(defaultSettings.quickCapture),
   appIcon: settingsSchema.shape.appIcon,
 });
 
