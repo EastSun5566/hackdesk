@@ -17,6 +17,14 @@ Locally, run only what the change touches:
   Run `pnpm run build` first; specs launch the built app.
 - `pnpm run typecheck:app` (or the narrower `typecheck:*` for the area) and `pnpm run lint:ts`.
 
+Two cases need more than that:
+
+- A change to an app-wide flow (startup, workspace scope, tabs, settings) can break specs that look
+  unrelated, so passing a subset does not make it done. It is done when the whole suite passes, in CI
+  or locally (`pnpm run build`, then the Playwright command above without a spec, about seven minutes).
+- Refactoring a flow: land its characterization tests first, and show each one fails when the code it
+  pins is removed. Then the refactor is checked by tests known to catch a regression.
+
 ## See a rendering change in the running app
 
 `pnpm render:preview` (`scripts/render-preview.ts`) opens a note in a throwaway profile and writes
