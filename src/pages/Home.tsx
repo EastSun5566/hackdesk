@@ -9,6 +9,7 @@ import { KeyHintBar } from './electron-home/KeyHintBar';
 import { LeaderMenu } from './electron-home/LeaderMenu';
 import { DraftDestinationDialog } from './electron-home/DraftDestinationDialog';
 import { INITIAL_DRAFT_SCOPE_KEY } from './electron-home/initial-draft-workspace';
+import { createStartupState, createStartupStore, isOnDrafts } from './electron-home/workbench-startup';
 import { getLeaderLevel } from '@/lib/leader-keys';
 import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
 import { TemplatePickerDialog } from './electron-home/TemplatePickerDialog';
@@ -17,7 +18,7 @@ import { useAskNotes } from './electron-home/useAskNotes';
 import { AskNotesDialog } from './electron-home/AskNotesDialog';
 import { toRecentNote, type InPlaceTarget } from './electron-home/useNoteLinkOpener';
 import { toast } from '@/components/ui/toast';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type SetStateAction } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
@@ -106,12 +107,16 @@ export function Home() {
   const queryClient = useQueryClient();
   const rawApi = getDesktopAPI();
   const settingsQuery = useElectronSettings(rawApi);
-  const [initialDraftsPending, setInitialDraftsPending] = useState(() => Object.keys(readNoteWorkspaceLayoutStorage(window.localStorage, INITIAL_DRAFT_SCOPE_KEY).tabs).length > 0);
+  // Launch to workspace: drafts before setup, the first save, the initial workspace (workbench-startup).
+  const [startupStore] = useState(() => createStartupStore(createStartupState(
+    Object.keys(readNoteWorkspaceLayoutStorage(window.localStorage, INITIAL_DRAFT_SCOPE_KEY).tabs).length > 0,
+  )));
+  const startup = useSyncExternalStore(startupStore.subscribe, startupStore.getState);
   const settingsReady = settingsQuery.data !== undefined;
-  const setupMissing = settingsQuery.data !== undefined && !settingsQuery.data.hasHackmdApiToken && !settingsQuery.data.hasLocalVault;
-  const usingInitialDrafts = settingsReady && (initialDraftsPending || setupMissing);
-  if (setupMissing && !initialDraftsPending) setInitialDraftsPending(true);
-  const pendingInitialSave = useRef<string | null>(null);
+  const usingInitialDrafts = isOnDrafts(startup, settingsQuery.data && {
+    hasToken: settingsQuery.data.hasHackmdApiToken,
+    hasLocalVault: settingsQuery.data.hasLocalVault,
+  });
   const folderPickerAction = useRef<{ type: 'note'; note: NoteSummary } | { type: 'folder'; id: string } | { type: 'create'; title: string } | null>(null);
   const beforeVaultChange = useRef<() => void>(() => {});
   const folderPicker = useFolderPicker(rawApi);
@@ -120,7 +125,6 @@ export function Home() {
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
   const { recentNotes, removeRecentNoteEntry, trackRecentNote, syncLocalRecentNotes } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId);
   const selectionRefs = useElectronHomeSelectionRefs();
-  const initialWorkspaceResolvedRef = useRef(false);
   const panelState = useWorkbenchPanelState();
   const { store: overlayStore, overlays, controls: overlayControls, closeTopOverlay } = useWorkbenchOverlays();
   const { shortcutHelp } = overlays;
@@ -249,13 +253,13 @@ export function Home() {
       const next = nextScope.type === 'local' ? { ...nextScope, vaultId: nextScope.vaultId ?? vaultSession.vaultId ?? undefined } : nextScope;
       const targetKey = next.type === 'local' || configured?.hasHackmdApiToken ? getScopeStorageKey(next) : null;
       if (!targetKey) return;
-      transferInitialDrafts(targetKey, pendingInitialSave.current);
-      setInitialDraftsPending(false);
+      transferInitialDrafts(targetKey, startup.pendingSave);
+      startupStore.dispatch({ type: 'drafts_moved' });
     } else {
       flushWorkspace();
     }
     setWorkspaceScopeState(nextScope);
-  }, [flushWorkspace, transferInitialDrafts, queryClient, setWorkspaceScopeState, usingInitialDrafts, vaultSession.vaultId]);
+  }, [flushWorkspace, transferInitialDrafts, queryClient, setWorkspaceScopeState, startup.pendingSave, startupStore, usingInitialDrafts, vaultSession.vaultId]);
   const handleOnboardingConnected = useCallback(() => {
     setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
   }, [setWorkspaceScope]);
@@ -265,13 +269,6 @@ export function Home() {
   const getDialogReturnFocus = useCallback(() => (hasPendingFocus() ? false : document.querySelector<HTMLElement>(
     '[data-active-pane="true"] [data-hackdesk-focus="editor"] .cm-content[data-hackdesk-focus-target="true"]',
   )), [hasPendingFocus]);
-  const initialFocusGiven = useRef(false);
-  useEffect(() => {
-    if (usingInitialDrafts && activeTab && !initialFocusGiven.current) {
-      initialFocusGiven.current = true;
-      focusZone('editor');
-    }
-  }, [usingInitialDrafts, activeTab, focusZone]);
   const openKeyboardShortcuts = useCallback(() => {
     overlayControls.set('shortcutHelp', { region: focusedZone, target: getLastFocusedTarget() });
   }, [focusedZone, getLastFocusedTarget, overlayControls]);
@@ -400,59 +397,6 @@ export function Home() {
   }, [settings, setWorkspaceScope]);
 
   const { switchLocalVault, activateLocalWorkspace } = localVaultActions;
-  useEffect(() => {
-    if (settings === undefined || usingInitialDrafts || initialWorkspaceResolvedRef.current) {
-      return;
-    }
-
-    initialWorkspaceResolvedRef.current = true;
-    // A window opened onto an explicit workspace keeps it; the local preference is only for fresh boots.
-    if (settings.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal' && !hasWindowWorkspaceScope()) {
-      const activePath = getActiveLocalVaultPath(settings);
-      setWorkspaceScope({
-        type: 'local',
-        label: activePath ? localVaultFolderName(activePath) : 'Local Vault',
-        vaultId: settings.localVault.activeVaultId ?? undefined,
-      });
-    }
-    // A new window opened onto another vault or a named workspace activates it so the window shows
-    // what it was opened onto. Only a window URL names a stored vault or workspace id; the saved
-    // last scope holds a snapshot id, which never equals a stored one, so trusting it re-opened the
-    // folder (and left its workspace) on every launch.
-    const openedOnto = initialWorkspaceScope.type === 'local' && hasWindowWorkspaceScope()
-      ? initialWorkspaceScope.vaultId
-      : undefined;
-    if (settings.hasLocalVault && openedOnto
-      && settings.localVault.vaults.some((vault) => vault.id === openedOnto)
-      && openedOnto !== settings.localVault.activeVaultId && !vaultSession.isChanging) {
-      void switchLocalVault(openedOnto).catch((error) => {
-        toast.error(error instanceof Error ? error.message : 'Failed to open the vault in a new window.');
-      });
-    }
-    const openedWorkspaceId = initialWorkspaceScope.type === 'local' && hasWindowWorkspaceScope()
-      ? initialWorkspaceScope.workspaceId
-      : undefined;
-    if (settings.hasLocalVault && openedWorkspaceId
-      && settings.localVault.workspaces.some((workspace) => workspace.id === openedWorkspaceId)
-      && openedWorkspaceId !== settings.localVault.activeWorkspaceId && !vaultSession.isChanging) {
-      void activateLocalWorkspace(openedWorkspaceId).catch((error) => {
-        toast.error(error instanceof Error ? error.message : 'Failed to open the workspace in a new window.');
-      });
-    }
-  }, [activateLocalWorkspace, initialWorkspaceScope, scope.type, setWorkspaceScope, settings, switchLocalVault, usingInitialDrafts, vaultSession.isChanging]);
-
-  // Only the active vault's path names the scope, so other settings changes do not move drafts again.
-  const initialDraftsVaultPath = settings ? getActiveLocalVaultPath(settings) : null;
-  useEffect(() => {
-    if (!usingInitialDrafts || vaultSession.isChanging) return;
-    const activePath = initialDraftsVaultPath;
-    const target: WorkspaceScope | null = settings?.hasLocalVault
-      ? vaultSession.vaultId ? { type: 'local', label: activePath ? localVaultFolderName(activePath) : 'Local Vault', vaultId: vaultSession.vaultId } : null
-      : hasToken ? DEFAULT_WORKSPACE_SCOPE : null;
-    if (!target) return;
-    try { setWorkspaceScope(target); }
-    catch (error) { toast.error(error instanceof Error ? error.message : 'Failed to move drafts.'); }
-  }, [usingInitialDrafts, settings?.hasLocalVault, initialDraftsVaultPath, hasToken, vaultSession.vaultId, vaultSession.isChanging, setWorkspaceScope]);
 
   const {
     displayScope,
@@ -593,22 +537,72 @@ export function Home() {
         toast.error('HackDesk could not back up this draft. Your text is still here.');
         return;
       }
-      pendingInitialSave.current = tab.tabId;
+      startupStore.dispatch({ type: 'save_requested', tabId: tab.tabId });
       overlayControls.set('destination', true);
     } else {
       mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input });
     }
-  }, [flushWorkspace, mutations.createDraftNoteMutation, overlayControls, usingInitialDrafts]);
+  }, [flushWorkspace, mutations.createDraftNoteMutation, overlayControls, startupStore, usingInitialDrafts]);
+  // Runs the startup plan whenever what it reads changes, drafts mode included; the store records
+  // each step as it is taken, so a step never runs twice.
+  const hasActiveTab = Boolean(activeTab);
+  const liveScopeKey = noteWorkspace.state.scopeKey;
+  const { getWorkspaceSnapshot } = noteWorkspace;
   useEffect(() => {
-    const tabId = pendingInitialSave.current;
-    if (usingInitialDrafts || !tabId || !scopeStorageKey || noteWorkspace.state.scopeKey !== scopeStorageKey) return;
-    pendingInitialSave.current = null;
-    const tab = noteWorkspace.state.tabs[tabId];
-    if (!isDraftNoteTab(tab)) return;
-    const draft = noteWorkspace.state.drafts[tabId];
-    mutations.createDraftNoteMutation.mutate({ tabId, input: { title: draft?.title ?? tab.title, content: draft?.content ?? '' } });
-    requestEditorFocus();
-  }, [usingInitialDrafts, scopeStorageKey, noteWorkspace.state, mutations.createDraftNoteMutation, requestEditorFocus]);
+    const activeVaultPath = settings ? getActiveLocalVaultPath(settings) : null;
+    const commands = startupStore.advance({
+      settings: settings && {
+        hasToken: settings.hasHackmdApiToken,
+        hasLocalVault: settings.hasLocalVault,
+        activeVaultId: settings.localVault.activeVaultId ?? null,
+        activeVaultLabel: activeVaultPath ? localVaultFolderName(activeVaultPath) : 'Local Vault',
+        vaultIds: settings.localVault.vaults.map((vault) => vault.id),
+        workspaceIds: settings.localVault.workspaces.map((workspace) => workspace.id),
+        activeWorkspaceId: settings.localVault.activeWorkspaceId ?? null,
+      },
+      vault: { id: vaultSession.vaultId, changing: vaultSession.isChanging },
+      scopeType: scope.type,
+      initialScope: initialWorkspaceScope,
+      openedOntoScope: hasWindowWorkspaceScope(),
+      liveScopeKey,
+      scopeKey: scopeStorageKey,
+      hasActiveTab,
+    });
+    for (const command of commands) {
+      switch (command.type) {
+        case 'focus_editor':
+          focusZone('editor');
+          break;
+        case 'move_drafts':
+          try { setWorkspaceScope(command.to); }
+          catch (error) { toast.error(error instanceof Error ? error.message : 'Failed to move drafts.'); }
+          break;
+        case 'open_scope':
+          setWorkspaceScope(command.scope);
+          break;
+        case 'switch_vault':
+          void switchLocalVault(command.vaultId).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open the vault in a new window.');
+          });
+          break;
+        case 'activate_workspace':
+          void activateLocalWorkspace(command.workspaceId).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open the workspace in a new window.');
+          });
+          break;
+        case 'save_draft': {
+          // The plan only saves once the shown workspace's tabs are live, so they are these.
+          const workspace = scopeStorageKey ? getWorkspaceSnapshot(scopeStorageKey) : null;
+          const tab = workspace?.tabs[command.tabId];
+          if (!isDraftNoteTab(tab)) break;
+          const draft = workspace?.drafts[command.tabId];
+          mutations.createDraftNoteMutation.mutate({ tabId: command.tabId, input: { title: draft?.title ?? tab.title, content: draft?.content ?? '' } });
+          requestEditorFocus();
+          break;
+        }
+      }
+    }
+  }, [activateLocalWorkspace, focusZone, getWorkspaceSnapshot, hasActiveTab, initialWorkspaceScope, liveScopeKey, mutations.createDraftNoteMutation, requestEditorFocus, scope.type, scopeStorageKey, setWorkspaceScope, settings, startupStore, switchLocalVault, usingInitialDrafts, vaultSession.isChanging, vaultSession.vaultId]);
   const localDocumentRecovery = useLocalDocumentRecovery({
     api,
     clearDraft: noteWorkspace.clearDraft,
@@ -1338,11 +1332,11 @@ export function Home() {
         const activePath = getActiveLocalVaultPath(settings);
         setWorkspaceScope({ type: 'local', label: activePath ? localVaultFolderName(activePath) : 'Local Vault', vaultId: vaultSession.vaultId });
       } else if (!await localVaultActions.chooseLocalVault()) {
-        pendingInitialSave.current = null;
+        startupStore.dispatch({ type: 'save_cancelled' });
         requestEditorFocus();
       }
     } catch (error) {
-      pendingInitialSave.current = null;
+      startupStore.dispatch({ type: 'save_cancelled' });
       toast.error(error instanceof Error ? error.message : 'Failed to move drafts.');
       requestEditorFocus();
     }
@@ -1400,10 +1394,10 @@ export function Home() {
 
           <DraftDestinationDialog
             open={overlays.destination}
-            onCloseComplete={() => { if (!pendingInitialSave.current) requestEditorFocus(); }}
+            onCloseComplete={() => { if (!startupStore.getState().pendingSave) requestEditorFocus(); }}
             onOpenChange={open => {
               overlayControls.set('destination', open);
-              if (!open) { pendingInitialSave.current = null; requestEditorFocus(); }
+              if (!open) { startupStore.dispatch({ type: 'save_cancelled' }); requestEditorFocus(); }
             }}
             onChoose={destination => { void chooseDraftDestination(destination); }}
           />
@@ -1413,7 +1407,7 @@ export function Home() {
               overlayControls.set('onboarding', open);
               const configured = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
               if (!open && !configured?.hasHackmdApiToken && !configured?.hasLocalVault) {
-                pendingInitialSave.current = null;
+                startupStore.dispatch({ type: 'save_cancelled' });
                 requestEditorFocus();
               }
             },
