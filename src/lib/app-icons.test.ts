@@ -30,9 +30,9 @@ describe('app icon catalog', () => {
     expect(new Set(APP_ICON_OPTIONS.map((option) => option.group))).toEqual(new Set(['classic', 'single', 'fun', 'secret']));
   });
 
-  it('keeps Building Blocks, Gold, Sushi, and Pancake behind the secret unlock', () => {
+  it('keeps Building Blocks, Gold, Sushi, Pancake, and Mooncake behind the secret unlock', () => {
     const secret = APP_ICON_OPTIONS.filter((option) => option.group === 'secret').map((option) => option.id);
-    expect(secret).toEqual(['blocks', 'gold', 'sushi', 'pancake']);
+    expect(secret).toEqual(['blocks', 'gold', 'sushi', 'pancake', 'mooncake']);
   });
 
   it('fills the mark\'s open top faces beneath the mark for gunkan-style icons', () => {
@@ -74,6 +74,16 @@ describe('app icon catalog', () => {
         expect(Math.abs(x2 - x1) * 4).toBeGreaterThanOrEqual(Math.abs(y2 - y1));
       }
     }
+  });
+
+  it('presses the Mooncake pattern into both top faces under a full moon', () => {
+    const svg = renderAppIconSvg('mooncake');
+    const mark = svg.indexOf('fill="url(#mark-fill)"');
+    const reliefs = [...svg.matchAll(/<g transform="matrix\(/g)];
+    expect(reliefs).toHaveLength(2);
+    expect(reliefs[1].index).toBeLessThan(mark);
+    expect(svg.match(/stroke="#F0B868"/g)).toHaveLength(2);
+    expect(svg).toContain('fill="url(#moon-halo)"');
   });
 
   it('draws the Pixel icons as shaded pixel art on a dithered screen', () => {
