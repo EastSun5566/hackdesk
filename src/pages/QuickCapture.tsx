@@ -8,7 +8,10 @@ import { cn } from '@/lib/utils';
 import type { QuickCaptureEditorHandle } from './quick-capture/QuickCaptureEditor';
 
 // CodeMirror loads with the popup, not with the main window's first paint.
-const QuickCaptureEditor = lazy(() => import('./quick-capture/QuickCaptureEditor'));
+const QuickCaptureEditor = lazy(async () => {
+  const module = await import('./quick-capture/QuickCaptureEditor');
+  return { default: module.QuickCaptureEditor };
+});
 
 const CAPTURED_STATUS_MS = 1600;
 

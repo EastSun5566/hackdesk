@@ -96,5 +96,3 @@ export const QuickCaptureEditor = forwardRef<QuickCaptureEditorHandle, QuickCapt
 
   return <div ref={parentRef} className="min-h-0 flex-1 overflow-hidden" />;
 });
-
-export default QuickCaptureEditor;
