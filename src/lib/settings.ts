@@ -463,6 +463,11 @@ function localWorkspaceEntries(localVault: Partial<LocalVaultSettings> | undefin
   return Array.isArray(workspaces) ? workspaces : [];
 }
 
+/** The stored folders, tolerating an older main process that does not send them. */
+export function getLocalVaults(settings: LocalVaultLike): LocalVaultEntry[] {
+  return localVaultVaults(settings);
+}
+
 /** The named working sets, tolerating an older main process that does not send them. */
 export function getLocalWorkspaces(settings: LocalVaultLike): LocalWorkspaceEntry[] {
   return localWorkspaceEntries(settings?.localVault);
