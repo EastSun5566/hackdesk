@@ -108,6 +108,9 @@ export function Home() {
   const rawApi = getDesktopAPI();
   const settingsQuery = useElectronSettings(rawApi);
   // Launch to workspace: drafts before setup, the first save, the initial workspace (workbench-startup).
+  // The steps live in a store that records them as they are taken, not in useReducer alone: a
+  // command's own update can render first (TanStack Query's mutation state renders synchronously),
+  // running the driver again before a dispatched step reaches React, which would repeat the step.
   const [startupStore] = useState(() => createStartupStore(createStartupState(
     Object.keys(readNoteWorkspaceLayoutStorage(window.localStorage, INITIAL_DRAFT_SCOPE_KEY).tabs).length > 0,
   )));

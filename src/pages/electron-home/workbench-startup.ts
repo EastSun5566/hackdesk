@@ -166,8 +166,10 @@ export type StartupStore = {
   dispatch: (event: StartupEvent) => void;
   /**
    * Plans from the current state, records the plan's events at once and returns its commands.
-   * Recording before the commands run means a second call (React runs a new effect twice in
-   * development) finds the steps already taken and repeats none of them.
+   * Recording before the commands run means a second call finds the steps already taken and
+   * repeats none of them: the driver can run again before React has rendered a step, when a
+   * command's own update renders first (TanStack Query's mutation state renders synchronously) or
+   * when React runs a new effect twice in development.
    */
   advance: (world: StartupWorld) => StartupCommand[];
 };
