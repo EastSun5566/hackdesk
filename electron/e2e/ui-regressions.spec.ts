@@ -1060,9 +1060,13 @@ test('with translucency on, the pinned workspace row stays clear and masks out t
 
     // Scrolled, the pinned row paints nothing (the material shows through it, as around it) and the
     // rows are cut exactly at its bottom edge; no opaque fade is drawn over them either.
-    for (const top of [20, 60]) {
-      await scroller.evaluate((element, offset) => element.scrollTo({ top: offset }), top);
-      await expect.poll(async () => (await measure()).edge).toBeGreaterThan(top - 10);
+    // The end of the list too: the cut must keep tracking 1:1 far from the range's start.
+    for (const top of [20, 60, Number.MAX_SAFE_INTEGER]) {
+      const scrolled = await scroller.evaluate((element, offset) => {
+        element.scrollTo({ top: offset });
+        return element.scrollTop;
+      }, top);
+      await expect.poll(async () => (await measure()).edge).toBeGreaterThan(scrolled - 10);
       // The timeline catches up on the next frame.
       await expect.poll(async () => {
         const { cut, edge } = await measure();
