@@ -28,6 +28,7 @@
   "ignoreBinaries": [
     "iconutil",
     "lipo",
+    "osascript",
     "xcrun"
   ]
 }
