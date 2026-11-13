@@ -207,6 +207,45 @@ export function displayShortcut(shortcut: ParsedShortcut, platform: ShortcutPlat
   return isMac ? parts.join('') : parts.join('+');
 }
 
+const CODEMIRROR_KEY_NAMES: Record<string, string> = {
+  arrowdown: 'ArrowDown',
+  arrowleft: 'ArrowLeft',
+  arrowright: 'ArrowRight',
+  arrowup: 'ArrowUp',
+  backspace: 'Backspace',
+  comma: ',',
+  delete: 'Delete',
+  end: 'End',
+  enter: 'Enter',
+  escape: 'Escape',
+  home: 'Home',
+  minus: '-',
+  pagedown: 'PageDown',
+  pageup: 'PageUp',
+  plus: '+',
+  space: 'Space',
+  tab: 'Tab',
+};
+
+/** CodeMirror key names (`Ctrl-Shift-f`) for a shortcut config, so editor keymaps follow the user's shortcuts. */
+export function toCodeMirrorKeys(config: string | undefined, platform: ShortcutPlatform): string[] {
+  return parseShortcutConfig(config ?? '', platform).flatMap((shortcut) => {
+    const key = CODEMIRROR_KEY_NAMES[shortcut.key]
+      ?? (shortcut.key.length === 1 ? shortcut.key : /^f\d{1,2}$/.test(shortcut.key) ? shortcut.key.toUpperCase() : null);
+    if (!key) {
+      return [];
+    }
+
+    const modifiers = [
+      shortcut.alt && 'Alt',
+      shortcut.ctrl && 'Ctrl',
+      shortcut.meta && 'Meta',
+      shortcut.shift && 'Shift',
+    ].filter(Boolean);
+    return [[...modifiers, key].join('-')];
+  });
+}
+
 export function toMenuAccelerator(config: string | undefined, platform: ShortcutPlatform) {
   const shortcut = parseShortcutConfig(config ?? '', platform)[0];
   if (!shortcut) {

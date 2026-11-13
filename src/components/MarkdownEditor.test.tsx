@@ -8,6 +8,7 @@ import { revealInitialSelection } from './hackmd-live-preview/hfm-decoration-ran
 import { hfmFixtures } from './hackmd-live-preview/hfm-fixtures';
 import { formatMarkdownImage } from './hackmd-live-preview/markdown-image';
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
+import { ActionShortcutContext } from '@/pages/electron-home/ActionShortcutContext';
 import { ThemeProvider, useTheme } from './theme-provider';
 
 function ThemedEditorHarness({ editorRef }: { editorRef: RefObject<MarkdownEditorHandle> }) {
@@ -544,6 +545,99 @@ describe('MarkdownEditor', () => {
     fireEvent.keyDown(content as Element, { key: 'Escape', code: 'Escape' });
     await waitFor(() => expect(statusPanel).toHaveTextContent('SEL'));
     expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-kakoune-mode', 'select');
+  });
+
+  it('scrolls Kakoune selections by half and full pages ahead of the bundled keymaps', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const value = Array.from({ length: 80 }, (_, index) => `line ${index + 1}`).join('\n');
+
+    render(<MarkdownEditor ref={ref} editorMode="kakoune" value={value} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content') as Element;
+    await waitFor(() => expect(editor.querySelector('.cm-kakoune-status-panel')).toHaveTextContent('SEL'));
+    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor') as HTMLElement)!;
+    const headLine = () => view.state.doc.lineAt(view.state.selection.main.head).number;
+    const press = (init: KeyboardEventInit) => fireEvent.keyDown(content, init);
+
+    act(() => ref.current?.focus());
+    // jsdom has no layout, so a page falls back to 20 lines: 18 per page, 9 per half page.
+    act(() => { view.dispatch({ selection: { anchor: 0, head: 3 } }); });
+
+    press({ key: 'd', code: 'KeyD', ctrlKey: true });
+    expect(headLine()).toBe(10);
+    // Both ends move, so the selection keeps its shape like Kakoune's own scroll.
+    expect(view.state.selection.main.head - view.state.selection.main.anchor).toBe(3);
+
+    press({ key: 'u', code: 'KeyU', ctrlKey: true });
+    expect(headLine()).toBe(1);
+
+    press({ key: 'PageDown', code: 'PageDown' });
+    expect(headLine()).toBe(19);
+
+    press({ key: 'b', code: 'KeyB', ctrlKey: true });
+    expect(headLine()).toBe(1);
+
+    // Counts still reach Kakoune's processor: 2<c-d> scrolls two half pages, then j moves one line.
+    press({ key: '2', code: 'Digit2' });
+    press({ key: 'd', code: 'KeyD', ctrlKey: true });
+    expect(headLine()).toBe(19);
+    press({ key: 'j', code: 'KeyJ' });
+    expect(headLine()).toBe(20);
+
+    expect(ref.current?.getMarkdown()).toBe(value);
+    expect(view.state.selection.ranges).toHaveLength(1);
+  });
+
+  it('keeps Mod-f as HackDesk search and leaves scroll chords to insert mode in Kakoune', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const value = Array.from({ length: 80 }, (_, index) => `line ${index + 1}`).join('\n');
+
+    render(<MarkdownEditor ref={ref} editorMode="kakoune" value={value} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content') as Element;
+    const statusPanel = await waitFor(() => {
+      const panel = editor.querySelector<HTMLElement>('.cm-kakoune-status-panel');
+      expect(panel).toHaveTextContent('SEL');
+      return panel as HTMLElement;
+    });
+    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor') as HTMLElement)!;
+
+    act(() => ref.current?.focus());
+    fireEvent.keyDown(content, { key: 'i', code: 'KeyI' });
+    await waitFor(() => expect(statusPanel).toHaveTextContent('INS'));
+    act(() => { view.dispatch({ selection: { anchor: 0 } }); });
+    fireEvent.keyDown(content, { key: 'u', code: 'KeyU', ctrlKey: true });
+    expect(view.state.selection.main.head).toBe(0);
+
+    fireEvent.keyDown(content, { key: 'Escape', code: 'Escape' });
+    await waitFor(() => expect(statusPanel).toHaveTextContent('SEL'));
+    // jsdom is not macOS, so Mod-f is Ctrl-f: the app-wide search reservation wins over <c-f>.
+    fireEvent.keyDown(content, { key: 'f', code: 'KeyF', ctrlKey: true });
+    await waitFor(() => expect(editor.querySelector('.cm-hackdesk-search-panel')).not.toBeNull());
+  });
+
+  it('frees Ctrl-f for Kakoune once Find in Note is given another shortcut', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const value = Array.from({ length: 80 }, (_, index) => `line ${index + 1}`).join('\n');
+    const shortcutContext = { shortcuts: { 'find-in-note': 'mod+shift+f' }, platform: 'linux', characterShortcutsEnabled: true };
+
+    render(
+      <ActionShortcutContext.Provider value={shortcutContext}>
+        <MarkdownEditor ref={ref} editorMode="kakoune" value={value} onChange={vi.fn()} />
+      </ActionShortcutContext.Provider>,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content') as Element;
+    await waitFor(() => expect(editor.querySelector('.cm-kakoune-status-panel')).toHaveTextContent('SEL'));
+    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor') as HTMLElement)!;
+
+    act(() => ref.current?.focus());
+    fireEvent.keyDown(content, { key: 'f', code: 'KeyF', ctrlKey: true });
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(19);
+    expect(editor.querySelector('.cm-hackdesk-search-panel')).toBeNull();
+
+    fireEvent.keyDown(content, { key: 'F', code: 'KeyF', keyCode: 70, ctrlKey: true, shiftKey: true });
+    await waitFor(() => expect(editor.querySelector('.cm-hackdesk-search-panel')).not.toBeNull());
   });
 
   it('ignores native menu shortcuts only while a non-macOS Emacs editor is focused', async () => {

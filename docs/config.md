@@ -24,6 +24,8 @@ In **Settings → Editor**, choose Standard, Vim, Helix, Emacs, or experimental 
 
 Under **New tab opens**, choose **Empty page** or **Duplicate current note**. This preference takes effect immediately.
 
+On Windows and Linux, **Find in Note** keeps **Ctrl+F** in every mode except Emacs. To use Ctrl+F to scroll a page in Vim or Kakoune, give Find in Note another shortcut, or none, in **Settings → Shortcuts**.
+
 Editor modes control text editing. [Workbench navigation](./keyboard-navigation.md) uses separate commands.
 
 ## Change shortcuts

@@ -192,7 +192,7 @@ overrides:
   electron-updater>js-yaml: 4.3.2
 
 patchedDependencies:
-  codemirror-kakoune@0.5.0: 98668c65b678bdeffdd74a7734dec31fd41c647289955ffddf809b1e45723e8d
+  codemirror-kakoune@0.5.0: 93c125df156653564381c85fed9722feae36f75a284a65294698e7e380820721
   kakoune-core-js@0.5.0: 919f8932fcddc725206ad363bef7e77e4c2c30b553e96b842739098b288a6523
 
 importers:
@@ -264,7 +264,7 @@ importers:
         version: 0.6.1(@codemirror/commands@6.10.3)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)
       codemirror-kakoune:
         specifier: 0.5.0
-        version: 0.5.0(patch_hash=98668c65b678bdeffdd74a7734dec31fd41c647289955ffddf809b1e45723e8d)
+        version: 0.5.0(patch_hash=93c125df156653564381c85fed9722feae36f75a284a65294698e7e380820721)
       dompurify:
         specifier: ^3.4.17
         version: 3.4.17
@@ -6951,7 +6951,7 @@ snapshots:
       '@codemirror/state': 6.6.0
       '@codemirror/view': 6.43.1
 
-  codemirror-kakoune@0.5.0(patch_hash=98668c65b678bdeffdd74a7734dec31fd41c647289955ffddf809b1e45723e8d):
+  codemirror-kakoune@0.5.0(patch_hash=93c125df156653564381c85fed9722feae36f75a284a65294698e7e380820721):
     dependencies:
       '@codemirror/commands': 6.10.3
       '@codemirror/search': 6.7.1

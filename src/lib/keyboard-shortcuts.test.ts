@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getResolvedActionShortcut, resolveWorkbenchShortcut } from './electron-actions';
-import { getShortcutConflicts, isValidCustomShortcutConfig, matchShortcutConfig } from './keyboard-shortcuts';
+import { getShortcutConflicts, isValidCustomShortcutConfig, matchShortcutConfig, toCodeMirrorKeys } from './keyboard-shortcuts';
 
 describe('resolved workbench shortcuts', () => {
   it('matches produced punctuation independently of Shift, without allowing modifiers', () => {
@@ -24,5 +24,20 @@ describe('resolved workbench shortcuts', () => {
   });
   it('detects conflicts with default tab aliases', () => {
     expect(getShortcutConflicts('show-keyboard-shortcuts', 'ctrl+tab', { 'focus-next-tab': 'mod+alt+arrowright,ctrl+tab' }, { 'focus-next-tab': 'Next Tab' }, 'darwin')).toEqual(['Next Tab']);
+  });
+});
+
+describe('toCodeMirrorKeys', () => {
+  it('resolves mod per platform and keeps every combo of a config', () => {
+    expect(toCodeMirrorKeys('mod+f', 'linux')).toEqual(['Ctrl-f']);
+    expect(toCodeMirrorKeys('mod+f', 'MacIntel')).toEqual(['Meta-f']);
+    expect(toCodeMirrorKeys('mod+shift+f,f3', 'win32')).toEqual(['Ctrl-Shift-f', 'F3']);
+    expect(toCodeMirrorKeys('ctrl+alt+arrowdown', 'linux')).toEqual(['Alt-Ctrl-ArrowDown']);
+    expect(toCodeMirrorKeys('mod+comma', 'darwin')).toEqual(['Meta-,']);
+  });
+
+  it('returns no keys for a cleared or missing shortcut', () => {
+    expect(toCodeMirrorKeys('none', 'linux')).toEqual([]);
+    expect(toCodeMirrorKeys(undefined, 'linux')).toEqual([]);
   });
 });
