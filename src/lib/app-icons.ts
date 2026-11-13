@@ -42,6 +42,15 @@ type MarkLayer = {
   toppings?: { color: string; shade?: string; shine?: string; dots: [number, number, number][] };
   /** Seedlings standing on the mark, in its coordinates: [x, y of the soil, height]. */
   sprouts?: { stem: string; leaf: string; leafShade: string; at: [number, number, number][] };
+  /**
+   * Small boxes resting on the top faces, like a pat of butter, drawn in the
+   * faces' own perspective: [x, y of the base centre, edge, height].
+   */
+  pats?: { top: string; left: string; right: string; at: [number, number, number, number][] };
+  /** Lines across the side walls, following the mark's bottom edges `at` these heights above them: the layers of a stack. */
+  seams?: { color: string; width: number; at: number[] };
+  /** Runs of something thick poured over the edge, in the mark's coordinates: [x, y where it starts, length, width]. */
+  drips?: { color: string; shine?: string; at: [number, number, number, number][] };
   glow?: string;
   opacity?: number;
 };
@@ -391,6 +400,19 @@ const DESIGNS = {
     },
     decorations: ['bento'],
   },
+  pancake: {
+    // A short stack at a diner: golden cakes, maple syrup running over the edge, and a pat of butter.
+    background: { stops: ['#CFE8FA', '#86BDE8'], from: [0.5, 0], to: [0.5, 1] },
+    mark: {
+      shape: 'double',
+      fill: { stops: ['#F8D592', '#E6A955', '#C27A33'], from: [0.2, 0], to: [0.8, 1] },
+      innerFill: '#B9590F',
+      dusting: { color: '#D98634', shade: '#8E3E07' },
+      seams: { color: '#A85E24', width: 1.5, at: [5.5, 11] },
+      drips: { color: '#B9590F', shine: '#E39448', at: [[14, 25.2, 15, 4], [44, 59.4, 15, 4.2], [70, 62.7, 19, 4.4], [84, 55, 11, 3.8]] },
+      pats: { top: '#FFF4B8', left: '#F5D766', right: '#E2BC45', at: [[38, 20.5, 10, 4.5], [64, 53.5, 10, 4.5]] },
+    },
+  },
   gold: {
     background: { stops: ['#1A1A1A', '#000000'], from: [0.5, 0], to: [0.5, 1] },
     mark: { shape: 'double', fill: { stops: ['#FFF1B8', '#E2B13C', '#9A6B12'], from: [0.2, 0], to: [0.8, 1] }, glow: '#E2B13C' },
@@ -440,6 +462,7 @@ export const APP_ICON_OPTIONS: readonly AppIconOption[] = [
   { id: 'blocks', label: 'Building Blocks', group: 'secret' },
   { id: 'gold', label: 'Gold', group: 'secret' },
   { id: 'sushi', label: 'Sushi', group: 'secret' },
+  { id: 'pancake', label: 'Pancake', group: 'secret' },
 ];
 
 export const APP_ICON_IDS = APP_ICON_OPTIONS.map((option) => option.id) as [AppIconId, ...AppIconId[]];
@@ -748,6 +771,78 @@ function renderPixelMark(
   return `<g shape-rendering="crispEdges">${layers.join('')}</g>`;
 }
 
+/** The top faces' two edge directions on screen, toward the back and the front corner, as unit vectors. */
+const FACE_AXES = (() => {
+  const [left, top, , bottom] = DOUBLE_FACES[0];
+  const unit = ([x, y]: Point): Point => [x / Math.hypot(x, y), y / Math.hypot(x, y)];
+  return { back: unit([top[0] - left[0], top[1] - left[1]]), front: unit([bottom[0] - left[0], bottom[1] - left[1]]) };
+})();
+
+/** Boxes on the faces: the two front sides and the lid, softened at the corners. Far ones first. */
+function renderPats({ top, left, right, at }: NonNullable<MarkLayer['pats']>) {
+  return [...at].sort(([, a], [, b]) => a - b).map(([x, y, edge, height]) => {
+    const corner = (back: number, front: number, lift = 0): Point => [
+      x + (FACE_AXES.back[0] * back + FACE_AXES.front[0] * front) * edge / 2,
+      y + (FACE_AXES.back[1] * back + FACE_AXES.front[1] * front) * edge / 2 - lift,
+    ];
+    const face = (points: Point[], fill: string) =>
+      `<path d="M${points.map(([px, py]) => `${round(px)} ${round(py)}`).join('L')}Z" fill="${fill}" stroke="${fill}" stroke-width="${round(edge * 0.14)}" stroke-linejoin="round"/>`;
+    return face([corner(-1, -1), corner(-1, 1), corner(-1, 1, height), corner(-1, -1, height)], left)
+      + face([corner(-1, 1), corner(1, 1), corner(1, 1, height), corner(-1, 1, height)], right)
+      + face([corner(-1, -1, height), corner(1, -1, height), corner(1, 1, height), corner(-1, 1, height)], top);
+  }).join('');
+}
+
+/** Runs of the outline whose body lies above them: the bottom edges of the side walls, left to right. */
+function bottomEdges(path: string): Point[][] {
+  const [outline] = flattenPath(path);
+  const runs: Point[][] = [];
+  let run: Point[] = [];
+  outline.forEach((point, index) => {
+    const next = outline[(index + 1) % outline.length];
+    const [mx, my] = [(point[0] + next[0]) / 2, (point[1] + next[1]) / 2];
+    // Steep runs are the walls' vertical edges, not their bottoms.
+    const facesDown = Math.abs(next[0] - point[0]) > Math.abs(next[1] - point[1]) * 0.25
+      && insidePolygon([mx, my - 0.5], outline) && !insidePolygon([mx, my + 0.5], outline);
+    if (facesDown) {
+      run.push(...(run.length ? [next] : [point, next]));
+    } else if (run.length) {
+      runs.push(run);
+      run = [];
+    }
+  });
+  if (run.length) runs.push(run);
+  return runs;
+}
+
+/**
+ * The mark's bottom edges raised by each height, so they cross the side walls
+ * like the layers of a stack. Clipped to the body to trim the line ends.
+ */
+function renderSeams({ color, width, at }: NonNullable<MarkLayer['seams']>, path: string, defs: string[]) {
+  const edges = bottomEdges(path);
+  defs.push(`<clipPath id="mark-body"><path d="${path}" fill-rule="evenodd"/></clipPath>`);
+  const d = at.flatMap((height) => edges.map((edge) => `M${edge.map(([x, y]) => `${round(x)} ${round(y - height)}`).join('L')}`)).join('');
+  return `<path d="${d}" clip-path="url(#mark-body)" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+/** A run that starts wide where it spills over, narrows, and hangs a bead at its foot; a thin highlight runs down it. */
+function renderDrips({ color, shine, at }: NonNullable<MarkLayer['drips']>) {
+  return at.map(([x, y, length, width]) => {
+    const spill = width * 0.75;
+    const neck = width * 0.34;
+    const bead = width * 0.5;
+    const foot = y + length;
+    const d = `M${round(x - spill)} ${y}C${round(x - spill)} ${round(y + length * 0.35)} ${round(x - neck)} ${round(y + length * 0.4)} ${round(x - neck)} ${round(foot - bead)}`
+      + `A${round(bead)} ${round(bead)} 0 1 0 ${round(x + neck)} ${round(foot - bead)}`
+      + `C${round(x + neck)} ${round(y + length * 0.4)} ${round(x + spill)} ${round(y + length * 0.35)} ${round(x + spill)} ${y}Z`;
+    const highlight = shine
+      ? `<path d="M${round(x - neck * 0.3)} ${round(y + length * 0.35)}V${round(foot - bead * 0.6)}" stroke="${shine}" stroke-width="${round(width * 0.18)}" stroke-linecap="round"/>`
+      : '';
+    return `<path d="${d}" fill="${color}"/>${highlight}`;
+  }).join('');
+}
+
 /** A curved stem with two pointed leaves; drawn back to front so nearer plants overlap. */
 function renderSprouts({ stem, leaf, leafShade, at }: NonNullable<MarkLayer['sprouts']>) {
   return [...at].sort(([, a], [, b]) => a - b).map(([x, y, height]) => {
@@ -832,7 +927,10 @@ function renderMark(mark: MarkLayer, plate: { x: number; size: number }, defs: s
       }).join('')
       : '';
     const sprouts = mark.sprouts ? renderSprouts(mark.sprouts) : '';
-    body = `${inner}${dusting}<path d="${source.path}" fill-rule="evenodd" fill="${fill.ref}"${opacity}${strokeAttrs}/>${toppings}${sprouts}`;
+    const seams = mark.seams ? renderSeams(mark.seams, source.path, defs) : '';
+    const drips = mark.drips ? renderDrips(mark.drips) : '';
+    const pats = mark.pats ? renderPats(mark.pats) : '';
+    body = `${inner}${dusting}<path d="${source.path}" fill-rule="evenodd" fill="${fill.ref}"${opacity}${strokeAttrs}/>${seams}${toppings}${sprouts}${drips}${pats}`;
   }
 
   const group = `<g transform="translate(${tx} ${ty}) scale(${round(scale)})">${body}</g>`;

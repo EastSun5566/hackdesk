@@ -30,9 +30,9 @@ describe('app icon catalog', () => {
     expect(new Set(APP_ICON_OPTIONS.map((option) => option.group))).toEqual(new Set(['classic', 'single', 'fun', 'secret']));
   });
 
-  it('keeps Gold, Building Blocks, and Sushi behind the secret unlock', () => {
+  it('keeps Building Blocks, Gold, Sushi, and Pancake behind the secret unlock', () => {
     const secret = APP_ICON_OPTIONS.filter((option) => option.group === 'secret').map((option) => option.id);
-    expect(secret).toEqual(['blocks', 'gold', 'sushi']);
+    expect(secret).toEqual(['blocks', 'gold', 'sushi', 'pancake']);
   });
 
   it('fills the mark\'s open top faces beneath the mark for gunkan-style icons', () => {
@@ -42,6 +42,38 @@ describe('app icon catalog', () => {
     expect(rice).toBeGreaterThan(-1);
     expect(rice).toBeLessThan(nori);
     expect(svg.match(/fill="#FF6A2B"/g)?.length).toBeGreaterThan(10);
+  });
+
+  it('draws the Pancake stack with layer seams, syrup drips, and butter over the mark', () => {
+    const svg = renderAppIconSvg('pancake');
+    const mark = svg.indexOf('fill="url(#mark-fill)"');
+    const syrup = svg.indexOf('fill="#B9590F"');
+    const seams = svg.indexOf('clip-path="url(#mark-body)"');
+    // The same syrup paints the faces beneath the mark and the drips over it.
+    const drips = [...svg.matchAll(/<path d="[^"]*" fill="#B9590F"\/>/g)].filter(({ index }) => index > mark);
+    const butter = svg.indexOf('fill="#FFF4B8"');
+    expect(syrup).toBeGreaterThan(-1);
+    expect(syrup).toBeLessThan(mark);
+    expect(seams).toBeGreaterThan(mark);
+    expect(drips).toHaveLength(4);
+    // One pat per top face, lids last so they sit on top of everything else.
+    expect(svg.match(/fill="#FFF4B8"/g)).toHaveLength(2);
+    expect(butter).toBeGreaterThan(drips[drips.length - 1].index);
+  });
+
+  it('raises only the bottom edges into seams, so no vertical stubs cross the walls', () => {
+    const svg = renderAppIconSvg('pancake');
+    const d = svg.match(/<path d="([^"]*)" clip-path="url\(#mark-body\)"/)?.[1] ?? '';
+    const runs = d.split('M').filter(Boolean).map((run) => run.split('L').map((point) => point.split(' ').map(Number)));
+    // Each wall's bottom (the back tile's and the front tile's), at both heights.
+    expect(runs).toHaveLength(4);
+    for (const run of runs) {
+      for (let index = 1; index < run.length; index += 1) {
+        const [x1, y1] = run[index - 1];
+        const [x2, y2] = run[index];
+        expect(Math.abs(x2 - x1) * 4).toBeGreaterThanOrEqual(Math.abs(y2 - y1));
+      }
+    }
   });
 
   it('draws the Pixel icons as shaded pixel art on a dithered screen', () => {
