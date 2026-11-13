@@ -604,14 +604,22 @@
   /* Appearance > Translucency (macOS): the frame and sidebar paint nothing, so the window's vibrancy
      material shows through. The main process picks the material per level; a CSS tint over it would
      only dilute it, as the material is already a pale, blurred surface. index.html clears the page
-     background under it. Sticky sidebar rows blur what scrolls beneath them. Cards stay opaque. */
+     background under it. Cards stay opaque. */
   :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome {
     --background-chrome: transparent;
     --background-sidebar: transparent;
   }
 
-  :root[data-window-vibrancy][data-sidebar-translucency] .sidebar-sticky {
-    backdrop-filter: blur(16px);
+  /* A sticky sidebar row (the pinned workspace root) is clear too while nothing is under it. Once the
+     list scrolls rows beneath it, it takes the sidebar's solid surface, the colour the top edge fade
+     below it starts from. A backdrop blur can't hide them: the page behind is transparent (the
+     material is drawn outside the page), so blurring it only smears the rows' text, still legible. */
+  .sidebar-sticky {
+    transition: background-color 150ms ease-out;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency] [data-overflow-start] .sidebar-sticky {
+    --background-sidebar: var(--background-muted);
   }
 
   .app-chrome input,
