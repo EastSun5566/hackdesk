@@ -16,6 +16,13 @@
       html.dark body {
         background-color: #27272A;
       }
+
+      /* Appearance > Translucency (macOS): the window's material shows through; see styles.css.
+         theme-preload.js paints html inline, which only !important outranks. */
+      html[data-window-vibrancy][data-sidebar-translucency],
+      html[data-window-vibrancy][data-sidebar-translucency] body {
+        background-color: transparent !important;
+      }
     </style>
   </head>
 

@@ -41,6 +41,7 @@ import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueri
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
 import { useElectronHomeCommandPalette } from './electron-home/useElectronHomeCommandPalette';
 import { useElectronHomeModel } from './electron-home/useElectronHomeModel';
+import { applySidebarTranslucency, applyWindowVibrancy } from './electron-home/sidebar-translucency-preference';
 import { useElectronHomeRecentNotes } from './electron-home/useElectronHomeRecentNotes';
 import { useElectronHomeRefresh } from './electron-home/useElectronHomeRefresh';
 import { useFolderPicker } from './electron-home/FolderPickerDialog';
@@ -1055,6 +1056,14 @@ export function Home() {
       : new Set([...current, ...selectedNoteFolderIds])));
   }, [selectedNoteFolderIds, setExpandedFolderIds]);
 
+  // Translucency needs the vibrancy material only the macOS window has.
+  const platform = api?.platform;
+  useEffect(() => {
+    if (!platform) return;
+    applyWindowVibrancy(platform);
+    applySidebarTranslucency();
+  }, [platform]);
+
   useElectronHomeShellEffects({
     api,
     expandedFolderIds,
@@ -1352,7 +1361,7 @@ export function Home() {
     <DialogReturnFocusProvider value={getDialogReturnFocus}>
     <ActionShortcutContext.Provider value={shortcutContext}>
       <KeyboardNavigation workspaceKey={scopeStorageKey} shortcuts={settings?.shortcuts} platform={api.platform} characterEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}>
-        <div data-hack-mode={hackMode || undefined} className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
+        <div data-hack-mode={hackMode || undefined} className="app-chrome flex h-dvh flex-col overflow-hidden bg-(--background-chrome) text-text-default">
           <BookSessionContext.Provider value={bookSession}>
             <TeamNameLookupContext.Provider value={lookupTeamName}>
             <LocalVaultNameContext.Provider value={(() => {

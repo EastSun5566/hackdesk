@@ -51,6 +51,7 @@ import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-p
 import { setNewTabOpens } from './new-tab-preference';
 import { setSplitStatusLine } from './split-status-line-preference';
 import { setStatusLineVisible } from './status-line-preference';
+import { setSidebarTranslucency } from './sidebar-translucency-preference';
 import { setTreeGuides } from './tree-guides-preference';
 
 /** What the header Reset button puts back to defaults, per page. */
@@ -303,6 +304,7 @@ function SettingsDialogContent({
     } else if (tab === 'appearance') {
       appearanceActions.reset();
       setTreeGuides(true);
+      setSidebarTranslucency('off');
       setStatusLineVisible(true);
       setCodeTheme(DEFAULT_CODE_THEME);
     } else if (tab === 'vault') {
@@ -544,8 +546,12 @@ function SettingsDialogContent({
                 <TabsContent data-settings-tab="appearance" value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <AppearanceSettingsPanel
                     controller={appearanceController}
+                    platform={platform}
                     onRevertTheme={appearanceActions.reset}
-                    onRevertSidebar={() => setTreeGuides(true)}
+                    onRevertSidebar={() => {
+                      setTreeGuides(true);
+                      setSidebarTranslucency('off');
+                    }}
                     onRevertWindow={() => setStatusLineVisible(true)}
                   />
                 </TabsContent>

@@ -407,7 +407,7 @@ function FolderNavigatorPanel({
       collapsed={layout.collapsed}
       width={layout.width}
       collapsedWidth={0}
-      className={cn('bg-background-muted', layout.collapsed && 'mr-1.5', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('bg-(--background-sidebar)', layout.collapsed && 'mr-1.5', HACK_MODE_HIDDEN_CLASS)}
       // On the panel, not the content, so the resize handle can update both widths while dragging.
       style={{ '--sidebar-content-width': `${layout.width}px` } as CSSProperties}
     >
