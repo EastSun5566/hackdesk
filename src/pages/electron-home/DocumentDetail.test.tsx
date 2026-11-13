@@ -12,7 +12,11 @@ import {
 } from '@/test/accessibility-contracts';
 
 import { TeamNameLookupContext } from './NoteSummaryCard';
-import { DocumentDetail, type DocumentDetailProps } from './DocumentDetail';
+import { DocumentDetail, type DocumentDetailActions, type DocumentDetailProps } from './DocumentDetail';
+import { DocumentActionsProvider } from './DocumentActionsContext';
+
+/** The view's props plus the actions its pane provides. */
+type DocumentDetailTestProps = DocumentDetailProps & { actions: DocumentDetailActions };
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { formatDate } from './ui';
 
@@ -103,8 +107,8 @@ function documentSummary(overrides: Partial<DocumentSummary> = {}): DocumentSumm
   };
 }
 
-type DocumentDetailPropsOverrides = Partial<Omit<DocumentDetailProps, 'actions' | 'documentState' | 'layout' | 'status'>> & {
-  actions?: Partial<DocumentDetailProps['actions']>;
+type DocumentDetailPropsOverrides = Partial<Omit<DocumentDetailProps, 'documentState' | 'layout' | 'status'>> & {
+  actions?: Partial<DocumentDetailActions>;
   documentState?: Partial<DocumentDetailProps['documentState']>;
   layout?: Partial<DocumentDetailProps['layout']>;
   status?: Partial<DocumentDetailProps['status']>;
@@ -112,7 +116,7 @@ type DocumentDetailPropsOverrides = Partial<Omit<DocumentDetailProps, 'actions' 
 
 function renderDocumentDetail(overrides: DocumentDetailPropsOverrides = {}) {
   const document = documentSummary();
-  const props: DocumentDetailProps = {
+  const props: DocumentDetailTestProps = {
     actions: {
       onContentChange: vi.fn(),
       onCopyLink: vi.fn(),
@@ -162,7 +166,7 @@ function renderDocumentDetail(overrides: DocumentDetailPropsOverrides = {}) {
       uploadingImage: false,
     },
   };
-  const mergedProps: DocumentDetailProps = {
+  const mergedProps: DocumentDetailTestProps = {
     ...props,
     ...overrides,
     actions: { ...props.actions, ...overrides.actions },
@@ -171,20 +175,19 @@ function renderDocumentDetail(overrides: DocumentDetailPropsOverrides = {}) {
     status: { ...props.status, ...overrides.status },
   };
 
-  const renderResult = render(
+  const view = ({ actions, ...detail }: DocumentDetailTestProps) => (
     <TooltipProvider>
-      <DocumentDetail {...mergedProps} />
-    </TooltipProvider>,
+      <DocumentActionsProvider value={actions}>
+        <DocumentDetail {...detail} />
+      </DocumentActionsProvider>
+    </TooltipProvider>
   );
+  const renderResult = render(view(mergedProps));
 
   return {
     ...renderResult,
     props: mergedProps,
-    rerenderDocumentDetail: (nextProps: DocumentDetailProps) => renderResult.rerender(
-      <TooltipProvider>
-        <DocumentDetail {...nextProps} />
-      </TooltipProvider>,
-    ),
+    rerenderDocumentDetail: (nextProps: DocumentDetailTestProps) => renderResult.rerender(view(nextProps)),
   };
 }
 
@@ -247,14 +250,16 @@ describe('DocumentDetail', () => {
 
   it('names a team workspace in the breadcrumb, falling back to its path', () => {
     const teamDocument = documentSummary({ teamPath: 'acme', title: 'Plan' });
-    const props = renderDocumentDetail({ documentState: { document: teamDocument, title: 'Plan' } }).props;
+    const { actions, ...props } = renderDocumentDetail({ documentState: { document: teamDocument, title: 'Plan' } }).props;
     expect(screen.getByRole('navigation', { name: 'Note location' })).toHaveTextContent('@acme/Plan');
 
     cleanup();
     render(
       <TooltipProvider>
         <TeamNameLookupContext.Provider value={(teamPath) => (teamPath === 'acme' ? 'Acme Corp' : undefined)}>
-          <DocumentDetail {...props} />
+          <DocumentActionsProvider value={actions}>
+            <DocumentDetail {...props} />
+          </DocumentActionsProvider>
         </TeamNameLookupContext.Provider>
       </TooltipProvider>,
     );
@@ -457,7 +462,7 @@ describe('DocumentDetail', () => {
   });
 
   it('passes editor image attachments and their placeholder to the tab attach action', async () => {
-    const onAttachImage = vi.fn<DocumentDetailProps['actions']['onAttachImage']>(async () => undefined);
+    const onAttachImage = vi.fn<DocumentDetailActions['onAttachImage']>(async () => undefined);
     renderDocumentDetail({
       actions: { onAttachImage },
       documentState: {
@@ -475,7 +480,7 @@ describe('DocumentDetail', () => {
 
   it('attaches an image from the document file picker without saving the note', async () => {
     const onSave = vi.fn();
-    const onAttachImage = vi.fn<DocumentDetailProps['actions']['onAttachImage']>(async () => undefined);
+    const onAttachImage = vi.fn<DocumentDetailActions['onAttachImage']>(async () => undefined);
     const document = documentSummary();
     renderDocumentDetail({
       actions: {

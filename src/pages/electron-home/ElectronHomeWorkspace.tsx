@@ -10,6 +10,7 @@ import { PanelResizeSash } from './PanelResizeSash';
 import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
 import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
 import { WorkspaceNavigationProvider, type WorkspaceNavigation } from './WorkspaceNavigationContext';
+import { WorkbenchDocumentActionsProvider, type WorkbenchDocumentActions } from './DocumentActionsContext';
 
 export const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
 
@@ -19,6 +20,8 @@ type FolderNavigatorProps = ComponentProps<typeof FolderNavigator>;
 export type ElectronHomeWorkspaceProps = {
   backupNotice?: WorkspaceBackupNoticeProps | null;
   documentWorkspace: ComponentProps<typeof DocumentWorkspace>;
+  /** What the panes do to their notes: save, delete, copy a link, upload an image. */
+  documentActions: WorkbenchDocumentActions;
   navigator: Omit<FolderNavigatorProps, 'id'>;
   /** The workspace switcher in the sidebar title and the account row at its bottom. */
   workspaceNavigation: WorkspaceNavigation;
@@ -59,6 +62,7 @@ export type ElectronHomeWorkspaceProps = {
 export function ElectronHomeWorkspace({
   backupNotice,
   documentWorkspace,
+  documentActions,
   navigator,
   workspaceNavigation,
   navigatorResize,
@@ -147,7 +151,9 @@ export function ElectronHomeWorkspace({
           previewProperties={['--panel-width', '--sidebar-content-width']}
         />
 
-        <DocumentWorkspace {...documentWorkspace} />
+        <WorkbenchDocumentActionsProvider value={documentActions}>
+          <DocumentWorkspace {...documentWorkspace} />
+        </WorkbenchDocumentActionsProvider>
       </main>
     </>
   );

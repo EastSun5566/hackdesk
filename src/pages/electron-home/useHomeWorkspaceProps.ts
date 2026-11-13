@@ -19,6 +19,7 @@ import { localVaultFolderName } from './workspace-root-labels';
 import { toast } from '@/components/ui/toast';
 
 import type { ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
+import type { WorkbenchDocumentActions } from './DocumentActionsContext';
 import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
 import type { EditorRequest } from './useWorkbenchEditorRequests';
 import type { WorkspaceScope } from './types';
@@ -59,17 +60,17 @@ type WorkspaceActions = {
   saveDraftNote: (tab: OpenNoteTab, input: { title?: string; content?: string }) => void;
   /** Zooms or restores the active pane, saying how to restore it. */
   togglePaneZoom: () => void;
-  attachImageToTab: ElectronHomeWorkspaceProps['documentWorkspace']['onAttachImage'];
-  cancelImageUpload?: ElectronHomeWorkspaceProps['documentWorkspace']['onCancelImageUpload'];
-  copyDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onCopyDraft'];
-  exportDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onExportDraft'];
-  retryDocumentLoad: ElectronHomeWorkspaceProps['documentWorkspace']['onRetryLoad'];
+  attachImageToTab: WorkbenchDocumentActions['onAttachImage'];
+  cancelImageUpload?: WorkbenchDocumentActions['onCancelImageUpload'];
+  copyDraftText: WorkbenchDocumentActions['onCopyDraft'];
+  exportDraftText: WorkbenchDocumentActions['onExportDraft'];
+  retryDocumentLoad: WorkbenchDocumentActions['onRetryLoad'];
   handleCopyNoteContent: NonNullable<ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteContent']>;
   handleCopyNoteLink: ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteLink'];
   handleCopyNoteMarkdownLink: ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteMarkdownLink'];
   handleDeleteRequest: ElectronHomeWorkspaceProps['navigator']['actions']['onDeleteNote'];
   handleDuplicateNote: ElectronHomeWorkspaceProps['navigator']['actions']['onDuplicateNote'];
-  handleExportMarkdown: ElectronHomeWorkspaceProps['documentWorkspace']['onExportMarkdown'];
+  handleExportMarkdown: WorkbenchDocumentActions['onExportMarkdown'];
   handleExportNoteMarkdown: ElectronHomeWorkspaceProps['navigator']['actions']['onExportNoteMarkdown'];
   handleImportMarkdownNote: ElectronHomeWorkspaceProps['navigator']['actions']['onImportMarkdown'];
   handleCreateNoteFromTemplate: () => void;
@@ -77,7 +78,7 @@ type WorkspaceActions = {
   handleNoteSelect: ElectronHomeWorkspaceProps['navigator']['actions']['onNoteSelect'];
   handleNoteKeep: NonNullable<ElectronHomeWorkspaceProps['navigator']['actions']['onNoteKeep']>;
   handleOpenEditor: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenNote'];
-  handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
+  handleOpenExternal: WorkbenchDocumentActions['onOpenExternal'];
   openHackmdTokenSetup: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenSettings'];
   openVaultSettings: () => void;
   openPalette: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenPalette'];
@@ -521,6 +522,12 @@ export function useHomeWorkspaceProps({
       onResizeSplit: noteWorkspace.resizeSplit,
       onTogglePaneZoom: actions.togglePaneZoom,
       onFocusPane: noteWorkspace.focusPane,
+      canCreateNote: homeStatus.navigatorStatus.canCreate,
+      onCreateNote: folderCommands.handleCreateNote,
+      onQuickOpen: actions.openQuickOpen,
+      recentNotes,
+    },
+    documentActions: {
       onOpenEditor: actions.handleOpenEditor,
       onOpenExternal: actions.handleOpenExternal,
       onOpenNoteTarget: openNoteTarget,
@@ -528,10 +535,6 @@ export function useHomeWorkspaceProps({
       onSaveAsTemplate: saveAsTemplate,
       onPresent: api?.app.openPresentation && ((deck) => void api.app.openPresentation?.(deck)),
       onRevealInFinder: localVaultActions.revealLocalNote,
-      canCreateNote: homeStatus.navigatorStatus.canCreate,
-      onCreateNote: folderCommands.handleCreateNote,
-      onQuickOpen: actions.openQuickOpen,
-      recentNotes,
       onCopyLink: actions.handleCopyNoteLink,
       onCopyMarkdownLink: actions.handleCopyNoteMarkdownLink,
       onExportMarkdown: actions.handleExportMarkdown,
