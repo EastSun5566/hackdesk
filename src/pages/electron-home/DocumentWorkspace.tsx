@@ -321,43 +321,43 @@ export function DocumentWorkspace({
         // Book reading shows in the book's own tab only; this pane says which tab it shows.
         <PaneTabIdContext.Provider value={view.activeTab?.tabId ?? null}>
           <PaneDocumentActions tab={view.activeTab} paneId={pane.paneId}>
-          <DocumentDetail
-            // With the tab's note: a book's tab turns chapters in place, and each needs its own editor and undo history.
-            editorKey={view.activeTab ? getNoteTabEditorKey(view.activeTab) : `${pane.paneId}:empty`}
-            editorMode={editorMode}
-            folderTree={folderTree}
-            documentState={{
-              selectedNote: view.selectedNote,
-              document: view.document,
-              isDraft: view.isDraft,
-              title: view.title,
-              content: view.content,
-              recovery: view.recovery,
-              syncState: view.syncState,
-            }}
-            layout={{
-              focusZone: 'editor',
-              inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
-              focusRequestId: requestId('focus'),
-              searchRequestId: requestId('search'),
-              attachImageRequestId: requestId('attach-image'),
-              renameRequestId: requestId('rename'),
-              aiAssistRequestId: requestId('ai-assist'),
-              dictateRequestId: requestId('dictate'),
-              onRequestHandled: onEditorRequestHandled,
-              shareOpen: isActivePane && shareOpen,
-              versionsOpen: isActivePane && versionsOpen,
-              inspectorCollapsed: !isActivePane || isInspectorCollapsed,
-              paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,
-            }}
-            status={{
-              loading: view.isLoading,
-              saving: view.isSaving,
-              savingMetadata: view.isSavingMetadata,
-              uploadingImage: view.isUploadingImage,
-              deleting: view.isDeleting,
-            }}
-          />
+            <DocumentDetail
+              // With the tab's note: a book's tab turns chapters in place, and each needs its own editor and undo history.
+              editorKey={view.activeTab ? getNoteTabEditorKey(view.activeTab) : `${pane.paneId}:empty`}
+              editorMode={editorMode}
+              folderTree={folderTree}
+              documentState={{
+                selectedNote: view.selectedNote,
+                document: view.document,
+                isDraft: view.isDraft,
+                title: view.title,
+                content: view.content,
+                recovery: view.recovery,
+                syncState: view.syncState,
+              }}
+              layout={{
+                focusZone: 'editor',
+                inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
+                focusRequestId: requestId('focus'),
+                searchRequestId: requestId('search'),
+                attachImageRequestId: requestId('attach-image'),
+                renameRequestId: requestId('rename'),
+                aiAssistRequestId: requestId('ai-assist'),
+                dictateRequestId: requestId('dictate'),
+                onRequestHandled: onEditorRequestHandled,
+                shareOpen: isActivePane && shareOpen,
+                versionsOpen: isActivePane && versionsOpen,
+                inspectorCollapsed: !isActivePane || isInspectorCollapsed,
+                paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,
+              }}
+              status={{
+                loading: view.isLoading,
+                saving: view.isSaving,
+                savingMetadata: view.isSavingMetadata,
+                uploadingImage: view.isUploadingImage,
+                deleting: view.isDeleting,
+              }}
+            />
           </PaneDocumentActions>
         </PaneTabIdContext.Provider>
       )}
