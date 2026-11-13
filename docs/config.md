@@ -32,7 +32,11 @@ Editor modes control text editing. [Workbench navigation](./keyboard-navigation.
 
 In **Settings → Shortcuts**, find an action, record a shortcut, then **Save**. Use its reset control to restore the default. You can also disable `?`, `/`, and Space outside text editing.
 
-Quick Hack's global **Ctrl+Alt+H** is fixed. Its row shows whether registration succeeded.
+The **Quick Hack** section holds Quick Hack's two shortcuts: **Open or close Quick Hack**, the global hotkey (**Ctrl+Alt+H** by default), and **Pin Quick Hack**, which works inside the popup. Record new keys the same way, or press Backspace while recording to turn one off. Both need Cmd, Ctrl or Alt, and they can't share keys with each other or with the popup's editor. The hotkey's row shows whether the system accepted it. See [Quick Hack](./quick-hack.md#change-the-global-shortcut).
+
+## Keep Quick Hack open
+
+In **Settings → General → Quick Hack**, turn on **Keep open after capture** to start each Quick Hack pinned, so the popup stays open for the next idea. The pin in the popup overrides it until the popup closes. Its shortcut, **Pin Quick Hack**, is in **Settings → Shortcuts → Quick Hack**. See [Quick Hack](./quick-hack.md#keep-the-popup-open).
 
 ## Manage HackMD and Local Vault
 

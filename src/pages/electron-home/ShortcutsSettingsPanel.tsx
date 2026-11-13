@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { RotateCcw, Search } from 'lucide-react';
 
 import {
@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 
 import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
+import { QuickHackShortcutsSection } from './QuickHackShortcutsSection';
 import { SettingsInput, SettingsPage, SettingsSection, SettingsSwitchRow } from './SettingsPrimitives';
 import { defaultSettings } from '@/lib/settings';
 
@@ -46,6 +47,11 @@ export function ShortcutsSettingsPanel({
   onCharacterShortcutsChange,
   keyHintsVisible,
   onKeyHintsVisibleChange,
+  quickCaptureToggleShortcut,
+  savedQuickCaptureToggleShortcut,
+  onQuickCaptureToggleShortcutChange,
+  quickCapturePinShortcut,
+  onQuickCapturePinShortcutChange,
 }: {
   characterShortcutsEnabled: boolean;
   onCharacterShortcutsChange: (enabled: boolean) => void;
@@ -54,35 +60,18 @@ export function ShortcutsSettingsPanel({
   platform: string;
   shortcuts: ShortcutOverrides;
   onShortcutsChange: (shortcuts: ShortcutOverrides) => void;
+  quickCaptureToggleShortcut: string;
+  savedQuickCaptureToggleShortcut: string | undefined;
+  onQuickCaptureToggleShortcutChange: (shortcut: string) => void;
+  quickCapturePinShortcut: string;
+  onQuickCapturePinShortcutChange: (shortcut: string) => void;
 }) {
   const leaderSpaceEnabled = leaderSpacePreference.use();
   const holdHintsEnabled = holdHintsPreference.use();
   const [filter, setFilter] = useState('');
   const [activeActionId, setActiveActionId] = useState<ElectronActionId | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [quickCaptureRegistered, setQuickCaptureRegistered] = useState<boolean | null>(null);
   const activeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const quickCaptureShortcut = displayShortcutConfig('control+alt+h', platform);
-  const quickCaptureStatusLabel = quickCaptureRegistered == null
-    ? 'Checking…'
-    : quickCaptureRegistered ? 'Global' : 'Unavailable';
-
-  useEffect(() => {
-    let cancelled = false;
-    void window.hackdeskAPI?.app.getQuickCaptureShortcutStatus?.().then((status) => {
-      if (!cancelled) {
-        setQuickCaptureRegistered(status.registered);
-      }
-    }).catch(() => {
-      if (!cancelled) {
-        setQuickCaptureRegistered(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const labels = useMemo(() => Object.fromEntries(
     EDITABLE_ACTIONS.map((action) => [action.id, action.label]),
@@ -96,12 +85,6 @@ export function ShortcutsSettingsPanel({
   ) as Partial<Record<ElectronActionId, string>>, [shortcuts]);
 
   const normalizedFilter = filter.trim().toLowerCase();
-  const showQuickCaptureShortcut = !normalizedFilter || [
-    'quick hack',
-    'global',
-    'capture',
-    quickCaptureShortcut,
-  ].join(' ').toLowerCase().includes(normalizedFilter);
   const filteredActions = useMemo(() => (
     EDITABLE_ACTIONS.filter((action) => {
       if (!normalizedFilter) {
@@ -244,27 +227,17 @@ export function ShortcutsSettingsPanel({
         </p>
       ) : null}
 
-      {showQuickCaptureShortcut ? (
-        <SettingsSection title="Global">
-          <ul data-settings-flush className={SHORTCUT_LIST_CLASS}>
-            <li className={SHORTCUT_ROW_CLASS}>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-text-default">Quick Hack</p>
-              </div>
-              <span className="inline-flex h-8 min-w-28 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-xs font-medium text-text-default">
-                {quickCaptureShortcut}
-              </span>
-              <span className={cn(
-                'w-28 text-right text-xs',
-                quickCaptureRegistered === false ? 'text-warning-default' : 'text-text-subtle',
-              )}
-              >
-                {quickCaptureStatusLabel}
-              </span>
-            </li>
-          </ul>
-        </SettingsSection>
-      ) : null}
+      <QuickHackShortcutsSection
+        platform={platform}
+        filter={normalizedFilter}
+        listClassName={SHORTCUT_LIST_CLASS}
+        rowClassName={SHORTCUT_ROW_CLASS}
+        toggleShortcut={quickCaptureToggleShortcut}
+        savedToggleShortcut={savedQuickCaptureToggleShortcut}
+        pinShortcut={quickCapturePinShortcut}
+        onToggleShortcutChange={onQuickCaptureToggleShortcutChange}
+        onPinShortcutChange={onQuickCapturePinShortcutChange}
+      />
 
       {GROUPS.map((group) => {
         const actions = filteredActions.filter((action) => action.category === group);

@@ -148,7 +148,10 @@ function parseShortcutCombo(combo: string, platform: ShortcutPlatform): ParsedSh
   return shortcut.key ? shortcut : null;
 }
 
-export function matchShortcutConfig(config: string | undefined, event: KeyboardEvent, platform: ShortcutPlatform) {
+/** The parts of a key press a shortcut matches against, so main-process input can match too. */
+export type ShortcutKeyPress = Pick<KeyboardEvent, 'key' | 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>;
+
+export function matchShortcutConfig(config: string | undefined, event: ShortcutKeyPress, platform: ShortcutPlatform) {
   if (!config) {
     return false;
   }
@@ -278,6 +281,33 @@ export function toMenuAccelerator(config: string | undefined, platform: Shortcut
   return parts.join('+');
 }
 
+/**
+ * A system-wide accelerator for Electron's globalShortcut. Unlike a menu accelerator, it may
+ * combine Command and Control.
+ */
+export function toGlobalShortcutAccelerator(config: string | undefined, platform: ShortcutPlatform) {
+  const shortcut = parseShortcutConfig(config ?? '', platform)[0];
+  if (!shortcut) {
+    return undefined;
+  }
+
+  const parts: string[] = [];
+  if (shortcut.meta) {
+    parts.push(isMacPlatform(platform) ? 'Command' : 'Super');
+  }
+  if (shortcut.ctrl) {
+    parts.push('Control');
+  }
+  if (shortcut.alt) {
+    parts.push('Alt');
+  }
+  if (shortcut.shift) {
+    parts.push('Shift');
+  }
+  parts.push(MENU_KEY_NAMES[shortcut.key] ?? shortcut.key.toUpperCase());
+  return parts.join('+');
+}
+
 export function recordShortcutFromEvent(event: KeyboardEvent, platform: ShortcutPlatform) {
   if (isModifierOnlyKey(event.key)) {
     return null;
@@ -366,6 +396,12 @@ export function getShortcutConflicts(
     const hasConflict = candidateSignatures.some((signature) => signatures.has(signature));
     return hasConflict ? [labels[id as ElectronActionId] ?? id] : [];
   });
+}
+
+/** Whether two shortcut configs share a key combination on this platform. */
+export function shortcutConfigsOverlap(first: string, second: string, platform: ShortcutPlatform) {
+  const signatures = new Set(shortcutSignatures(first, platform));
+  return shortcutSignatures(second, platform).some((signature) => signatures.has(signature));
 }
 
 function shortcutSignatures(config: string, platform: ShortcutPlatform) {

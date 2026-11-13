@@ -170,7 +170,7 @@ test('Quick Hack rejects capture during the in-app folder picker and keeps popup
     await popup.getByLabel('Quick Hack note').fill('Keep this text during switching');
     await popup.getByRole('button', { name: 'Capture', exact: true }).click();
     await expect(popup.getByText('Local Vault is still loading. Your text is still here.')).toBeVisible();
-    await expect(popup.getByLabel('Quick Hack note')).toHaveValue('Keep this text during switching');
+    await expect(popup.getByLabel('Quick Hack note')).toHaveText('Keep this text during switching');
     await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
   } finally { await stop(app); }
 });

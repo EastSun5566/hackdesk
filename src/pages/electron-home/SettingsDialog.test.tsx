@@ -1346,7 +1346,7 @@ describe('SettingsDialog', () => {
 
   it('shows quick capture global shortcut registration status', async () => {
     const getQuickCaptureShortcutStatus = vi.fn(async () => ({
-      accelerator: 'Control+Alt+H' as const,
+      shortcut: 'control+alt+h',
       registered: true,
     }));
     window.hackdeskAPI = {
@@ -1357,7 +1357,7 @@ describe('SettingsDialog', () => {
     renderSettingsDialog();
     fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
 
-    const row = screen.getByText('Quick Hack').closest('li');
+    const row = screen.getByText('Open or close Quick Hack').closest('li');
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByText('⌃⌥H')).toBeVisible();
     expect(within(row as HTMLElement).getByText('Checking…')).toBeVisible();
@@ -1369,7 +1369,7 @@ describe('SettingsDialog', () => {
     window.hackdeskAPI = {
       app: {
         getQuickCaptureShortcutStatus: vi.fn(async () => ({
-          accelerator: 'Control+Alt+H' as const,
+          shortcut: 'control+alt+h',
           registered: false,
         })),
       },
@@ -1379,9 +1379,128 @@ describe('SettingsDialog', () => {
     renderSettingsDialog();
     fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
 
-    const row = screen.getByText('Quick Hack').closest('li');
+    const row = screen.getByText('Open or close Quick Hack').closest('li');
     expect(row).not.toBeNull();
     await waitFor(() => expect(within(row as HTMLElement).getByText('Unavailable')).toBeVisible());
+  });
+
+  it('records the global Quick Hack hotkey and checks its registration again once saved', async () => {
+    const savedSettings = {
+      title: 'HackDesk',
+      workspaceNavigation: defaultSettings.workspaceNavigation,
+      appearance: defaultSettings.appearance,
+      editor: defaultSettings.editor,
+      hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
+      hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+      hasLocalVault: false,
+      localVault: defaultSettings.localVault,
+      onboarding: defaultSettings.onboarding,
+      quickCapture: defaultSettings.quickCapture,
+      shouldShowHackmdOnboarding: true,
+    };
+    let status = { shortcut: 'control+alt+h', registered: true };
+    const getQuickCaptureShortcutStatus = vi.fn(async () => status);
+    window.hackdeskAPI = { app: { getQuickCaptureShortcutStatus }, platform: 'darwin' } as unknown as typeof window.hackdeskAPI;
+    const { onSave, rerenderSettingsDialog } = renderSettingsDialog({ settings: savedSettings });
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+
+    const row = screen.getByText('Open or close Quick Hack').closest('li') as HTMLElement;
+    const hotkey = within(row).getByRole('button', { name: 'Set shortcut for Open or close Quick Hack' });
+    await waitFor(() => expect(within(row).getByText('Global')).toBeVisible());
+    expect(hotkey).toHaveTextContent('⌃⌥H');
+    expect(within(row).getByRole('button', { name: 'Reset shortcut for Open or close Quick Hack' })).toBeDisabled();
+
+    // The pin already has ⇧⌘P; the system would take it first.
+    fireEvent.click(hotkey);
+    await waitFor(() => expect(hotkey).toHaveTextContent('Press keys…'));
+    fireEvent.keyDown(hotkey, { key: 'P', code: 'KeyP', metaKey: true, shiftKey: true });
+    expect(await screen.findByRole('alert')).toHaveTextContent('⇧⌘P is already assigned to Pin Quick Hack.');
+    fireEvent.keyDown(hotkey, { key: 'F5', code: 'F5', shiftKey: true });
+    expect(screen.getByRole('alert')).toHaveTextContent('so it does not take keys you type in other apps');
+
+    // Option turns J into ∆ on macOS, but the hotkey belongs to the key.
+    fireEvent.keyDown(hotkey, { key: '∆', code: 'KeyJ', ctrlKey: true, altKey: true });
+    await waitFor(() => expect(hotkey).toHaveTextContent('⌃⌥J'));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(onSave).toHaveBeenLastCalledWith({ title: 'HackDesk', quickCapture: { toggleShortcut: 'ctrl+alt+j' } });
+    expect(within(row).getByText('Checking…')).toBeVisible();
+
+    // Once main has applied the save, the row asks again whether the system took the keys.
+    status = { shortcut: 'ctrl+alt+j', registered: false };
+    rerenderSettingsDialog({ settings: { ...savedSettings, quickCapture: { ...savedSettings.quickCapture, toggleShortcut: 'ctrl+alt+j' } } });
+    await waitFor(() => expect(within(row).getByText('Unavailable')).toBeVisible());
+    expect(getQuickCaptureShortcutStatus).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(hotkey);
+    await waitFor(() => expect(hotkey).toHaveTextContent('Press keys…'));
+    fireEvent.keyDown(hotkey, { key: 'Backspace' });
+    expect(onSave).toHaveBeenLastCalledWith({ title: 'HackDesk', quickCapture: { toggleShortcut: 'none' } });
+    expect(hotkey).toHaveTextContent('Disabled');
+    expect(within(row).getByText('Off')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Quick Hack shortcuts' }));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', quickCapture: { toggleShortcut: 'control+alt+h' } });
+    expect(onSave).toHaveBeenLastCalledWith({ title: 'HackDesk', quickCapture: { pinShortcut: 'mod+shift+p' } });
+    expect(hotkey).toHaveTextContent('⌃⌥H');
+  });
+
+  it('records the Pin Quick Hack shortcut into the Quick Hack settings', async () => {
+    const { onSave } = renderSettingsDialog();
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+
+    const pinButton = screen.getByRole('button', { name: 'Set shortcut for Pin Quick Hack' });
+    expect(pinButton).toHaveTextContent('⇧⌘P');
+    expect(screen.getByRole('button', { name: 'Reset shortcut for Pin Quick Hack' })).toBeDisabled();
+
+    // Bold in the popup's editor: Quick Hack keeps it.
+    fireEvent.click(pinButton);
+    await waitFor(() => expect(pinButton).toHaveTextContent('Press keys…'));
+    fireEvent.keyDown(pinButton, { key: 'b', metaKey: true });
+    expect(await screen.findByRole('alert')).toHaveTextContent('The Quick Hack editor already uses ⌘B.');
+    // Shift alone would type into the note.
+    fireEvent.keyDown(pinButton, { key: 'K', shiftKey: true });
+    expect(screen.getByRole('alert')).toHaveTextContent('Use a shortcut with ⌘, ⌃ or ⌥');
+    expect(onSave).not.toHaveBeenCalled();
+
+    // The app's own ⌘K (Command Palette) is fine: the pin works only inside the popup.
+    fireEvent.keyDown(pinButton, { key: 'k', metaKey: true });
+    await waitFor(() => expect(pinButton).toHaveTextContent('⌘K'));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(onSave).toHaveBeenLastCalledWith({ title: 'HackDesk', quickCapture: { pinShortcut: 'mod+k' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset shortcut for Pin Quick Hack' }));
+    expect(onSave).toHaveBeenLastCalledWith({ title: 'HackDesk', quickCapture: { pinShortcut: 'mod+shift+p' } });
+    expect(pinButton).toHaveTextContent('⇧⌘P');
+
+    fireEvent.click(pinButton);
+    await waitFor(() => expect(pinButton).toHaveTextContent('Press keys…'));
+    fireEvent.keyDown(pinButton, { key: 'Backspace' });
+    expect(onSave).toHaveBeenLastCalledWith({ title: 'HackDesk', quickCapture: { pinShortcut: 'none' } });
+    expect(pinButton).toHaveTextContent('Disabled');
+  });
+
+  it('shows the saved Pin Quick Hack shortcut', () => {
+    renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        quickCapture: { keepOpen: false, pinShortcut: 'mod+alt+k', toggleShortcut: 'control+alt+h' },
+        shouldShowHackmdOnboarding: true,
+      },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+
+    expect(screen.getByRole('button', { name: 'Set shortcut for Pin Quick Hack' })).toHaveTextContent('⌥⌘K');
+    expect(screen.getByRole('button', { name: 'Reset shortcut for Pin Quick Hack' })).toBeEnabled();
   });
 
   it('shows shortcut conflicts and prevents saving invalid shortcut drafts', async () => {

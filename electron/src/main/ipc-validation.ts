@@ -4,6 +4,7 @@ import { MAX_ASK_NOTES_HISTORY, MAX_ASK_NOTES_SOURCE_CHARACTERS, MAX_ASK_NOTES_S
 import { APP_ICON_IDS } from '../../../src/lib/app-icons';
 import { WINDOW_TRANSLUCENCY_LEVELS } from '../../../src/lib/window-translucency';
 import { MAX_NOTE_QUESTION_LENGTH, MAX_NOTE_SEARCH_QUERY_LENGTH } from '../../../src/lib/note-index';
+import { isValidQuickCapturePinShortcut, isValidQuickCaptureToggleShortcut } from '../../../src/lib/quick-capture-shortcuts';
 
 import { writeLog } from './logging';
 
@@ -226,6 +227,12 @@ export const settingsUpdateSchema = z.strictObject({
   }).optional(),
   offline: z.strictObject({
     keepHackmdNotes: z.boolean(),
+  }).optional(),
+  // Each Quick Hack setting saves on its own, from different Settings tabs.
+  quickCapture: z.strictObject({
+    keepOpen: z.boolean().optional(),
+    pinShortcut: z.string().max(100).refine(isValidQuickCapturePinShortcut).optional(),
+    toggleShortcut: z.string().max(100).refine(isValidQuickCaptureToggleShortcut).optional(),
   }).optional(),
   hackmdAccountLabel: z.string().trim().min(1).max(200).optional(),
   hackmdAddAccount: z.boolean().optional(),
@@ -521,6 +528,8 @@ export const quickCaptureSubmissionAckSchema = z.discriminatedUnion('accepted', 
     error: nonEmptyStringSchema,
   }),
 ]);
+
+export const quickCapturePinnedSchema = z.boolean();
 
 export const quickCaptureContentSchema = z.string().refine((value) => value.trim().length > 0, {
   message: 'Content must not be blank',

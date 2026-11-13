@@ -12,16 +12,32 @@ Open a Local Vault or connect HackMD and select a personal or team workspace bef
 
 ## Capture an idea
 
-1. Keep HackDesk running and press **Ctrl+Alt+H**. On macOS, this is **Control+Option+H**, not Command.
-2. Type the text you want to keep.
+1. Keep HackDesk running and press **Ctrl+Alt+H**. On macOS, this is **Control+Option+H**, not Command. You can [choose other keys](#change-the-global-shortcut).
+2. Type the text you want to keep. Markdown works as in the note editor (see [Write Markdown](#write-markdown)).
 3. Choose **Capture**, or press **Cmd+Enter** on macOS, **Ctrl+Enter** on Windows/Linux.
 4. Open HackDesk when ready to edit and save the draft.
 
-![Quick Hack popup containing a fictional idea with the Capture button](/quick-hack.png)
+![Quick Hack popup with a fictional idea in highlighted Markdown, the pin at the bottom left and the Capture button](/quick-hack.png)
 
-*HackDesk beta.10 with demonstration text.*
+*A HackDesk build after beta.12, with demonstration text.*
 
-From another app, successful capture closes the popup without bringing the main workbench forward. From HackDesk, it returns to the main window.
+From another app, successful capture closes the popup without bringing the main workbench forward. From HackDesk, it returns to the main window. To capture several ideas in a row, [pin the popup](#keep-the-popup-open).
+
+Press the shortcut again while the popup is in front to close it, like Escape. If the popup is open behind another window, the shortcut brings it back instead.
+
+## Write Markdown
+
+The popup highlights Markdown with the note editor's colours and keeps the source as you type it; the draft renders in the workbench.
+
+- **Enter** continues a list, task list, numbered list, or quote. Press it on an empty item to end the list.
+- **Tab** and **Shift+Tab** indent and outdent.
+- **Cmd+B** / **Ctrl+B** makes the selection bold, and **Cmd+I** / **Ctrl+I** italic. Press again to undo the formatting.
+
+## Keep the popup open
+
+Choose the pin at the bottom left of the popup, or press **Cmd+Shift+P** / **Ctrl+Shift+P**, to keep the popup open after each capture. To use other keys, record them for **Pin Quick Hack** in **Settings → Shortcuts → Quick Hack**; press Backspace while recording to turn the shortcut off. A pinned capture clears the text and shows **Captured**, ready for the next idea.
+
+The pin lasts until the popup closes. To start every Quick Hack pinned, turn on **Settings → General → Quick Hack → Keep open after capture**; unpinning then lasts until the popup closes.
 
 ## Save or resume a draft
 
@@ -29,8 +45,10 @@ Press **Cmd+S** / **Ctrl+S** in the workbench to save the draft to its destinati
 
 Escape closes the popup without submitting and preserves the input for reopening. A failed capture keeps the text visible with an error. Copy the text if HackDesk reports that it cannot persist or back up the capture.
 
-## Check the global shortcut
+## Change the global shortcut
 
-Open **Settings → Shortcuts** and find **Quick Hack**. **Global** means the shortcut registered; **Unavailable** means registration failed, for example because another app owns it.
+Open **Settings → Shortcuts** and find **Open or close Quick Hack** in the **Quick Hack** section. Choose the shortcut, press the new keys, and it applies at once. Press Backspace while recording to turn the global shortcut off, or use the reset button to go back to **Ctrl+Alt+H**.
 
-This shortcut is fixed. The tray menu's **Quick Hack** action (in the macOS menu bar) is another way to open the popup. Fully quitting HackDesk stops the global shortcut; closing the macOS main window can leave HackDesk running in the background.
+The shortcut works from every app, so it needs Cmd, Ctrl or Alt, and a letter, number, function key, Space, arrow or punctuation key. Under the name, **Global** means the system accepted it; **Unavailable** means registration failed, for example because another app owns those keys. Choose other keys, or quit the other app and record the shortcut again.
+
+The tray menu's **Quick Hack** action (in the macOS menu bar) is another way to open the popup. Fully quitting HackDesk stops the global shortcut; closing the macOS main window can leave HackDesk running in the background.

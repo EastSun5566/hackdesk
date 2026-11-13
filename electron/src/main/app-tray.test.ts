@@ -49,7 +49,7 @@ vi.mock('./app-icon', () => ({
   },
 }));
 
-import { createApplicationTray } from './app-tray';
+import { createApplicationTray, setApplicationTrayMenu } from './app-tray';
 
 function currentTemplate() {
   return trayMocks.buildFromTemplate.mock.calls.at(-1)?.[0] as Electron.MenuItemConstructorOptions[];
@@ -79,6 +79,21 @@ describe('createApplicationTray', () => {
 
     expect(showQuickCaptureWindow).toHaveBeenCalledOnce();
     expect(showMainWindow).toHaveBeenCalledOnce();
+  });
+
+  it('labels Quick Hack with the hotkey from Settings, and follows a change', () => {
+    const actions = { showMainWindow: vi.fn(), showQuickCaptureWindow: vi.fn() };
+    const tray = createApplicationTray(actions);
+    expect(currentTemplate()[0]?.label).toMatch(/^Quick Hack \((⌃⌥H|Ctrl\+Alt\+H)\)$/);
+
+    setApplicationTrayMenu(tray, actions, 'control+shift+space');
+    expect(currentTemplate()[0]?.label).toMatch(/^Quick Hack \((⌃⇧Space|Ctrl\+Shift\+Space)\)$/);
+
+    // Turned off, the tray still opens Quick Hack, without a shortcut to show.
+    setApplicationTrayMenu(tray, actions, 'none');
+    expect(currentTemplate()[0]?.label).toBe('Quick Hack');
+    currentTemplate()[0]?.click?.({} as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent);
+    expect(actions.showQuickCaptureWindow).toHaveBeenCalledOnce();
   });
 
   it('keeps the quit action after a separator', () => {

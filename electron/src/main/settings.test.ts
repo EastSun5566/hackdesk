@@ -83,6 +83,22 @@ describe('Electron settings', () => {
     expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).keyboardNavigation).toEqual(keyboardNavigation);
   });
 
+  it('persists Quick Hack keep-open and shortcuts through the settings update', async () => {
+    const defaults = { keepOpen: false, pinShortcut: 'mod+shift+p', toggleShortcut: 'control+alt+h' };
+    expect((await getSafeSettings()).quickCapture).toEqual(defaults);
+    const saved = await updateStoredSettings({ quickCapture: { keepOpen: true } });
+    expect(saved.quickCapture).toEqual({ ...defaults, keepOpen: true });
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).quickCapture).toEqual({ ...defaults, keepOpen: true });
+    // Each saves on its own, from its own Settings tab, without changing the others.
+    expect((await updateStoredSettings({ quickCapture: { pinShortcut: 'mod+alt+k' } })).quickCapture)
+      .toEqual({ ...defaults, keepOpen: true, pinShortcut: 'mod+alt+k' });
+    expect((await updateStoredSettings({ quickCapture: { toggleShortcut: 'control+shift+space' } })).quickCapture)
+      .toEqual({ keepOpen: true, pinShortcut: 'mod+alt+k', toggleShortcut: 'control+shift+space' });
+    // Saving another section keeps them.
+    expect((await updateStoredSettings({ title: 'Other' })).quickCapture)
+      .toEqual({ keepOpen: true, pinShortcut: 'mod+alt+k', toggleShortcut: 'control+shift+space' });
+  });
+
   it('defaults onboarding state for old settings files without exposing the token', async () => {
     await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
     await writeFile(getSettingsPath(), JSON.stringify({

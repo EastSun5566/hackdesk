@@ -80,6 +80,7 @@ function toSafeSettings(
     ai: settings.ai,
     dictation: settings.dictation,
     offline: settings.offline,
+    quickCapture: settings.quickCapture,
     appIcon: settings.appIcon,
     hasHackmdApiToken,
     hackmdAccounts: {
@@ -458,6 +459,7 @@ async function updateStoredSettingsUnlocked(
     ai: update.ai ?? current.ai,
     dictation: update.dictation ?? current.dictation,
     offline: update.offline ?? current.offline,
+    quickCapture: { ...current.quickCapture, ...update.quickCapture },
     appIcon: update.appIcon ?? current.appIcon,
     onboarding: nextOnboarding,
     // Choosing a folder adds it to the vault list and activates it; forgetting removes the

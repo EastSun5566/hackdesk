@@ -1,7 +1,38 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pin } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Field, FieldLabel, Textarea } from '@/components/ui/field';
+import { Field } from '@/components/ui/field';
+import type { QuickCaptureState } from '@/lib/electron-api';
+import { displayShortcutConfig, matchShortcutConfig, parseShortcutConfig } from '@/lib/keyboard-shortcuts';
+import { DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT } from '@/lib/quick-capture-shortcuts';
+import { cn } from '@/lib/utils';
+
+import type { QuickCaptureEditorHandle } from './quick-capture/QuickCaptureEditor';
+
+// CodeMirror loads with the popup, not with the main window's first paint.
+const QuickCaptureEditor = lazy(async () => {
+  const module = await import('./quick-capture/QuickCaptureEditor');
+  return { default: module.QuickCaptureEditor };
+});
+
+const CAPTURED_STATUS_MS = 1600;
+
+/** The pin shortcut in `aria-keyshortcuts` form, such as `Meta+Shift+P`. */
+function ariaKeyShortcut(config: string, platform: string) {
+  const [shortcut] = parseShortcutConfig(config, platform);
+  if (!shortcut) return undefined;
+  const modifiers = [
+    shortcut.ctrl && 'Control',
+    shortcut.alt && 'Alt',
+    shortcut.shift && 'Shift',
+    shortcut.meta && 'Meta',
+  ].filter(Boolean);
+  const key = shortcut.key.length === 1
+    ? shortcut.key.toUpperCase()
+    : shortcut.key.replace(/^(arrow)?(\w)/, (_, arrow: string | undefined, letter: string) => `${arrow ? 'Arrow' : ''}${letter.toUpperCase()}`);
+  return [...modifiers, key].join('+');
+}
 
 export const QUICK_CAPTURE_BUFFER_STORAGE_KEY = 'hackdesk_quick_capture_buffer';
 
@@ -41,34 +72,85 @@ function clearQuickCaptureBuffer(storage: Storage = window.localStorage) {
 export function QuickCapture() {
   const api = window.hackdeskQuickCaptureAPI;
   const [content, setContent] = useState(() => readQuickCaptureBuffer());
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const editorRef = useRef<QuickCaptureEditorHandle | null>(null);
   const focusFrameRef = useRef<number | null>(null);
   const contentRef = useRef(content);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  /** Capturing while a submission is in flight; captured briefly after a pinned capture lands. */
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'captured'>('idle');
+  const submitting = status === 'submitting';
+  /** The pin and its shortcut, as the main process last reported them. */
+  const [popupState, setPopupState] = useState<QuickCaptureState>({
+    pinned: false,
+    pinShortcut: DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT,
+  });
+  const { pinned, pinShortcut } = popupState;
+  const pinnedRef = useRef(pinned);
   const isMac = navigator.userAgent.includes('Mac');
+  const platform = isMac ? 'darwin' : 'win32';
+  const pinShortcutLabel = displayShortcutConfig(pinShortcut, platform);
 
-  const focusTextarea = useCallback(() => {
+  const focusEditor = useCallback(() => {
     if (focusFrameRef.current !== null) {
       window.cancelAnimationFrame(focusFrameRef.current);
     }
 
     focusFrameRef.current = window.requestAnimationFrame(() => {
-      textareaRef.current?.focus({ preventScroll: true });
+      editorRef.current?.focus();
       focusFrameRef.current = null;
     });
   }, []);
 
+  // The editor loads after the first render; it takes focus once it is there.
+  const attachEditor = useCallback((handle: QuickCaptureEditorHandle | null) => {
+    editorRef.current = handle;
+    if (handle) focusEditor();
+  }, [focusEditor]);
+
   useEffect(() => {
-    focusTextarea();
-    window.addEventListener('focus', focusTextarea);
+    focusEditor();
+    window.addEventListener('focus', focusEditor);
     return () => {
-      window.removeEventListener('focus', focusTextarea);
+      window.removeEventListener('focus', focusEditor);
       if (focusFrameRef.current !== null) {
         window.cancelAnimationFrame(focusFrameRef.current);
       }
     };
-  }, [focusTextarea]);
+  }, [focusEditor]);
+
+  const applyPinned = useCallback((next: boolean) => {
+    pinnedRef.current = next;
+    setPopupState(current => ({ ...current, pinned: next }));
+  }, []);
+
+  const applyState = useCallback((state: QuickCaptureState) => {
+    pinnedRef.current = state.pinned;
+    setPopupState(state);
+  }, []);
+
+  useEffect(() => {
+    if (!api?.getState) return undefined;
+    let cancelled = false;
+    void api.getState().then((state) => {
+      if (!cancelled) applyState(state);
+    }).catch(() => undefined);
+    const unsubscribe = api.onStateChange?.(applyState);
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [api, applyState]);
+
+  const togglePinned = useCallback(async () => {
+    if (!api?.setPinned) return;
+    const next = !pinnedRef.current;
+    applyPinned(next);
+    try {
+      applyPinned((await api.setPinned(next)).pinned);
+    } catch {
+      applyPinned(!next);
+    }
+  }, [api, applyPinned]);
 
   const hide = useCallback(async () => {
     writeQuickCaptureBuffer(contentRef.current);
@@ -88,23 +170,47 @@ export function QuickCapture() {
   }, [content]);
 
   useEffect(() => {
+    if (status !== 'captured') return undefined;
+    const timeout = window.setTimeout(() => setStatus('idle'), CAPTURED_STATUS_MS);
+    return () => window.clearTimeout(timeout);
+  }, [status]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        void hide();
         return;
       }
 
-      event.preventDefault();
-      void hide();
+      // Before the editor sees it: a chosen pin shortcut wins over an editor binding on the same keys.
+      if (matchShortcutConfig(pinShortcut, event, platform)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void togglePinned();
+      }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hide]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [hide, pinShortcut, platform, togglePinned]);
+
+  const updateContent = useCallback((nextContent: string) => {
+    contentRef.current = nextContent;
+    setContent(nextContent);
+    setError(null);
+    setStatus(current => (current === 'captured' ? 'idle' : current));
+  }, []);
 
   const submit = async () => {
-    if (!content.trim()) {
+    const value = contentRef.current;
+    if (submitting) {
+      return;
+    }
+
+    if (!value.trim()) {
       setError('Write something before capturing.');
-      focusTextarea();
+      focusEditor();
       return;
     }
 
@@ -113,32 +219,40 @@ export function QuickCapture() {
       return;
     }
 
-    if (!writeQuickCaptureBuffer(content)) {
+    if (!writeQuickCaptureBuffer(value)) {
       setError('HackDesk could not persist this capture. Copy the text before closing.');
       return;
     }
 
-    setSubmitting(true);
+    setStatus('submitting');
     setError(null);
     try {
-      const result = await api.submit(content);
+      const result = await api.submit(value);
       if (!result.accepted) {
         setError(result.error);
-        setSubmitting(false);
-        focusTextarea();
+        setStatus('idle');
+        focusEditor();
         return;
       }
 
       clearQuickCaptureBuffer();
       contentRef.current = '';
       setContent('');
-      setSubmitting(false);
+      // Pinned, the popup stays for the next capture, so say this one landed.
+      setStatus(pinnedRef.current ? 'captured' : 'idle');
+      if (pinnedRef.current) focusEditor();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Failed to capture note.');
-      setSubmitting(false);
-      focusTextarea();
+      setStatus('idle');
+      focusEditor();
     }
   };
+
+  const submitRef = useRef(submit);
+  submitRef.current = submit;
+  const submitFromEditor = useCallback(() => {
+    void submitRef.current();
+  }, []);
 
   return (
     <main className="flex h-dvh flex-col bg-background-default text-text-default">
@@ -162,30 +276,19 @@ export function QuickCapture() {
           invalid={Boolean(error)}
           className="flex min-h-0 flex-1 flex-col space-y-0"
         >
-          <FieldLabel className="sr-only">Quick Hack note</FieldLabel>
-          <Textarea
-            ref={textareaRef}
-            name="content"
-            aria-describedby={error ? 'quick-capture-error' : undefined}
-            value={content}
-            placeholder="Write a note…"
-            className="h-auto min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-5 py-4 text-sm leading-6 text-text-default caret-primary-default shadow-none outline-none transition-none placeholder:text-text-subtle focus:border-transparent focus-visible:ring-0 data-[invalid]:border-0 data-[invalid]:focus:border-transparent data-[invalid]:focus-visible:ring-0"
-            disabled={submitting}
-            onChange={(event) => {
-              const nextContent = event.currentTarget.value;
-              contentRef.current = nextContent;
-              setContent(nextContent);
-              if (error) {
-                setError(null);
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-                event.preventDefault();
-                void submit();
-              }
-            }}
-          />
+          <Suspense fallback={<div className="min-h-0 flex-1" />}>
+            <QuickCaptureEditor
+              ref={attachEditor}
+              value={content}
+              label="Quick Hack note"
+              placeholder="Write a note… Markdown works here."
+              disabled={submitting}
+              invalid={Boolean(error)}
+              describedBy={error ? 'quick-capture-error' : undefined}
+              onChange={updateContent}
+              onSubmit={submitFromEditor}
+            />
+          </Suspense>
           {error ? (
             <p
               id="quick-capture-error"
@@ -196,12 +299,28 @@ export function QuickCapture() {
             </p>
           ) : null}
         </Field>
-        <footer className="relative flex h-10 shrink-0 items-center justify-end px-2.5">
-          {submitting ? (
-            <span className="pointer-events-none absolute inset-x-32 text-center text-xs tabular-nums text-text-subtle">
-              Capturing…
-            </span>
-          ) : null}
+        <footer className="relative flex h-10 shrink-0 items-center justify-between px-2.5">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            type="button"
+            aria-label="Pin Quick Hack"
+            aria-pressed={pinned}
+            aria-keyshortcuts={ariaKeyShortcut(pinShortcut, platform)}
+            title={`${pinned ? 'Pinned: stays open after capture' : 'Pin to keep open after capture'}${pinShortcutLabel ? ` (${pinShortcutLabel})` : ''}`}
+            onClick={() => void togglePinned()}
+          >
+            <Pin
+              aria-hidden="true"
+              className={cn('h-3.5 w-3.5', pinned ? 'fill-current text-primary-default' : 'text-text-subtle')}
+            />
+          </Button>
+          <span
+            role="status"
+            className="pointer-events-none absolute inset-x-32 text-center text-xs tabular-nums text-text-subtle"
+          >
+            {submitting ? 'Capturing…' : status === 'captured' ? 'Captured' : ''}
+          </span>
           <Button
             size="xs"
             variant="ghost"

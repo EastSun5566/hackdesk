@@ -1,9 +1,10 @@
 import type { ElectronSafeSettings } from '../../../src/lib/electron-api';
 import type { WindowWorkspaceScope } from '../../../src/lib/window-workspace';
+import type { QuickCaptureSettings } from '../../../src/lib/settings';
 import { app, type BrowserWindow } from 'electron';
 
 import { attachWindowMenu, createApplicationMenu, type ApplicationMenuOptions } from './app-menu';
-import { createApplicationTray } from './app-tray';
+import { createApplicationTray, setApplicationTrayMenu } from './app-tray';
 import { setAppIcon } from './app-icon';
 import { updateDockMenu } from './dock-menu';
 import { keepE2EWindowsInBackground } from './e2e-background-windows';
@@ -103,11 +104,26 @@ function refreshMenus(settings: Pick<ElectronSafeSettings, 'shortcuts' | 'keyboa
   rebuildMenus();
 }
 
+const trayActions = {
+  showMainWindow: () => windowManager.showAndFocusMainWindow(),
+  showQuickCaptureWindow: () => windowManager.showQuickCaptureWindow(),
+};
+
+function applyQuickCaptureSettings(settings: QuickCaptureSettings) {
+  windowManager.setQuickCaptureKeepOpen(settings.keepOpen);
+  windowManager.setQuickCapturePinShortcut(settings.pinShortcut);
+  // At startup the hotkey and the tray wait until the main window is up.
+  if (!startupComplete) return;
+  registerQuickCaptureGlobalShortcut(windowManager, settings.toggleShortcut);
+  if (tray) setApplicationTrayMenu(tray, trayActions, settings.toggleShortcut);
+}
+
 app.whenReady().then(async () => {
   registerRendererProtocol();
   disposeIpcHandlers = registerIpcHandlers(windowManager, {
     onSettingsUpdated: (settings) => {
       refreshMenus(settings);
+      if (settings.quickCapture) applyQuickCaptureSettings(settings.quickCapture);
       if (settings.appIcon) setAppIcon(settings.appIcon);
       updateDockMenu(settings, openWorkspaceWindow);
     },
@@ -120,6 +136,7 @@ app.whenReady().then(async () => {
   }
   const storedSettings = await readStoredSettings();
   setAppIcon(storedSettings.appIcon);
+  applyQuickCaptureSettings(storedSettings.quickCapture);
   refreshMenus(storedSettings);
   updateDockMenu(storedSettings, openWorkspaceWindow);
   windowManager.createMainWindow();
@@ -127,11 +144,8 @@ app.whenReady().then(async () => {
   if (app.commandLine.hasSwitch('quick-capture')) {
     windowManager.showQuickCaptureWindow();
   }
-  registerQuickCaptureGlobalShortcut(windowManager);
-  tray = createApplicationTray({
-    showMainWindow: () => windowManager.showAndFocusMainWindow(),
-    showQuickCaptureWindow: () => windowManager.showQuickCaptureWindow(),
-  });
+  registerQuickCaptureGlobalShortcut(windowManager, storedSettings.quickCapture.toggleShortcut);
+  tray = createApplicationTray(trayActions, storedSettings.quickCapture.toggleShortcut);
 
   app.on('activate', () => {
     windowManager.handleAppActivation();

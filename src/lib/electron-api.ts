@@ -66,11 +66,14 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   ai?: AppSettings['ai'];
   dictation?: AppSettings['dictation'];
   offline?: AppSettings['offline'];
+  quickCapture?: AppSettings['quickCapture'];
   appIcon?: AppSettings['appIcon'];
   shouldShowHackmdOnboarding: boolean;
 };
 
 export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline' | 'appIcon'>> & {
+  /** Each Quick Hack setting saves on its own; the ones left out keep their saved values. */
+  quickCapture?: Partial<AppSettings['quickCapture']>;
   hackmdApiToken?: string;
   /** Labels a newly connected account; also renames the active one when replacing its token. */
   hackmdAccountLabel?: string;
@@ -512,7 +515,9 @@ export type WindowPresentationState = {
 };
 
 export type QuickCaptureShortcutStatus = {
-  accelerator: 'Control+Alt+H';
+  /** The global hotkey from Settings, such as `control+alt+h`, or `none` when turned off. */
+  shortcut: string;
+  /** Whether the system accepted it; another app may already own the keys. */
   registered: boolean;
 };
 
@@ -523,6 +528,14 @@ export type QuickCaptureSubmissionAck =
 export type QuickCaptureSubmitResult =
   | { accepted: true }
   | { accepted: false; error: string };
+
+/** The Quick Hack popup's runtime state, owned by the main process. */
+export type QuickCaptureState = {
+  /** Pinned keeps the popup open after a capture. Each opening starts from the Keep open setting. */
+  pinned: boolean;
+  /** The configured pin shortcut, such as `mod+shift+p`, or `none`. */
+  pinShortcut: string;
+};
 
 export type HackDeskElectronAPI = {
   getRuntimeEnvironment: () => RuntimeEnvironment;
@@ -720,6 +733,9 @@ export type HackDeskPresentationAPI = {
 export type HackDeskQuickCaptureAPI = {
   submit: (content: string) => Promise<QuickCaptureSubmitResult>;
   hide: () => Promise<void>;
+  getState: () => Promise<QuickCaptureState>;
+  setPinned: (pinned: boolean) => Promise<QuickCaptureState>;
+  onStateChange: (listener: (state: QuickCaptureState) => void) => () => void;
 };
 
 export function getRuntimeEnvironment(): RuntimeEnvironment {
