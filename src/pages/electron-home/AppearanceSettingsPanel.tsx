@@ -71,7 +71,7 @@ export function AppearanceSettingsPanel({
         />
         {/* Only the macOS window has a material behind it to show through. */}
         {platform === 'darwin' ? (
-          <SettingsRow label="Translucency" htmlFor="settings-sidebar-translucency" description="Lets the desktop show through the sidebar and window frame. Notes stay opaque.">
+          <SettingsRow label="Translucency" htmlFor="settings-sidebar-translucency" description="Lets what is behind the window show through the sidebar and frame, blurred. Notes stay opaque.">
             <Select value={translucency} onValueChange={(value) => { if (isSidebarTranslucency(value)) setSidebarTranslucency(value); }}>
               <SelectTrigger id="settings-sidebar-translucency" aria-label="Translucency" className="w-full">
                 <SelectLabelValue value={translucency} labels={SIDEBAR_TRANSLUCENCY_LABELS} />

@@ -129,7 +129,7 @@ describe('ThemeProvider', () => {
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: light');
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--focus-ring:');
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--selection-background:');
-    expect(setThemeSurface).toHaveBeenLastCalledWith({ mode: 'light', background: lightBackground });
+    expect(setThemeSurface).toHaveBeenLastCalledWith({ mode: 'light', background: lightBackground, source: 'light' });
 
     fireEvent.click(screen.getByText('Set Dark'));
 
@@ -139,7 +139,7 @@ describe('ThemeProvider', () => {
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: dark');
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--focus-ring:');
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--selection-background:');
-    expect(setThemeSurface).toHaveBeenLastCalledWith({ mode: 'dark', background: darkBackground });
+    expect(setThemeSurface).toHaveBeenLastCalledWith({ mode: 'dark', background: darkBackground, source: 'dark' });
   });
 
 

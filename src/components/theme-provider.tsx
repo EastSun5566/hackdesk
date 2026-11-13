@@ -287,8 +287,9 @@ export function ThemeProvider({
     void getHackDeskAPI()?.app.setThemeSurface?.({
       mode: resolvedTheme,
       background,
+      source: effectiveTheme,
     });
-  }, [effectiveCustomSeed, effectivePresetId, effectiveTypography, preview, resolvedTheme]);
+  }, [effectiveCustomSeed, effectivePresetId, effectiveTheme, effectiveTypography, preview, resolvedTheme]);
 
   // A settings read that started before a local commit may resolve after it with older
   // values; the commit always wins, so a stale read never overwrites freshly saved state.

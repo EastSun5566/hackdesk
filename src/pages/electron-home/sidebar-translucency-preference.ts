@@ -1,15 +1,18 @@
 import { useSyncExternalStore } from 'react';
 
+import { getHackDeskAPI } from '@/lib/electron-api';
 import { trySetStorageItem } from '@/lib/storage';
+import { isWindowTranslucency, WINDOW_TRANSLUCENCY_LEVELS, type WindowTranslucency } from '@/lib/window-translucency';
 
 /**
  * How much of the desktop shows through the window frame and sidebar (macOS only, where the window
- * has a vibrancy material behind it). Off by default; kept on this computer. Notes stay opaque.
+ * has a vibrancy material behind it; see src/lib/window-translucency.ts). Off by default; kept on
+ * this computer. Notes stay opaque.
  */
 export const SIDEBAR_TRANSLUCENCY_KEY = 'hackdesk_sidebar_translucency';
 
-export const SIDEBAR_TRANSLUCENCY_LEVELS = ['off', 'subtle', 'medium', 'clear'] as const;
-export type SidebarTranslucency = (typeof SIDEBAR_TRANSLUCENCY_LEVELS)[number];
+export const SIDEBAR_TRANSLUCENCY_LEVELS = WINDOW_TRANSLUCENCY_LEVELS;
+export type SidebarTranslucency = WindowTranslucency;
 
 export const SIDEBAR_TRANSLUCENCY_LABELS: Record<SidebarTranslucency, string> = {
   off: 'Off',
@@ -18,9 +21,7 @@ export const SIDEBAR_TRANSLUCENCY_LABELS: Record<SidebarTranslucency, string> = 
   clear: 'Clear',
 };
 
-export function isSidebarTranslucency(value: unknown): value is SidebarTranslucency {
-  return typeof value === 'string' && (SIDEBAR_TRANSLUCENCY_LEVELS as readonly string[]).includes(value);
-}
+export const isSidebarTranslucency = isWindowTranslucency;
 
 const listeners = new Set<() => void>();
 
@@ -35,13 +36,15 @@ export function readSidebarTranslucency(): SidebarTranslucency {
 }
 
 /**
- * Keyed on the root element (see styles.css), so a change never re-renders the app. The level only
- * takes effect alongside data-window-vibrancy, which the app sets where the window has a material.
+ * The page clears its frame through a root attribute (see styles.css), and the main process picks
+ * the window material for the level and keeps the window itself transparent. The level only takes
+ * effect alongside data-window-vibrancy, which the app sets where the window has a material.
  */
 export function applySidebarTranslucency(level = readSidebarTranslucency()) {
   if (typeof document === 'undefined') return;
   if (level === 'off') delete document.documentElement.dataset.sidebarTranslucency;
   else document.documentElement.dataset.sidebarTranslucency = level;
+  void getHackDeskAPI()?.app.setWindowTranslucency?.(level);
 }
 
 /** Marks the window as having a vibrancy material behind it (macOS), which translucency needs. */

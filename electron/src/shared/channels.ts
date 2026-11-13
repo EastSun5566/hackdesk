@@ -103,6 +103,7 @@ export const ELECTRON_CHANNELS = {
   appOpenTextFile: 'app:open-text-file',
   appCheckForUpdates: 'app:check-for-updates',
   appSetThemeSurface: 'app:set-theme-surface',
+  appSetWindowTranslucency: 'app:set-window-translucency',
   appSetMenuShortcutsIgnored: 'app:set-menu-shortcuts-ignored',
   appNewWindow: 'app:new-window',
   appGetWindowPresentationState: 'app:get-window-presentation-state',
