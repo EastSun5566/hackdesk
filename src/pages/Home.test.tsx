@@ -444,7 +444,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       openTextFile: vi.fn(async () => null),
       checkForUpdates: vi.fn(async () => ({ status: 'upToDate' as const })),
       getQuickCaptureShortcutStatus: vi.fn(async () => ({
-        accelerator: 'Control+Alt+H' as const,
+        shortcut: 'control+alt+h',
         registered: true,
       })),
       submitQuickCapture: vi.fn(async () => ({ accepted: true as const })),

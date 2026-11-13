@@ -4,7 +4,7 @@ import { MAX_ASK_NOTES_HISTORY, MAX_ASK_NOTES_SOURCE_CHARACTERS, MAX_ASK_NOTES_S
 import { APP_ICON_IDS } from '../../../src/lib/app-icons';
 import { WINDOW_TRANSLUCENCY_LEVELS } from '../../../src/lib/window-translucency';
 import { MAX_NOTE_QUESTION_LENGTH, MAX_NOTE_SEARCH_QUERY_LENGTH } from '../../../src/lib/note-index';
-import { isValidQuickCapturePinShortcut } from '../../../src/lib/quick-capture-shortcuts';
+import { isValidQuickCapturePinShortcut, isValidQuickCaptureToggleShortcut } from '../../../src/lib/quick-capture-shortcuts';
 
 import { writeLog } from './logging';
 
@@ -232,6 +232,7 @@ export const settingsUpdateSchema = z.strictObject({
   quickCapture: z.strictObject({
     keepOpen: z.boolean().optional(),
     pinShortcut: z.string().max(100).refine(isValidQuickCapturePinShortcut).optional(),
+    toggleShortcut: z.string().max(100).refine(isValidQuickCaptureToggleShortcut).optional(),
   }).optional(),
   hackmdAccountLabel: z.string().trim().min(1).max(200).optional(),
   hackmdAddAccount: z.boolean().optional(),

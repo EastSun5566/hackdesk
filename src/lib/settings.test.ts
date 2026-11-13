@@ -63,20 +63,25 @@ describe('settings helpers', () => {
   });
 
   it('closes Quick Hack after capture by default and drops a damaged Quick Hack setting alone', () => {
-    expect(defaultSettings.quickCapture).toEqual({ keepOpen: false, pinShortcut: 'mod+shift+p' });
+    expect(defaultSettings.quickCapture).toEqual({ keepOpen: false, pinShortcut: 'mod+shift+p', toggleShortcut: 'control+alt+h' });
     expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: { keepOpen: true } })).quickCapture)
-      .toEqual({ keepOpen: true, pinShortcut: 'mod+shift+p' });
+      .toEqual({ ...defaultSettings.quickCapture, keepOpen: true });
     expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: { keepOpen: 'yes' } })).quickCapture)
       .toEqual(defaultSettings.quickCapture);
     expect(parseStoredSettings(JSON.stringify({
       title: 'Workspace',
       quickCapture: { keepOpen: true, pinShortcut: 'Mod+Alt+K' },
-    })).quickCapture).toEqual({ keepOpen: true, pinShortcut: 'mod+alt+k' });
+    })).quickCapture).toEqual({ ...defaultSettings.quickCapture, keepOpen: true, pinShortcut: 'mod+alt+k' });
     // A shortcut Quick Hack already uses (Mod+B is bold) falls back without turning Keep open off.
     expect(parseStoredSettings(JSON.stringify({
       title: 'Workspace',
-      quickCapture: { keepOpen: true, pinShortcut: 'mod+b' },
-    })).quickCapture).toEqual({ keepOpen: true, pinShortcut: 'mod+shift+p' });
+      quickCapture: { keepOpen: true, pinShortcut: 'mod+b', toggleShortcut: 'Control+Shift+Space' },
+    })).quickCapture).toEqual({ keepOpen: true, pinShortcut: 'mod+shift+p', toggleShortcut: 'control+shift+space' });
+    // A global hotkey without Command, Control or Alt would take keys from every app.
+    expect(parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      quickCapture: { keepOpen: true, toggleShortcut: 'shift+f5' },
+    })).quickCapture).toEqual({ ...defaultSettings.quickCapture, keepOpen: true });
     expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: 'on' })).quickCapture)
       .toEqual(defaultSettings.quickCapture);
   });
@@ -585,7 +590,8 @@ describe('settings helpers', () => {
   },
   "quickCapture": {
     "keepOpen": false,
-    "pinShortcut": "mod+shift+p"
+    "pinShortcut": "mod+shift+p",
+    "toggleShortcut": "control+alt+h"
   },
   "appIcon": "system"
 }`);

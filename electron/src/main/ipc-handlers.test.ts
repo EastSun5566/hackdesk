@@ -213,7 +213,7 @@ vi.mock('./logging', () => ({
 }));
 vi.mock('./global-shortcuts', () => ({
   getQuickCaptureShortcutStatus: vi.fn(() => ({
-    accelerator: 'Control+Alt+H',
+    shortcut: 'control+alt+h',
     registered: true,
   })),
 }));
@@ -436,7 +436,7 @@ describe('registerIpcHandlers', () => {
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus);
 
     expect(handler?.({})).toEqual({
-      accelerator: 'Control+Alt+H',
+      shortcut: 'control+alt+h',
       registered: true,
     });
   });

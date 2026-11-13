@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { RotateCcw, Search } from 'lucide-react';
 
 import {
@@ -18,14 +18,10 @@ import {
   recordShortcutFromEvent,
   type ShortcutOverrides,
 } from '@/lib/keyboard-shortcuts';
-import {
-  DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT,
-  getQuickCapturePinShortcutProblem,
-  QUICK_CAPTURE_TOGGLE_SHORTCUT,
-} from '@/lib/quick-capture-shortcuts';
 import { cn } from '@/lib/utils';
 
 import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
+import { QuickHackShortcutsSection } from './QuickHackShortcutsSection';
 import { SettingsInput, SettingsPage, SettingsSection, SettingsSwitchRow } from './SettingsPrimitives';
 import { defaultSettings } from '@/lib/settings';
 
@@ -33,9 +29,6 @@ const SHORTCUT_LIST_CLASS = 'm-0 flex list-none flex-col divide-y divide-border-
 const SHORTCUT_ROW_CLASS = 'flex min-w-0 items-center gap-3 py-2 pl-4 pr-2';
 
 const EDITABLE_ACTIONS = ELECTRON_ACTIONS;
-/** The pin shortcut records like an action's but saves with the Quick Hack settings. */
-const QUICK_CAPTURE_PIN = 'quick-capture-pin';
-type RecordingTarget = ElectronActionId | typeof QUICK_CAPTURE_PIN;
 const GROUPS: ElectronActionCategory[] = ['create', 'navigation', 'view', 'note', 'folder', 'app'];
 const GROUP_LABELS: Record<ElectronActionCategory, string> = {
   app: 'App',
@@ -54,6 +47,9 @@ export function ShortcutsSettingsPanel({
   onCharacterShortcutsChange,
   keyHintsVisible,
   onKeyHintsVisibleChange,
+  quickCaptureToggleShortcut,
+  savedQuickCaptureToggleShortcut,
+  onQuickCaptureToggleShortcutChange,
   quickCapturePinShortcut,
   onQuickCapturePinShortcutChange,
 }: {
@@ -64,38 +60,18 @@ export function ShortcutsSettingsPanel({
   platform: string;
   shortcuts: ShortcutOverrides;
   onShortcutsChange: (shortcuts: ShortcutOverrides) => void;
+  quickCaptureToggleShortcut: string;
+  savedQuickCaptureToggleShortcut: string | undefined;
+  onQuickCaptureToggleShortcutChange: (shortcut: string) => void;
   quickCapturePinShortcut: string;
   onQuickCapturePinShortcutChange: (shortcut: string) => void;
 }) {
   const leaderSpaceEnabled = leaderSpacePreference.use();
   const holdHintsEnabled = holdHintsPreference.use();
   const [filter, setFilter] = useState('');
-  const [activeActionId, setActiveActionId] = useState<RecordingTarget | null>(null);
+  const [activeActionId, setActiveActionId] = useState<ElectronActionId | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [quickCaptureRegistered, setQuickCaptureRegistered] = useState<boolean | null>(null);
   const activeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const quickCaptureShortcut = displayShortcutConfig(QUICK_CAPTURE_TOGGLE_SHORTCUT, platform);
-  const pinShortcutLabel = displayShortcutConfig(quickCapturePinShortcut, platform) || 'Disabled';
-  const quickCaptureStatusLabel = quickCaptureRegistered == null
-    ? 'Checking…'
-    : quickCaptureRegistered ? 'Global' : 'Unavailable';
-
-  useEffect(() => {
-    let cancelled = false;
-    void window.hackdeskAPI?.app.getQuickCaptureShortcutStatus?.().then((status) => {
-      if (!cancelled) {
-        setQuickCaptureRegistered(status.registered);
-      }
-    }).catch(() => {
-      if (!cancelled) {
-        setQuickCaptureRegistered(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const labels = useMemo(() => Object.fromEntries(
     EDITABLE_ACTIONS.map((action) => [action.id, action.label]),
@@ -109,19 +85,6 @@ export function ShortcutsSettingsPanel({
   ) as Partial<Record<ElectronActionId, string>>, [shortcuts]);
 
   const normalizedFilter = filter.trim().toLowerCase();
-  const showQuickCaptureShortcut = !normalizedFilter || [
-    'quick hack',
-    'open close',
-    'global',
-    'capture',
-    quickCaptureShortcut,
-  ].join(' ').toLowerCase().includes(normalizedFilter);
-  const showPinShortcut = !normalizedFilter || [
-    'pin quick hack',
-    'keep open',
-    'capture',
-    pinShortcutLabel,
-  ].join(' ').toLowerCase().includes(normalizedFilter);
   const filteredActions = useMemo(() => (
     EDITABLE_ACTIONS.filter((action) => {
       if (!normalizedFilter) {
@@ -167,48 +130,6 @@ export function ShortcutsSettingsPanel({
     const ids = new Set(EDITABLE_ACTIONS.filter((action) => action.category === group).map((action) => action.id));
     const next = Object.fromEntries(Object.entries(shortcuts).filter(([id]) => !ids.has(id as ElectronActionId)));
     onShortcutsChange(next);
-  };
-
-  const handlePinKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (activeActionId !== QUICK_CAPTURE_PIN) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (event.key === 'Escape') {
-      setActiveActionId(null);
-      setError(null);
-      return;
-    }
-
-    if (event.key === 'Backspace' || event.key === 'Delete') {
-      setError(null);
-      onQuickCapturePinShortcutChange('none');
-      setActiveActionId(null);
-      return;
-    }
-
-    const nextShortcut = recordShortcutFromEvent(event.nativeEvent, platform);
-    if (!nextShortcut) {
-      return;
-    }
-
-    // It works only inside the popup, so the app's other shortcuts may share its keys.
-    const problem = getQuickCapturePinShortcutProblem(nextShortcut);
-    if (problem) {
-      setError(problem === 'reserved'
-        ? 'This shortcut is reserved by the editor or operating system.'
-        : problem === 'quick-hack'
-          ? `Quick Hack already uses ${displayShortcutConfig(nextShortcut, platform)}.`
-          : `Use a shortcut with ${isMacPlatform(platform) ? '⌘, ⌃ or ⌥' : 'Ctrl or Alt'}, so it does not type into the note.`);
-      return;
-    }
-
-    setError(null);
-    onQuickCapturePinShortcutChange(nextShortcut);
-    setActiveActionId(null);
   };
 
   const handleCaptureKeyDown = (actionId: ElectronActionId, event: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -306,71 +227,17 @@ export function ShortcutsSettingsPanel({
         </p>
       ) : null}
 
-      {showQuickCaptureShortcut || showPinShortcut ? (
-        <SettingsSection
-          title="Quick Hack"
-          onRevert={() => {
-            setError(null);
-            onQuickCapturePinShortcutChange(DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT);
-          }}
-          revertLabel="Reset the Pin Quick Hack shortcut"
-        >
-          <ul data-settings-flush className={SHORTCUT_LIST_CLASS}>
-            {showQuickCaptureShortcut ? (
-              <li className={SHORTCUT_ROW_CLASS}>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-text-default">Open or close Quick Hack</p>
-                  <p className={cn(
-                    'truncate text-xs',
-                    quickCaptureRegistered === false ? 'text-warning-default' : 'text-text-subtle',
-                  )}
-                  >
-                    {quickCaptureStatusLabel}
-                  </p>
-                </div>
-                <span className="inline-flex h-8 min-w-28 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-xs font-medium text-text-default">
-                  {quickCaptureShortcut}
-                </span>
-                {/* Lines the fixed hotkey up with the shortcut below, which has a reset button here. */}
-                <span aria-hidden="true" className="size-8 shrink-0" />
-              </li>
-            ) : null}
-            {showPinShortcut ? (
-              <li className={SHORTCUT_ROW_CLASS}>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-text-default">Pin Quick Hack</p>
-                </div>
-                <Button
-                  ref={activeActionId === QUICK_CAPTURE_PIN ? activeButtonRef : undefined}
-                  size="sm"
-                  data-shortcut-recording={activeActionId === QUICK_CAPTURE_PIN || undefined}
-                  aria-label="Set shortcut for Pin Quick Hack"
-                  onClick={() => {
-                    setError(null);
-                    setActiveActionId(QUICK_CAPTURE_PIN);
-                  }}
-                  onKeyDown={handlePinKeyDown}
-                  className={cn('min-w-28 px-3', activeActionId === QUICK_CAPTURE_PIN && 'border-focus-ring bg-background-selected')}
-                >
-                  {activeActionId === QUICK_CAPTURE_PIN ? 'Press keys…' : pinShortcutLabel}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Reset shortcut for Pin Quick Hack"
-                  disabled={quickCapturePinShortcut === DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT}
-                  onClick={() => {
-                    setError(null);
-                    onQuickCapturePinShortcutChange(DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT);
-                  }}
-                >
-                  <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
-                </Button>
-              </li>
-            ) : null}
-          </ul>
-        </SettingsSection>
-      ) : null}
+      <QuickHackShortcutsSection
+        platform={platform}
+        filter={normalizedFilter}
+        listClassName={SHORTCUT_LIST_CLASS}
+        rowClassName={SHORTCUT_ROW_CLASS}
+        toggleShortcut={quickCaptureToggleShortcut}
+        savedToggleShortcut={savedQuickCaptureToggleShortcut}
+        pinShortcut={quickCapturePinShortcut}
+        onToggleShortcutChange={onQuickCaptureToggleShortcutChange}
+        onPinShortcutChange={onQuickCapturePinShortcutChange}
+      />
 
       {GROUPS.map((group) => {
         const actions = filteredActions.filter((action) => action.category === group);

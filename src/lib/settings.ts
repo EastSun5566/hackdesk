@@ -14,7 +14,12 @@ import { MAX_DICTATION_LOCALE_LENGTH } from '@/lib/dictation';
 import { ELECTRON_ACTIONS } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import { isValidCustomShortcutConfig } from '@/lib/keyboard-shortcuts';
-import { DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT, isValidQuickCapturePinShortcut } from '@/lib/quick-capture-shortcuts';
+import {
+  DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT,
+  DEFAULT_QUICK_CAPTURE_TOGGLE_SHORTCUT,
+  isValidQuickCapturePinShortcut,
+  isValidQuickCaptureToggleShortcut,
+} from '@/lib/quick-capture-shortcuts';
 import {
   DEFAULT_EDITOR_FONT_SIZE,
   DEFAULT_UI_FONT_SIZE,
@@ -179,11 +184,14 @@ export type QuickCaptureSettings = {
   keepOpen: boolean;
   /** Pins or unpins the open popup; `none` turns the shortcut off. */
   pinShortcut: string;
+  /** The global hotkey that opens and closes Quick Hack from any app; `none` turns it off. */
+  toggleShortcut: string;
 };
 
 export const defaultQuickCaptureSettings: QuickCaptureSettings = {
   keepOpen: false,
   pinShortcut: DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT,
+  toggleShortcut: DEFAULT_QUICK_CAPTURE_TOGGLE_SHORTCUT,
 };
 
 export const defaultOfflineSettings: OfflineSettings = {
@@ -755,17 +763,22 @@ const aiSettingsSchema = z.object({
 const offlineSettingsSchema = z.object({
   keepHackmdNotes: z.boolean().default(true),
 }).default(defaultOfflineSettings);
-export const quickCapturePinShortcutSchema = z.string().trim().toLowerCase().refine(isValidQuickCapturePinShortcut, {
+const quickCapturePinShortcutSchema = z.string().trim().toLowerCase().refine(isValidQuickCapturePinShortcut, {
   message: 'Use a shortcut with Command, Control or Alt that Quick Hack does not already use.',
+});
+const quickCaptureToggleShortcutSchema = z.string().trim().toLowerCase().refine(isValidQuickCaptureToggleShortcut, {
+  message: 'Use a shortcut with Command, Control or Alt and a letter, number or function key.',
 });
 const quickCaptureSettingsSchema = z.object({
   keepOpen: z.boolean().default(defaultQuickCaptureSettings.keepOpen),
   pinShortcut: quickCapturePinShortcutSchema.default(defaultQuickCaptureSettings.pinShortcut),
+  toggleShortcut: quickCaptureToggleShortcutSchema.default(defaultQuickCaptureSettings.toggleShortcut),
 }).default(defaultQuickCaptureSettings);
 // One unreadable field falls back alone, so a hand-edited shortcut does not also turn off Keep open.
 const storedQuickCaptureSettingsSchema = z.object({
   keepOpen: quickCaptureSettingsSchema.unwrap().shape.keepOpen.catch(defaultQuickCaptureSettings.keepOpen),
   pinShortcut: quickCaptureSettingsSchema.unwrap().shape.pinShortcut.catch(defaultQuickCaptureSettings.pinShortcut),
+  toggleShortcut: quickCaptureSettingsSchema.unwrap().shape.toggleShortcut.catch(defaultQuickCaptureSettings.toggleShortcut),
 }).default(defaultQuickCaptureSettings);
 const dictationSettingsSchema = z.object({
   enabled: z.boolean().default(false),

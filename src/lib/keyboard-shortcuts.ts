@@ -242,6 +242,33 @@ export function toMenuAccelerator(config: string | undefined, platform: Shortcut
   return parts.join('+');
 }
 
+/**
+ * A system-wide accelerator for Electron's globalShortcut. Unlike a menu accelerator, it may
+ * combine Command and Control.
+ */
+export function toGlobalShortcutAccelerator(config: string | undefined, platform: ShortcutPlatform) {
+  const shortcut = parseShortcutConfig(config ?? '', platform)[0];
+  if (!shortcut) {
+    return undefined;
+  }
+
+  const parts: string[] = [];
+  if (shortcut.meta) {
+    parts.push(isMacPlatform(platform) ? 'Command' : 'Super');
+  }
+  if (shortcut.ctrl) {
+    parts.push('Control');
+  }
+  if (shortcut.alt) {
+    parts.push('Alt');
+  }
+  if (shortcut.shift) {
+    parts.push('Shift');
+  }
+  parts.push(MENU_KEY_NAMES[shortcut.key] ?? shortcut.key.toUpperCase());
+  return parts.join('+');
+}
+
 export function recordShortcutFromEvent(event: KeyboardEvent, platform: ShortcutPlatform) {
   if (isModifierOnlyKey(event.key)) {
     return null;

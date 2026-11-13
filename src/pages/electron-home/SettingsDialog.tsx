@@ -178,6 +178,7 @@ function SettingsDialogContent({
     characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
     quickCapturePinShortcut: settings?.quickCapture?.pinShortcut ?? defaultSettings.quickCapture.pinShortcut,
+    quickCaptureToggleShortcut: settings?.quickCapture?.toggleShortcut ?? defaultSettings.quickCapture.toggleShortcut,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
   // Appearance applies at once now, so closing only clears invalid, unapplied input.
@@ -201,7 +202,7 @@ function SettingsDialogContent({
     }
   }
   useEffect(() => cancelPreview, [cancelPreview]);
-  const { appIcon, editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, quickCapturePinShortcut, title, token, tokenTest, tokenVisible, addingAccount } = formState;
+  const { appIcon, editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, quickCapturePinShortcut, quickCaptureToggleShortcut, title, token, tokenTest, tokenVisible, addingAccount } = formState;
 
   // Every change saves at once; the footer is gone. Text fields debounce so typing saves once it pauses.
   const titleSaveTimer = useRef<number | undefined>(undefined);
@@ -270,6 +271,10 @@ function SettingsDialogContent({
     setFormState((current) => ({ ...current, quickCapturePinShortcut: next }));
     onSave({ title: titleForSave, quickCapture: { pinShortcut: next } });
   };
+  const handleQuickCaptureToggleShortcutChange = (next: string) => {
+    setFormState((current) => ({ ...current, quickCaptureToggleShortcut: next }));
+    onSave({ title: titleForSave, quickCapture: { toggleShortcut: next } });
+  };
   const handleKeyboardNavigationChange = (next: { characterShortcutsEnabled: boolean; keyHintsVisible: boolean }) => {
     setFormState((current) => ({ ...current, ...next }));
     onSave({ title: titleForSave, shortcuts, keyboardNavigation: next });
@@ -303,13 +308,19 @@ function SettingsDialogContent({
       setNewTabOpens('empty');
     } else if (tab === 'shortcuts') {
       const navigation = { characterShortcutsEnabled: true, keyHintsVisible: true };
-      const quickCapturePinShortcut = defaultSettings.quickCapture.pinShortcut;
-      setFormState((current) => ({ ...current, shortcuts: defaultSettings.shortcuts, ...navigation, quickCapturePinShortcut }));
+      const { pinShortcut, toggleShortcut } = defaultSettings.quickCapture;
+      setFormState((current) => ({
+        ...current,
+        shortcuts: defaultSettings.shortcuts,
+        ...navigation,
+        quickCapturePinShortcut: pinShortcut,
+        quickCaptureToggleShortcut: toggleShortcut,
+      }));
       onSave({
         title: titleForSave,
         shortcuts: defaultSettings.shortcuts,
         keyboardNavigation: navigation,
-        quickCapture: { pinShortcut: quickCapturePinShortcut },
+        quickCapture: { pinShortcut, toggleShortcut },
       });
       leaderSpacePreference.set(true);
       holdHintsPreference.set(true);
@@ -430,6 +441,7 @@ function SettingsDialogContent({
       characterShortcutsEnabled: true,
       keyHintsVisible: true,
       quickCapturePinShortcut: defaultSettings.quickCapture.pinShortcut,
+      quickCaptureToggleShortcut: defaultSettings.quickCapture.toggleShortcut,
     });
     setAppearance(defaultSettings.appearance);
     // Kept on this computer rather than in settings, so it resets here, as the Appearance reset does.
@@ -441,7 +453,10 @@ function SettingsDialogContent({
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
-      quickCapture: { pinShortcut: defaultSettings.quickCapture.pinShortcut },
+      quickCapture: {
+        pinShortcut: defaultSettings.quickCapture.pinShortcut,
+        toggleShortcut: defaultSettings.quickCapture.toggleShortcut,
+      },
       appIcon: defaultSettings.appIcon,
     });
   };
@@ -461,6 +476,7 @@ function SettingsDialogContent({
         characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
         keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
         quickCapturePinShortcut: settings?.quickCapture?.pinShortcut ?? defaultSettings.quickCapture.pinShortcut,
+        quickCaptureToggleShortcut: settings?.quickCapture?.toggleShortcut ?? defaultSettings.quickCapture.toggleShortcut,
       }));
     }
     onOpenChange(nextOpen);
@@ -590,6 +606,9 @@ function SettingsDialogContent({
                     })}
                     shortcuts={shortcuts}
                     onShortcutsChange={handleShortcutsChange}
+                    quickCaptureToggleShortcut={quickCaptureToggleShortcut}
+                    savedQuickCaptureToggleShortcut={settings?.quickCapture?.toggleShortcut}
+                    onQuickCaptureToggleShortcutChange={handleQuickCaptureToggleShortcutChange}
                     quickCapturePinShortcut={quickCapturePinShortcut}
                     onQuickCapturePinShortcutChange={handleQuickCapturePinShortcutChange}
                   />

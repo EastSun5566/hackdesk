@@ -515,7 +515,9 @@ export type WindowPresentationState = {
 };
 
 export type QuickCaptureShortcutStatus = {
-  accelerator: 'Control+Alt+H';
+  /** The global hotkey from Settings, such as `control+alt+h`, or `none` when turned off. */
+  shortcut: string;
+  /** Whether the system accepted it; another app may already own the keys. */
   registered: boolean;
 };
 

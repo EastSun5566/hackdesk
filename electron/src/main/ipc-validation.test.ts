@@ -204,6 +204,13 @@ describe('IPC runtime validation', () => {
     for (const pinShortcut of ['mod+b', 'mod+enter', 'shift+k', 'k', 'mod+c', 7]) {
       expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { pinShortcut } })).toThrow();
     }
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { toggleShortcut: 'control+shift+space' } }))
+      .toEqual({ quickCapture: { toggleShortcut: 'control+shift+space' } });
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { toggleShortcut: 'none' } }))
+      .toEqual({ quickCapture: { toggleShortcut: 'none' } });
+    for (const toggleShortcut of ['shift+f5', 'h', 'mod+b', 'control+alt+˙', 'mod+v', null]) {
+      expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { toggleShortcut } })).toThrow();
+    }
   });
 
   it('accepts known app icons in settings updates', () => {
