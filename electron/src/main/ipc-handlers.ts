@@ -167,6 +167,7 @@ import {
   saveTextFileInputSchema,
   settingsUpdateSchema,
   themeSurfaceInputSchema,
+  windowTranslucencySchema,
   updateFolderInputSchema,
   updateNoteInputSchema,
   uploadNoteImageInputSchema,
@@ -193,7 +194,7 @@ export function registerIpcHandlers(
     | 'cancelClose' | 'cancelCloseForSender' | 'confirmClose' | 'confirmCloseForSender' | 'holdClose' | 'holdCloseForSender'
     | 'getMainWindow' | 'getMainWindows' | 'getMainWindowForWebContents' | 'getTargetWindow' | 'sendToAllMainWindows'
     | 'getWindowPresentationState' | 'getWindowPresentationStateForSender' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
-    | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface' | 'newMainWindow'
+    | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface' | 'setWindowTranslucency' | 'newMainWindow'
     | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
   >,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
@@ -835,7 +836,10 @@ export function registerIpcHandlers(
   });
   ipcMain.handle(ELECTRON_CHANNELS.appSetThemeSurface, (_event, input: ThemeSurfaceInput) => {
     const themeSurface = validateIpcInput(ELECTRON_CHANNELS.appSetThemeSurface, themeSurfaceInputSchema, input);
-    windowManager.setThemeSurface(themeSurface.background);
+    windowManager.setThemeSurface(themeSurface.background, themeSurface.source);
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appSetWindowTranslucency, (_event, level: unknown) => {
+    windowManager.setWindowTranslucency(validateIpcInput(ELECTRON_CHANNELS.appSetWindowTranslucency, windowTranslucencySchema, level));
   });
   ipcMain.handle(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, (_event, ignore: boolean) => {
     windowManager.setMenuShortcutsIgnored(

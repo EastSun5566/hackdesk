@@ -5,15 +5,24 @@ import type { ThemeAppearanceDraftController } from '@/components/useThemeAppear
 
 import { SettingsPage, SettingsRow, SettingsSection, SettingsSwitchRow } from './SettingsPrimitives';
 import { setStatusLineVisible, useStatusLineVisible } from './status-line-preference';
+import {
+  isSidebarTranslucency,
+  setSidebarTranslucency,
+  SIDEBAR_TRANSLUCENCY_LABELS,
+  SIDEBAR_TRANSLUCENCY_LEVELS,
+  useSidebarTranslucency,
+} from './sidebar-translucency-preference';
 import { setTreeGuides, useTreeGuides } from './tree-guides-preference';
 
 export function AppearanceSettingsPanel({
   controller,
+  platform,
   onRevertTheme,
   onRevertSidebar,
   onRevertWindow,
 }: {
   controller: ThemeAppearanceDraftController;
+  platform: string;
   onRevertTheme: () => void;
   onRevertSidebar: () => void;
   onRevertWindow: () => void;
@@ -21,6 +30,7 @@ export function AppearanceSettingsPanel({
   const showTreeGuides = useTreeGuides();
   const showStatusLine = useStatusLineVisible();
   const codeTheme = useCodeTheme();
+  const translucency = useSidebarTranslucency();
 
   return (
     <SettingsPage>
@@ -51,7 +61,7 @@ export function AppearanceSettingsPanel({
         </SettingsRow>
       </SettingsSection>
       {/* Take effect at once, like the theme above. */}
-      <SettingsSection title="Sidebar" onRevert={onRevertSidebar} revertLabel="Show indent guides">
+      <SettingsSection title="Sidebar" onRevert={onRevertSidebar} revertLabel="Show indent guides and turn translucency off">
         <SettingsSwitchRow
           id="settings-tree-guides"
           label="Indent guides"
@@ -59,6 +69,19 @@ export function AppearanceSettingsPanel({
           checked={showTreeGuides}
           onCheckedChange={setTreeGuides}
         />
+        {/* Only the macOS window has a material behind it to show through. */}
+        {platform === 'darwin' ? (
+          <SettingsRow label="Translucency" htmlFor="settings-sidebar-translucency" description="Lets what is behind the window show through the sidebar and frame, blurred. Notes stay opaque.">
+            <Select value={translucency} onValueChange={(value) => { if (isSidebarTranslucency(value)) setSidebarTranslucency(value); }}>
+              <SelectTrigger id="settings-sidebar-translucency" aria-label="Translucency" className="w-full">
+                <SelectLabelValue value={translucency} labels={SIDEBAR_TRANSLUCENCY_LABELS} />
+              </SelectTrigger>
+              <SelectContent>
+                {SIDEBAR_TRANSLUCENCY_LEVELS.map((level) => <SelectItem key={level} value={level}>{SIDEBAR_TRANSLUCENCY_LABELS[level]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+        ) : null}
       </SettingsSection>
       <SettingsSection title="Window" onRevert={onRevertWindow} revertLabel="Show the status line">
         <SettingsSwitchRow

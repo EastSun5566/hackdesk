@@ -56,6 +56,7 @@ import type {
   LocalVaultWriteInput,
 } from '../../../src/lib/local-vault';
 import type { AiProviderId, AiTurnDelta, AiTurnInput, AskNotesInput } from '../../../src/lib/ai';
+import type { WindowTranslucency } from '../../../src/lib/window-translucency';
 import type { DictationEvent, DictationEventMessage, DictationInstallInput, DictationStartInput } from '../../../src/lib/dictation';
 import type { NoteBacklinksInput, NotePassagesInput, NoteSearchInput, ResolveNoteLinkInput } from '../../../src/lib/note-index';
 import { ELECTRON_CHANNELS } from '../shared/channels';
@@ -278,6 +279,7 @@ const api: HackDeskElectronAPI = {
     checkForUpdates: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appCheckForUpdates),
     newWindow: (input?: NewWindowInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appNewWindow, input),
     setThemeSurface: (input: ThemeSurfaceInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSetThemeSurface, input),
+    setWindowTranslucency: (level: WindowTranslucency) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSetWindowTranslucency, level),
     setMenuShortcutsIgnored: (ignore: boolean) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore)
     ),

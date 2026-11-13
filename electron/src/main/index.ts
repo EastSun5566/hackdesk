@@ -1,9 +1,11 @@
 import type { ElectronSafeSettings } from '../../../src/lib/electron-api';
+import type { WindowWorkspaceScope } from '../../../src/lib/window-workspace';
 import { app, type BrowserWindow } from 'electron';
 
 import { attachWindowMenu, createApplicationMenu, type ApplicationMenuOptions } from './app-menu';
 import { createApplicationTray } from './app-tray';
 import { setAppIcon } from './app-icon';
+import { updateDockMenu } from './dock-menu';
 import { keepE2EWindowsInBackground } from './e2e-background-windows';
 import { registerQuickCaptureGlobalShortcut, unregisterQuickCaptureGlobalShortcut } from './global-shortcuts';
 import { registerIpcHandlers } from './ipc-handlers';
@@ -92,6 +94,10 @@ function rebuildMenus() {
   }
 }
 
+function openWorkspaceWindow(workspace: WindowWorkspaceScope) {
+  windowManager.newMainWindow({ workspace });
+}
+
 function refreshMenus(settings: Pick<ElectronSafeSettings, 'shortcuts' | 'keyboardNavigation'>) {
   latestMenuSettings = settings;
   rebuildMenus();
@@ -103,6 +109,7 @@ app.whenReady().then(async () => {
     onSettingsUpdated: (settings) => {
       refreshMenus(settings);
       if (settings.appIcon) setAppIcon(settings.appIcon);
+      updateDockMenu(settings, openWorkspaceWindow);
     },
   }).dispose;
   windowManager.onMenuStateChanged(rebuildMenus);
@@ -114,6 +121,7 @@ app.whenReady().then(async () => {
   const storedSettings = await readStoredSettings();
   setAppIcon(storedSettings.appIcon);
   refreshMenus(storedSettings);
+  updateDockMenu(storedSettings, openWorkspaceWindow);
   windowManager.createMainWindow();
   startupComplete = true;
   if (app.commandLine.hasSwitch('quick-capture')) {

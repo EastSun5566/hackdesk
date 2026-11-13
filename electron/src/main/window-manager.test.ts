@@ -36,6 +36,7 @@ const mockState = vi.hoisted(() => {
   }
 
   const state = {
+    nativeTheme: { themeSource: 'system' as 'system' | 'dark' | 'light' },
     lastWindow: null as unknown,
     windows: [] as BrowserWindowMock[],
     appHide: vi.fn(() => {
@@ -81,6 +82,7 @@ const mockState = vi.hoisted(() => {
     });
     maximize = vi.fn();
     setBackgroundColor = vi.fn();
+    setVibrancy = vi.fn();
     getBounds = vi.fn(() => ({ x: 0, y: 0, width: 1180, height: 760 }));
     show = vi.fn(() => { this.visibleValue = true; });
     focus = vi.fn(() => {
@@ -139,6 +141,7 @@ vi.mock('electron', () => ({
     exit: vi.fn(),
   },
   BrowserWindow: mockState.BrowserWindowMock,
+  nativeTheme: mockState.state.nativeTheme,
   dialog: {
     showMessageBox: vi.fn(async () => ({ response: 3 })),
   },
@@ -962,6 +965,48 @@ describe('WindowManager multi-window', () => {
     manager.sendToAllMainWindows(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
     expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
     expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
+  });
+
+  describe('translucency', () => {
+    const originalPlatform = process.platform;
+    afterEach(() => {
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+      mockState.state.nativeTheme.themeSource = 'system';
+    });
+
+    it('keeps translucent macOS windows transparent, on the level\'s material, in the theme\'s appearance', () => {
+      Object.defineProperty(process, 'platform', { value: 'darwin' });
+      const manager = new WindowManager();
+      const window = getMockWindow(manager.createMainWindow());
+
+      manager.setThemeSurface('#202022', 'dark');
+      expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#202022');
+      expect(mockState.state.nativeTheme.themeSource).toBe('system');
+
+      manager.setWindowTranslucency('clear');
+      expect(window.setVibrancy).toHaveBeenLastCalledWith('fullscreen-ui');
+      expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#00000000');
+      expect(mockState.state.nativeTheme.themeSource).toBe('dark');
+
+      // A theme change while translucent keeps the window clear.
+      manager.setThemeSurface('#fdfdfd', 'light');
+      expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#00000000');
+      expect(mockState.state.nativeTheme.themeSource).toBe('light');
+
+      manager.setWindowTranslucency('off');
+      expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#fdfdfd');
+      expect(mockState.state.nativeTheme.themeSource).toBe('system');
+    });
+
+    it('does nothing to windows elsewhere', () => {
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+      const manager = new WindowManager();
+      const window = getMockWindow(manager.createMainWindow());
+      manager.setThemeSurface('#fdfdfd', 'light');
+      manager.setWindowTranslucency('clear');
+      expect(window.setVibrancy).not.toHaveBeenCalled();
+      expect(window.setBackgroundColor).toHaveBeenLastCalledWith('#fdfdfd');
+    });
   });
 
   it('reports presentation state for the requesting window', () => {

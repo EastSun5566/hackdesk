@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { MAX_ASK_NOTES_HISTORY, MAX_ASK_NOTES_SOURCE_CHARACTERS, MAX_ASK_NOTES_SOURCES } from '../../../src/lib/ai';
 import { APP_ICON_IDS } from '../../../src/lib/app-icons';
+import { WINDOW_TRANSLUCENCY_LEVELS } from '../../../src/lib/window-translucency';
 import { MAX_NOTE_QUESTION_LENGTH, MAX_NOTE_SEARCH_QUERY_LENGTH } from '../../../src/lib/note-index';
 
 import { writeLog } from './logging';
@@ -504,7 +505,10 @@ export const fatalRendererErrorSchema = z.strictObject({
 export const themeSurfaceInputSchema = z.strictObject({
   mode: z.enum(['dark', 'light']),
   background: z.string().regex(/^(?:#[\da-fA-F]{6}|rgb\(\d{1,3} \d{1,3} \d{1,3}(?: \/ (?:0|1|0?\.\d+))?\))$/),
+  source: z.enum(['dark', 'light', 'system']).optional(),
 });
+
+export const windowTranslucencySchema = z.enum(WINDOW_TRANSLUCENCY_LEVELS);
 
 export const quickCaptureSubmissionAckSchema = z.discriminatedUnion('accepted', [
   z.strictObject({

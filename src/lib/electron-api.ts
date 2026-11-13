@@ -44,6 +44,7 @@ import type {
   ResolveNoteLinkInput,
 } from './note-index';
 import type { AppSettings } from './settings';
+import type { WindowTranslucency } from './window-translucency';
 
 export type RuntimeEnvironment = 'electron' | 'web';
 export type HackmdRequestOptions = { requestId: string };
@@ -502,6 +503,8 @@ export type HackDeskCloseRequest = {
 export type ThemeSurfaceInput = {
   mode: 'dark' | 'light';
   background: string;
+  /** The theme setting itself, so a translucent window's material can follow it ('system' too). */
+  source?: 'dark' | 'light' | 'system';
 };
 
 export type WindowPresentationState = {
@@ -671,6 +674,7 @@ export type HackDeskElectronAPI = {
     /** Optional for renderer hot reloads against an older preload. */
     newWindow?: (input?: NewWindowInput) => Promise<void>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
+    setWindowTranslucency?: (level: WindowTranslucency) => Promise<void>;
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;
     getWindowPresentationState?: () => Promise<WindowPresentationState>;
     onWindowPresentationStateChange?: (callback: (state: WindowPresentationState) => void) => () => void;

@@ -596,6 +596,22 @@
   .app-chrome {
     -webkit-user-select: none;
     user-select: none;
+    /* The frame behind the cards, and the sidebar panel and sticky rows on top of it. */
+    --background-chrome: var(--background-muted);
+    --background-sidebar: var(--background-muted);
+  }
+
+  /* Appearance > Translucency (macOS): the frame and sidebar paint nothing, so the window's vibrancy
+     material shows through. The main process picks the material per level; a CSS tint over it would
+     only dilute it, as the material is already a pale, blurred surface. index.html clears the page
+     background under it. Sticky sidebar rows blur what scrolls beneath them. Cards stay opaque. */
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome {
+    --background-chrome: transparent;
+    --background-sidebar: transparent;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency] .sidebar-sticky {
+    backdrop-filter: blur(16px);
   }
 
   .app-chrome input,

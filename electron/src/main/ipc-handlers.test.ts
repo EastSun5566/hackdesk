@@ -241,6 +241,7 @@ const windowManager = {
   resolveQuickCaptureSubmission: vi.fn(),
   setMenuShortcutsIgnored: vi.fn(),
   setThemeSurface: vi.fn(),
+  setWindowTranslucency: vi.fn(),
   submitQuickCapture: vi.fn(async () => ({ accepted: true as const })),
   showPresentationWindow: vi.fn(),
   getPresentationDeck: vi.fn(() => ({ title: 'Deck', content: '# One', fullScreen: false })),

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, screen } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme, screen } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
@@ -10,6 +10,7 @@ import type {
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
 } from '../../../src/lib/electron-api';
+import { WINDOW_TRANSLUCENCY_MATERIALS, type WindowTranslucency } from '../../../src/lib/window-translucency';
 import { appendWindowWorkspaceToUrl } from '../../../src/lib/window-workspace';
 import { getRendererEntryUrl, getRendererRouteUrl } from './paths';
 import { openExternalUrl } from './url-policy';
@@ -95,6 +96,10 @@ export class WindowManager {
   }
 
   private menuStateListeners = new Set<() => void>();
+  /** The theme's page background, which the window paints until the page loads (and, opaque, behind it). */
+  private themeBackground: string | null = null;
+  private themeSource: 'dark' | 'light' | 'system' = 'system';
+  private translucency: WindowTranslucency = 'off';
 
   /** Rebuild native menus when windows open, close, focus or retitle. */
   onMenuStateChanged(listener: () => void) {
@@ -220,14 +225,37 @@ export class WindowManager {
     target.focus();
   }
 
-  setThemeSurface(background: string) {
-    const windows = this.getMainWindows();
-    if (windows.length === 0) {
-      return;
-    }
+  setThemeSurface(background: string, source?: 'dark' | 'light' | 'system') {
+    this.themeBackground = background;
+    if (source) this.themeSource = source;
+    this.applyWindowSurfaces();
+  }
 
-    for (const window of windows) {
-      window.setBackgroundColor(background);
+  /** Appearance > Translucency, one setting for every window (it is kept per computer). */
+  setWindowTranslucency(level: WindowTranslucency) {
+    this.translucency = level;
+    this.applyWindowSurfaces();
+  }
+
+  /**
+   * A translucent window (macOS only) stays transparent, whatever the theme's background, so its
+   * vibrancy material shows through the page, and takes the level's material. The material follows
+   * the window's appearance, so the app's theme setting decides it while translucency is on; off,
+   * the system does, as before.
+   */
+  private applyWindowSurfaces() {
+    const material = process.platform === 'darwin' && this.translucency !== 'off'
+      ? WINDOW_TRANSLUCENCY_MATERIALS[this.translucency]
+      : null;
+    if (process.platform === 'darwin') nativeTheme.themeSource = material ? this.themeSource : 'system';
+    for (const window of this.getMainWindows()) {
+      if (window.isDestroyed()) continue;
+      if (material) {
+        window.setVibrancy(material);
+        window.setBackgroundColor('#00000000');
+      } else if (this.themeBackground) {
+        window.setBackgroundColor(this.themeBackground);
+      }
     }
   }
 

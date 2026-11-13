@@ -407,7 +407,7 @@ function FolderNavigatorPanel({
       collapsed={layout.collapsed}
       width={layout.width}
       collapsedWidth={0}
-      className={cn('bg-background-muted', layout.collapsed && 'mr-1.5', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('bg-(--background-sidebar)', layout.collapsed && 'mr-1.5', HACK_MODE_HIDDEN_CLASS)}
       // On the panel, not the content, so the resize handle can update both widths while dragging.
       style={{ '--sidebar-content-width': `${layout.width}px` } as CSSProperties}
     >
@@ -1429,7 +1429,8 @@ function NavigatorTree({
           />
         </div>
         <KeepMountedOnceOpen open={expanded}>
-          <ul id={childrenGroupId} role="group" data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
+          {/* mt-0.5: the same gap a folder leaves between its row and its children. */}
+          <ul id={childrenGroupId} role="group" data-tree-children="true" className={cn('relative m-0 mt-0.5 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
           {group.entries.map((entry, noteIndex) => (
             <li role="presentation" key={entry.note.id} className={treeItemClassName(true, true)}>
               {showRootRow ? <span aria-hidden="true" data-tree-guide={noteIndex === group.entries.length - 1 ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
