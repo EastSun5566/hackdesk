@@ -15,8 +15,13 @@ Review changes to that allowlist instead of approving every dependency's scripts
 
 ## Check changes
 
-Run `pnpm run check` before opening a pull request. This also type-checks tests,
-Electron E2E, and docs.
+While working, run the tests for what you changed (`pnpm exec vitest run <path>`,
+or one Playwright spec after `pnpm run build`). Before every push, run
+`pnpm run check:static`: type checks for the app, tests, Electron E2E and docs,
+lint, and knip. CI runs the full unit and E2E suites on every push.
+
+`pnpm run check` runs `check:static`, the whole unit suite and a build; use it
+when you want the full local check before a large change.
 
 Run `pnpm run test:coverage` once to generate a local report in `.local/coverage/`.
 

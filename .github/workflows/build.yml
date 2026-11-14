@@ -169,6 +169,12 @@ jobs:
           else
             pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/bundled-updater.spec.ts
           fi
+      # The macOS-only app-lifecycle spec launches the source build that package:check just made.
+      # It runs here rather than in its own job so each CI run asks for one macOS runner, not two:
+      # macOS runners are scarce, and a job no runner picks up fails the whole run.
+      - name: Run app-lifecycle spec
+        if: matrix.os == 'macos-latest'
+        run: pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/app-lifecycle.spec.ts
       - name: Upload packaged-startup Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -179,40 +185,4 @@ jobs:
             test-results
             ${{ runner.temp }}/signpath-installer-fixture-*/builder.*.log
             ${{ runner.temp }}/signpath-installer-fixture-*/**/*verification.json
-          retention-days: 7
-
-  # Run the macOS-only app-lifecycle spec on a macOS runner. The spec itself
-  # self-skips on non-darwin via `test.skip(process.platform !== 'darwin', ...)`,
-  # so the runner is scoped to macos-latest rather than a 3-OS matrix — running
-  # it on ubuntu/windows would just spend runner minutes on a guaranteed skip.
-  macos-lifecycle:
-    timeout-minutes: 20
-    runs-on: macos-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      # Build the source app (the lifecycle spec launches Electron from source,
-      # not the packaged binary, so no electron-builder step here).
-      - run: pnpm run build
-      # Run only the lifecycle spec to keep the job focused and the macOS
-      # runner minutes tight. The spec skips itself on non-darwin.
-      - name: Run app-lifecycle spec
-        run: pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/app-lifecycle.spec.ts
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: macos-lifecycle-report
-          path: |
-            playwright-report
-            test-results
           retention-days: 7
