@@ -9,16 +9,23 @@
  *   pnpm render:preview --modes dark --click "Last line"  # put the cursor there (reveals that line's source)
  *   pnpm render:preview --find "link"                     # open find (Cmd/Ctrl+F) and type a query
  *   pnpm render:preview --eval "document.querySelectorAll('.cm-line').length"
+ *   pnpm render:preview --window --translucency clear     # macOS: the whole window as the screen shows it
  *
  * Screenshots land in .local/render-preview/<name>-<mode>.png. The script starts its own Vite dev
  * server, so source edits are picked up on every run; it builds the Electron main bundle first.
  * Windows stay in the background (HACKDESK_E2E_BACKGROUND) and never touch your real settings.
+ *
+ * --window (macOS) brings the window to the front and captures its area of the screen, so the shot has
+ * what only the window server draws: the vibrancy material behind a translucent sidebar, the frame and
+ * traffic lights. Page screenshots never include those, so they cannot show a translucency bug. It
+ * needs an awake, unlocked screen and Screen Recording permission for the terminal.
  */
 import { _electron as electron } from '@playwright/test';
 import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { parseArgs } from 'node:util';
+import { execFile } from 'node:child_process';
+import { parseArgs, promisify } from 'node:util';
 import { createServer } from 'vite';
 import { buildTargets } from './electron-build.ts';
 
@@ -59,10 +66,19 @@ const { values } = parseArgs({
     click: { type: 'string' },
     find: { type: 'string' },
     eval: { type: 'string' },
+    window: { type: 'boolean', default: false },
+    translucency: { type: 'string' },
     width: { type: 'string', default: '1280' },
     height: { type: 'string', default: '1400' },
   },
 });
+
+const translucencyLevels = ['off', 'subtle', 'medium', 'clear'];
+const translucency = values.translucency ?? (values.window ? 'medium' : undefined);
+if (translucency !== undefined && !translucencyLevels.includes(translucency)) {
+  throw new Error(`--translucency must be one of ${translucencyLevels.join(', ')}.`);
+}
+if (values.window && process.platform !== 'darwin') throw new Error('--window needs macOS (it uses screencapture).');
 
 const notePath = path.resolve(values.note);
 const note = await readFile(notePath, 'utf8');
@@ -96,7 +112,8 @@ try {
     for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
     delete env.ELECTRON_RUN_AS_NODE;
     env.HOME = home;
-    env.HACKDESK_E2E_BACKGROUND = '1';
+    // A background window is invisible, so the window server has nothing to capture.
+    if (!values.window) env.HACKDESK_E2E_BACKGROUND = '1';
     // Vite listens on localhost, which may resolve to ::1 only; 127.0.0.1 would never connect.
     env.HACKDESK_ELECTRON_DEV_SERVER_URL = `http://localhost:${address.port}`;
 
@@ -110,7 +127,18 @@ try {
       page.on('console', (message) => {
         if (message.type() === 'error') console.error(`[renderer] ${message.text()}`);
       });
-      await page.setViewportSize({ width: Number(values.width), height: Number(values.height) });
+      if (values.window) {
+        await app.evaluate(({ BrowserWindow }, size) => {
+          BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
+        }, { width: Number(values.width), height: Number(values.height) });
+      } else {
+        await page.setViewportSize({ width: Number(values.width), height: Number(values.height) });
+      }
+      if (translucency !== undefined) {
+        // Kept per computer in localStorage, read when the app starts (sidebar-translucency-preference.ts).
+        await page.evaluate((level) => window.localStorage.setItem('hackdesk_sidebar_translucency', level), translucency);
+        await page.reload();
+      }
 
       // The saved search state can arrive after launch and replace what was typed; retry until the note opens.
       const search = page.getByPlaceholder('Search notes');
@@ -152,8 +180,29 @@ try {
       }
       if (values.eval) console.log(`[${mode}]`, await page.evaluate(values.eval));
 
-      const file = path.join(values.out, `${name}-${mode}.png`);
-      await page.locator('.cm-editor').first().screenshot({ path: file });
+      const file = path.join(values.out, `${name}-${mode}${values.window ? `-window-${translucency}` : ''}.png`);
+      if (values.window) {
+        // Capture the window's area of the screen, with the window in front so nothing covers it.
+        const bounds = await app.evaluate(async ({ app: electronApp, BrowserWindow }) => {
+          const window = BrowserWindow.getAllWindows()[0];
+          if (!window) return null;
+          electronApp.focus({ steal: true });
+          window.moveTop();
+          window.focus();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          return window.getBounds();
+        });
+        if (!bounds) throw new Error('--window: the app has no window.');
+        const rect = [bounds.x, bounds.y, bounds.width, bounds.height].join(',');
+        try {
+          await promisify(execFile)('screencapture', ['-x', `-R${rect}`, file]);
+        } catch (error) {
+          throw new Error('--window: screencapture failed. The screen must be awake and unlocked, and the terminal needs '
+            + 'Screen Recording permission (System Settings > Privacy & Security).', { cause: error });
+        }
+      } else {
+        await page.locator('.cm-editor').first().screenshot({ path: file });
+      }
       console.log(file);
     } finally {
       await app.close().catch(() => app.process().kill('SIGKILL'));
