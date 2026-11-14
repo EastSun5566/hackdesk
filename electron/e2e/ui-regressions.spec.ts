@@ -1024,7 +1024,7 @@ test('dropping a folder or a note on the workspace row moves it to the top level
   }
 });
 
-test('with translucency on, the pinned workspace row stays clear and masks out the rows under it', async () => {
+test('with translucency on, the pinned workspace row stays clear and the list masks its edges instead of painting fades', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
     await switchWorkspace(page, 'vault');
@@ -1049,6 +1049,12 @@ test('with translucency on, the pinned workspace row stays clear and masks out t
         mask: getComputedStyle(rows).maskImage,
         pinnedBackground: getComputedStyle(pinned).backgroundColor,
         topFade: getComputedStyle(element.querySelector('.edge-fade-top')!).display,
+        bottomFade: getComputedStyle(element.querySelector('.edge-fade-bottom')!).display,
+        // The list's own mask: its bottom edge fades while rows lie past it, and the pinned row's
+        // cut, not this mask, fades the top.
+        maskTop: Number.parseFloat(getComputedStyle(element).getPropertyValue('--sidebar-fade-top')),
+        maskBottom: Number.parseFloat(getComputedStyle(element).getPropertyValue('--sidebar-fade-bottom')),
+        scrollerMask: getComputedStyle(element).maskImage,
       };
     });
 
@@ -1057,6 +1063,11 @@ test('with translucency on, the pinned workspace row stays clear and masks out t
     expect(state.edge).toBeLessThanOrEqual(0);
     expect(state.cut).toBe(0);
     expect(state.mask).toContain('linear-gradient');
+    // Rows lie past the bottom edge: masked there, with no opaque fade painted over the material.
+    expect(state.bottomFade).toBe('none');
+    expect(state.scrollerMask).toContain('linear-gradient');
+    await expect.poll(async () => (await measure()).maskBottom).toBe(32);
+    expect(state.maskTop).toBe(0);
 
     // Scrolled, the pinned row paints nothing (the material shows through it, as around it) and the
     // rows are cut exactly at its bottom edge; no opaque fade is drawn over them either.
@@ -1076,6 +1087,9 @@ test('with translucency on, the pinned workspace row stays clear and masks out t
     state = await measure();
     expect(state.pinnedBackground).toBe('rgba(0, 0, 0, 0)');
     expect(state.topFade).toBe('none');
+    expect(state.maskTop).toBe(0);
+    // At the end of the list nothing lies past the bottom edge, so it is not faded.
+    await expect.poll(async () => (await measure()).maskBottom).toBe(0);
   } finally {
     await stopApp(app);
   }

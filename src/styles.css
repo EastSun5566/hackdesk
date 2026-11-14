@@ -153,6 +153,19 @@
   initial-value: 0px;
 }
 
+/* Registered so the translucent sidebar's edge masks can transition (styles.css, .scroll-edges-source). */
+@property --sidebar-fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --sidebar-fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 @layer components {
   :root,
   :root.light {
@@ -645,10 +658,45 @@
     to { --pinned-rows-cut: 100000px; }
   }
 
-  /* The top edge fade paints the opaque sidebar colour, a grey haze over the material; the mask above
-     fades the rows instead. */
-  :root[data-window-vibrancy][data-sidebar-translucency] .edge-fade-top.sidebar-pinned-fade {
+  /* The edge fades paint the opaque sidebar colour, a haze over the material (white in light mode,
+     dark in dark mode). With translucency on the sidebar list is masked at its edges instead: the
+     bottom edge while rows lie past it, and the top edge in lists without the pinned root row (whose
+     cut, above, fades the rows under it). The mask is the scroller's own box, so it stays on the
+     edges while the rows scroll. Classic scrollbars sit in a 12px gutter that the second, solid
+     layer keeps whole; overlay scrollbars only show while scrolling and fade with the rows. */
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .edge-fade-top,
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .edge-fade-bottom {
     display: none;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .scroll-edges-source:has(> .edge-fade-bottom) {
+    --sidebar-fade-top: 0px;
+    --sidebar-fade-bottom: 0px;
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--sidebar-fade-top),
+      #000 calc(100% - var(--sidebar-fade-bottom)),
+      transparent
+    );
+    transition: --sidebar-fade-top 150ms ease-out, --sidebar-fade-bottom 150ms ease-out;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .scroll-edges-source[data-overflow-start]:has(> .edge-fade-top:not(.sidebar-pinned-fade)) {
+    --sidebar-fade-top: 2rem;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .scroll-edges-source[data-overflow-end]:has(> .edge-fade-bottom) {
+    --sidebar-fade-bottom: 2rem;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency][data-scrollbars='classic'] .app-chrome .scroll-edges-source:has(> .edge-fade-bottom) {
+    mask-image:
+      linear-gradient(to bottom, transparent, #000 var(--sidebar-fade-top), #000 calc(100% - var(--sidebar-fade-bottom)), transparent),
+      linear-gradient(#000, #000);
+    mask-size: calc(100% - 12px) 100%, 12px 100%;
+    mask-position: left top, right top;
+    mask-repeat: no-repeat;
   }
 
   .app-chrome input,
