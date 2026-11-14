@@ -5,17 +5,32 @@ main process lives in `electron/src/`. See `CONTRIBUTING.md` for setup.
 
 ## Verify changes without the full E2E suite
 
-The Playwright suite (`pnpm test:e2e` / `pnpm test:smoke`) launches one app per test and takes a
-long time. **Don't run the whole suite locally.** CI runs it on every push (`.github/workflows/build.yml`,
-"Quality and package smoke"), so rely on the GitHub checks for it: `gh pr checks` or `gh run watch`.
+CI runs everything on every push (`.github/workflows/build.yml`, "Quality and package smoke"), and
+a run usually takes about 6 minutes: three E2E shards of about 3 minutes each, with the unit job
+(about 4 minutes) as the slowest. So don't run the whole Playwright suite or the whole `pnpm test`
+locally to "be safe"; let CI do that.
 
-Locally, run only what the change touches:
+Locally, while iterating, run only what the change touches:
 
 - Unit tests for the files you changed: `pnpm exec vitest run src/components/hackmd-live-preview`
-  (a directory or file path, not the whole `pnpm test`, unless you are about to hand off).
+  (a directory or file path). Don't pipe test output through `tail`; it cuts off the failure names.
 - One E2E spec when the change needs it: `pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/<spec>.spec.ts`.
   Run `pnpm run build` first; specs launch the built app.
-- `pnpm run typecheck:app` (or the narrower `typecheck:*` for the area) and `pnpm run lint:ts`.
+
+**Before every push**, run `pnpm run check:static` (under a minute). It is what CI's `static` job
+runs: all `typecheck:*` projects, `lint:ts`, knip (`check:deps`, unused exports and dependencies),
+the workflow lint and the HackMD contract check. Knip is the one most often missed; it has failed
+CI for an export only a test used.
+
+Waiting for CI: `gh pr checks <pr>` shows the state; don't block on `gh pr checks --watch` in the
+foreground (it outlives tool timeouts, and exits early while checks are still queued). A PR is
+ready when every check is green. macOS runners are scarce: a macOS job can wait 10 minutes for one,
+and a job that no runner picked up ("The job was not acquired by Runner") is not a code failure.
+Rerun it with `gh run rerun <run-id> --failed`.
+
+Test timeouts while other agents or builds are running on the machine are load, not flakiness.
+`SettingsDialog.*.test.tsx` renders the whole dialog in every test (about a second each), so it is
+the first to time out. Rerun the file alone before concluding a test is flaky.
 
 Two cases need more than that:
 
@@ -40,6 +55,23 @@ server, so every run reflects the current source; it never touches your real set
 
 Gotcha: the dev server must be reached as `localhost`, not `127.0.0.1` (Vite may listen on `::1` only),
 or the window stays blank.
+
+The default shots are page screenshots of the editor. They never include what macOS draws behind
+the page: the vibrancy material of a translucent window or sidebar, the frame and traffic lights.
+For any change to translucency, the sidebar's sticky rows or the window frame, use
+`pnpm render:preview --window --translucency <subtle|medium|clear>`. It shows the window on screen
+and captures it as the screen shows it; it needs an awake, unlocked screen and Screen Recording
+permission. Don't explain away a difference in a page screenshot as "the real window will look
+softer". If you cannot capture the real window, say so in the handoff, and the PR is not ready to
+merge until someone has looked at it on a real Mac.
+
+## Running the app from a T3 worktree
+
+A new worktree needs its own `pnpm install`. If Electron fails to launch with a missing binary or
+`Library not loaded: @rpath/Electron Framework`, its download is missing or truncated: run
+`rm -rf node_modules/electron/dist && node node_modules/electron/install.js`. The macOS-only
+`app-lifecycle.spec.ts` needs a window that can take focus, so it doesn't pass in a background or
+sandboxed agent session; leave it to CI (it runs in the macOS package-smoke job).
 
 ## The editor's rendering pipeline
 
