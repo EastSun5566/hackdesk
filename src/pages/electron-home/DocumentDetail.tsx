@@ -29,6 +29,7 @@ import {
   RefreshCw,
   Save,
   Share2,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
 } from 'lucide-react';
@@ -68,6 +69,7 @@ import { useDocumentActions } from './DocumentActionsContext';
 import { BookPane, ChapterNav } from './BookContents';
 import { useBookSessionContext, usePaneTabId } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
+import { NoteMetadataDialog } from './NoteMetadataDialog';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { RenameNoteDialog } from './RenameNoteDialog';
 import { EDITOR_CONTENT_MAX_WIDTH, EDITOR_CONTENT_WIDTH, EDITOR_SIDE_PADDING } from '@/components/hackmd-live-preview/editor-content-layout';
@@ -116,6 +118,7 @@ export type DocumentDetailLayout = {
   inspectorWidth?: number;
   onInspectorWidthChange?: (width: number) => void;
   searchRequestId: number;
+  noteMetadataOpen?: boolean;
   shareOpen: boolean;
   versionsOpen?: boolean;
   /** With several panes, this pane can fill the editor area; `zoomed` says it does now. */
@@ -157,6 +160,7 @@ export type DocumentDetailActions = {
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  onNoteMetadataOpenChange?: (open: boolean) => void;
   onShareOpenChange: (open: boolean) => void;
   onVersionsOpenChange?: (open: boolean) => void;
   onTitleChange: (title: string) => void;
@@ -609,6 +613,9 @@ function ActiveDocumentDetail({
     setActionsOpen(false);
     window.setTimeout(() => open(true), 0);
   };
+  const openNoteMetadataDialogFromMenu = actions.onNoteMetadataOpenChange
+    ? () => openDialogFromMenu(actions.onNoteMetadataOpenChange!)
+    : undefined;
   const openShareDialogFromMenu = () => openDialogFromMenu(actions.onShareOpenChange);
   const openVersionsDialogFromMenu = actions.onVersionsOpenChange
     ? () => openDialogFromMenu(actions.onVersionsOpenChange!)
@@ -632,6 +639,7 @@ function ActiveDocumentDetail({
         onActionsOpenChange={setActionsOpen}
         onAttachImage={requestAttachImage}
         onAiAssist={requestAiAssist}
+        onOpenNoteMetadataDialog={openNoteMetadataDialogFromMenu}
         onOpenShareDialog={openShareDialogFromMenu}
         onOpenVersionsDialog={openVersionsDialogFromMenu}
         onOpenRenameDialog={() => openDialogFromMenu(setRenameOpen)}
@@ -679,14 +687,13 @@ function ActiveDocumentDetail({
         />
         <InspectorPanel
           onRevealComment={revealComment}
+          content={documentState.content}
           document={documentState.document}
-          folderTree={folderTree}
           inspectorCollapsed={layout.inspectorCollapsed}
           inspectorPanelId={inspectorPanelId}
           inspectorWidth={layout.inspectorWidth}
           onInspectorWidthChange={layout.onInspectorWidthChange}
           isLocalDocument={isLocalDocument}
-          status={status}
         />
       </div>
       {openBook ? <ChapterNav {...openBook} /> : null}
@@ -702,6 +709,19 @@ function ActiveDocumentDetail({
           setRenameOpen(false);
         }}
       />
+
+      {!documentState.document || isLocalDocument || !actions.onNoteMetadataOpenChange ? null : (
+        <NoteMetadataDialog
+          open={!!layout.noteMetadataOpen}
+          document={documentState.document}
+          content={documentState.content}
+          folderTree={folderTree}
+          isSaving={status.savingMetadata}
+          onOpenChange={actions.onNoteMetadataOpenChange}
+          onSaveMetadata={actions.onSaveMetadata}
+          onOpenVersions={actions.onVersionsOpenChange && (() => actions.onVersionsOpenChange?.(true))}
+        />
+      )}
 
       {!documentState.document || isLocalDocument ? null : (
         <ShareDialog
@@ -804,6 +824,7 @@ function DocumentHeader({
   onActionsOpenChange,
   onAiAssist,
   onAttachImage,
+  onOpenNoteMetadataDialog,
   onOpenShareDialog,
   onOpenVersionsDialog,
   onOpenRenameDialog,
@@ -817,6 +838,7 @@ function DocumentHeader({
   onActionsOpenChange: (open: boolean) => void;
   onAiAssist: () => void;
   onAttachImage: () => void;
+  onOpenNoteMetadataDialog?: () => void;
   onOpenShareDialog: () => void;
   onOpenVersionsDialog?: () => void;
   onOpenRenameDialog: () => void;
@@ -914,6 +936,7 @@ function DocumentHeader({
               onOpenChange={onActionsOpenChange}
               onAiAssist={onAiAssist}
               onAttachImage={onAttachImage}
+              onOpenNoteMetadataDialog={onOpenNoteMetadataDialog}
               onOpenShareDialog={onOpenShareDialog}
               onOpenVersionsDialog={onOpenVersionsDialog}
               onOpenRenameDialog={onOpenRenameDialog}
@@ -932,6 +955,7 @@ function DocumentActionsMenu({
   onOpenChange,
   onAiAssist,
   onAttachImage,
+  onOpenNoteMetadataDialog,
   onOpenShareDialog,
   onOpenVersionsDialog,
   onOpenRenameDialog,
@@ -942,6 +966,7 @@ function DocumentActionsMenu({
   onOpenChange: (open: boolean) => void;
   onAiAssist: () => void;
   onAttachImage: () => void;
+  onOpenNoteMetadataDialog?: () => void;
   onOpenShareDialog: () => void;
   onOpenVersionsDialog?: () => void;
   onOpenRenameDialog: () => void;
@@ -971,12 +996,23 @@ function DocumentActionsMenu({
               Open in HackMD
               <ActionMenuShortcut actionId="open-note-web-editor" />
             </DropdownMenuItem>
+            {onOpenNoteMetadataDialog ? (
+              <DropdownMenuItem onSelect={(event) => {
+                event.preventDefault();
+                onOpenNoteMetadataDialog();
+              }}>
+                <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
+                Note Settings…
+                <ActionMenuShortcut actionId="note-settings" />
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onSelect={(event) => {
               event.preventDefault();
               onOpenShareDialog();
             }}>
               <Share2 aria-hidden="true" className="h-4 w-4" />
               Share…
+              <ActionMenuShortcut actionId="share-note" />
             </DropdownMenuItem>
             {onOpenVersionsDialog ? (
               <DropdownMenuItem onSelect={(event) => {
@@ -1109,24 +1145,22 @@ function DocumentBody({
 
 function InspectorPanel({
   onRevealComment,
+  content,
   document,
-  folderTree,
   inspectorCollapsed,
   inspectorPanelId,
   inspectorWidth,
   onInspectorWidthChange,
   isLocalDocument,
-  status,
 }: {
+  content: string;
   document?: DocumentSummary;
-  folderTree: FolderTree;
   inspectorCollapsed: boolean;
   inspectorPanelId: string;
   inspectorWidth?: number;
   onInspectorWidthChange?: (width: number) => void;
   isLocalDocument: boolean;
   onRevealComment: (comment: NoteComment) => boolean;
-  status: DocumentDetailStatus;
 }) {
   const actions = useDocumentActions();
   const width = inspectorWidth ?? INSPECTOR_WIDTH_DEFAULT;
@@ -1159,7 +1193,7 @@ function InspectorPanel({
       }}
       className={cn(
         // A card floating over the note, a gap in from the pane's edges.
-        'absolute inset-y-1.5 right-1.5 z-20 flex w-(--inspector-width) max-w-full rounded-lg border border-border-subtle bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none [html[data-panel-resizing]_&]:transition-none',
+        'absolute inset-y-1.5 right-1.5 z-20 flex w-(--inspector-width) max-w-full rounded-lg border border-border-default bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none [html[data-panel-resizing]_&]:transition-none',
         inspectorCollapsed && 'pointer-events-none translate-x-full opacity-0 ease-in',
       )}
       style={{ '--inspector-width': `${width}px` }}
@@ -1182,17 +1216,14 @@ function InspectorPanel({
       ) : null}
       <div className="flex min-h-0 min-w-0 flex-1 overflow-clip rounded-lg">
         {!showContent ? null : isLocalDocument ? (
-          <LocalNoteInspector document={document} onOpenNote={actions.onOpenNoteTarget!} />
+          <LocalNoteInspector content={content} document={document} onOpenNote={actions.onOpenNoteTarget!} />
         ) : (
           <NoteInspector
+            content={content}
             document={document}
-            folderTree={folderTree}
-            status={{
-              saving: status.savingMetadata,
-            }}
             actions={{
-              onSaveMetadata: actions.onSaveMetadata,
-              onCopyLink: actions.onCopyLink,
+              onOpenNoteSettings: actions.onNoteMetadataOpenChange && (() => actions.onNoteMetadataOpenChange?.(true)),
+              onOpenShare: () => actions.onShareOpenChange(true),
               onShowVersions: actions.onVersionsOpenChange && (() => actions.onVersionsOpenChange?.(true)),
               // Comments live on HackMD, so they are offered where versions are.
               onRevealComment: actions.onVersionsOpenChange && onRevealComment,

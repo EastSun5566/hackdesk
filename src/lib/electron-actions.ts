@@ -517,10 +517,22 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireSelectedNote,
   },
   {
+    id: 'note-settings',
+    label: 'Note Settings…',
+    description: 'Edit tags, folder location, description, and note details.',
+    keywords: ['settings', 'metadata', 'tags', 'description', 'folder', 'info', 'properties'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: (context) => {
+      if (!context.selectedNoteId) return 'Select a note first.';
+      return context.scopeType === 'local' ? 'Note settings are only available for HackMD notes.' : requireHackmd(context);
+    },
+  },
+  {
     id: 'share-note',
     label: 'Share Note…',
-    description: 'Change who can read and edit the selected HackMD note.',
-    keywords: ['share', 'access', 'permission', 'publish'],
+    description: 'Change who can read and edit the selected HackMD note, or customize its permalink.',
+    keywords: ['share', 'access', 'permission', 'publish', 'permalink'],
     category: 'note',
     scope: 'editor',
     getDisabledReason: (context) => {

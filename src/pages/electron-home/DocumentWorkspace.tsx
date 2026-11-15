@@ -252,6 +252,7 @@ export function DocumentWorkspace({
   editorMode,
   folderTree,
   isInspectorCollapsed,
+  isPaneInspectorCollapsed,
   inspectorWidth,
   onInspectorWidthChange,
   getPaneView,
@@ -277,6 +278,7 @@ export function DocumentWorkspace({
   editorMode: EditorMode;
   folderTree: FolderTree;
   isInspectorCollapsed: boolean;
+  isPaneInspectorCollapsed?: (paneId: string) => boolean;
   inspectorWidth?: number;
   onInspectorWidthChange?: (width: number) => void;
   getPaneView: (pane: NotePane) => DocumentPaneView;
@@ -296,7 +298,8 @@ export function DocumentWorkspace({
   tabsWorkspace?: DocumentWorkspaceTabsProps;
 }) {
   const { onOpenNoteTarget, onCopyDraft, onExportDraft, onOpenAsNewDraft, onRetryLoad } = useWorkbenchDocumentActions();
-  // Share and Versions open over the active pane; the workbench overlays hold whether they are open.
+  // Note Settings, Share and Versions open over the active pane; the workbench overlays hold whether they are open.
+  const noteMetadataOpen = useOverlay((overlays) => overlays.noteMetadata);
   const shareOpen = useOverlay((overlays) => overlays.share);
   const versionsOpen = useOverlay((overlays) => overlays.versions);
   const [paneHosts] = useState(() => new Map<string, PaneHost>());
@@ -765,9 +768,10 @@ export function DocumentWorkspace({
                 aiAssistRequestId: requestId('ai-assist'),
                 dictateRequestId: requestId('dictate'),
                 onRequestHandled: onEditorRequestHandled,
+                noteMetadataOpen: isActivePane && noteMetadataOpen,
                 shareOpen: isActivePane && shareOpen,
                 versionsOpen: isActivePane && versionsOpen,
-                inspectorCollapsed: !isActivePane || isInspectorCollapsed,
+                inspectorCollapsed: isPaneInspectorCollapsed ? isPaneInspectorCollapsed(pane.paneId) : (!isActivePane || isInspectorCollapsed),
                 inspectorWidth,
                 onInspectorWidthChange,
                 paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,

@@ -116,6 +116,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     copyNoteLink: vi.fn(),
     copyMarkdownLink: vi.fn(),
     copyNoteContent: vi.fn(),
+    noteSettings: vi.fn(),
     shareNote: vi.fn(),
     moveTab: vi.fn(),
     toggleBookContents: vi.fn(),

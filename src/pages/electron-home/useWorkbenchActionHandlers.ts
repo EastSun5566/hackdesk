@@ -374,6 +374,13 @@ export function useWorkbenchActionHandlers({
     copyNoteContent: () => {
       if (selectedDocument) void copyNoteContentText(api, documentContent);
     },
+    noteSettings: () => {
+      if (!selectedDocument || selectedDocument.teamPath === LOCAL_VAULT_TEAM_PATH) {
+        toast.info('Note settings are only available for HackMD notes.');
+        return;
+      }
+      overlayControls.set('noteMetadata', true);
+    },
     shareNote: openShare,
     moveTab: (step) => {
       const index = activeTab ? activePaneTabIds.indexOf(activeTab.tabId) : -1;

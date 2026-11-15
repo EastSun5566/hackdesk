@@ -66,6 +66,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'action', actionId: 'copy-note-link' },
       { type: 'action', actionId: 'copy-markdown-link' },
       { type: 'action', actionId: 'copy-note-content' },
+      { type: 'action', actionId: 'note-settings' },
       { type: 'action', actionId: 'share-note' },
       { type: 'separator' },
       { type: 'action', actionId: 'open-note-web-editor' },

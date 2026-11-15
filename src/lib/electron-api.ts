@@ -462,6 +462,7 @@ export type ElectronActionId =
   | 'copy-note-link'
   | 'copy-markdown-link'
   | 'copy-note-content'
+  | 'note-settings'
   | 'share-note'
   | 'move-tab-left'
   | 'move-tab-right'

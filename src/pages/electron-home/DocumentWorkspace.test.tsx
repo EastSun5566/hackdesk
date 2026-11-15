@@ -327,6 +327,15 @@ describe('DocumentWorkspace', () => {
     expect(activeDetail).toHaveAttribute('data-inspector-collapsed', 'false');
   });
 
+  it('passes per-pane inspector collapsed state independently when provided', () => {
+    renderWorkspace({
+      isPaneInspectorCollapsed: (paneId) => paneId !== 'pane-a',
+    });
+
+    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-inspector-collapsed', 'false');
+    expect(screen.getByTestId('document-detail-Right note')).toHaveAttribute('data-inspector-collapsed', 'true');
+  });
+
   it('does not route a request to another workspace or document inside the same pane', () => {
     const props = createWorkspaceProps();
     const { rerender } = render(<DocumentWorkspace {...props} />);

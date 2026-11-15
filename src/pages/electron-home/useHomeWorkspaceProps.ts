@@ -128,6 +128,7 @@ export function useHomeWorkspaceProps({
   getTabSyncState,
   homeStatus,
   inspectorCollapsed,
+  isPaneInspectorCollapsed,
   inspectorWidth,
   localDocumentRecovery,
   localVaultActions,
@@ -174,6 +175,7 @@ export function useHomeWorkspaceProps({
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
   homeStatus: HomeStatus;
   inspectorCollapsed: boolean;
+  isPaneInspectorCollapsed?: (paneId: string) => boolean;
   inspectorWidth: number;
   localDocumentRecovery: LocalDocumentRecovery;
   localVaultActions: HomeLocalVaultActions;
@@ -194,7 +196,7 @@ export function useHomeWorkspaceProps({
     'requestCloseOtherTabs' | 'requestClosePane' | 'requestCloseTab' | 'requestCloseTabsToRight'
   >;
   teams: TeamSummary[];
-  toggleInspectorCollapsed: () => void;
+  toggleInspectorCollapsed: (paneId?: string) => void;
   toggleNavigatorCollapsed: () => void;
   user: UserSummary | undefined;
   uploadingTabIds?: readonly string[];
@@ -502,6 +504,7 @@ export function useHomeWorkspaceProps({
       editorMode,
       folderTree,
       isInspectorCollapsed: inspectorCollapsed,
+      isPaneInspectorCollapsed,
       inspectorWidth,
       onInspectorWidthChange: setInspectorWidth,
       getPaneView: (pane) => {

@@ -115,6 +115,7 @@ export type WorkbenchActionHandlers = {
   copyNoteLink: () => void;
   copyMarkdownLink: () => void;
   copyNoteContent: () => void;
+  noteSettings: () => void;
   shareNote: () => void;
   moveTab: (step: -1 | 1) => void;
   toggleBookContents: () => void;
@@ -437,6 +438,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'copy-note-content':
       handlers.copyNoteContent();
+      break;
+    case 'note-settings':
+      handlers.noteSettings();
       break;
     case 'share-note':
       handlers.shareNote();
