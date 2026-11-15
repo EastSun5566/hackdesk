@@ -1167,6 +1167,61 @@ export function splitPaneWithTab(
   return withNavigationHistory(state, next);
 }
 
+/** Where a note dragged in from the sidebar lands: into a pane (before a tab, or after its active one), or a new split. */
+export type NoteDropTarget =
+  | { kind: 'pane'; paneId: string; overTabId?: string }
+  | { kind: 'split'; paneId?: string; edge?: boolean; direction: PaneDirection };
+
+/**
+ * Opens a note where it was dropped, as a kept tab rather than a preview. A pane that already
+ * shows the note just selects that tab; one on a new-tab page shows the note there instead. The
+ * note may already be open in another pane: a drop asks for it here, as copying a tab does.
+ */
+export function openNoteAtDropTarget(state: NoteWorkspaceState, note: NoteSummary, target: NoteDropTarget) {
+  if (target.kind === 'split') {
+    if (state.panes.length >= MAX_PANES) return state;
+    if (!target.edge && !state.panes.some((pane) => pane.paneId === target.paneId)) return state;
+    const tab = createTabFromNote(note);
+    const nextPane = createInitialPane();
+    const layout = target.edge || !target.paneId
+      ? splitLayoutAtEdge(state.layout, nextPane.paneId, target.direction)
+      : splitLayoutPane(state.layout, target.paneId, nextPane.paneId, target.direction);
+    const next = normalizeState({
+      ...state,
+      tabs: { ...state.tabs, [tab.tabId]: tab },
+      panes: [...state.panes, { ...nextPane, tabIds: [tab.tabId], activeTabId: tab.tabId }],
+      layout,
+      zoomedPaneId: null,
+      activePaneId: nextPane.paneId,
+    });
+    return withNavigationHistory(state, next);
+  }
+
+  const pane = state.panes.find((candidate) => candidate.paneId === target.paneId);
+  if (!pane) return state;
+  const existingTabId = pane.tabIds.find((tabId) => {
+    const identity = getSavedTabNoteIdentity(state.tabs[tabId]);
+    return identity ? noteIdentityMatches(identity, note) : false;
+  });
+  if (existingTabId) {
+    return selectNoteTab(isPreviewNoteTab(state.tabs[existingTabId]) ? keepNoteTab(state, existingTabId) : state, pane.paneId, existingTabId);
+  }
+  const tab = createTabFromNote(note);
+  const replaced = target.overTabId ? null : replaceActiveBlankTab(state, pane.paneId, tab);
+  if (replaced) return withNavigationHistory(state, { ...replaced, zoomedPaneId: state.zoomedPaneId === pane.paneId ? state.zoomedPaneId : null });
+  const inserted = target.overTabId
+    ? normalizeState({
+      ...state,
+      tabs: { ...state.tabs, [tab.tabId]: tab },
+      panes: state.panes.map((candidate) => candidate.paneId === pane.paneId
+        ? { ...candidate, tabIds: insertTabIdAt(candidate.tabIds, tab.tabId, target.overTabId), activeTabId: tab.tabId }
+        : candidate),
+      activePaneId: pane.paneId,
+    })
+    : insertTabAfterActive(state, pane.paneId, tab);
+  return withNavigationHistory(state, { ...inserted, zoomedPaneId: state.zoomedPaneId === pane.paneId ? state.zoomedPaneId : null });
+}
+
 /** Moves the active tab of the target pane to the next pane in reading order, wrapping around. */
 export function moveActiveTabToOtherPane(state: NoteWorkspaceState, paneId = state.activePaneId) {
   const activePane = state.panes.find((pane) => pane.paneId === paneId) ?? getActivePane(state);

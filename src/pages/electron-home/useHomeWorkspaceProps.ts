@@ -331,6 +331,7 @@ export function useHomeWorkspaceProps({
       actions: {
         moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
         moveTabToPane: noteWorkspace.moveTabToPane,
+        openNoteAt: noteWorkspace.openNoteAt,
         navigateBack: noteWorkspace.navigateBack,
         navigateForward: noteWorkspace.navigateForward,
         reopenLastClosedTab: noteWorkspace.reopenLastClosed,

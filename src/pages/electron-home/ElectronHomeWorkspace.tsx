@@ -15,7 +15,9 @@ import {
 } from './AppTopBar';
 import { DocumentWorkspace, type DocumentPaneView, type PaneHeaderPlacement } from './DocumentWorkspace';
 import { FolderNavigator } from './FolderNavigator';
-import type { NotePane, NoteWorkspaceState, OpenNoteTab } from './note-workspace';
+import type { NoteSummary } from '@/lib/electron-api';
+
+import type { NoteDropTarget, NotePane, NoteWorkspaceState, OpenNoteTab } from './note-workspace';
 import { PanelResizeSash } from './PanelResizeSash';
 import { layoutPaneIds, type PaneDirection } from './pane-layout';
 import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
@@ -55,6 +57,8 @@ export type ElectronHomeWorkspaceProps = {
     actions: {
       moveActiveTabToOtherPane: (paneId?: string) => void;
       moveTabToPane?: (tabId: string, targetPaneId: string, options?: { overTabId?: string; copy?: boolean }) => void;
+      /** Opens a note dragged from the sidebar where it was dropped on the panes. */
+      openNoteAt?: (note: NoteSummary, target: NoteDropTarget) => void;
       navigateBack: () => void;
       navigateForward: () => void;
       reopenLastClosedTab: () => void;
@@ -186,6 +190,7 @@ export function ElectronHomeWorkspace({
       onReorderTab={titlebar.actions.reorderTab}
       onMoveTabToPane={titlebar.actions.moveTabToPane}
       onSplitTabToNewPane={titlebar.actions.splitTabToNewPane}
+      onDropNote={titlebar.actions.openNoteAt}
     >
       {/* Notes sit on cards a gap in from the window; the sidebar's resize handle is the gap beside it. */}
       {/* The gap left of the card while the sidebar is collapsed is the sidebar's own margin, so it

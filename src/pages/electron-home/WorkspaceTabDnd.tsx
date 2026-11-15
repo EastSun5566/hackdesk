@@ -16,7 +16,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 
-import type { NotePane } from './note-workspace';
+import type { NoteSummary } from '@/lib/electron-api';
+
+import type { NoteDropTarget, NotePane } from './note-workspace';
 import type { PaneDirection } from './pane-layout';
 
 export type DropOverlayRect = {
@@ -55,6 +57,24 @@ export function useWorkspaceTabDnd() {
   return useContext(WorkspaceTabDndContext);
 }
 
+/**
+ * Lets a drag that the workspace's own drag context doesn't run (a note dragged from the sidebar,
+ * whose tree has its own) land on the panes: preview where it would go, then open it there.
+ * Both are stable for the provider's lifetime, so the memoized sidebar never re-renders for them.
+ */
+export type WorkspaceNoteDrop = {
+  /** Shows where a note dropped at this point would land; null clears it. */
+  preview: (point: { x: number; y: number } | null) => void;
+  /** Opens the note where it lands under this point; false when the point is not over the panes. */
+  drop: (point: { x: number; y: number }, note: NoteSummary) => boolean;
+};
+
+const WorkspaceNoteDropContext = createContext<WorkspaceNoteDrop | null>(null);
+
+export function useWorkspaceNoteDrop() {
+  return useContext(WorkspaceNoteDropContext);
+}
+
 export function tabStripDropId(paneId: string) {
   return `tab-strip:${paneId}`;
 }
@@ -83,7 +103,8 @@ export function computeWorkspaceDropTarget({
   panes,
   zoomedPaneId,
 }: {
-  drag: { tabId: string; sourcePaneId: string } | null;
+  /** A tab from its pane, or something from outside the panes (sourcePaneId null), such as a sidebar note. */
+  drag: { tabId?: string; sourcePaneId: string | null } | null;
   copy: boolean;
   point: { x: number; y: number } | null;
   over: Over | null;
@@ -212,6 +233,7 @@ export function WorkspaceTabDndProvider({
   onReorderTab,
   onMoveTabToPane,
   onSplitTabToNewPane,
+  onDropNote,
   children,
 }: {
   panes: readonly NotePane[];
@@ -221,6 +243,8 @@ export function WorkspaceTabDndProvider({
   onReorderTab: (paneId: string, tabId: string, overTabId: string) => void;
   onMoveTabToPane?: (tabId: string, targetPaneId: string, options?: { overTabId?: string; copy?: boolean }) => void;
   onSplitTabToNewPane?: (tabId: string, target: { paneId?: string; edge?: boolean; direction: PaneDirection }, options?: { copy?: boolean }) => void;
+  /** Opens a note dragged in from the sidebar where it was dropped. */
+  onDropNote?: (note: NoteSummary, target: NoteDropTarget) => void;
   children: ReactNode;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -281,8 +305,15 @@ export function WorkspaceTabDndProvider({
     return closestCenter(args);
   }, []);
 
+  // Pointer moves repeat the same target many times over; only a change re-renders the panes.
+  const showDropState = useCallback((zone: DropZonePreview | null, stripId: string | null) => {
+    if (JSON.stringify(zone) !== JSON.stringify(dropOverlayRef.current)) setDropOverlay(zone);
+    dropOverlayRef.current = zone;
+    setActiveStripDropId(stripId);
+  }, []);
+
   const syncDropState = useCallback((
-    drag: { tabId: string; sourcePaneId: string } | null,
+    drag: { sourcePaneId: string | null } | null,
     copy: boolean,
     point: { x: number; y: number } | null,
     over: Over | null,
@@ -297,10 +328,8 @@ export function WorkspaceTabDndProvider({
       panes,
       zoomedPaneId,
     });
-    dropOverlayRef.current = zone;
-    setDropOverlay(zone);
-    setActiveStripDropId(stripId);
-  }, [panes, zoomedPaneId]);
+    showDropState(zone, stripId);
+  }, [panes, showDropState, zoomedPaneId]);
 
   useEffect(() => {
     if (!activeDrag) return;
@@ -426,6 +455,41 @@ export function WorkspaceTabDndProvider({
     }
   }, [clearDragState, onMoveTabToPane, onReorderTab, onSplitTabToNewPane, panes]);
 
+  // The note drop reads the latest panes and callback through refs, so its functions never change.
+  const syncDropStateRef = useRef(syncDropState);
+  syncDropStateRef.current = syncDropState;
+  const onDropNoteRef = useRef(onDropNote);
+  onDropNoteRef.current = onDropNote;
+  const noteDrop = useMemo<WorkspaceNoteDrop>(() => ({
+    preview: (point) => {
+      if (activeDragRef.current) return;
+      syncDropStateRef.current(point ? { sourcePaneId: null } : null, false, point, null);
+    },
+    drop: (point, note) => {
+      if (activeDragRef.current) return false;
+      syncDropStateRef.current({ sourcePaneId: null }, false, point, null);
+      const zone = dropOverlayRef.current;
+      const regionEl = Array.from(tabRegionElsRef.current.values())
+        .find((element) => pointInRect(point.x, point.y, element.getBoundingClientRect()));
+      showDropState(null, null);
+      const onDrop = onDropNoteRef.current;
+      if (!onDrop) return false;
+      const regionPaneId = regionEl?.dataset.documentPaneId;
+      if (regionEl && regionPaneId) {
+        // Onto a tab: before it. Anywhere else on the bar: after the pane's active tab.
+        const overTab = Array.from(regionEl.querySelectorAll<HTMLElement>('[data-tab-id]'))
+          .find((element) => pointInRect(point.x, point.y, element.getBoundingClientRect()));
+        onDrop(note, { kind: 'pane', paneId: regionPaneId, overTabId: overTab?.dataset.tabId });
+        return true;
+      }
+      if (!zone) return false;
+      if (zone.kind === 'workspace-edge') onDrop(note, { kind: 'split', edge: true, direction: zone.direction });
+      else if (zone.kind === 'pane-edge') onDrop(note, { kind: 'split', paneId: zone.paneId, direction: zone.direction });
+      else onDrop(note, { kind: 'pane', paneId: zone.paneId });
+      return true;
+    },
+  }), [showDropState]);
+
   const contextValue = useMemo<WorkspaceTabDndState>(() => ({
     inWorkspaceDnd: true,
     activeDragTabId: activeDrag?.tabId ?? null,
@@ -439,6 +503,7 @@ export function WorkspaceTabDndProvider({
 
   return (
     <WorkspaceTabDndContext.Provider value={contextValue}>
+      <WorkspaceNoteDropContext.Provider value={noteDrop}>
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
@@ -462,6 +527,7 @@ export function WorkspaceTabDndProvider({
           ) : null}
         </DragOverlay>
       </DndContext>
+      </WorkspaceNoteDropContext.Provider>
     </WorkspaceTabDndContext.Provider>
   );
 }

@@ -31,6 +31,8 @@ import {
   openNoteInPlace,
   openNotePreview,
   openNoteTab,
+  openNoteAtDropTarget,
+  type NoteDropTarget,
   readNoteWorkspaceLayoutStorage,
   reopenLastClosedTab,
   reorderNoteTab,
@@ -159,6 +161,11 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
 
   const openNote = useCallback((note: NoteSummary, paneId?: string) => {
     updateWorkspace(scopeKey, (current) => openNoteTab(current, note, paneId));
+  }, [scopeKey, updateWorkspace]);
+
+  /** Opens a note dragged from the sidebar where it was dropped (see openNoteAtDropTarget). */
+  const openNoteAt = useCallback((note: NoteSummary, target: NoteDropTarget) => {
+    updateWorkspace(scopeKey, (current) => openNoteAtDropTarget(current, note, target));
   }, [scopeKey, updateWorkspace]);
 
   /** Opens a note from the sidebar in the pane's preview tab (see openNotePreview). */
@@ -399,6 +406,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     equalizeSplit,
     moveActiveTabToOtherPane: moveActiveTabToOtherPaneAction,
     moveTabToPane,
+    openNoteAt,
     splitTabToNewPane,
     navigateBack,
     navigateForward,

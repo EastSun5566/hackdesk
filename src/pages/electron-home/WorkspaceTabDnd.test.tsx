@@ -1,11 +1,13 @@
 import type { Over } from '@dnd-kit/core';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 
 import type { NotePane } from './note-workspace';
-import { computeWorkspaceDropTarget, tabStripDropId, useWorkspaceTabDnd, WorkspaceTabDndProvider } from './WorkspaceTabDnd';
+import type { NoteSummary } from '@/lib/electron-api';
+
+import { computeWorkspaceDropTarget, tabStripDropId, useWorkspaceNoteDrop, useWorkspaceTabDnd, WorkspaceTabDndProvider, type WorkspaceNoteDrop } from './WorkspaceTabDnd';
 
 function rect(left: number, top: number, width: number, height: number): DOMRect {
   return {
@@ -286,5 +288,78 @@ describe('WorkspaceTabDndProvider', () => {
     );
 
     expect(screen.getByTestId('dnd-active')).toHaveTextContent('true');
+  });
+});
+
+describe('dropping a note from outside the panes', () => {
+  const note = { id: 'note-x', title: 'Dropped' } as NoteSummary;
+  const panes: NotePane[] = [
+    { paneId: 'pane-a', tabIds: ['tab-1', 'tab-2'], activeTabId: 'tab-2' },
+    { paneId: 'pane-b', tabIds: ['tab-3'], activeTabId: 'tab-3' },
+  ];
+
+  function setup() {
+    const onDropNote = vi.fn();
+    let api: WorkspaceNoteDrop | null = null;
+    let dnd: ReturnType<typeof useWorkspaceTabDnd> | null = null;
+    function Probe() {
+      api = useWorkspaceNoteDrop();
+      dnd = useWorkspaceTabDnd();
+      return null;
+    }
+    render(
+      <WorkspaceTabDndProvider panes={panes} activePaneId="pane-a" zoomedPaneId={null} getTabTitle={() => ''} onReorderTab={vi.fn()} onDropNote={onDropNote}>
+        <Probe />
+      </WorkspaceTabDndProvider>,
+    );
+    // pane-a | pane-b, each with its tab bar above its card.
+    const { workspaceEl } = createWorkspaceDom(
+      [
+        { paneId: 'pane-a', rect: rect(200, 40, 400, 600) },
+        { paneId: 'pane-b', rect: rect(608, 40, 392, 600) },
+      ],
+      rect(200, 0, 800, 640),
+    );
+    const bar = document.createElement('div');
+    bar.dataset.documentPaneId = 'pane-a';
+    bar.getBoundingClientRect = () => rect(200, 0, 400, 40);
+    const tab = document.createElement('li');
+    tab.dataset.tabId = 'tab-1';
+    tab.getBoundingClientRect = () => rect(204, 4, 120, 32);
+    bar.appendChild(tab);
+    act(() => {
+      dnd!.registerWorkspaceElement(workspaceEl);
+      dnd!.registerTabRegionElement('pane-a', bar);
+    });
+    return { onDropNote, api: () => api!, dnd: () => dnd! };
+  }
+
+  it('opens the note before the tab it lands on, or in the pane or split under the pointer', () => {
+    const { onDropNote, api } = setup();
+
+    expect(api().drop({ x: 250, y: 20 }, note)).toBe(true);
+    expect(onDropNote).toHaveBeenLastCalledWith(note, { kind: 'pane', paneId: 'pane-a', overTabId: 'tab-1' });
+    expect(api().drop({ x: 500, y: 20 }, note)).toBe(true);
+    expect(onDropNote).toHaveBeenLastCalledWith(note, { kind: 'pane', paneId: 'pane-a', overTabId: undefined });
+    // A note from outside may land in the middle of any pane, even the active one.
+    expect(api().drop({ x: 400, y: 340 }, note)).toBe(true);
+    expect(onDropNote).toHaveBeenLastCalledWith(note, { kind: 'pane', paneId: 'pane-a' });
+    expect(api().drop({ x: 800, y: 600 }, note)).toBe(true);
+    expect(onDropNote).toHaveBeenLastCalledWith(note, { kind: 'split', paneId: 'pane-b', direction: 'down' });
+    expect(api().drop({ x: 205, y: 340 }, note)).toBe(true);
+    expect(onDropNote).toHaveBeenLastCalledWith(note, { kind: 'split', edge: true, direction: 'left' });
+  });
+
+  it('leaves a drop outside the panes to the sidebar, and previews without dropping', () => {
+    const { onDropNote, api, dnd } = setup();
+
+    expect(api().drop({ x: 100, y: 340 }, note)).toBe(false);
+    expect(onDropNote).not.toHaveBeenCalled();
+
+    act(() => api().preview({ x: 400, y: 340 }));
+    expect(dnd().dropOverlay).toMatchObject({ kind: 'pane-center', paneId: 'pane-a' });
+    act(() => api().preview(null));
+    expect(dnd().dropOverlay).toBeNull();
+    expect(onDropNote).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,7 @@ import {
   keepNoteTab,
   openNotePreview,
   openNoteInPlace,
+  openNoteAtDropTarget,
   closeNoteTab,
   closeOtherNoteTabs,
   closeTabsToRight,
@@ -938,5 +939,75 @@ describe('preview tabs', () => {
     const state = openNotePreview(createEmptyNoteWorkspaceState('personal'), note({ id: 'a', title: 'A' }));
     const restored = hydrateNoteWorkspaceLayout('personal', JSON.parse(JSON.stringify(toPersistedNoteWorkspaceLayout(state))));
     expect(titles(restored)).toEqual(['A (preview)']);
+  });
+});
+
+describe('dropping a sidebar note on the workspace', () => {
+  const alpha = note({ id: 'alpha', title: 'Alpha' });
+  const beta = note({ id: 'beta', title: 'Beta' });
+  const gamma = note({ id: 'gamma', title: 'Gamma' });
+
+  it('opens a kept tab after the active one, or before the tab it was dropped on', () => {
+    const start = openNoteTab(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha), beta);
+    const paneId = start.activePaneId;
+    const [alphaTab] = start.panes[0].tabIds;
+
+    const after = openNoteAtDropTarget(start, gamma, { kind: 'pane', paneId });
+    expect(after.panes[0].tabIds.map((id) => after.tabs[id].title)).toEqual(['Alpha', 'Beta', 'Gamma']);
+    expect(getActiveTab(after)?.title).toBe('Gamma');
+    expect(isPreviewNoteTab(getActiveTab(after))).toBe(false);
+
+    const before = openNoteAtDropTarget(start, gamma, { kind: 'pane', paneId, overTabId: alphaTab });
+    expect(before.panes[0].tabIds.map((id) => before.tabs[id].title)).toEqual(['Gamma', 'Alpha', 'Beta']);
+  });
+
+  it('selects and keeps a tab the pane already has for the note', () => {
+    const start = openNotePreview(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha), beta);
+    const betaTab = start.panes[0].activeTabId!;
+    const focused = selectNoteTab(start, start.activePaneId, start.panes[0].tabIds[0]);
+
+    const next = openNoteAtDropTarget(focused, beta, { kind: 'pane', paneId: start.activePaneId });
+    expect(next.panes[0].tabIds).toHaveLength(2);
+    expect(next.panes[0].activeTabId).toBe(betaTab);
+    expect(isPreviewNoteTab(next.tabs[betaTab])).toBe(false);
+  });
+
+  it('opens the note in the dropped pane even when another pane shows it', () => {
+    const start = splitActiveTabRight(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha));
+    const [left, right] = layoutPaneIds(start.layout);
+    const withBeta = openNoteTab(start, beta, right);
+
+    const next = openNoteAtDropTarget(withBeta, beta, { kind: 'pane', paneId: left });
+    const leftPane = next.panes.find((pane) => pane.paneId === left)!;
+    expect(leftPane.tabIds.map((id) => next.tabs[id].title)).toEqual(['Alpha', 'Beta']);
+    expect(next.activePaneId).toBe(left);
+  });
+
+  it('shows the note on a pane\'s new-tab page instead of opening another tab', () => {
+    const start = openBlankNoteTab(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha));
+    const next = openNoteAtDropTarget(start, beta, { kind: 'pane', paneId: start.activePaneId });
+    expect(next.panes[0].tabIds.map((id) => next.tabs[id].title)).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('opens a new pane beside a pane or along the workspace edge', () => {
+    const start = openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha);
+    const paneId = start.activePaneId;
+
+    const below = openNoteAtDropTarget(start, beta, { kind: 'split', paneId, direction: 'down' });
+    expect(below.panes).toHaveLength(2);
+    expect(layoutPaneIds(below.layout)[0]).toBe(paneId);
+    expect(getActiveTab(below)?.title).toBe('Beta');
+    expect(below.panes.find((pane) => pane.paneId === paneId)!.tabIds).toHaveLength(1);
+
+    const left = openNoteAtDropTarget(below, gamma, { kind: 'split', edge: true, direction: 'left' });
+    expect(left.panes).toHaveLength(3);
+    expect(layoutPaneIds(left.layout)[0]).toBe(left.activePaneId);
+    expect(getActiveTab(left)?.title).toBe('Gamma');
+  });
+
+  it('ignores a split once the workspace has as many panes as it can', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha);
+    while (state.panes.length < MAX_PANES) state = splitActiveTabRight(state);
+    expect(openNoteAtDropTarget(state, beta, { kind: 'split', paneId: state.activePaneId, direction: 'right' })).toBe(state);
   });
 });

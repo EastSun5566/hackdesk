@@ -2582,3 +2582,76 @@ test('a pane split below gets its own tab bar, and the sidebar title bar keeps t
     await stopApp(app);
   }
 });
+
+test('a note dragged from the sidebar opens in the pane, tab bar or new split it is dropped on', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await switchWorkspace(page, 'vault');
+    const tree = page.locator('[data-folder-tree-kind="note"]');
+    await tree.getByRole('treeitem', { name: 'Alpha', exact: true }).dblclick();
+    const panes = page.locator('section[data-document-pane-id]');
+    await expect(panes).toHaveCount(1);
+    await expect(page.locator('[data-pane-tab-bar]').getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+
+    const dragRowTo = async (name: string, target: { x: number; y: number }, preview?: string) => {
+      const row = (await tree.getByRole('treeitem', { name, exact: true }).boundingBox())!;
+      await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(target.x, target.y, { steps: 16 });
+      if (preview) await expect(page.locator(preview)).toBeVisible();
+      await page.mouse.up();
+    };
+
+    // Over the middle of the pane, the note's drag preview follows the pointer out of the sidebar.
+    const pane = (await panes.first().boundingBox())!;
+    const row = (await tree.getByRole('treeitem', { name: 'Beta', exact: true }).boundingBox())!;
+    await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2, { steps: 16 });
+    await expect(page.locator('[data-drop-preview-kind="pane-center"]')).toBeVisible();
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('33-sidebar-note-drag-preview.png') });
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('[data-drop-preview-kind]')).toHaveCount(0);
+    await expect(panes).toHaveCount(1);
+    await expect(page.locator('[data-pane-tab-bar]').getByRole('tab')).toHaveCount(1);
+
+    // Held low over a pane, the note doesn't scroll the tree it came from (a short window, so it can scroll).
+    await page.setViewportSize({ width: 1440, height: 480 });
+    const scroller = page.locator('#note-navigator-panel .scroll-edges-source');
+    expect(await scroller.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    const shortPane = (await panes.first().boundingBox())!;
+    const gammaRow = (await tree.getByRole('treeitem', { name: 'Gamma', exact: true }).boundingBox())!;
+    await page.mouse.move(gammaRow.x + gammaRow.width / 2, gammaRow.y + gammaRow.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(shortPane.x + shortPane.width / 2, shortPane.y + shortPane.height - 16, { steps: 16 });
+    await expect(page.locator('[data-drop-preview-kind="pane-edge"][data-drop-preview-direction="down"]')).toBeVisible();
+    await page.waitForTimeout(800);
+    expect(await scroller.evaluate(element => element.scrollTop)).toBe(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    // Onto the right edge of the pane: a new pane beside it, showing the note.
+    await dragRowTo('Beta', { x: pane.x + pane.width - 12, y: pane.y + pane.height / 2 }, '[data-drop-preview-kind="pane-edge"][data-drop-preview-direction="right"]');
+    await expect(panes).toHaveCount(2);
+    await expect(panes.nth(1)).toHaveAttribute('data-active-pane', 'true');
+    const bars = page.locator('[data-pane-tab-bar]');
+    await expect(bars.nth(1).getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+    // The sidebar note stays where it was.
+    await expect(tree.getByRole('treeitem', { name: 'Beta', exact: true })).toBeVisible();
+
+    // Onto the left pane's tab bar: a tab there, kept rather than a preview.
+    const leftBar = (await bars.nth(0).boundingBox())!;
+    await dragRowTo('Beta', { x: leftBar.x + leftBar.width / 2, y: leftBar.y + leftBar.height / 2 });
+    await expect(panes).toHaveCount(2);
+    const leftTab = bars.nth(0).getByRole('tab', { name: /^Beta(?:, .+)?$/ });
+    await expect(leftTab).toHaveAttribute('aria-selected', 'true');
+    await expect(leftTab.locator('[data-tab-preview]')).toHaveCount(0);
+    await expect(bars.nth(0).getByRole('tab')).toHaveCount(2);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('33-sidebar-note-dropped.png') });
+  } finally {
+    await stopApp(app);
+  }
+});
