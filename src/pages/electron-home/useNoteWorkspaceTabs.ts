@@ -6,7 +6,6 @@ import type { PaneDirection } from './pane-layout';
 
 import {
   clearNoteTabDraft,
-  closeNotePane,
   closeNoteTab,
   closeOtherNoteTabs,
   closeTabsToRight,
@@ -23,7 +22,6 @@ import {
   getVisibleActiveTabs,
   materializeDraftNoteTab,
   moveActiveTabToOtherPane,
-  moveNoteTabToPane,
   navigateNoteWorkspace,
   noteIdentityMatches,
   openDraftNoteTab,
@@ -37,11 +35,9 @@ import {
   reorderNoteTab,
   resizeNoteSplit,
   equalizeNotePanes,
-  equalizeNoteSplit,
   focusPaneInDirection,
   toggleNotePaneZoom,
   splitActivePane,
-  splitPaneWithTab,
   reconcileSavedNoteTab,
   replaceNoteTabPlaceholder,
   selectNoteTab,
@@ -223,10 +219,6 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     setState((current) => closeNoteTab(current, tabId));
   }, []);
 
-  const closePane = useCallback((paneId: string) => {
-    setState((current) => closeNotePane(current, paneId));
-  }, []);
-
   const closeOtherTabs = useCallback((paneId: string, keepTabId: string) => {
     setState((current) => closeOtherNoteTabs(current, paneId, keepTabId));
   }, []);
@@ -239,40 +231,20 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     updateWorkspace(scopeKey, (current) => closeTabsByNoteIdentity(current, note));
   }, [scopeKey, updateWorkspace]);
 
-  const reopenLastClosed = useCallback((paneId?: string) => {
-    setState((current) => reopenLastClosedTab(current, paneId));
+  const reopenLastClosed = useCallback(() => {
+    setState(reopenLastClosedTab);
   }, []);
 
   const duplicateActiveTab = useCallback(() => {
-    setState((current) => duplicateActiveNoteTab(current));
+    setState(duplicateActiveNoteTab);
   }, []);
 
-  const openBlankTab = useCallback((paneId?: string) => {
-    setState((current) => openBlankNoteTab(current, paneId));
-  }, []);
-
-  const splitPane = useCallback((direction: PaneDirection, paneId?: string) => {
-    setState((current) => splitActivePane(current, direction, paneId));
+  const openBlankTab = useCallback(() => {
+    setState(openBlankNoteTab);
   }, []);
 
   const splitActivePaneDown = useCallback(() => {
     setState((current) => splitActivePane(current, 'down'));
-  }, []);
-
-  const moveTabToPane = useCallback((
-    tabId: string,
-    targetPaneId: string,
-    options?: { overTabId?: string; copy?: boolean },
-  ) => {
-    setState((current) => moveNoteTabToPane(current, tabId, targetPaneId, options));
-  }, []);
-
-  const splitTabToNewPane = useCallback((
-    tabId: string,
-    target: { paneId?: string; edge?: boolean; direction: PaneDirection },
-    options?: { copy?: boolean },
-  ) => {
-    setState((current) => splitPaneWithTab(current, tabId, target, options));
   }, []);
 
   const focusPaneToward = useCallback((direction: PaneDirection) => {
@@ -285,10 +257,6 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
 
   const equalizePanes = useCallback(() => {
     setState(equalizeNotePanes);
-  }, []);
-
-  const equalizeSplit = useCallback((splitId: string) => {
-    setState((current) => equalizeNoteSplit(current, splitId));
   }, []);
 
   const splitActiveTab = useCallback(() => {
@@ -387,9 +355,6 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     focusPane,
     selectTab,
     reorderTab,
-    moveTabToPane,
-    splitTabToNewPane,
-    closePane,
     closeTab,
     closeOtherTabs,
     closeTabsToRight: closeTabsRight,
@@ -398,12 +363,10 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     duplicateActiveTab,
     openBlankTab,
     splitActiveTab,
-    splitPane,
     splitActivePaneDown,
     focusPaneToward,
     togglePaneZoom,
     equalizePanes,
-    equalizeSplit,
     moveActiveTabToOtherPane: moveActiveTabToOtherPaneAction,
     navigateBack,
     navigateForward,

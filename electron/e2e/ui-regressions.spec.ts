@@ -233,10 +233,10 @@ async function ensureKeyboardModality(page: Page) {
   await page.keyboard.press('Tab');
 }
 
-async function expectInsetFocus(locator: Locator, container = false, focusTarget: Locator = locator) {
-  await focusTarget.focus();
+async function expectInsetFocus(locator: Locator, container = false) {
+  await locator.focus();
   await ensureKeyboardModality(locator.page());
-  await focusTarget.focus();
+  await locator.focus();
   await expect.poll(() => locator.evaluate((element) => getComputedStyle(element).boxShadow)).toContain('inset');
   // Verify that the focused field remains fully inside every clipping ancestor.
   await locator.scrollIntoViewIfNeeded();
@@ -742,11 +742,11 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await switchWorkspace(page, 'vault');
     // A sidebar pick opens a preview tab that the next pick replaces; a double-click keeps the tab.
-    const strip = page.locator('[data-active-pane="true"]').getByRole('navigation', { name: 'Open documents' });
     const openNote = async (name: string) => {
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
-      await expect(strip.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
     };
+    const strip = page.getByRole('navigation', { name: 'Open documents' });
     const labels = () => strip.locator('[data-tab-title]').allTextContents();
     const dragTab = async (from: string, to: string, cancel = false) => {
       const source = (await strip.getByRole('tab', { name: new RegExp(`^${from}(?:, .+)?$`) }).boundingBox())!;
@@ -1194,39 +1194,28 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       await switchWorkspace(page, 'My Workspace');
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Remote UI fixture', exact: true }).click();
       await page.getByRole('button', { name: 'Expand note details', exact: true }).click();
-      await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('06-note-details.png') });
-      await page.getByRole('button', { name: 'Note settings', exact: true }).click();
-      const noteSettingsDialog = page.getByRole('dialog', { name: 'Note Settings' });
-      await expect(noteSettingsDialog).toBeVisible();
-      const tags = noteSettingsDialog.getByRole('textbox', { name: 'Tags', exact: true });
+      const tags = page.getByRole('textbox', { name: 'Tags', exact: true });
       await tags.focus();
-      await expectInsetFocus(tags.locator('..'), true, tags);
-      const removeTag = noteSettingsDialog.getByRole('button', { name: 'Remove playground tag', exact: true });
+      await expectInsetFocus(tags.locator('..'), true);
+      const removeTag = page.getByRole('button', { name: 'Remove playground tag', exact: true });
       const removeBounds = (await removeTag.boundingBox())!;
       expect(Math.min(removeBounds.width, removeBounds.height)).toBeGreaterThanOrEqual(24);
-      const description = noteSettingsDialog.getByLabel('Description', { exact: true });
-      await description.focus();
-      await expectInsetFocus(description);
-      const folder = noteSettingsDialog.getByRole('combobox', { name: 'Folder', exact: true });
+      await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('06-note-details.png') });
+      for (const label of ['Description', 'Permalink']) {
+        const field = page.getByLabel(label, { exact: true });
+        await field.focus();
+        await expectInsetFocus(field);
+      }
+      await page.getByRole('button', { name: /Location/ }).click();
+      const folder = page.getByRole('combobox', { name: 'Folder', exact: true });
       await page.keyboard.press('Tab');
       await folder.focus();
       await expectInsetFocus(folder);
-      await noteSettingsDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-      await expect(noteSettingsDialog).toBeHidden();
-
-      await page.getByRole('button', { name: 'Share note', exact: true }).click();
-      const shareDialog = page.getByRole('dialog', { name: 'Share Note' });
-      await expect(shareDialog).toBeVisible();
-      const permalink = shareDialog.getByLabel('Permalink', { exact: true });
-      await permalink.focus();
-      await expectInsetFocus(permalink.locator('..'), true, permalink);
-      const read = shareDialog.getByRole('radiogroup', { name: 'Read access', exact: true }).getByRole('radio', { name: 'Private', exact: true });
+      await page.getByRole('button', { name: /Permissions/ }).click();
+      const read = page.getByRole('group', { name: 'Read', exact: true }).getByRole('radio', { name: 'Owner', exact: true });
       await page.keyboard.press('Tab');
       await read.focus();
       await expectInsetFocus(read);
-      await shareDialog.locator('form').getByRole('button', { name: 'Close', exact: true }).click();
-      await expect(shareDialog).toBeHidden();
-
       await page.getByRole('button', { name: 'Collapse note details', exact: true }).click();
       await openFixtureNote(page);
       await page.locator('.cm-content').click();
@@ -1416,10 +1405,9 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       const editors = page.locator('.cm-content');
       await expect(editors).toHaveCount(2);
       const tree = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
-      const activePaneTabs = page.locator('[data-active-pane="true"]');
       await tree.focus();
       await page.keyboard.press('F6');
-      await expect(activePaneTabs.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ })).toBeFocused();
+      await expect(page.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ })).toBeFocused();
       await page.keyboard.press('F6');
       await expect(editors.first()).toBeFocused();
       await expect(editors.first().locator('xpath=ancestor::section[@data-active-pane][1]')).toHaveAttribute('data-active-pane', 'true');
@@ -1433,7 +1421,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       const search = page.getByPlaceholder('Search notes', { exact: true });
       await search.focus();
       await page.keyboard.press('F6');
-      await expect(activePaneTabs.getByRole('tab').first()).toBeFocused();
+      await expect(page.getByRole('tab').first()).toBeFocused();
       await page.keyboard.press('Shift+F6');
       await expect(search).toBeFocused();
       await editors.last().focus();
@@ -1445,7 +1433,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.getByRole('toolbar', { name: 'Application controls', exact: true }).getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
       await editors.last().focus();
       await page.keyboard.press('F6');
-      await expect(activePaneTabs.getByRole('tab').first()).toBeFocused();
+      await expect(page.getByRole('tab').first()).toBeFocused();
       await page.screenshot({ path: test.info().outputPath(`13-f6-${mode}.png`), animations: 'disabled' });
     } finally {
       // Typing ? intentionally dirties Standard mode. Approve only fixture
@@ -1936,7 +1924,7 @@ test('Hack Mode leaves only the active note, centered, until the same key is pre
     const sidebarWidth = (await sidebar.boundingBox())!.width;
     const chrome = [
       page.getByRole('toolbar', { name: 'Application controls' }),
-      page.locator('[data-active-pane="true"]').getByRole('navigation', { name: 'Open documents' }),
+      page.getByRole('navigation', { name: 'Open documents' }),
       sidebar,
       page.getByRole('note', { name: 'Keys you can press' }),
       page.locator('[data-active-pane="true"] header').first(),
@@ -2435,73 +2423,3 @@ test('the leader menu runs commands from a few letters with Space or the leader 
     await expect(page.getByRole('note', { name: 'Keys you can press' })).toHaveCount(0);
   } finally { await stopApp(app); }
 });
-
-test('tab drag-to-split, separator equalize, close pane button, and inspector resize', async () => {
-  const { app, page } = await launchFixture('standard', true);
-  try {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await switchWorkspace(page, 'vault');
-    const strip = page.locator('[data-active-pane="true"]').getByRole('navigation', { name: 'Open documents' });
-    await expect(page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Alpha', exact: true })).toBeVisible();
-    for (const name of ['Alpha', 'Beta']) {
-      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
-      await expect(strip.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
-    }
-
-    // Drag Beta tab onto the right edge of the pane to split into two panes.
-    const pane = page.locator('section[data-document-pane-id]').first();
-    const paneBox = (await pane.boundingBox())!;
-    const tabBox = (await strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ }).boundingBox())!;
-    await page.mouse.move(tabBox.x + 12, tabBox.y + tabBox.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(paneBox.x + paneBox.width - 12, paneBox.y + paneBox.height / 2, { steps: 14 });
-    await expect(page.locator('[data-drop-preview-kind="pane-edge"][data-drop-preview-direction="right"]')).toBeVisible();
-    await page.mouse.up();
-
-    const panes = page.locator('section[data-document-pane-id]');
-    await expect(panes).toHaveCount(2);
-
-    // Drag the pane separator off-center, then double-click it to equalize panes back to ~50/50.
-    const separator = page.getByRole('separator', { name: /Resize document panes/ });
-    const sepBox = (await separator.boundingBox())!;
-    await page.mouse.move(sepBox.x + sepBox.width / 2, sepBox.y + sepBox.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(sepBox.x + 140, sepBox.y + sepBox.height / 2, { steps: 8 });
-    await page.mouse.up();
-
-    await expect.poll(async () => {
-      const left = (await panes.nth(0).boundingBox())!;
-      const right = (await panes.nth(1).boundingBox())!;
-      return Math.abs(left.width - right.width);
-    }).toBeGreaterThan(80);
-
-    const movedSepBox = (await separator.boundingBox())!;
-    await page.mouse.dblclick(movedSepBox.x + movedSepBox.width / 2, movedSepBox.y + movedSepBox.height / 2);
-    await expect.poll(async () => {
-      const left = (await panes.nth(0).boundingBox())!;
-      const right = (await panes.nth(1).boundingBox())!;
-      return Math.abs(left.width - right.width);
-    }).toBeLessThan(12);
-
-    // Per-pane Close pane closes the second pane cleanly.
-    await page.locator('[data-active-pane="true"]').getByRole('button', { name: 'Close pane', exact: true }).click();
-    await expect(panes).toHaveCount(1);
-
-    // Open Note Details inspector and resize its left edge sash wider.
-    await page.getByRole('button', { name: 'Expand note details', exact: true }).click();
-    const inspector = page.locator('[id^="note-inspector-panel-"]').first();
-    await expect(inspector).toHaveAttribute('data-state', 'open');
-    const inspectorBox = (await inspector.boundingBox())!;
-    const initialWidth = inspectorBox.width;
-    const inspectorSash = page.getByRole('button', { name: /^Resize note details/ });
-    await expect(inspectorSash).toBeAttached();
-    await page.mouse.move(inspectorBox.x - 2, inspectorBox.y + inspectorBox.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(inspectorBox.x - 102, inspectorBox.y + inspectorBox.height / 2, { steps: 8 });
-    await page.mouse.up();
-    await expect.poll(async () => (await inspector.boundingBox())!.width).toBeGreaterThan(initialWidth + 60);
-  } finally {
-    await stopApp(app);
-  }
-});
-

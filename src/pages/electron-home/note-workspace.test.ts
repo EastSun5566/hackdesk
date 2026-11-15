@@ -7,7 +7,6 @@ import {
   keepNoteTab,
   openNotePreview,
   openNoteInPlace,
-  closeNotePane,
   closeNoteTab,
   closeOtherNoteTabs,
   closeTabsToRight,
@@ -27,21 +26,17 @@ import {
   hydrateNoteWorkspaceLayout,
   materializeDraftNoteTab,
   moveActiveTabToOtherPane,
-  moveNoteTabToPane,
   navigateNoteWorkspace,
   openDraftNoteTab,
   openNoteTab,
   reopenLastClosedTab,
   reorderNoteTab,
   reconcileSavedNoteTab,
-  resizeNoteSplit,
   selectNoteTab,
   splitActivePane,
   splitActiveTabRight,
-  splitPaneWithTab,
   syncNoteTabSummary,
   equalizeNotePanes,
-  equalizeNoteSplit,
   focusPaneInDirection,
   toggleNotePaneZoom,
   focusNotePane,
@@ -703,94 +698,6 @@ describe('note workspace panes', () => {
     });
     expect(legacy.layout).toMatchObject({ type: 'split', orientation: 'horizontal', sizes: [30, 70] });
     expect(layoutPaneIds(legacy.layout)).toEqual(twoPanes.panes.map(pane => pane.paneId));
-  });
-
-  it('supports splitting left/up/for a specific pane and equalizing a single split', () => {
-    const start = withNotes(3);
-    const firstPaneId = start.activePaneId;
-    const splitUp = splitActivePane(start, 'up', firstPaneId);
-    const topPaneId = splitUp.activePaneId;
-    expect(shape(splitUp.layout, { [topPaneId]: 'top', [firstPaneId]: 'bottom' })).toEqual({ column: ['top', 'bottom'] });
-
-    const rootSplitId = splitUp.layout.type === 'split' ? splitUp.layout.id : '';
-    const resized = resizeNoteSplit(splitUp, rootSplitId, { [topPaneId]: 70, [firstPaneId]: 30 });
-    expect(resized.layout).toMatchObject({ sizes: [70, 30] });
-
-    const equalized = equalizeNoteSplit(resized, rootSplitId);
-    expect(equalized.layout).toMatchObject({ sizes: [50, 50] });
-
-    const splitLeft = splitActivePane(equalized, 'left', firstPaneId);
-    const leftPaneId = splitLeft.activePaneId;
-    expect(shape(splitLeft.layout, { [topPaneId]: 'top', [leftPaneId]: 'left', [firstPaneId]: 'right' })).toEqual({
-      column: ['top', { row: ['left', 'right'] }],
-    });
-  });
-
-  it('closes a pane cleanly, recording closed notes and emptying gracefully on last pane', () => {
-    const two = splitActiveTabRight(withNotes(2));
-    const [leftPaneId, rightPaneId] = layoutPaneIds(two.layout);
-    const afterClosingRight = closeNotePane(two, rightPaneId);
-    expect(afterClosingRight.panes).toHaveLength(1);
-    expect(afterClosingRight.panes[0].paneId).toBe(leftPaneId);
-    expect(afterClosingRight.recentlyClosedTabs.map((tab) => tab.title)).toContain('Note 1');
-
-    const emptied = closeNotePane(afterClosingRight, leftPaneId);
-    expect(emptied.panes).toHaveLength(1);
-    expect(emptied.panes[0].tabIds).toEqual([]);
-  });
-
-  it('moves or copies a tab across panes and inserts before target tab when specified', () => {
-    const split = splitActiveTabRight(withNotes(3));
-    const [leftPaneId, rightPaneId] = layoutPaneIds(split.layout);
-    const leftPane = split.panes.find((pane) => pane.paneId === leftPaneId)!;
-    const rightPane = split.panes.find((pane) => pane.paneId === rightPaneId)!;
-    const [leftFirst, leftSecond] = leftPane.tabIds;
-    const rightFirst = rightPane.tabIds[0];
-
-    const copied = moveNoteTabToPane(split, leftFirst, rightPaneId, { overTabId: rightFirst, copy: true });
-    expect(copied.panes.find((pane) => pane.paneId === leftPaneId)?.tabIds).toEqual([leftFirst, leftSecond]);
-    const copiedRightTabs = copied.panes.find((pane) => pane.paneId === rightPaneId)!.tabIds;
-    expect(copiedRightTabs).toHaveLength(2);
-    expect(copiedRightTabs[1]).toBe(rightFirst);
-    expect(copied.tabs[copiedRightTabs[0]]?.title).toBe('Note 0');
-
-    const moved = moveNoteTabToPane(copied, leftFirst, rightPaneId, { overTabId: rightFirst });
-    expect(moved.panes.find((pane) => pane.paneId === leftPaneId)?.tabIds).toEqual([leftSecond]);
-    expect(moved.panes.find((pane) => pane.paneId === rightPaneId)?.tabIds).toEqual([copiedRightTabs[0], leftFirst, rightFirst]);
-    expect(moved.activePaneId).toBe(rightPaneId);
-  });
-
-  it('splits a pane or workspace edge by dropping a tab (with move, re-dock, and copy)', () => {
-    const start = withNotes(2);
-    const primaryPane = start.panes[0];
-    const [tabA, tabB] = primaryPane.tabIds;
-
-    // Dropping tabA onto its own pane bottom edge moves it into a bottom pane
-    const downSplit = splitPaneWithTab(start, tabA, { paneId: primaryPane.paneId, direction: 'down' });
-    const [topPaneId, bottomPaneId] = layoutPaneIds(downSplit.layout);
-    expect(topPaneId).toBe(primaryPane.paneId);
-    expect(downSplit.panes.find((p) => p.paneId === topPaneId)?.tabIds).toEqual([tabB]);
-    expect(downSplit.panes.find((p) => p.paneId === bottomPaneId)?.tabIds).toEqual([tabA]);
-
-    // Dropping lone tabA onto the outer workspace left edge docks it on the left and removes empty bottom pane
-    const redocked = splitPaneWithTab(downSplit, tabA, { edge: true, direction: 'left' });
-    const [newLeftPaneId, remainingTopPaneId] = layoutPaneIds(redocked.layout);
-    expect(redocked.panes).toHaveLength(2);
-    expect(remainingTopPaneId).toBe(topPaneId);
-    expect(redocked.panes.find((p) => p.paneId === newLeftPaneId)?.tabIds).toEqual([tabA]);
-
-    // Alt-copy drop creates a 3rd pane without removing from source
-    const copiedSplit = splitPaneWithTab(redocked, tabB, { paneId: newLeftPaneId, direction: 'up' }, { copy: true });
-    expect(copiedSplit.panes).toHaveLength(3);
-    expect(copiedSplit.panes.find((p) => p.paneId === topPaneId)?.tabIds).toEqual([tabB]);
-  });
-
-  it('opens a blank tab in a specified pane', () => {
-    const split = splitActiveTabRight(withNotes(2));
-    const [leftPaneId] = layoutPaneIds(split.layout);
-    const next = openBlankNoteTab(split, leftPaneId);
-    expect(next.activePaneId).toBe(leftPaneId);
-    expect(isBlankNoteTab(getActiveTab(next))).toBe(true);
   });
 });
 

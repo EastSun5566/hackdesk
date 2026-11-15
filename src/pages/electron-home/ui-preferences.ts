@@ -8,13 +8,10 @@ export const NAVIGATOR_WIDTH_KEY = 'hackdesk_navigator_width';
 export const FOLDER_EXPANDED_PREFIX = 'hackdesk_folder_expanded:';
 export const LAST_WORKSPACE_SCOPE_KEY = 'hackdesk_last_workspace_scope';
 
-export const NAVIGATOR_WIDTH_DEFAULT = 260;
-export const NAVIGATOR_WIDTH_MIN = 220;
-export const NAVIGATOR_WIDTH_MAX = 680;
-export const INSPECTOR_WIDTH_KEY = 'hackdesk_inspector_width';
-export const INSPECTOR_WIDTH_DEFAULT = 380;
-export const INSPECTOR_WIDTH_MIN = 260;
-export const INSPECTOR_WIDTH_MAX = 560;
+export const NAVIGATOR_WIDTH_DEFAULT = 400;
+export const NAVIGATOR_WIDTH_MIN = 300;
+export const NAVIGATOR_WIDTH_MAX = 560;
+export const INSPECTOR_WIDTH_DEFAULT = 320;
 
 export function clampPanelWidth(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(value)));
@@ -72,11 +69,7 @@ export function readNumberStorage(key: string, fallback: number, min: number, ma
     return fallback;
   }
 
-  const raw = window.localStorage.getItem(key);
-  if (raw === null || raw.trim() === '') {
-    return fallback;
-  }
-  const parsed = Number(raw);
+  const parsed = Number(window.localStorage.getItem(key));
   return Number.isFinite(parsed) ? clampPanelWidth(parsed, min, max) : fallback;
 }
 

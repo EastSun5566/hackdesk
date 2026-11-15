@@ -1,10 +1,13 @@
-import { ArrowLeft, ArrowRight, Equal, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { Toolbar, ToolbarSeparator } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
 import { ToolbarIconButton } from './interaction-primitives';
+import { DocumentTabs, type PaneLayoutMenuActions } from './DocumentTabs';
+import type { DocumentSyncState } from './DocumentDetail';
 import type { ElectronActionId } from '@/lib/electron-api';
+import type { OpenNoteTab } from './note-workspace';
 import { HACK_MODE_DRAG_STRIP_CLASS } from './ui';
 
 function TopBarIconButton({
@@ -12,7 +15,6 @@ function TopBarIconButton({
   children,
   controls,
   expanded,
-  pressed,
   label,
   onClick,
   disabled,
@@ -23,7 +25,6 @@ function TopBarIconButton({
   controls?: string;
   disabled?: boolean;
   expanded?: boolean;
-  pressed?: boolean;
   label: string;
   onClick: () => void;
   tooltip?: ReactNode;
@@ -34,7 +35,6 @@ function TopBarIconButton({
       onClick={onClick}
       aria-controls={controls}
       aria-expanded={expanded}
-      aria-pressed={pressed}
       disabled={disabled}
       label={label}
       tooltip={tooltip}
@@ -46,29 +46,61 @@ function TopBarIconButton({
 }
 
 export function AppTopBar({
+  activeTab,
+  tabStripId,
+  paneId,
+  getTabSyncState,
   navigation,
+  onCloseOtherTabs,
+  onCloseTab,
+  onCloseTabsToRight,
+  onMoveTabToOtherPane,
+  onReopenLastClosedTab,
+  onReorderTab,
+  onSelectTab,
+  onKeepTab,
+  onSplitPane,
   paneLayout,
+  paneActions,
   platform,
   navigatorCollapsed,
   navigatorPanelId,
+  tabs,
   onToggleNavigator,
+  onNewTab,
 }: {
+  activeTab: OpenNoteTab | null;
+  tabStripId?: string;
+  paneId?: string;
+  getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
   navigation: {
     canGoBack: boolean;
     canGoForward: boolean;
     onBack: () => void;
     onForward: () => void;
   };
-  paneLayout?: {
-    paneCount: number;
-    zoomed: boolean;
-    onToggleZoom: () => void;
-    onEqualize: () => void;
+  onCloseOtherTabs: (tabId: string) => void;
+  onCloseTab: (tabId: string) => void;
+  onCloseTabsToRight: (tabId: string) => void;
+  onMoveTabToOtherPane: () => void;
+  onReopenLastClosedTab: () => void;
+  onReorderTab: (tabId: string, overTabId: string) => void;
+  onSelectTab: (tabId: string) => void;
+  /** Keeps a preview tab open. */
+  onKeepTab?: (tabId: string) => void;
+  onSplitPane: () => void;
+  paneLayout: PaneLayoutMenuActions;
+  paneActions: {
+    canMoveToOtherPane: boolean;
+    canReopenLastClosedTab: boolean;
+    canSplit: boolean;
   };
   platform: string;
   navigatorCollapsed: boolean;
   navigatorPanelId: string;
+  tabs: OpenNoteTab[];
   onToggleNavigator: () => void;
+  onNewTab: () => void;
 }) {
   const [fullScreen, setFullScreen] = useState(false);
 
@@ -97,8 +129,6 @@ export function AppTopBar({
       unsubscribe();
     };
   }, [platform]);
-
-  const showMultiPaneControls = Boolean(paneLayout && paneLayout.paneCount > 1);
 
   return (
     <header className={cn(
@@ -136,26 +166,28 @@ export function AppTopBar({
           <ArrowRight aria-hidden="true" className="size-4.5" />
         </TopBarIconButton>
       </Toolbar>
-      <div aria-hidden="true" className="min-w-0 flex-1" />
-      {showMultiPaneControls && paneLayout ? (
-        <Toolbar aria-label="Workspace layout controls" className="shrink-0">
-          <TopBarIconButton
-            actionId="toggle-pane-zoom"
-            pressed={paneLayout.zoomed}
-            label={paneLayout.zoomed ? 'Restore panes' : 'Zoom pane'}
-            onClick={paneLayout.onToggleZoom}
-          >
-            {paneLayout.zoomed ? <Minimize2 aria-hidden="true" className="size-4" /> : <Maximize2 aria-hidden="true" className="size-4" />}
-          </TopBarIconButton>
-          <TopBarIconButton
-            actionId="equalize-panes"
-            label="Equalize pane sizes"
-            onClick={paneLayout.onEqualize}
-          >
-            <Equal aria-hidden="true" className="size-4" />
-          </TopBarIconButton>
-        </Toolbar>
-      ) : null}
+      <DocumentTabs
+        key={tabStripId}
+        paneId={paneId}
+        activeTab={activeTab}
+        canMoveToOtherPane={paneActions.canMoveToOtherPane}
+        canReopenLastClosedTab={paneActions.canReopenLastClosedTab}
+        canSplit={paneActions.canSplit}
+        className="h-full"
+        getTabSyncState={getTabSyncState}
+        onCloseOtherTabs={onCloseOtherTabs}
+        onCloseTab={onCloseTab}
+        onCloseTabsToRight={onCloseTabsToRight}
+        onMoveTabToOtherPane={onMoveTabToOtherPane}
+        onReopenLastClosedTab={onReopenLastClosedTab}
+        onReorderTab={onReorderTab}
+        onSelectTab={onSelectTab}
+        onKeepTab={onKeepTab}
+        onSplitPane={onSplitPane}
+        paneLayout={paneLayout}
+        onNewTab={onNewTab}
+        tabs={tabs}
+      />
     </header>
   );
 }

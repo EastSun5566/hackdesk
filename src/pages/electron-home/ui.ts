@@ -21,10 +21,10 @@ export const PANEL_MOTION_CLASS = 'transition-all duration-200 ease-out motion-r
  * Hack Mode is edge to edge. Lines only mark content scrolling under a header; see .scroll-edges.
  */
 export const CARD_SURFACE_CLASS = 'overflow-clip rounded-lg border border-border-subtle bg-background-default [[data-hack-mode]_&]:rounded-none [[data-hack-mode]_&]:border-transparent';
-/** A resize handle in the gap between surfaces: invisible until pointed at, focused or dragged. */
-export const GAP_SASH_CLASS = 'relative w-1.5 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:-inset-x-1 after:absolute after:inset-y-4 after:left-1/2 after:w-px after:-translate-x-1/2 after:rounded-full after:bg-transparent after:transition-colors hover:after:bg-primary-default focus-visible:after:bg-primary-default data-[separator=active]:after:bg-primary-default motion-reduce:after:transition-none';
+/** A resize handle in the gap between surfaces: invisible until pointed at or focused. */
+export const GAP_SASH_CLASS = 'relative w-1.5 shrink-0 cursor-col-resize border-0 bg-transparent outline-none after:absolute after:inset-y-6 after:left-1/2 after:w-px after:-translate-x-1/2 after:rounded-full after:bg-transparent after:transition-colors hover:after:bg-primary-default focus-visible:after:bg-primary-default motion-reduce:after:transition-none';
 /** The same handle between stacked surfaces. */
-export const GAP_SASH_ROW_CLASS = 'relative h-1.5 shrink-0 cursor-row-resize border-0 bg-transparent outline-none before:absolute before:inset-x-0 before:-inset-y-1 after:absolute after:inset-x-4 after:top-1/2 after:h-px after:-translate-y-1/2 after:rounded-full after:bg-transparent after:transition-colors hover:after:bg-primary-default focus-visible:after:bg-primary-default data-[separator=active]:after:bg-primary-default motion-reduce:after:transition-none';
+export const GAP_SASH_ROW_CLASS = 'relative h-1.5 shrink-0 cursor-row-resize border-0 bg-transparent outline-none after:absolute after:inset-x-6 after:top-1/2 after:h-px after:-translate-y-1/2 after:rounded-full after:bg-transparent after:transition-colors hover:after:bg-primary-default focus-visible:after:bg-primary-default motion-reduce:after:transition-none';
 export const COLLAPSE_ICON_CLASS = 'transition-transform duration-150 ease-out motion-reduce:transition-none';
 export const ICON_BUTTON_CLASS = buttonVariants({ variant: 'ghost', size: 'icon' });
 const noteDateFormatter = new Intl.DateTimeFormat(undefined, {

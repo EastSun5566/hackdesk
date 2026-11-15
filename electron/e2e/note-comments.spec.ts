@@ -88,7 +88,7 @@ test('shows comments, jumps to their text, and resolves and reopens threads', as
   try {
     await expect(page.locator('.cm-content')).toContainText('ship date');
     await page.getByRole('button', { name: 'Expand note details' }).click();
-    await expect(page.getByRole('button', { name: /^Comments/ })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: /^Comments/ }).click();
 
     const open = page.getByRole('list', { name: 'Open comments' });
     await expect(open).toContainText('Should this be Q4?');

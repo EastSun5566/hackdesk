@@ -114,7 +114,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     });
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('vault-A-restored.png') });
     // A pane below the right one makes an L, which comes back after the restart too.
-    await page.locator('[data-active-pane="true"]').getByRole('button', { name: 'Pane actions', exact: true }).click();
+    await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Split Down', exact: true }).click();
     await expect(page.locator('[data-active-pane]')).toHaveCount(3);
     // The workspace saves shortly after a change; wait for the three panes to be written.

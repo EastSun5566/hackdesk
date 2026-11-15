@@ -1,16 +1,14 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import { cn } from '@/lib/utils';
 
 import { GAP_SASH_CLASS } from './ui';
-import { clampPanelWidth } from './ui-preferences';
 
 // A surface's border, with no line or gap of its own: the border lights up instead. It takes no
-// width, so the panel before/after it keeps the same inset from the border as from the window's other
-// edge. Its 10px grip extends outward into the adjacent surface, clear of scrollbars.
-const EDGE_SASH_BASE_CLASS = 'edge-sash relative w-0 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0';
-const EDGE_SASH_RIGHT_CLASS = `${EDGE_SASH_BASE_CLASS} before:left-0 before:-right-2.5`;
-const EDGE_SASH_LEFT_CLASS = `${EDGE_SASH_BASE_CLASS} before:-left-2.5 before:right-0`;
+// width, so the panel before it keeps the same inset from the border as from the window's other
+// edge. Its 10px grip extends into the next surface, clear of the sidebar's scrollbar.
+const EDGE_SASH_CLASS = 'edge-sash relative w-0 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:left-0 before:-right-2.5';
+import { clampPanelWidth } from './ui-preferences';
 
 export function PanelResizeSash({
   label,
@@ -23,10 +21,6 @@ export function PanelResizeSash({
   previewTargetId,
   previewProperties = [],
   edge = false,
-  direction = 'right',
-  collapseThreshold,
-  onCollapse,
-  className,
 }: {
   label: string;
   value: number;
@@ -47,38 +41,13 @@ export function PanelResizeSash({
    * dragged (.edge-sash in styles.css) instead of drawing a line in the gap.
    */
   edge?: boolean;
-  /** Which side of the panel the handle sits on. Left handles grow the panel when dragged left. */
-  direction?: 'left' | 'right';
-  /** Dragging past this width marks the handle ready to collapse and calls onCollapse on release. */
-  collapseThreshold?: number;
-  onCollapse?: () => void;
-  className?: string;
 }) {
-  const [collapseReady, setCollapseReady] = useState(false);
-  const dragStart = useRef<{ x: number; value: number; latest: number; collapse: boolean } | null>(null);
-  const deltaSign = direction === 'left' ? -1 : 1;
-
+  const dragStart = useRef<{ x: number; value: number; latest: number } | null>(null);
   const preview = (width: number) => {
     const target = previewTargetId ? document.getElementById(previewTargetId) : null;
     if (!target || previewProperties.length === 0) return false;
     for (const property of previewProperties) target.style.setProperty(property, `${width}px`);
     return true;
-  };
-
-  const finishDrag = () => {
-    delete document.documentElement.dataset.panelResizing;
-    const drag = dragStart.current;
-    dragStart.current = null;
-    setCollapseReady(false);
-    if (!drag) return;
-    if (drag.collapse && onCollapse) {
-      if (previewTargetId) preview(drag.value);
-      onCollapse();
-      return;
-    }
-    if (drag.latest !== drag.value && previewTargetId) {
-      onChange(drag.latest);
-    }
   };
 
   if (disabled) {
@@ -93,38 +62,39 @@ export function PanelResizeSash({
     <button
       type="button"
       aria-label={resizeLabel}
-      data-edge-side={edge ? direction : undefined}
-      data-collapse-ready={collapseReady ? 'true' : undefined}
       title={defaultValue ? `${label}. Double-click to reset.` : label}
       className={cn(
-        edge ? (direction === 'left' ? EDGE_SASH_LEFT_CLASS : EDGE_SASH_RIGHT_CLASS) : GAP_SASH_CLASS,
+        edge ? EDGE_SASH_CLASS : GAP_SASH_CLASS,
         'z-20 h-auto [[data-hack-mode]_&]:hidden',
-        className,
       )}
       onPointerDown={(event) => {
-        dragStart.current = { x: event.clientX, value, latest: value, collapse: false };
-        event.currentTarget.setPointerCapture?.(event.pointerId);
+        dragStart.current = { x: event.clientX, value, latest: value };
+        event.currentTarget.setPointerCapture(event.pointerId);
         // Panels animate their width, except while dragged, so the edge follows the pointer.
         document.documentElement.dataset.panelResizing = 'true';
       }}
-      onLostPointerCapture={finishDrag}
+      onLostPointerCapture={() => {
+        delete document.documentElement.dataset.panelResizing;
+        // A drag that ends without pointerup (pointercancel, a system gesture) still commits the
+        // previewed width, or the panel would keep showing a width the app never saved.
+        const drag = dragStart.current;
+        dragStart.current = null;
+        if (drag && drag.latest !== drag.value && previewTargetId) onChange(drag.latest);
+      }}
       onPointerMove={(event) => {
         if (!dragStart.current || event.buttons === 0) {
           return;
         }
 
-        const rawWidth = dragStart.current.value + (event.clientX - dragStart.current.x) * deltaSign;
-        const shouldCollapse = Boolean(onCollapse && collapseThreshold !== undefined && rawWidth <= collapseThreshold);
-        if (dragStart.current.collapse !== shouldCollapse) {
-          dragStart.current.collapse = shouldCollapse;
-          setCollapseReady(shouldCollapse);
-        }
-
-        const width = clampPanelWidth(rawWidth, min, max);
+        const width = clampPanelWidth(dragStart.current.value + event.clientX - dragStart.current.x, min, max);
         dragStart.current.latest = width;
-        if (!preview(width) && !shouldCollapse) onChange(width);
+        if (!preview(width)) onChange(width);
       }}
-      onPointerUp={finishDrag}
+      onPointerUp={() => {
+        const drag = dragStart.current;
+        dragStart.current = null;
+        if (drag && drag.latest !== drag.value && previewTargetId) onChange(drag.latest);
+      }}
       onDoubleClick={() => {
         if (defaultValue) {
           onChange(clampPanelWidth(defaultValue, min, max));
@@ -135,12 +105,12 @@ export function PanelResizeSash({
 
         if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          onChange(clampPanelWidth(value - step * deltaSign, min, max));
+          onChange(clampPanelWidth(value - step, min, max));
         }
 
         if (event.key === 'ArrowRight') {
           event.preventDefault();
-          onChange(clampPanelWidth(value + step * deltaSign, min, max));
+          onChange(clampPanelWidth(value + step, min, max));
         }
 
         if (event.key === 'Home') {

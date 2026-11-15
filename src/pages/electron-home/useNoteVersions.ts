@@ -10,11 +10,13 @@ import { runHackmdRequest } from '@/lib/hackmd-requests';
 import { isNoteVersionsUnavailableError, stripIpcErrorPrefix } from '@/lib/note-errors';
 
 const VERSION_PAGE_SIZE = 20;
+export const VERSION_PREVIEW_SIZE = 3;
 
 /** Every version query of a note sits under one prefix, so one invalidation refreshes them all. */
 export const noteVersionsKeys = {
   all: (noteId: string) => ['electron', 'hackmd', 'note-versions', noteId] as const,
   list: (noteId: string, namedOnly: boolean) => [...noteVersionsKeys.all(noteId), 'list', { namedOnly }] as const,
+  preview: (noteId: string) => [...noteVersionsKeys.all(noteId), 'preview'] as const,
   detail: (noteId: string, versionId: string) => [...noteVersionsKeys.all(noteId), 'detail', versionId] as const,
   diff: (noteId: string, versionId: string) => [...noteVersionsKeys.all(noteId), 'diff', versionId] as const,
 };
@@ -44,6 +46,17 @@ export function useNoteVersionList(noteId: string, namedOnly: boolean, enabled =
       return runHackmdRequest(hackmd, signal, hackmd.listNoteVersions, [noteId, { namedOnly, page: pageParam, limit: VERSION_PAGE_SIZE }]);
     },
     getNextPageParam: (page: NoteVersionPage) => (page.page < page.totalPages ? page.page + 1 : undefined),
+    retry: retryUnlessUnavailable,
+  });
+}
+
+export function useNoteVersionPreview(noteId: string) {
+  return useQuery({
+    queryKey: noteVersionsKeys.preview(noteId),
+    queryFn: ({ signal }) => {
+      const hackmd = requireApi();
+      return runHackmdRequest(hackmd, signal, hackmd.listNoteVersions, [noteId, { limit: VERSION_PREVIEW_SIZE }]);
+    },
     retry: retryUnlessUnavailable,
   });
 }

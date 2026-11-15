@@ -2,26 +2,12 @@ import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useNoteSummaryLookup } from './NoteSummaryCard';
 import { NoteIcon, NoteKindIcon } from './note-kind';
 import { useBookSessionContext } from './useBookSession';
-import { DndContext, closestCenter, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import {
-  ArrowLeft,
-  ArrowRight,
-  ArrowLeftRight,
-  Columns2,
-  Equal,
-  FileText,
-  Maximize2,
-  MoreHorizontal,
-  PanelLeft,
-  PanelTop,
-  Plus,
-  Rows2,
-  X,
-} from 'lucide-react';
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
+import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, Equal, FileText, Maximize2, MoreHorizontal, Plus, Rows2, X } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Toolbar } from '@/components/ui/toolbar';
@@ -35,27 +21,10 @@ import {
 import { cn } from '@/lib/utils';
 
 import { isBlankNoteTab, isDraftNoteTab, isPreviewNoteTab, type OpenNoteTab } from './note-workspace';
-import { ToolbarDropdownIconTrigger, ToolbarIconButton } from './interaction-primitives';
+import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
-import { HACK_MODE_HIDDEN_CLASS } from './ui';
 import { useScrollOverflow } from './useScrollOverflow';
-
-export type WorkspaceTabDndState = {
-  inWorkspaceDnd: boolean;
-  activeDragTabId: string | null;
-  dropTargetId: string | null;
-};
-
-export const WorkspaceTabDndContext = createContext<WorkspaceTabDndState>({
-  inWorkspaceDnd: false,
-  activeDragTabId: null,
-  dropTargetId: null,
-});
-
-export function tabStripDropId(paneId: string) {
-  return `tab-strip:${paneId}`;
-}
 
 function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
   const label = DOCUMENT_SYNC_STATE_LABELS[state];
@@ -95,7 +64,6 @@ function DocumentTab({
   syncState,
   activeTabRef,
   draggedRef,
-  inWorkspaceDnd,
   onSelect,
   onClose,
   onKeep,
@@ -109,7 +77,6 @@ function DocumentTab({
   syncState: DocumentSyncState;
   activeTabRef?: MutableRefObject<HTMLLIElement | null>;
   draggedRef: MutableRefObject<boolean>;
-  inWorkspaceDnd: boolean;
   onSelect: () => void;
   onClose: () => void;
   /** Keeps a preview tab open; double-clicking the tab asks for it. */
@@ -131,10 +98,7 @@ function DocumentTab({
   const bookPosition = book && !isDraftNoteTab(tab) && !isBlankNoteTab(tab)
     ? bookSession.positionOfNote({ id: tab.noteId, teamPath: tab.teamPath }, tab.tabId)
     : null;
-  const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({
-    id: tab.tabId,
-    data: { type: 'tab', paneId, tabId: tab.tabId },
-  });
+  const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: tab.tabId });
   const setTabNode = useCallback((element: HTMLLIElement | null) => {
     setNodeRef(element);
     if (activeTabRef) activeTabRef.current = element;
@@ -149,10 +113,10 @@ function DocumentTab({
       ref={setTabNode}
       style={{ transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null), transition }}
       className={cn(
-        'group/tab app-region-no-drag relative flex h-7 min-w-32 max-w-52 shrink-0 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-150 motion-reduce:transition-none',
-        isDragging && (inWorkspaceDnd ? 'z-10 opacity-40' : 'z-10 opacity-70'),
+        'group/tab app-region-no-drag relative flex h-8 min-w-40 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
+        isDragging && 'z-10 opacity-70',
         selected
-          ? 'border-border-subtle bg-background-default text-text-default shadow-2xs'
+          ? 'border-border-subtle bg-background-default text-text-default'
           : 'border-transparent bg-transparent text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
       )}
     >
@@ -172,7 +136,7 @@ function DocumentTab({
           preview ? 'preview' : null,
           isBlankNoteTab(tab) || syncState === 'saved' ? null : DOCUMENT_SYNC_STATE_LABELS[syncState],
         ].filter(Boolean).join(', ')}
-        className="app-region-no-drag flex min-w-0 flex-1 items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+        className="app-region-no-drag flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         ref={setActivatorNodeRef}
         {...listeners}
         onKeyDown={onKeyDown}
@@ -202,7 +166,7 @@ function DocumentTab({
         size="icon-sm"
         tabIndex={focused ? 0 : -1}
         className={cn(
-          'app-region-no-drag h-6 w-6 rounded-sm hover:bg-background-selected focus-visible:opacity-100 group-hover/tab:opacity-100',
+          'app-region-no-drag rounded-sm hover:bg-background-selected focus-visible:opacity-100 group-hover/tab:opacity-100',
           selected ? 'opacity-100' : 'opacity-0',
         )}
         onClick={(event) => {
@@ -211,7 +175,7 @@ function DocumentTab({
         }}
         aria-label={`Close ${title}`}
       >
-        <X aria-hidden="true" className="h-3 w-3" />
+        <X aria-hidden="true" className="h-3.5 w-3.5" />
       </Button>
     </li>
   );
@@ -220,23 +184,18 @@ function DocumentTab({
 export type PaneLayoutMenuActions = {
   zoomed: boolean;
   onSplitDown: () => void;
-  onSplitLeft?: () => void;
-  onSplitUp?: () => void;
   onToggleZoom: () => void;
   onEqualize: () => void;
 };
 
 export function DocumentTabs({
   activeTab,
-  canClosePane = false,
   canMoveToOtherPane,
   canReopenLastClosedTab,
   canSplit,
   className,
   getTabSyncState,
-  isActivePane = true,
   onCloseOtherTabs,
-  onClosePane,
   onCloseTab,
   onCloseTabsToRight,
   onMoveTabToOtherPane,
@@ -251,15 +210,12 @@ export function DocumentTabs({
   paneId,
 }: {
   activeTab: OpenNoteTab | null;
-  canClosePane?: boolean;
   canMoveToOtherPane: boolean;
   canReopenLastClosedTab: boolean;
   canSplit: boolean;
   className?: string;
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
-  isActivePane?: boolean;
   onCloseOtherTabs: (tabId: string) => void;
-  onClosePane?: () => void;
   onCloseTab: (tabId: string) => void;
   onCloseTabsToRight: (tabId: string) => void;
   onMoveTabToOtherPane: () => void;
@@ -268,31 +224,20 @@ export function DocumentTabs({
   onSelectTab: (tabId: string) => void;
   /** Keeps a preview tab open (see isPreviewNoteTab). */
   onKeepTab?: (tabId: string) => void;
-  /** Splitting right, left, up, down, zoom and equal sizes for the pane layout. */
+  /** Splitting down, zoom and equal sizes for the pane layout. */
   paneLayout: PaneLayoutMenuActions;
   onSplitPane: () => void;
   onNewTab: () => void;
   tabs: OpenNoteTab[];
   paneId?: string;
 }) {
-  const workspaceDnd = useContext(WorkspaceTabDndContext);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   // Escape can detach the sensor before mouseup produces a native click.
   // Reset on the next pointer gesture, while allowing keyboard activation.
   const draggedRef = useRef(false);
-  useEffect(() => {
-    if (workspaceDnd.activeDragTabId) draggedRef.current = true;
-  }, [workspaceDnd.activeDragTabId]);
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (over && active.id !== over.id) onReorderTab(String(active.id), String(over.id));
   };
-  const dropId = paneId ? tabStripDropId(paneId) : 'tab-strip:standalone';
-  const { setNodeRef: setStripDropRef } = useDroppable({
-    id: dropId,
-    data: { type: 'tab-strip', paneId },
-    disabled: !workspaceDnd.inWorkspaceDnd || !paneId,
-  });
-  const isStripDropTarget = workspaceDnd.inWorkspaceDnd && workspaceDnd.dropTargetId === dropId;
   const activeTabRef = useRef<HTMLLIElement | null>(null);
   const regionRef = useRef<HTMLDivElement | null>(null);
   const [focusedTabId, setFocusedTabId] = useState(activeTab?.tabId ?? tabs[0]?.tabId ?? null);
@@ -346,183 +291,129 @@ export function DocumentTabs({
 
   // Tabs past either edge fade out there, so a cut-off strip reads as one that continues.
   const [strip, setStrip] = useState<HTMLElement | null>(null);
-  const attachStrip = useCallback((element: HTMLElement | null) => {
-    setStrip(element);
-    setStripDropRef(element);
-  }, [setStripDropRef]);
   const overflow = useScrollOverflow(strip, 'x');
-
-  const content = (
-    <div
-      ref={regionRef}
-      data-hackdesk-focus="tabs"
-      data-document-pane-id={paneId}
-      className={cn(
-        'flex h-9 min-w-0 shrink-0 items-center gap-1.5 border-b border-border-subtle bg-background-subtler/40 px-1.5',
-        !isActivePane && 'opacity-80 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none',
-        HACK_MODE_HIDDEN_CLASS,
-        className,
-      )}
-    >
-      <nav
-        ref={attachStrip}
-        aria-label="Open documents"
-        data-overflow-start={overflow.start || undefined}
-        data-overflow-end={overflow.end || undefined}
-        className={cn(
-          'edge-fade-x app-region-no-drag flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-0.5 py-1',
-          isStripDropTarget && 'rounded-md bg-primary-soft/30 ring-1 ring-inset ring-primary-default/60',
-        )}
-      >
-        <div className="flex min-w-0 items-center gap-1">
-          {tabs.length > 0 ? (
-            <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>
-              <ul role="tablist" aria-label="Open documents" className="m-0 flex min-w-0 list-none items-center gap-1 p-0">
-                {tabs.map((tab) => (
-                  <DocumentTab
-                    key={tab.tabId}
-                    tab={tab}
-                    selected={activeTab?.tabId === tab.tabId}
-                    focused={effectiveFocusedTabId === tab.tabId}
-                    paneId={paneId}
-                    inWorkspaceDnd={workspaceDnd.inWorkspaceDnd}
-                    onFocus={() => {
-                      setFocusedTabId(tab.tabId);
-                      lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-                    }}
-                    onKeyDown={(event) => handleTabKeyDown(event, tab.tabId)}
-                    syncState={getTabSyncState(tab)}
-                    draggedRef={draggedRef}
-                    activeTabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
-                    onSelect={() => onSelectTab(tab.tabId)}
-                    onClose={() => onCloseTab(tab.tabId)}
-                    onKeep={onKeepTab ? () => onKeepTab(tab.tabId) : undefined}
-                  />
-                ))}
-              </ul>
-            </SortableContext>
-          ) : null}
-        </div>
-      </nav>
-      {/* Outside the scrolling strip, so it stays in reach however many tabs are open: right
-          after the last tab, or at the strip's end once the tabs overflow. */}
-      <Tooltip content={(
-        <span className="inline-flex items-center gap-2">
-          New Tab
-          <ActionMenuShortcut actionId="new-tab" />
-        </span>
-      )}>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="app-region-no-drag h-6.5 w-6.5 shrink-0 rounded-md"
-          aria-label="New Tab"
-          onClick={onNewTab}
-        >
-          <Plus aria-hidden="true" className="size-3.5" />
-        </Button>
-      </Tooltip>
-      <div aria-hidden="true" className="min-w-0 flex-1" />
-      <Toolbar aria-label="Pane controls">
-        <DropdownMenu>
-          <ToolbarDropdownIconTrigger label="Pane actions" className="app-region-no-drag h-6.5 w-6.5">
-            <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-          </ToolbarDropdownIconTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={onSplitPane}>
-              <Columns2 aria-hidden="true" className="h-4 w-4" />
-              Split Right
-              <ActionMenuShortcut actionId="split-pane-right" />
-            </DropdownMenuItem>
-            {paneLayout.onSplitLeft ? (
-              <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={paneLayout.onSplitLeft}>
-                <PanelLeft aria-hidden="true" className="h-4 w-4" />
-                Split Left
-                <ActionMenuShortcut actionId="split-pane-left" />
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={paneLayout.onSplitDown}>
-              <Rows2 aria-hidden="true" className="h-4 w-4" />
-              Split Down
-              <ActionMenuShortcut actionId="split-pane-down" />
-            </DropdownMenuItem>
-            {paneLayout.onSplitUp ? (
-              <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={paneLayout.onSplitUp}>
-                <PanelTop aria-hidden="true" className="h-4 w-4" />
-                Split Up
-                <ActionMenuShortcut actionId="split-pane-up" />
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem disabled={!canMoveToOtherPane} onSelect={paneLayout.onToggleZoom}>
-              <Maximize2 aria-hidden="true" className="h-4 w-4" />
-              {paneLayout.zoomed ? 'Restore Panes' : 'Zoom Pane'}
-              <ActionMenuShortcut actionId="toggle-pane-zoom" />
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canMoveToOtherPane} onSelect={paneLayout.onEqualize}>
-              <Equal aria-hidden="true" className="h-4 w-4" />
-              Equalize Pane Sizes
-            </DropdownMenuItem>
-            {onClosePane ? (
-              <DropdownMenuItem disabled={!canClosePane} onSelect={onClosePane}>
-                <X aria-hidden="true" className="h-4 w-4" />
-                Close Pane
-                <ActionMenuShortcut actionId="close-pane" />
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={!activeTab || !canMoveToOtherPane} onSelect={onMoveTabToOtherPane}>
-              <ArrowLeftRight aria-hidden="true" className="h-4 w-4" />
-              Move Tab to Next Pane
-              <ActionMenuShortcut actionId="move-tab-to-other-pane" />
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={activeTabIndex <= 0} onSelect={() => activeTab && activeTabIndex > 0 && onReorderTab(activeTab.tabId, tabs[activeTabIndex - 1].tabId)}>
-              <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-              Move Tab Left
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!hasTabsToRight} onSelect={() => activeTab && hasTabsToRight && onReorderTab(activeTab.tabId, tabs[activeTabIndex + 1].tabId)}>
-              <ArrowRight aria-hidden="true" className="h-4 w-4" />
-              Move Tab Right
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={!activeTab || tabs.length <= 1} onSelect={() => activeTab && onCloseOtherTabs(activeTab.tabId)}>
-              <X aria-hidden="true" className="h-4 w-4" />
-              Close Other Tabs
-              <ActionMenuShortcut actionId="close-other-tabs" />
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!activeTab || !hasTabsToRight} onSelect={() => activeTab && onCloseTabsToRight(activeTab.tabId)}>
-              <X aria-hidden="true" className="h-4 w-4" />
-              Close Tabs to Right
-              <ActionMenuShortcut actionId="close-tabs-to-right" />
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canReopenLastClosedTab} onSelect={onReopenLastClosedTab}>
-              <FileText aria-hidden="true" className="h-4 w-4" />
-              Reopen Last Closed Tab
-              <ActionMenuShortcut actionId="reopen-last-closed-tab" />
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {canClosePane && onClosePane ? (
-          <ToolbarIconButton
-            actionId="close-pane"
-            label="Close pane"
-            onClick={onClosePane}
-            className="app-region-no-drag h-6.5 w-6.5 rounded-md"
-          >
-            <X aria-hidden="true" className="h-3.5 w-3.5" />
-          </ToolbarIconButton>
-        ) : null}
-      </Toolbar>
-    </div>
-  );
-
-  if (workspaceDnd.inWorkspaceDnd) {
-    return content;
-  }
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => { draggedRef.current = true; }} onDragEnd={handleDragEnd}>
-      {content}
+      <div ref={regionRef} data-hackdesk-focus="tabs" data-document-pane-id={paneId} className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
+        {/* Not a window drag region, gaps included: a drag region swallows the wheel, so scrolling the
+            tabs stopped whenever the pointer crossed a gap. It is only as wide as the tabs, so the
+            empty title bar after them still drags the window. */}
+        <nav
+          ref={setStrip}
+          aria-label="Open documents"
+          data-overflow-start={overflow.start || undefined}
+          data-overflow-end={overflow.end || undefined}
+          className="edge-fade-x app-region-no-drag flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1"
+        >
+          <div className="flex min-w-0 items-center gap-1">
+            {tabs.length > 0 ? (
+              <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>
+                <ul role="tablist" aria-label="Open documents" className="m-0 flex min-w-0 list-none items-center gap-1 p-0">
+                  {tabs.map((tab) => (
+                    <DocumentTab
+                      key={tab.tabId}
+                      tab={tab}
+                      selected={activeTab?.tabId === tab.tabId}
+                      focused={effectiveFocusedTabId === tab.tabId}
+                      paneId={paneId}
+                      onFocus={() => {
+                        setFocusedTabId(tab.tabId);
+                        lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                      }}
+                      onKeyDown={(event) => handleTabKeyDown(event, tab.tabId)}
+                      syncState={getTabSyncState(tab)}
+                      draggedRef={draggedRef}
+                      activeTabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
+                      onSelect={() => onSelectTab(tab.tabId)}
+                      onClose={() => onCloseTab(tab.tabId)}
+                      onKeep={onKeepTab ? () => onKeepTab(tab.tabId) : undefined}
+                    />
+                  ))}
+                </ul>
+              </SortableContext>
+            ) : null}
+          </div>
+        </nav>
+        {/* Outside the scrolling strip, so it stays in reach however many tabs are open: right
+            after the last tab, or at the strip's end once the tabs overflow. */}
+        <Tooltip content={(
+          <span className="inline-flex items-center gap-2">
+            New Tab
+            <ActionMenuShortcut actionId="new-tab" />
+          </span>
+        )}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="app-region-no-drag h-7 w-7 shrink-0 rounded-md"
+            aria-label="New Tab"
+            onClick={onNewTab}
+          >
+            <Plus aria-hidden="true" className="size-3.5" />
+          </Button>
+        </Tooltip>
+        <div aria-hidden="true" className="min-w-0 flex-1" />
+        <Toolbar aria-label="Pane controls">
+          <DropdownMenu>
+            <ToolbarDropdownIconTrigger label="Pane actions" className="app-region-no-drag h-7 w-7">
+              <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+            </ToolbarDropdownIconTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={onSplitPane}>
+                <Columns2 aria-hidden="true" className="h-4 w-4" />
+                Split Right
+                <ActionMenuShortcut actionId="split-pane-right" />
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={paneLayout.onSplitDown}>
+                <Rows2 aria-hidden="true" className="h-4 w-4" />
+                Split Down
+                <ActionMenuShortcut actionId="split-pane-down" />
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!canMoveToOtherPane} onSelect={paneLayout.onToggleZoom}>
+                <Maximize2 aria-hidden="true" className="h-4 w-4" />
+                {paneLayout.zoomed ? 'Restore Panes' : 'Zoom Pane'}
+                <ActionMenuShortcut actionId="toggle-pane-zoom" />
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!canMoveToOtherPane} onSelect={paneLayout.onEqualize}>
+                <Equal aria-hidden="true" className="h-4 w-4" />
+                Equalize Pane Sizes
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={!activeTab || !canMoveToOtherPane} onSelect={onMoveTabToOtherPane}>
+                <ArrowLeftRight aria-hidden="true" className="h-4 w-4" />
+                Move Tab to Next Pane
+                <ActionMenuShortcut actionId="move-tab-to-other-pane" />
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={activeTabIndex <= 0} onSelect={() => activeTab && activeTabIndex > 0 && onReorderTab(activeTab.tabId, tabs[activeTabIndex - 1].tabId)}>
+                <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                Move Tab Left
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!hasTabsToRight} onSelect={() => activeTab && hasTabsToRight && onReorderTab(activeTab.tabId, tabs[activeTabIndex + 1].tabId)}>
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                Move Tab Right
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={!activeTab || tabs.length <= 1} onSelect={() => activeTab && onCloseOtherTabs(activeTab.tabId)}>
+                <X aria-hidden="true" className="h-4 w-4" />
+                Close Other Tabs
+                <ActionMenuShortcut actionId="close-other-tabs" />
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!activeTab || !hasTabsToRight} onSelect={() => activeTab && onCloseTabsToRight(activeTab.tabId)}>
+                <X aria-hidden="true" className="h-4 w-4" />
+                Close Tabs to Right
+                <ActionMenuShortcut actionId="close-tabs-to-right" />
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!canReopenLastClosedTab} onSelect={onReopenLastClosedTab}>
+                <FileText aria-hidden="true" className="h-4 w-4" />
+                Reopen Last Closed Tab
+                <ActionMenuShortcut actionId="reopen-last-closed-tab" />
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </Toolbar>
+      </div>
     </DndContext>
   );
 }

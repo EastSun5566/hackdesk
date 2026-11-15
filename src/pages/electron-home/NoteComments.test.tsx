@@ -46,6 +46,7 @@ function renderSection(onRevealComment = vi.fn(() => true)) {
 }
 
 async function openSection() {
+  fireEvent.click(screen.getByRole('button', { name: /^Comments/ }));
   return screen.findByRole('list', { name: 'Open comments' });
 }
 
@@ -55,17 +56,18 @@ describe('CommentsSection', () => {
     delete window.hackdeskAPI;
   });
 
-  it('loads comments and lists open threads with replies', async () => {
+  it('loads comments only once opened and lists open threads with replies', async () => {
     const hackmd = installApi();
     renderSection();
 
+    expect(hackmd.listNoteComments).not.toHaveBeenCalled();
     const open = await openSection();
 
     expect(hackmd.listNoteComments).toHaveBeenCalledWith('note-1', { page: 1 });
-    expect(screen.getByRole('heading', { name: 'Open threads' })).toBeInTheDocument();
     expect(within(open).getByText('Should this be Q4?')).toBeInTheDocument();
     expect(within(open).getByRole('list', { name: 'Replies' })).toHaveTextContent('Deleted user');
     expect(within(open).queryByText('Typo here')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Comments/ })).toHaveAccessibleName(/1 open/);
     expect(screen.getByRole('button', { name: /^Resolved \(1\)/ })).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -116,6 +118,7 @@ describe('CommentsSection', () => {
   it('says when a note has no comments', async () => {
     installApi({ listNoteComments: vi.fn(async () => ({ comments: [], page: 1, hasNext: false })) });
     renderSection();
+    fireEvent.click(screen.getByRole('button', { name: /^Comments/ }));
     expect(await screen.findByText('No comments on this note.')).toBeInTheDocument();
   });
 
@@ -123,6 +126,7 @@ describe('CommentsSection', () => {
     const listNoteComments = vi.fn(async () => { throw new Error(HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE); });
     installApi({ listNoteComments });
     renderSection();
+    fireEvent.click(screen.getByRole('button', { name: /^Comments/ }));
 
     expect(await screen.findByText(HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
@@ -136,6 +140,7 @@ describe('CommentsSection', () => {
       .mockResolvedValueOnce({ comments: [openHead], page: 1, hasNext: false });
     installApi({ listNoteComments });
     renderSection();
+    fireEvent.click(screen.getByRole('button', { name: /^Comments/ }));
 
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }, { timeout: 3000 }));
     expect(await screen.findByText('Should this be Q4?')).toBeInTheDocument();

@@ -47,7 +47,6 @@ export type WorkbenchActionHandlers = {
   openKeyboardShortcuts: () => void;
   openLeaderMenu: () => void;
   focusNextRegion: (backwards?: boolean) => boolean;
-  closeActivePane: () => void;
   closeActiveTab: () => void;
   closeOtherTabs: () => void;
   closeTabsToRight: () => void;
@@ -95,9 +94,7 @@ export type WorkbenchActionHandlers = {
   reopenLastClosedTab: () => void;
   saveNote: () => void;
   setEditorMode: (mode: EditorMode) => void;
-  splitPaneLeft: () => void;
   splitPaneRight: () => void;
-  splitPaneUp: () => void;
   splitPaneDown: () => void;
   focusPaneInDirection: (direction: PaneDirection) => void;
   togglePaneZoom: () => void;
@@ -115,7 +112,6 @@ export type WorkbenchActionHandlers = {
   copyNoteLink: () => void;
   copyMarkdownLink: () => void;
   copyNoteContent: () => void;
-  noteSettings: () => void;
   shareNote: () => void;
   moveTab: (step: -1 | 1) => void;
   toggleBookContents: () => void;
@@ -439,9 +435,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     case 'copy-note-content':
       handlers.copyNoteContent();
       break;
-    case 'note-settings':
-      handlers.noteSettings();
-      break;
     case 'share-note':
       handlers.shareNote();
       break;
@@ -478,20 +471,11 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     case 'reopen-last-closed-tab':
       handlers.reopenLastClosedTab();
       break;
-    case 'split-pane-left':
-      handlers.splitPaneLeft();
-      break;
     case 'split-pane-right':
       handlers.splitPaneRight();
       break;
-    case 'split-pane-up':
-      handlers.splitPaneUp();
-      break;
     case 'split-pane-down':
       handlers.splitPaneDown();
-      break;
-    case 'close-pane':
-      handlers.closeActivePane();
       break;
     case 'toggle-pane-zoom':
       handlers.togglePaneZoom();

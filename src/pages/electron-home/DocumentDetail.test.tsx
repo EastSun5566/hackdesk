@@ -1,4 +1,3 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -176,15 +175,12 @@ function renderDocumentDetail(overrides: DocumentDetailPropsOverrides = {}) {
     status: { ...props.status, ...overrides.status },
   };
 
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = ({ actions, ...detail }: DocumentDetailTestProps) => (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <DocumentActionsProvider value={actions}>
-          <DocumentDetail {...detail} />
-        </DocumentActionsProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <TooltipProvider>
+      <DocumentActionsProvider value={actions}>
+        <DocumentDetail {...detail} />
+      </DocumentActionsProvider>
+    </TooltipProvider>
   );
   const renderResult = render(view(mergedProps));
 
@@ -699,7 +695,7 @@ describe('DocumentDetail', () => {
     expect(overlay).toHaveClass('absolute');
     expect(overlay).not.toHaveAttribute('hidden');
 
-    const field = details.querySelector<HTMLElement>('button, input, textarea, [tabindex]')!;
+    const field = details.querySelector<HTMLElement>('input, textarea')!;
     field.addEventListener('keydown', event => { if (event.key === 'Escape') event.preventDefault(); }, { once: true });
     fireEvent.keyDown(field, { key: 'Escape' });
     expect(onToggleInspector).not.toHaveBeenCalled();
@@ -769,16 +765,6 @@ describe('DocumentDetail', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: /Version History…/ }));
 
     await waitFor(() => expect(onVersionsOpenChange).toHaveBeenCalledWith(true));
-  });
-
-  it('opens note settings from the actions menu of a HackMD note', async () => {
-    const onNoteMetadataOpenChange = vi.fn();
-    renderDocumentDetail({ actions: { onNoteMetadataOpenChange } });
-
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: /Note Settings…/ }));
-
-    await waitFor(() => expect(onNoteMetadataOpenChange).toHaveBeenCalledWith(true));
   });
 
   it('offers no version history for local notes', async () => {

@@ -165,7 +165,7 @@ function requireNavigationForward(context: ElectronActionContext) {
 }
 
 /** Each visible pane holds an editor, so the editor area splits into at most this many. */
-export const MAX_NOTE_PANES = 8;
+export const MAX_NOTE_PANES = 6;
 
 function requireSplitAvailable(context: ElectronActionContext) {
   const tabReason = requireOpenTab(context);
@@ -517,22 +517,10 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireSelectedNote,
   },
   {
-    id: 'note-settings',
-    label: 'Note Settings…',
-    description: 'Edit tags, folder location, description, and note details.',
-    keywords: ['settings', 'metadata', 'tags', 'description', 'folder', 'info', 'properties'],
-    category: 'note',
-    scope: 'editor',
-    getDisabledReason: (context) => {
-      if (!context.selectedNoteId) return 'Select a note first.';
-      return context.scopeType === 'local' ? 'Note settings are only available for HackMD notes.' : requireHackmd(context);
-    },
-  },
-  {
     id: 'share-note',
     label: 'Share Note…',
-    description: 'Change who can read and edit the selected HackMD note, or customize its permalink.',
-    keywords: ['share', 'access', 'permission', 'publish', 'permalink'],
+    description: 'Change who can read and edit the selected HackMD note.',
+    keywords: ['share', 'access', 'permission', 'publish'],
     category: 'note',
     scope: 'editor',
     getDisabledReason: (context) => {
@@ -647,15 +635,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireTabsToRight,
   },
   {
-    id: 'split-pane-left',
-    label: 'Split Pane Left',
-    description: 'Open the active note tab in a new pane to the left.',
-    keywords: ['pane', 'split', 'layout', 'left'],
-    category: 'view',
-    scope: 'editor',
-    getDisabledReason: requireSplitAvailable,
-  },
-  {
     id: 'split-pane-right',
     label: 'Split Pane Right',
     description: 'Open the active note tab in a new pane to the right.',
@@ -667,15 +646,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     menuAccelerator: 'CmdOrCtrl+\\',
     // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
     rendererShortcut: true,
-    getDisabledReason: requireSplitAvailable,
-  },
-  {
-    id: 'split-pane-up',
-    label: 'Split Pane Up',
-    description: 'Open the active note tab in a new pane above.',
-    keywords: ['pane', 'split', 'layout', 'above', 'up', 'vertical'],
-    category: 'view',
-    scope: 'editor',
     getDisabledReason: requireSplitAvailable,
   },
   {
@@ -691,15 +661,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
     rendererShortcut: true,
     getDisabledReason: requireSplitAvailable,
-  },
-  {
-    id: 'close-pane',
-    label: 'Close Pane',
-    description: 'Close the active editor pane and its tabs.',
-    keywords: ['pane', 'close', 'remove'],
-    category: 'view',
-    scope: 'editor',
-    getDisabledReason: requireSeveralPanes,
   },
   {
     id: 'toggle-pane-zoom',

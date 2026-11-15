@@ -1,17 +1,22 @@
-import { Check, Copy, ExternalLink, Globe, Loader2, Lock, Save, Share2, Users } from 'lucide-react';
-import { type FormEvent, useEffect, useId, useState } from 'react';
+import { Copy, Edit3, Loader2, Save, Share2 } from 'lucide-react';
+import { type FormEvent, useId, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/field';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectLabelValue,
+  SelectTrigger,
+} from '@/components/ui/select';
 import type {
   DocumentSummary,
   NotePermissionRole,
@@ -21,44 +26,36 @@ import {
   getHackmdNoteUrl,
   getMarkdownNoteLink,
 } from '@/lib/electron-note-links';
-import { cn } from '@/lib/utils';
 
-import { SettingsSection } from './SettingsPrimitives';
-
-type PermissionOption = {
-  value: NotePermissionRole;
-  label: string;
-  icon: typeof Lock;
-};
-
-const READ_PERMISSION_OPTIONS: readonly PermissionOption[] = [
-  { value: 'owner', label: 'Private', icon: Lock },
-  { value: 'signed_in', label: 'Signed in', icon: Users },
-  { value: 'guest', label: 'Public', icon: Globe },
-];
-
-const WRITE_PERMISSION_OPTIONS: readonly PermissionOption[] = [
-  { value: 'owner', label: 'Owner', icon: Lock },
-  { value: 'signed_in', label: 'Signed in', icon: Users },
-  { value: 'guest', label: 'Everyone', icon: Globe },
-];
-
-function getReadSummary(permission: NotePermissionRole) {
+function getReadPermissionLabel(permission: NotePermissionRole) {
   switch (permission) {
   case 'owner':
-    return 'Private (owner only)';
+    return 'Private';
   case 'signed_in':
-    return 'Signed-in users can read';
+    return 'Signed-in users';
   case 'guest':
-    return 'Anyone with the link can read';
+    return 'Public';
   }
 }
 
-function getPermalinkPrefix(document: Pick<DocumentSummary, 'teamPath' | 'userPath'>) {
-  if (document.teamPath) return `hackmd.io/@${document.teamPath}/`;
-  if (document.userPath) return `hackmd.io/@${document.userPath}/`;
-  return 'hackmd.io/';
+function getWritePermissionLabel(permission: NotePermissionRole) {
+  switch (permission) {
+  case 'owner':
+    return 'Owner only';
+  case 'signed_in':
+    return 'Signed-in users';
+  case 'guest':
+    return 'Anyone with the link';
+  }
 }
+
+const PERMISSION_OPTIONS: NotePermissionRole[] = ['owner', 'signed_in', 'guest'];
+const READ_PERMISSION_LABELS = Object.fromEntries(
+  PERMISSION_OPTIONS.map((permission) => [permission, getReadPermissionLabel(permission)]),
+) as Record<NotePermissionRole, string>;
+const WRITE_PERMISSION_LABELS = Object.fromEntries(
+  PERMISSION_OPTIONS.map((permission) => [permission, getWritePermissionLabel(permission)]),
+) as Record<NotePermissionRole, string>;
 
 type ShareDialogProps = {
   open: boolean;
@@ -72,12 +69,7 @@ type ShareDialogProps = {
 };
 
 export function ShareDialog(props: ShareDialogProps) {
-  return (
-    <ShareDialogContent
-      {...props}
-      key={`${props.document.id}:${props.open ? 'open' : 'closed'}`}
-    />
-  );
+  return <ShareDialogContent {...props} key={props.document.id} />;
 }
 
 function ShareDialogContent({
@@ -92,29 +84,14 @@ function ShareDialogContent({
 }: ShareDialogProps) {
   const readPermissionId = useId();
   const writePermissionId = useId();
-  const permalinkId = useId();
   const [readPermission, setReadPermission] = useState<NotePermissionRole>(() => document.readPermission);
   const [writePermission, setWritePermission] = useState<NotePermissionRole>(() => document.writePermission);
-  const [permalink, setPermalink] = useState(() => document.permalink ?? '');
-  const [copiedField, setCopiedField] = useState<'hackmd' | 'markdown' | null>(null);
 
-  useEffect(() => {
-    if (!copiedField) return undefined;
-    const timer = window.setTimeout(() => setCopiedField(null), 1500);
-    return () => window.clearTimeout(timer);
-  }, [copiedField]);
-
-  const trimmedPermalink = permalink.trim();
-  const savedPermalink = (document.permalink ?? '').trim();
-  const dirty =
+  const permissionsDirty =
     readPermission !== document.readPermission
-    || writePermission !== document.writePermission
-    || trimmedPermalink !== savedPermalink;
-
+    || writePermission !== document.writePermission;
   const hackmdLink = getHackmdNoteUrl(document);
   const markdownLink = getMarkdownNoteLink(document);
-  const noteTitle = document.title.trim() || 'Untitled';
-  const permalinkPrefix = getPermalinkPrefix(document);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -126,9 +103,6 @@ function ShareDialogContent({
     if (writePermission !== document.writePermission) {
       input.writePermission = writePermission;
     }
-    if (trimmedPermalink !== savedPermalink) {
-      input.permalink = trimmedPermalink;
-    }
 
     if (Object.keys(input).length > 0) {
       onSaveSharing(document, input);
@@ -137,220 +111,156 @@ function ShareDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-140">
-        <DialogHeader className="pr-8">
+      <DialogContent size="md">
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 aria-hidden="true" className="h-4 w-4 text-text-subtle" />
             Share Note
           </DialogTitle>
-          <DialogDescription className="truncate text-xs">
-            {noteTitle} · {getReadSummary(readPermission)}
+          <DialogDescription className="sr-only">
+            Copy links and adjust who can read or edit this HackMD note.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <SettingsSection title="Access">
-            <PermissionCardRow
-              id={readPermissionId}
-              label="Read access"
-              description="Who can view this note"
-              name="readPermission"
-              options={READ_PERMISSION_OPTIONS}
-              value={readPermission}
-              onChange={setReadPermission}
-            />
-            <PermissionCardRow
-              id={writePermissionId}
-              label="Write access"
-              description="Who can edit this note"
-              name="writePermission"
-              options={WRITE_PERMISSION_OPTIONS}
-              value={writePermission}
-              onChange={setWritePermission}
-            />
-          </SettingsSection>
-
-          <SettingsSection
-            title="Links"
-            action={(
-              <Button
-                type="button"
-                size="xs"
-                variant="secondary"
-                onClick={() => onOpenEditor(document)}
-              >
-                <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
-                Open in HackMD
-              </Button>
-            )}
-          >
-            <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:gap-4">
-              <div className="sm:w-36 sm:shrink-0">
-                <label className="font-medium leading-5 text-text-default" htmlFor={permalinkId}>
-                  Permalink
+        <div className="space-y-4">
+          <section aria-labelledby="share-links-heading" className="space-y-2">
+            <h3 id="share-links-heading" className="text-sm font-semibold text-text-default">Links</h3>
+            <div className="divide-y divide-border-default overflow-hidden rounded border border-border-default">
+              <div className="space-y-1.5 px-3 py-2.5">
+                <label className="block text-sm font-medium text-text-default" htmlFor="share-hackmd-link">
+                  HackMD link
                 </label>
-                <p className="text-xs leading-5 text-text-subtle">Custom URL slug</p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="share-hackmd-link"
+                    readOnly
+                    value={hackmdLink}
+                    className="min-w-0 flex-1 bg-background-muted"
+                  />
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    aria-label="Copy HackMD link"
+                    onClick={() => onCopyLink(document)}
+                  >
+                    <Copy aria-hidden="true" className="h-4 w-4" />
+                    Copy
+                  </Button>
+                </div>
               </div>
-              <div className="flex h-8 min-w-0 flex-1 items-center overflow-hidden rounded border border-border-default bg-background-default transition-colors focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring">
-                <span className="shrink-0 select-none pl-2.5 text-xs text-text-subtle">
-                  {permalinkPrefix}
-                </span>
-                <input
-                  id={permalinkId}
-                  name="permalink"
-                  aria-label="Permalink"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={permalink}
-                  onChange={(event) => setPermalink(event.target.value)}
-                  placeholder="custom-slug"
-                  className="h-full min-w-0 flex-1 bg-transparent pr-2.5 text-sm text-text-default outline-none placeholder:text-text-subtle/60"
-                />
+
+              <div className="space-y-1.5 px-3 py-2.5">
+                <label className="block text-sm font-medium text-text-default" htmlFor="share-markdown-link">
+                  Markdown link
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="share-markdown-link"
+                    readOnly
+                    value={markdownLink}
+                    className="min-w-0 flex-1 bg-background-muted"
+                  />
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    aria-label="Copy Markdown link"
+                    onClick={() => onCopyMarkdownLink(document)}
+                  >
+                    <Copy aria-hidden="true" className="h-4 w-4" />
+                    Copy
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:gap-4">
-              <label className="font-medium leading-5 text-text-default sm:w-36 sm:shrink-0" htmlFor="share-hackmd-link">
-                HackMD link
-              </label>
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <Input
-                  id="share-hackmd-link"
-                  readOnly
-                  value={hackmdLink}
-                  className="h-8 min-w-0 flex-1 bg-background-muted text-xs text-text-subtle"
-                />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  type="button"
-                  aria-label="Copy HackMD link"
-                  onClick={() => {
-                    onCopyLink(document);
-                    setCopiedField('hackmd');
+            <Button
+              variant="secondary"
+              onClick={() => onOpenEditor(document)}
+            >
+              <Edit3 aria-hidden="true" className="h-4 w-4" />
+              Open in HackMD
+            </Button>
+          </section>
+
+          <form
+            aria-labelledby="share-access-heading"
+            onSubmit={handleSubmit}
+            className="space-y-3 border-t border-border-default pt-4"
+          >
+            <h3 id="share-access-heading" className="text-sm font-semibold text-text-default">Access</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="block space-y-2 text-sm">
+                <label className="font-medium text-text-default" htmlFor={readPermissionId}>Read Access</label>
+                <Select
+                  name="readPermission"
+                  value={readPermission}
+                  onValueChange={(value) => {
+                    if (typeof value === 'string') {
+                      setReadPermission(value as NotePermissionRole);
+                    }
                   }}
+                  items={PERMISSION_OPTIONS.map((permission) => ({
+                    value: permission,
+                    label: getReadPermissionLabel(permission),
+                  }))}
                 >
-                  {copiedField === 'hackmd'
-                    ? <Check aria-hidden="true" className="h-3.5 w-3.5 text-success-default" />
-                    : <Copy aria-hidden="true" className="h-3.5 w-3.5" />}
-                  <span>{copiedField === 'hackmd' ? 'Copied' : 'Copy'}</span>
-                </Button>
+                  <SelectTrigger id={readPermissionId} className="w-full">
+                    <SelectLabelValue value={readPermission} labels={READ_PERMISSION_LABELS} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERMISSION_OPTIONS.map((permission) => (
+                      <SelectItem key={permission} value={permission}>
+                        {getReadPermissionLabel(permission)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
 
-            <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:gap-4">
-              <label className="font-medium leading-5 text-text-default sm:w-36 sm:shrink-0" htmlFor="share-markdown-link">
-                Markdown link
-              </label>
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <Input
-                  id="share-markdown-link"
-                  readOnly
-                  value={markdownLink}
-                  className="h-8 min-w-0 flex-1 bg-background-muted text-xs text-text-subtle"
-                />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  type="button"
-                  aria-label="Copy Markdown link"
-                  onClick={() => {
-                    onCopyMarkdownLink(document);
-                    setCopiedField('markdown');
+              <div className="block space-y-2 text-sm">
+                <label className="font-medium text-text-default" htmlFor={writePermissionId}>Write Access</label>
+                <Select
+                  name="writePermission"
+                  value={writePermission}
+                  onValueChange={(value) => {
+                    if (typeof value === 'string') {
+                      setWritePermission(value as NotePermissionRole);
+                    }
                   }}
+                  items={PERMISSION_OPTIONS.map((permission) => ({
+                    value: permission,
+                    label: getWritePermissionLabel(permission),
+                  }))}
                 >
-                  {copiedField === 'markdown'
-                    ? <Check aria-hidden="true" className="h-3.5 w-3.5 text-success-default" />
-                    : <Copy aria-hidden="true" className="h-3.5 w-3.5" />}
-                  <span>{copiedField === 'markdown' ? 'Copied' : 'Copy'}</span>
-                </Button>
+                  <SelectTrigger id={writePermissionId} className="w-full">
+                    <SelectLabelValue value={writePermission} labels={WRITE_PERMISSION_LABELS} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERMISSION_OPTIONS.map((permission) => (
+                      <SelectItem key={permission} value={permission}>
+                        {getWritePermissionLabel(permission)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </SettingsSection>
 
-          <DialogFooter className="items-center justify-between gap-3 pt-1 sm:justify-between">
-            <span className="min-w-0 truncate text-xs text-text-subtle" aria-live="polite">
-              {isSaving
-                ? 'Saving sharing settings…'
-                : dirty
-                  ? 'Unsaved sharing changes'
-                  : 'All sharing settings saved'}
-            </span>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onOpenChange(false)}
-              >
-                Close
-              </Button>
+            <div className="flex justify-end">
               <Button
                 variant="primary"
                 type="submit"
-                disabled={!dirty || isSaving}
+                disabled={!permissionsDirty || isSaving}
               >
                 {isSaving
                   ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
                   : <Save aria-hidden="true" className="h-4 w-4" />}
-                <span>{isSaving ? 'Saving…' : 'Save Changes'}</span>
+                {isSaving ? 'Saving…' : 'Save Access'}
               </Button>
             </div>
-          </DialogFooter>
-        </form>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function PermissionCardRow({
-  id,
-  label,
-  description,
-  name,
-  options,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  description: string;
-  name: string;
-  options: readonly PermissionOption[];
-  value: NotePermissionRole;
-  onChange: (value: NotePermissionRole) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:gap-4">
-      <div className="sm:w-36 sm:shrink-0">
-        <span id={id} className="block font-medium leading-5 text-text-default">{label}</span>
-        <p className="text-xs leading-5 text-text-subtle">{description}</p>
-      </div>
-      <RadioGroup
-        aria-labelledby={id}
-        name={name}
-        value={value}
-        onValueChange={(nextValue) => onChange(nextValue as NotePermissionRole)}
-        className="grid flex-1 grid-cols-3 gap-0.5 rounded-md border border-border-default bg-background-muted p-0.5"
-      >
-        {options.map((option) => {
-          const Icon = option.icon;
-          return (
-            <RadioGroupItem
-              key={option.value}
-              value={option.value}
-              aria-label={option.label}
-              className={cn(
-                'flex h-7 w-full min-w-0 cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-sm border-0 bg-transparent px-2 text-xs text-text-subtle transition-colors',
-                'hover:text-text-default focus-visible:ring-inset focus-visible:ring-offset-0',
-                'data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default',
-              )}
-            >
-              <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-80" />
-              <span className="truncate whitespace-nowrap">{option.label}</span>
-            </RadioGroupItem>
-          );
-        })}
-      </RadioGroup>
-    </div>
   );
 }

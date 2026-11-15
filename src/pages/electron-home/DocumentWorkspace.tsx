@@ -1,24 +1,9 @@
-import {
-  closestCenter,
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type CollisionDetection,
-  type DragEndEvent,
-  type DragMoveEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-  type Over,
-} from '@dnd-kit/core';
 import type { EditorRequest } from './useWorkbenchEditorRequests';
 import { FileText, Plus, Search } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Group, Panel, Separator, type GroupImperativeHandle, type GroupProps } from 'react-resizable-panels';
 
-import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 import type {
   DocumentSummary,
   NoteSummary,
@@ -30,11 +15,10 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
-import { DocumentTabs, tabStripDropId, WorkspaceTabDndContext } from './DocumentTabs';
 import { getNoteTabEditorKey, getSavedTabNoteIdentity, isDraftNoteTab, isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { EmptyState } from './interaction-primitives';
-import { layoutNodeId, layoutPaneIds, type PaneDirection, type PaneLayoutNode } from './pane-layout';
+import { layoutNodeId, layoutPaneIds, type PaneLayoutNode } from './pane-layout';
 import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
@@ -199,51 +183,6 @@ export type DocumentPaneView = {
   isDeleting: boolean;
 };
 
-export type DocumentWorkspaceTabsProps = {
-  getPaneTabs: (pane: NotePane) => OpenNoteTab[];
-  getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
-  recentlyClosedCount: number;
-  onSelectTab: (paneId: string, tabId: string) => void;
-  onCloseTab: (tabId: string) => void;
-  onCloseOtherTabs: (paneId: string, tabId: string) => void;
-  onCloseTabsToRight: (paneId: string, tabId: string) => void;
-  onReorderTab: (paneId: string, tabId: string, overTabId: string) => void;
-  onMoveTabToPane: (tabId: string, targetPaneId: string, options?: { overTabId?: string; copy?: boolean }) => void;
-  onSplitTabToNewPane: (tabId: string, target: { paneId?: string; edge?: boolean; direction: PaneDirection }, options?: { copy?: boolean }) => void;
-  onReopenLastClosedTab: (paneId: string) => void;
-  onKeepTab: (tabId: string) => void;
-  onSplitPane: (direction: PaneDirection, paneId: string) => void;
-  onMoveTabToOtherPane: () => void;
-  onClosePane: (paneId: string) => void;
-  onEqualizePanes: () => void;
-  onNewTab: (paneId: string) => void;
-};
-
-type DropOverlayRect = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-};
-
-type DropZonePreview =
-  | { kind: 'workspace-edge'; direction: PaneDirection; rect: DropOverlayRect }
-  | { kind: 'pane-edge'; paneId: string; direction: PaneDirection; rect: DropOverlayRect }
-  | { kind: 'pane-center'; paneId: string; rect: DropOverlayRect };
-
-function getEdgePreviewRect(bounds: DropOverlayRect, direction: PaneDirection, ratio = 0.5): DropOverlayRect {
-  switch (direction) {
-    case 'left': return { left: bounds.left, top: bounds.top, width: bounds.width * ratio, height: bounds.height };
-    case 'right': return { left: bounds.left + bounds.width * (1 - ratio), top: bounds.top, width: bounds.width * ratio, height: bounds.height };
-    case 'up': return { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height * ratio };
-    case 'down': return { left: bounds.left, top: bounds.top + bounds.height * (1 - ratio), width: bounds.width, height: bounds.height * ratio };
-  }
-}
-
-function pointInRect(x: number, y: number, rect: DOMRect) {
-  return rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-}
-
 export function DocumentWorkspace({
   panes,
   layout,
@@ -252,22 +191,17 @@ export function DocumentWorkspace({
   editorMode,
   folderTree,
   isInspectorCollapsed,
-  isPaneInspectorCollapsed,
-  inspectorWidth,
-  onInspectorWidthChange,
   getPaneView,
   scopeKey,
   editorRequests,
   onEditorRequestHandled,
   onResizeSplit,
-  onEqualizeSplit,
   onTogglePaneZoom,
   onFocusPane,
   canCreateNote,
   onCreateNote,
   onQuickOpen,
   recentNotes = [],
-  tabsWorkspace,
 }: {
   panes: NotePane[];
   /** How the panes are arranged; see pane-layout. */
@@ -278,16 +212,11 @@ export function DocumentWorkspace({
   editorMode: EditorMode;
   folderTree: FolderTree;
   isInspectorCollapsed: boolean;
-  isPaneInspectorCollapsed?: (paneId: string) => boolean;
-  inspectorWidth?: number;
-  onInspectorWidthChange?: (width: number) => void;
   getPaneView: (pane: NotePane) => DocumentPaneView;
   scopeKey: string;
   editorRequests: EditorRequest[];
   onEditorRequestHandled: (id: number) => void;
   onResizeSplit: (splitId: string, sizes: Record<string, number>) => void;
-  /** Equalizes the two sides of a split container (e.g. separator double-click). */
-  onEqualizeSplit?: (splitId: string) => void;
   /** Zooms the active pane or restores the others; a pane's button makes it active first. */
   onTogglePaneZoom: () => void;
   onFocusPane: (paneId: string) => void;
@@ -295,317 +224,13 @@ export function DocumentWorkspace({
   onCreateNote: () => void;
   onQuickOpen: () => void;
   recentNotes?: ElectronRecentNote[];
-  tabsWorkspace?: DocumentWorkspaceTabsProps;
 }) {
   const { onOpenNoteTarget, onCopyDraft, onExportDraft, onOpenAsNewDraft, onRetryLoad } = useWorkbenchDocumentActions();
-  // Note Settings, Share and Versions open over the active pane; the workbench overlays hold whether they are open.
-  const noteMetadataOpen = useOverlay((overlays) => overlays.noteMetadata);
+  // Share and Versions open over the active pane; the workbench overlays hold whether they are open.
   const shareOpen = useOverlay((overlays) => overlays.share);
   const versionsOpen = useOverlay((overlays) => overlays.versions);
   const [paneHosts] = useState(() => new Map<string, PaneHost>());
-  const workspaceRef = useRef<HTMLDivElement | null>(null);
   const isEmpty = panes.every(pane => pane.tabIds.length === 0);
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  const [activeDrag, setActiveDrag] = useState<{ tabId: string; sourcePaneId: string } | null>(null);
-  const [copyMode, setCopyMode] = useState(false);
-  const [dropOverlay, setDropOverlay] = useState<DropZonePreview | null>(null);
-  const [activeStripDropId, setActiveStripDropId] = useState<string | null>(null);
-  const pointerRef = useRef<{ x: number; y: number } | null>(null);
-  const copyModeRef = useRef(false);
-  const overRef = useRef<Over | null>(null);
-  const dropOverlayRef = useRef<DropZonePreview | null>(null);
-
-  const collisionDetection: CollisionDetection = useCallback((args) => {
-    const { pointerCoordinates } = args;
-    const workspaceEl = workspaceRef.current;
-    if (pointerCoordinates && workspaceEl) {
-      const tabRegions = workspaceEl.querySelectorAll<HTMLElement>('[data-hackdesk-focus="tabs"][data-document-pane-id]');
-      let hoveredPaneId: string | null = null;
-      for (const region of tabRegions) {
-        if (pointInRect(pointerCoordinates.x, pointerCoordinates.y, region.getBoundingClientRect())) {
-          hoveredPaneId = region.dataset.documentPaneId ?? null;
-          break;
-        }
-      }
-      if (!hoveredPaneId) {
-        return [];
-      }
-      const scopedContainers = args.droppableContainers.filter(
-        (container) => (container.data.current as { paneId?: string } | undefined)?.paneId === hoveredPaneId,
-      );
-      return closestCenter({
-        ...args,
-        droppableContainers: scopedContainers.length > 0 ? scopedContainers : args.droppableContainers,
-      });
-    }
-    return closestCenter(args);
-  }, []);
-
-  const computeDropTarget = useCallback((
-    drag: { tabId: string; sourcePaneId: string } | null,
-    copy: boolean,
-    point: { x: number; y: number } | null,
-    over: Over | null,
-  ): { zone: DropZonePreview | null; stripId: string | null } => {
-    const workspaceEl = workspaceRef.current;
-    if (!drag || !workspaceEl) return { zone: null, stripId: null };
-
-    const overData = over?.data.current as { type?: string; paneId?: string } | undefined;
-    if ((overData?.type === 'tab' || overData?.type === 'tab-strip') && overData.paneId) {
-      return { zone: null, stripId: tabStripDropId(overData.paneId) };
-    }
-
-    if (!point) {
-      return { zone: null, stripId: null };
-    }
-
-    // If pointer is inside any pane's tab bar, treat it as a strip drop target rather than a split edge.
-    const tabRegions = workspaceEl.querySelectorAll<HTMLElement>('[data-hackdesk-focus="tabs"][data-document-pane-id]');
-    for (const region of tabRegions) {
-      const rect = region.getBoundingClientRect();
-      if (pointInRect(point.x, point.y, rect)) {
-        const targetPaneId = region.dataset.documentPaneId;
-        return { zone: null, stripId: targetPaneId ? tabStripDropId(targetPaneId) : null };
-      }
-    }
-
-    const canSplitMore = panes.length < MAX_NOTE_PANES && !zoomedPaneId;
-    const sourcePane = panes.find((candidate) => candidate.paneId === drag.sourcePaneId);
-    const sourceTabCount = sourcePane?.tabIds.length ?? 0;
-    const workspaceRect = workspaceEl.getBoundingClientRect();
-
-    // Check outer workspace perimeter split when multiple panes already exist.
-    if (canSplitMore && panes.length > 1 && pointInRect(point.x, point.y, workspaceRect)) {
-      const outerMargin = 18;
-      const distLeft = point.x - workspaceRect.left;
-      const distRight = workspaceRect.right - point.x;
-      const distTop = point.y - workspaceRect.top;
-      const distBottom = workspaceRect.bottom - point.y;
-      const edges: Array<{ direction: PaneDirection; distance: number }> = [
-        { direction: 'left', distance: distLeft },
-        { direction: 'right', distance: distRight },
-        { direction: 'up', distance: distTop },
-        { direction: 'down', distance: distBottom },
-      ];
-      const closestOuter = edges.reduce((best, item) => (item.distance < best.distance ? item : best));
-      if (closestOuter.distance <= outerMargin) {
-        const bounds: DropOverlayRect = {
-          left: 0,
-          top: 0,
-          width: workspaceRect.width,
-          height: workspaceRect.height,
-        };
-        return {
-          zone: {
-            kind: 'workspace-edge',
-            direction: closestOuter.direction,
-            rect: getEdgePreviewRect(bounds, closestOuter.direction, 0.28),
-          },
-          stripId: null,
-        };
-      }
-    }
-
-    const paneEls = workspaceEl.querySelectorAll<HTMLElement>('section[data-document-pane-id]');
-    for (const paneEl of paneEls) {
-      const rect = paneEl.getBoundingClientRect();
-      if (!pointInRect(point.x, point.y, rect)) continue;
-      const targetPaneId = paneEl.dataset.documentPaneId;
-      if (!targetPaneId) continue;
-      const localBounds: DropOverlayRect = {
-        left: rect.left - workspaceRect.left,
-        top: rect.top - workspaceRect.top,
-        width: rect.width,
-        height: rect.height,
-      };
-      const thresholdX = Math.min(84, Math.max(36, rect.width * 0.25));
-      const thresholdY = Math.min(84, Math.max(36, rect.height * 0.25));
-      const canSplitThisPane = canSplitMore && (copy || targetPaneId !== drag.sourcePaneId || sourceTabCount > 1);
-      if (canSplitThisPane) {
-        const allCandidates: Array<{ direction: PaneDirection; ratio: number; distance: number; within: boolean }> = [
-          { direction: 'left', distance: point.x - rect.left, ratio: (point.x - rect.left) / Math.max(1, rect.width), within: point.x - rect.left <= thresholdX },
-          { direction: 'right', distance: rect.right - point.x, ratio: (rect.right - point.x) / Math.max(1, rect.width), within: rect.right - point.x <= thresholdX },
-          { direction: 'up', distance: point.y - rect.top, ratio: (point.y - rect.top) / Math.max(1, rect.height), within: point.y - rect.top <= thresholdY },
-          { direction: 'down', distance: rect.bottom - point.y, ratio: (rect.bottom - point.y) / Math.max(1, rect.height), within: rect.bottom - point.y <= thresholdY },
-        ];
-        const candidates = allCandidates.filter((entry) => entry.within);
-        if (candidates.length > 0) {
-          const winner = candidates.reduce((best, entry) => (entry.ratio < best.ratio ? entry : best));
-          return {
-            zone: {
-              kind: 'pane-edge',
-              paneId: targetPaneId,
-              direction: winner.direction,
-              rect: getEdgePreviewRect(localBounds, winner.direction, 0.5),
-            },
-            stripId: null,
-          };
-        }
-      }
-      if (targetPaneId !== drag.sourcePaneId || copy) {
-        return {
-          zone: {
-            kind: 'pane-center',
-            paneId: targetPaneId,
-            rect: localBounds,
-          },
-          stripId: null,
-        };
-      }
-      return { zone: null, stripId: null };
-    }
-
-    return { zone: null, stripId: null };
-  }, [panes, zoomedPaneId]);
-
-  const syncDropState = useCallback((
-    drag: { tabId: string; sourcePaneId: string } | null,
-    copy: boolean,
-    point: { x: number; y: number } | null,
-    over: Over | null,
-  ) => {
-    const { zone, stripId } = computeDropTarget(drag, copy, point, over);
-    dropOverlayRef.current = zone;
-    setDropOverlay(zone);
-    setActiveStripDropId(stripId);
-  }, [computeDropTarget]);
-
-  useEffect(() => {
-    if (!activeDrag) return;
-    const handlePointerMove = (event: PointerEvent) => {
-      const point = { x: event.clientX, y: event.clientY };
-      pointerRef.current = point;
-      copyModeRef.current = event.altKey;
-      setCopyMode(event.altKey);
-      syncDropState(activeDrag, event.altKey, point, overRef.current);
-    };
-    const handleKeyChange = (event: KeyboardEvent) => {
-      if (copyModeRef.current === event.altKey) return;
-      copyModeRef.current = event.altKey;
-      setCopyMode(event.altKey);
-      syncDropState(activeDrag, event.altKey, pointerRef.current, overRef.current);
-    };
-    window.addEventListener('pointermove', handlePointerMove, { passive: true });
-    window.addEventListener('keydown', handleKeyChange);
-    window.addEventListener('keyup', handleKeyChange);
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('keydown', handleKeyChange);
-      window.removeEventListener('keyup', handleKeyChange);
-    };
-  }, [activeDrag, syncDropState]);
-
-  const clearDragState = useCallback(() => {
-    setActiveDrag(null);
-    setCopyMode(false);
-    copyModeRef.current = false;
-    setDropOverlay(null);
-    dropOverlayRef.current = null;
-    setActiveStripDropId(null);
-    pointerRef.current = null;
-    overRef.current = null;
-  }, []);
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const data = event.active.data.current as { paneId?: string; tabId?: string } | undefined;
-    const tabId = data?.tabId ?? String(event.active.id);
-    const sourcePaneId = data?.paneId
-      ?? panes.find((candidate) => candidate.tabIds.includes(tabId))?.paneId
-      ?? activePaneId;
-    const activator = event.activatorEvent as MouseEvent | PointerEvent | undefined;
-    const initialCopy = Boolean(activator?.altKey);
-    const initialPoint = activator && 'clientX' in activator ? { x: activator.clientX, y: activator.clientY } : null;
-    pointerRef.current = initialPoint;
-    copyModeRef.current = initialCopy;
-    overRef.current = null;
-    setCopyMode(initialCopy);
-    setActiveDrag({ tabId, sourcePaneId });
-  }, [activePaneId, panes]);
-
-  const handleDragMove = useCallback((event: DragMoveEvent) => {
-    overRef.current = event.over;
-    if (!activeDrag) return;
-    syncDropState(activeDrag, copyModeRef.current, pointerRef.current, event.over);
-  }, [activeDrag, syncDropState]);
-
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    overRef.current = event.over;
-    if (!activeDrag) return;
-    syncDropState(activeDrag, copyModeRef.current, pointerRef.current, event.over);
-  }, [activeDrag, syncDropState]);
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    if (!tabsWorkspace || !activeDrag) {
-      clearDragState();
-      return;
-    }
-    const finalCopy = copyModeRef.current || Boolean((event.activatorEvent as MouseEvent | PointerEvent | undefined)?.altKey);
-    const zone = dropOverlayRef.current;
-    const tabId = activeDrag.tabId;
-    const sourcePaneId = activeDrag.sourcePaneId;
-    clearDragState();
-
-    const { over } = event;
-    const overData = over?.data.current as { type?: string; paneId?: string; tabId?: string } | undefined;
-    if (overData?.type === 'tab' && overData.paneId) {
-      const overTabId = overData.tabId ?? String(over?.id);
-      if (overData.paneId === sourcePaneId && !finalCopy) {
-        if (tabId !== overTabId) tabsWorkspace.onReorderTab(sourcePaneId, tabId, overTabId);
-      } else {
-        tabsWorkspace.onMoveTabToPane(tabId, overData.paneId, { overTabId, copy: finalCopy });
-      }
-      return;
-    }
-    if (overData?.type === 'tab-strip' && overData.paneId) {
-      if (overData.paneId !== sourcePaneId || finalCopy) {
-        tabsWorkspace.onMoveTabToPane(tabId, overData.paneId, { copy: finalCopy });
-      }
-      return;
-    }
-
-    if (zone) {
-      if (zone.kind === 'workspace-edge') {
-        tabsWorkspace.onSplitTabToNewPane(tabId, { edge: true, direction: zone.direction }, { copy: finalCopy });
-        return;
-      }
-      if (zone.kind === 'pane-edge') {
-        tabsWorkspace.onSplitTabToNewPane(tabId, { paneId: zone.paneId, direction: zone.direction }, { copy: finalCopy });
-        return;
-      }
-      if (zone.kind === 'pane-center') {
-        tabsWorkspace.onMoveTabToPane(tabId, zone.paneId, { copy: finalCopy });
-        return;
-      }
-    }
-
-    if (!over) return;
-
-    if (String(event.active.id) !== String(over.id)) {
-      const fallbackOverPane = panes.find((candidate) => candidate.tabIds.includes(String(over.id)))?.paneId;
-      if (fallbackOverPane && (fallbackOverPane !== sourcePaneId || finalCopy)) {
-        tabsWorkspace.onMoveTabToPane(tabId, fallbackOverPane, { overTabId: String(over.id), copy: finalCopy });
-      } else {
-        tabsWorkspace.onReorderTab(sourcePaneId, tabId, String(over.id));
-      }
-    }
-  }, [activeDrag, clearDragState, panes, tabsWorkspace]);
-
-  const draggedTab = useMemo(() => {
-    if (!activeDrag || !tabsWorkspace) return null;
-    for (const pane of panes) {
-      const found = tabsWorkspace.getPaneTabs(pane).find((tab) => tab.tabId === activeDrag.tabId);
-      if (found) return found;
-    }
-    return null;
-  }, [activeDrag, panes, tabsWorkspace]);
-
-  const dndContextValue = useMemo(() => ({
-    inWorkspaceDnd: Boolean(tabsWorkspace),
-    activeDragTabId: activeDrag?.tabId ?? null,
-    dropTargetId: activeStripDropId,
-  }), [activeDrag?.tabId, activeStripDropId, tabsWorkspace]);
-
   useLayoutEffect(() => {
     const livePanes = new Set(isEmpty ? [] : panes.map(pane => pane.paneId));
     for (const [id, host] of paneHosts) {
@@ -674,44 +299,6 @@ export function DocumentWorkspace({
       )}
       onFocusCapture={() => onFocusPane(pane.paneId)}
     >
-      {tabsWorkspace ? (
-        <DocumentTabs
-          paneId={pane.paneId}
-          isActivePane={isActivePane}
-          activeTab={view.activeTab}
-          canClosePane={panes.length > 1}
-          canMoveToOtherPane={panes.length > 1}
-          canReopenLastClosedTab={tabsWorkspace.recentlyClosedCount > 0}
-          canSplit={panes.length < MAX_NOTE_PANES}
-          getTabSyncState={tabsWorkspace.getTabSyncState}
-          onCloseOtherTabs={(tabId) => tabsWorkspace.onCloseOtherTabs(pane.paneId, tabId)}
-          onClosePane={() => tabsWorkspace.onClosePane(pane.paneId)}
-          onCloseTab={tabsWorkspace.onCloseTab}
-          onCloseTabsToRight={(tabId) => tabsWorkspace.onCloseTabsToRight(pane.paneId, tabId)}
-          onMoveTabToOtherPane={() => {
-            if (!isActivePane) onFocusPane(pane.paneId);
-            tabsWorkspace.onMoveTabToOtherPane();
-          }}
-          onReopenLastClosedTab={() => tabsWorkspace.onReopenLastClosedTab(pane.paneId)}
-          onReorderTab={(tabId, overTabId) => tabsWorkspace.onReorderTab(pane.paneId, tabId, overTabId)}
-          onSelectTab={(tabId) => tabsWorkspace.onSelectTab(pane.paneId, tabId)}
-          onKeepTab={tabsWorkspace.onKeepTab}
-          onSplitPane={() => tabsWorkspace.onSplitPane('right', pane.paneId)}
-          onNewTab={() => tabsWorkspace.onNewTab(pane.paneId)}
-          paneLayout={{
-            zoomed: zoomedPaneId === pane.paneId,
-            onSplitDown: () => tabsWorkspace.onSplitPane('down', pane.paneId),
-            onSplitLeft: () => tabsWorkspace.onSplitPane('left', pane.paneId),
-            onSplitUp: () => tabsWorkspace.onSplitPane('up', pane.paneId),
-            onToggleZoom: () => {
-              if (!isActivePane) onFocusPane(pane.paneId);
-              onTogglePaneZoom();
-            },
-            onEqualize: tabsWorkspace.onEqualizePanes,
-          }}
-          tabs={tabsWorkspace.getPaneTabs(pane)}
-        />
-      ) : null}
       {view.isBlank ? (
         <BlankTabPage
           canCreateNote={canCreateNote}
@@ -758,12 +345,9 @@ export function DocumentWorkspace({
                 aiAssistRequestId: requestId('ai-assist'),
                 dictateRequestId: requestId('dictate'),
                 onRequestHandled: onEditorRequestHandled,
-                noteMetadataOpen: isActivePane && noteMetadataOpen,
                 shareOpen: isActivePane && shareOpen,
                 versionsOpen: isActivePane && versionsOpen,
-                inspectorCollapsed: isPaneInspectorCollapsed ? isPaneInspectorCollapsed(pane.paneId) : (!isActivePane || isInspectorCollapsed),
-                inspectorWidth,
-                onInspectorWidthChange,
+                inspectorCollapsed: !isActivePane || isInspectorCollapsed,
                 paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,
               }}
               status={{
@@ -801,12 +385,11 @@ export function DocumentWorkspace({
                 id={`document-pane-separator-${childId}`}
                 aria-label={`Resize document panes ${orientation === 'horizontal' ? 'side by side' : 'stacked'}, between pane ${paneOrder.indexOf(layoutPaneIds(children[index - 1]).at(-1)!) + 1} and pane ${paneOrder.indexOf(layoutPaneIds(child)[0]) + 1}`}
                 className={orientation === 'horizontal' ? GAP_SASH_CLASS : GAP_SASH_ROW_CLASS}
-                onDoubleClick={node.type === 'split' && onEqualizeSplit ? () => onEqualizeSplit(node.id) : undefined}
               />
             ) : null}
             <Panel
               id={childId}
-              minSize={orientation === 'horizontal' ? '13rem' : '7.5rem'}
+              minSize={orientation === 'horizontal' ? '24rem' : '10rem'}
               className="flex min-h-0 min-w-0 overflow-hidden"
             >
               {child.type === 'split'
@@ -819,65 +402,14 @@ export function DocumentWorkspace({
     </PaneGroup>
   );
 
-  const workspaceBody = (
+  return (
     // While a pane is zoomed, the others stay mounted but hidden, keeping their editors' state.
-    <div
-      ref={workspaceRef}
-      data-document-workspace=""
-      data-pane-zoomed={zoomedPaneId ? 'true' : undefined}
-      className="relative flex min-h-0 min-w-0 flex-1"
-    >
+    <div data-document-workspace="" data-pane-zoomed={zoomedPaneId ? 'true' : undefined} className="flex min-h-0 min-w-0 flex-1">
       {layout.type === 'split'
         ? renderGroup(layout, layout.children, layout.orientation, layout.sizes)
         : renderGroup(layout, [layout], 'horizontal', [100])}
       {/* Editor ownership stays flat even when the resize tree gains or loses split groups. */}
       {panes.map(pane => createPortal(renderPane(pane), paneHost(pane.paneId).element, `${scopeKey}:${pane.paneId}`))}
-      {dropOverlay ? (
-        <div
-          aria-hidden="true"
-          data-drop-preview-kind={dropOverlay.kind}
-          data-drop-preview-direction={'direction' in dropOverlay ? dropOverlay.direction : undefined}
-          className="workspace-drop-preview pointer-events-none absolute z-30 rounded-lg border-2 border-primary-default bg-primary-soft/35"
-          style={{
-            '--drop-preview-left': `${dropOverlay.rect.left}px`,
-            '--drop-preview-top': `${dropOverlay.rect.top}px`,
-            '--drop-preview-width': `${dropOverlay.rect.width}px`,
-            '--drop-preview-height': `${dropOverlay.rect.height}px`,
-          } as CSSProperties}
-        />
-      ) : null}
     </div>
-  );
-
-  if (!tabsWorkspace) {
-    return workspaceBody;
-  }
-
-  return (
-    <WorkspaceTabDndContext.Provider value={dndContextValue}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={collisionDetection}
-        onDragStart={handleDragStart}
-        onDragMove={handleDragMove}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        onDragCancel={clearDragState}
-      >
-        {workspaceBody}
-        <DragOverlay dropAnimation={null}>
-          {draggedTab ? (
-            <div className="flex h-7 max-w-56 items-center gap-1.5 rounded-md border border-primary-default/60 bg-background-default px-2.5 text-xs font-medium text-text-default shadow-lg">
-              <span className="min-w-0 truncate">{draggedTab.title || 'Untitled'}</span>
-              {copyMode ? (
-                <span className="shrink-0 rounded bg-primary-soft px-1 py-0.5 text-2xs font-semibold text-primary-default">
-                  + Copy
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-    </WorkspaceTabDndContext.Provider>
   );
 }

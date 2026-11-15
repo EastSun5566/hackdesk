@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 
-import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
 import { runHackmdRequest } from '@/lib/hackmd-requests';
 
@@ -151,7 +150,7 @@ export function useElectronHackmdQueries({
 
       seen.add(key);
       return true;
-    }).slice(0, MAX_NOTE_PANES);
+    }).slice(0, 2);
   }, [activeDocumentNotes, hasToken, remoteScope, selectedNote]);
 
   const documentQueryResults = useQueries({

@@ -12,7 +12,6 @@ import { isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspac
 export type WorkbenchTabLifecycleOptions = {
   autoSelectSuppressionRef: MutableRefObject<string | null>;
   closeOtherTabs: (paneId: string, keepTabId: string) => void;
-  closePane: (paneId: string) => void;
   closeTab: (tabId: string) => void;
   closeTabsToRight: (paneId: string, tabId: string) => void;
   focusEditor: () => void;
@@ -31,7 +30,6 @@ export type WorkbenchTabLifecycleOptions = {
 export function useWorkbenchTabLifecycle({
   autoSelectSuppressionRef,
   closeOtherTabs,
-  closePane,
   closeTab,
   closeTabsToRight,
   focusEditor,
@@ -147,38 +145,6 @@ export function useWorkbenchTabLifecycle({
     closeTabsToRight(paneId, tabId);
   }, [closeTabsToRight, confirmCloseUnsafeTabs, panes, tabs]);
 
-  const requestClosePane = useCallback(async (paneId: string) => {
-    const pane = panes.find((candidate) => candidate.paneId === paneId);
-    if (!pane) {
-      return false;
-    }
-
-    const closingTabs = pane.tabIds
-      .map((tabId) => tabs[tabId])
-      .filter((tab): tab is OpenNoteTab => Boolean(tab) && !isBlankNoteTab(tab));
-    if (!await confirmCloseUnsafeTabs(closingTabs, 'Close Pane', 'Close Pane')) {
-      return false;
-    }
-
-    if (pane.tabIds.length >= Object.keys(tabs).length) {
-      const nextNote = visibleEntries[0]?.note ?? null;
-      manualEmptyWorkspaceRef.current = true;
-      autoSelectSuppressionRef.current = nextNote ? getAutoSelectSuppressionKey(nextNote) : null;
-    }
-
-    closePane(paneId);
-    return true;
-  }, [
-    autoSelectSuppressionRef,
-    closePane,
-    confirmCloseUnsafeTabs,
-    getAutoSelectSuppressionKey,
-    manualEmptyWorkspaceRef,
-    panes,
-    tabs,
-    visibleEntries,
-  ]);
-
   const focusTabAtIndex = useCallback((tabIndex: number) => {
     const activePane = panes.find((pane) => pane.paneId === activePaneId);
     if (!activePane) {
@@ -200,7 +166,6 @@ export function useWorkbenchTabLifecycle({
     confirmCloseUnsafeTabs,
     focusTabAtIndex,
     requestCloseOtherTabs,
-    requestClosePane,
     requestCloseTab,
     requestCloseTabsToRight,
   };

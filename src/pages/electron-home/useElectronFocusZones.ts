@@ -15,17 +15,7 @@ function isAvailable(element: HTMLElement) {
 
 function getRegions() {
   const regions = Array.from(document.querySelectorAll<HTMLElement>('[data-hackdesk-focus]')).filter(isAvailable);
-  const currentTabs = document.activeElement instanceof HTMLElement
-    ? document.activeElement.closest<HTMLElement>('[data-hackdesk-focus="tabs"]')
-    : null;
-  return ZONE_ORDER.flatMap((zone) => {
-    const matching = regions.filter((region) => region.dataset.hackdeskFocus === zone);
-    if (zone !== 'tabs' || matching.length <= 1) return matching;
-    const preferred = (currentTabs && matching.includes(currentTabs) ? currentTabs : null)
-      ?? matching.find((region) => Boolean(region.closest('[data-active-pane="true"]')))
-      ?? matching[0];
-    return preferred ? [preferred] : [];
-  });
+  return ZONE_ORDER.flatMap(zone => regions.filter(region => region.dataset.hackdeskFocus === zone));
 }
 
 function regionKey(region: HTMLElement) {

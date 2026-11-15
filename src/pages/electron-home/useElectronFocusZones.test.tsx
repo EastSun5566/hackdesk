@@ -54,33 +54,6 @@ describe('useElectronFocusZones', () => {
     await cycleTo(screen.getByRole('textbox', { name: 'Right editor' }), true);
   });
 
-  it('cycles only the active pane tab strip when each pane has its own tabs region', async () => {
-    render(<>
-      <section data-hackdesk-focus="navigator">
-        <button role="treeitem" tabIndex={0}>Tree</button>
-      </section>
-      <section data-document-pane-id="left" data-active-pane="false">
-        <nav data-hackdesk-focus="tabs"><button role="tab" tabIndex={0}>Left Tab</button></nav>
-        <section data-hackdesk-focus="editor">
-          <div contentEditable data-hackdesk-focus-target="true" role="textbox" aria-label="Left editor" tabIndex={0} />
-        </section>
-      </section>
-      <section data-document-pane-id="right" data-active-pane="true">
-        <nav data-hackdesk-focus="tabs"><button role="tab" tabIndex={0}>Right Tab</button></nav>
-        <section data-hackdesk-focus="editor">
-          <div contentEditable data-hackdesk-focus-target="true" role="textbox" aria-label="Right editor" tabIndex={0} />
-        </section>
-      </section>
-    </>);
-    renderHook(() => useElectronFocusZones());
-    const tree = screen.getByRole('treeitem');
-    act(() => tree.focus());
-    await cycleTo(screen.getByRole('tab', { name: 'Right Tab' }));
-    await cycleTo(screen.getByRole('textbox', { name: 'Left editor' }));
-    await cycleTo(screen.getByRole('textbox', { name: 'Right editor' }));
-    await cycleTo(tree);
-  });
-
   it('skips collapsed or absent regions and restores a valid last target', async () => {
     fixture({ details: false });
     const search = screen.getByRole<HTMLInputElement>('textbox', { name: 'Search' });

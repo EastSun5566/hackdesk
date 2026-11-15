@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   equalizeLayout,
-  equalizeLayoutSplit,
   layoutPaneIds,
   normalizeSizes,
   paneInDirection,
@@ -12,7 +11,6 @@ import {
   reconcileLayout,
   removeLayoutPane,
   resizeLayoutSplit,
-  splitLayoutAtEdge,
   splitLayoutPane,
   type PaneLayoutNode,
 } from './pane-layout';
@@ -147,9 +145,9 @@ describe('pane layout', () => {
     expect(parsePaneLayout({ type: 'split', id: 'root', orientation: 'horizontal', children: [column('s', 'a', 'b'), column('s', 'c', 'd')], sizes: [50, 50] })).toBeNull();
   });
 
-  it.each(['flat', 'nested'])('keeps an eight-pane %s layout stable across repeated saves and restores', kind => {
+  it.each(['flat', 'nested'])('keeps a six-pane %s layout stable across repeated saves and restores', kind => {
     let layout = paneLeaf('p0');
-    for (let index = 1; index < 8; index += 1) {
+    for (let index = 1; index < 6; index += 1) {
       layout = splitLayoutPane(layout, `p${index - 1}`, `p${index}`, kind === 'nested' && index % 2 === 0 ? 'down' : 'right');
       splitSizes(layout).forEach(expectUsableSizes);
     }
@@ -165,36 +163,5 @@ describe('pane layout', () => {
         sizes.forEach((size, index) => expect(size).toBeCloseTo(original[split][index], 10));
       });
     }
-  });
-
-  it('splits along the outer edge of the layout and folds matching orientations cleanly', () => {
-    const row = splitLayoutPane(paneLeaf('a'), 'a', 'b', 'right');
-    expect(shape(splitLayoutAtEdge(row, 'top', 'up'))).toEqual({
-      column: ['top', { row: ['a', 'b'], sizes: [50, 50] }],
-      sizes: [35, 65],
-    });
-    expect(shape(splitLayoutAtEdge(row, 'left', 'left'))).toEqual({
-      row: ['left', 'a', 'b'],
-      sizes: [35, 33, 33],
-    });
-    expect(shape(splitLayoutAtEdge(paneLeaf('only'), 'right', 'right'))).toEqual({
-      row: ['only', 'right'],
-      sizes: [50, 50],
-    });
-  });
-
-  it('equalizes only the targeted split without disturbing nested splits', () => {
-    const layout = lShape();
-    if (layout.type !== 'split') throw new Error('expected a split');
-    const column = layout.children[1];
-    if (column.type !== 'split') throw new Error('expected a column');
-
-    const withResizedRoot = resizeLayoutSplit(layout, layout.id, { a: 25, [column.id]: 75 });
-    const withResizedBoth = resizeLayoutSplit(withResizedRoot, column.id, { b: 70, c: 30 });
-    const equalizedRoot = equalizeLayoutSplit(withResizedBoth, layout.id);
-    expect(shape(equalizedRoot)).toEqual({
-      row: ['a', { column: ['b', 'c'], sizes: [70, 30] }],
-      sizes: [50, 50],
-    });
   });
 });

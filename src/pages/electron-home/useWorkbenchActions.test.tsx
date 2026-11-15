@@ -45,7 +45,6 @@ function createWorkspaceState(tabs: OpenNoteTab[] = [createTab()]): NoteWorkspac
 
 function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): WorkbenchActionHandlers {
   return {
-    closeActivePane: vi.fn(),
     closeActiveTab: vi.fn(),
     closeOtherTabs: vi.fn(),
     closeTabsToRight: vi.fn(),
@@ -95,9 +94,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     reopenLastClosedTab: vi.fn(),
     saveNote: vi.fn(),
     setEditorMode: vi.fn(),
-    splitPaneLeft: vi.fn(),
     splitPaneRight: vi.fn(),
-    splitPaneUp: vi.fn(),
     splitPaneDown: vi.fn(),
     focusPaneInDirection: vi.fn(),
     togglePaneZoom: vi.fn(),
@@ -116,7 +113,6 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     copyNoteLink: vi.fn(),
     copyMarkdownLink: vi.fn(),
     copyNoteContent: vi.fn(),
-    noteSettings: vi.fn(),
     shareNote: vi.fn(),
     moveTab: vi.fn(),
     toggleBookContents: vi.fn(),

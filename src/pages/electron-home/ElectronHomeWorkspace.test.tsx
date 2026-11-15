@@ -13,17 +13,25 @@ import { createOverlayWrapper } from './test-overlays';
 
 vi.mock('./AppTopBar', () => ({
   AppTopBar: (props: {
+    activeTab: OpenNoteTab | null;
     navigation: { onBack: () => void; onForward: () => void };
-    paneLayout?: { paneCount: number; zoomed: boolean; onToggleZoom: () => void; onEqualize: () => void };
+    onCloseOtherTabs: (tabId: string) => void;
+    onCloseTab: (tabId: string) => void;
+    onCloseTabsToRight: (tabId: string) => void;
+    onSelectTab: (tabId: string) => void;
     onToggleNavigator: () => void;
+    tabs: OpenNoteTab[];
   }) => (
     <header data-testid="app-topbar">
-      <span data-testid="pane-count">{props.paneLayout?.paneCount ?? 0}</span>
+      <span data-testid="active-tab">{props.activeTab?.title ?? 'none'}</span>
+      <span data-testid="tab-count">{props.tabs.length}</span>
+      <button type="button" onClick={() => props.onSelectTab('tab-b')}>select tab</button>
+      <button type="button" onClick={() => props.onCloseTab('tab-b')}>close tab</button>
+      <button type="button" onClick={() => props.onCloseOtherTabs('tab-b')}>close others</button>
+      <button type="button" onClick={() => props.onCloseTabsToRight('tab-b')}>close right</button>
       <button type="button" onClick={props.onToggleNavigator}>toggle navigator</button>
       <button type="button" onClick={props.navigation.onBack}>back</button>
       <button type="button" onClick={props.navigation.onForward}>forward</button>
-      <button type="button" onClick={() => props.paneLayout?.onToggleZoom()}>zoom pane</button>
-      <button type="button" onClick={() => props.paneLayout?.onEqualize()}>equalize panes</button>
     </header>
   ),
 }));
@@ -48,7 +56,6 @@ vi.mock('./PanelResizeSash', () => ({
     disabled?: boolean;
     label: string;
     onChange: (value: number) => void;
-    onCollapse?: () => void;
     value: number;
   }) => (
     <button
@@ -56,7 +63,6 @@ vi.mock('./PanelResizeSash', () => ({
       data-testid={`resize-${props.label}`}
       data-disabled={String(Boolean(props.disabled))}
       onClick={() => props.onChange(props.value + 1)}
-      onDoubleClick={() => props.onCollapse?.()}
     >
       {props.label}
     </button>
@@ -67,19 +73,9 @@ vi.mock('./DocumentWorkspace', () => ({
   DocumentWorkspace: (props: {
     activePaneId: string;
     panes: NotePane[];
-    tabsWorkspace?: {
-      onSelectTab: (paneId: string, tabId: string) => void;
-      onCloseTab: (tabId: string) => void;
-      onCloseOtherTabs: (paneId: string, tabId: string) => void;
-      onCloseTabsToRight: (paneId: string, tabId: string) => void;
-    };
   }) => (
     <section data-testid="document-workspace" data-active-pane={props.activePaneId}>
       {props.panes.length} panes
-      <button type="button" onClick={() => props.tabsWorkspace?.onSelectTab('pane-b', 'tab-b')}>select tab</button>
-      <button type="button" onClick={() => props.tabsWorkspace?.onCloseTab('tab-b')}>close tab</button>
-      <button type="button" onClick={() => props.tabsWorkspace?.onCloseOtherTabs('pane-b', 'tab-b')}>close others</button>
-      <button type="button" onClick={() => props.tabsWorkspace?.onCloseTabsToRight('pane-b', 'tab-b')}>close right</button>
     </section>
   ),
 }));
@@ -141,21 +137,38 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
   const noop = vi.fn();
   const props: ElectronHomeWorkspaceProps = {
     titlebar: {
+      getPaneTabs: (pane) => pane.tabIds.flatMap((tabId) => tabs[tabId] ? [tabs[tabId]] : []),
+      getPaneView: (pane) => createView(pane, pane.activeTabId ? tabs[pane.activeTabId] ?? null : null),
+      getTabSyncState: () => 'saved',
       layout: {
         navigatorCollapsed: false,
       },
       state: {
+        scopeKey: 'personal',
+        activePaneId: 'pane-b',
         backStack: [{ paneId: 'pane-a', tabId: 'tab-a' }],
         forwardStack: [],
         panes,
+        recentlyClosedTabs: [],
         zoomedPaneId: null,
       },
       actions: {
+        moveActiveTabToOtherPane: noop,
         navigateBack: vi.fn(),
         navigateForward: vi.fn(),
-        togglePaneZoom: vi.fn(),
-        equalizePanes: vi.fn(),
+        reorderTab: noop,
+        reopenLastClosedTab: noop,
+        requestCloseOtherTabs: vi.fn().mockResolvedValue(undefined),
+        requestCloseTab: vi.fn().mockResolvedValue(undefined),
+        requestCloseTabsToRight: vi.fn().mockResolvedValue(undefined),
+        selectTab: vi.fn(),
+        keepTab: vi.fn(),
+        splitActiveTab: noop,
+        splitActivePaneDown: noop,
+        togglePaneZoom: noop,
+        equalizePanes: noop,
         toggleNavigator: vi.fn(),
+        onNewTab: vi.fn(),
       },
     },
     workspaceNavigation: {
@@ -248,31 +261,11 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       editorRequests: [],
       onEditorRequestHandled: noop,
       onResizeSplit: noop,
-      onEqualizeSplit: noop,
       onTogglePaneZoom: noop,
       onFocusPane: noop,
       onCreateNote: noop,
       canCreateNote: true,
       onQuickOpen: noop,
-      tabsWorkspace: {
-        getPaneTabs: (pane) => pane.tabIds.flatMap((tabId) => tabs[tabId] ? [tabs[tabId]] : []),
-        getTabSyncState: () => 'saved',
-        recentlyClosedCount: 0,
-        onSelectTab: vi.fn(),
-        onCloseTab: vi.fn(),
-        onCloseOtherTabs: vi.fn(),
-        onCloseTabsToRight: vi.fn(),
-        onReorderTab: noop,
-        onMoveTabToPane: noop,
-        onSplitTabToNewPane: noop,
-        onReopenLastClosedTab: noop,
-        onKeepTab: noop,
-        onSplitPane: noop,
-        onMoveTabToOtherPane: noop,
-        onClosePane: noop,
-        onEqualizePanes: noop,
-        onNewTab: noop,
-      },
     },
     documentActions: {
       onOpenEditor: noop,
@@ -306,7 +299,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
 }
 
 describe('ElectronHomeWorkspace', () => {
-  it('renders the shell composition and forwards pane count to AppTopBar', () => {
+  it('renders the shell composition and derives titlebar tabs from the active pane', () => {
     const props = createProps();
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
@@ -314,10 +307,11 @@ describe('ElectronHomeWorkspace', () => {
     expect(screen.getByTestId('app-topbar')).toBeInTheDocument();
     expect(screen.getByTestId('folder-navigator')).toHaveAttribute('id', 'note-navigator-panel');
     expect(screen.getByTestId('document-workspace')).toHaveAttribute('data-active-pane', 'pane-b');
-    expect(screen.getByTestId('pane-count')).toHaveTextContent('2');
+    expect(screen.getByTestId('active-tab')).toHaveTextContent('Markdown Playground');
+    expect(screen.getByTestId('tab-count')).toHaveTextContent('2');
   });
 
-  it('passes workspace tab actions into DocumentWorkspace', () => {
+  it('passes active-pane titlebar tab actions through with the active pane id', () => {
     const props = createProps();
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
@@ -327,13 +321,13 @@ describe('ElectronHomeWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'close right' }));
     fireEvent.click(screen.getByRole('button', { name: 'close tab' }));
 
-    expect(props.documentWorkspace.tabsWorkspace?.onSelectTab).toHaveBeenCalledWith('pane-b', 'tab-b');
-    expect(props.documentWorkspace.tabsWorkspace?.onCloseOtherTabs).toHaveBeenCalledWith('pane-b', 'tab-b');
-    expect(props.documentWorkspace.tabsWorkspace?.onCloseTabsToRight).toHaveBeenCalledWith('pane-b', 'tab-b');
-    expect(props.documentWorkspace.tabsWorkspace?.onCloseTab).toHaveBeenCalledWith('tab-b');
+    expect(props.titlebar.actions.selectTab).toHaveBeenCalledWith('pane-b', 'tab-b');
+    expect(props.titlebar.actions.requestCloseOtherTabs).toHaveBeenCalledWith('pane-b', 'tab-b');
+    expect(props.titlebar.actions.requestCloseTabsToRight).toHaveBeenCalledWith('pane-b', 'tab-b');
+    expect(props.titlebar.actions.requestCloseTab).toHaveBeenCalledWith('tab-b');
   });
 
-  it('passes navigator, titlebar, and collapse-sash shell callbacks without changing behavior', () => {
+  it('passes navigator and titlebar shell callbacks without changing behavior', () => {
     const props = createProps();
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
@@ -343,16 +337,11 @@ describe('ElectronHomeWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'toggle navigator' }));
     fireEvent.click(screen.getByRole('button', { name: 'back' }));
     fireEvent.click(screen.getByRole('button', { name: 'forward' }));
-    fireEvent.click(screen.getByRole('button', { name: 'zoom pane' }));
-    fireEvent.click(screen.getByRole('button', { name: 'equalize panes' }));
-    fireEvent.doubleClick(screen.getByTestId('resize-Resize sidebar'));
 
     expect(props.navigator.actions.onCreate).toHaveBeenCalledTimes(1);
     expect(props.navigator.actions.onDeleteFolder).toHaveBeenCalledWith('folder-a');
-    expect(props.titlebar.actions.toggleNavigator).toHaveBeenCalledTimes(2);
+    expect(props.titlebar.actions.toggleNavigator).toHaveBeenCalledTimes(1);
     expect(props.titlebar.actions.navigateBack).toHaveBeenCalledTimes(1);
     expect(props.titlebar.actions.navigateForward).toHaveBeenCalledTimes(1);
-    expect(props.titlebar.actions.togglePaneZoom).toHaveBeenCalledTimes(1);
-    expect(props.titlebar.actions.equalizePanes).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,9 +1,11 @@
 import type { ComponentProps } from 'react';
 
+import { MAX_NOTE_PANES } from '@/lib/electron-actions';
+
 import { AppTopBar } from './AppTopBar';
-import { DocumentWorkspace } from './DocumentWorkspace';
+import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import { FolderNavigator } from './FolderNavigator';
-import type { NoteWorkspaceState } from './note-workspace';
+import type { NotePane, NoteWorkspaceState, OpenNoteTab } from './note-workspace';
 import { PanelResizeSash } from './PanelResizeSash';
 import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
 import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
@@ -12,6 +14,7 @@ import { WorkbenchDocumentActionsProvider, type WorkbenchDocumentActions } from 
 
 export const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
 
+type AppTopBarProps = ComponentProps<typeof AppTopBar>;
 type FolderNavigatorProps = ComponentProps<typeof FolderNavigator>;
 
 export type ElectronHomeWorkspaceProps = {
@@ -28,16 +31,30 @@ export type ElectronHomeWorkspaceProps = {
     onChange: (value: number) => void;
   };
   titlebar: {
+    getPaneTabs: (pane: NotePane) => OpenNoteTab[];
+    getPaneView: (pane: NotePane) => DocumentPaneView;
+    getTabSyncState: AppTopBarProps['getTabSyncState'];
     layout: {
       navigatorCollapsed: boolean;
     };
-    state: Pick<NoteWorkspaceState, 'backStack' | 'forwardStack' | 'panes' | 'zoomedPaneId'>;
+    state: Pick<NoteWorkspaceState, 'scopeKey' | 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs' | 'zoomedPaneId'>;
     actions: {
+      moveActiveTabToOtherPane: () => void;
       navigateBack: () => void;
       navigateForward: () => void;
+      reopenLastClosedTab: () => void;
+      requestCloseOtherTabs: (paneId: string, tabId: string) => Promise<unknown>;
+      requestCloseTab: (tabId: string) => Promise<unknown>;
+      requestCloseTabsToRight: (paneId: string, tabId: string) => Promise<unknown>;
+      selectTab: (paneId: string, tabId: string) => void;
+      keepTab: (tabId: string) => void;
+      reorderTab: (paneId: string, tabId: string, overTabId: string) => void;
+      splitActiveTab: () => void;
+      splitActivePaneDown: () => void;
       togglePaneZoom: () => void;
       equalizePanes: () => void;
       toggleNavigator: () => void;
+      onNewTab: () => void;
     };
   };
 };
@@ -51,25 +68,65 @@ export function ElectronHomeWorkspace({
   navigatorResize,
   titlebar,
 }: ElectronHomeWorkspaceProps) {
+  const activeTitlebarPane = titlebar.state.panes.find((pane) => pane.paneId === titlebar.state.activePaneId) ?? null;
+  const activeTitlebarPaneView = activeTitlebarPane ? titlebar.getPaneView(activeTitlebarPane) : null;
+  const activeTitlebarTabs = activeTitlebarPane ? titlebar.getPaneTabs(activeTitlebarPane) : [];
+
   return (
     <>
       <AppTopBar
+        tabStripId={`${titlebar.state.scopeKey}:${activeTitlebarPane?.paneId}`}
+        paneId={activeTitlebarPane?.paneId}
+        activeTab={activeTitlebarPaneView?.activeTab ?? null}
+        getTabSyncState={titlebar.getTabSyncState}
         navigation={{
           canGoBack: titlebar.state.backStack.length > 0,
           canGoForward: titlebar.state.forwardStack.length > 0,
           onBack: titlebar.actions.navigateBack,
           onForward: titlebar.actions.navigateForward,
         }}
+        onCloseOtherTabs={(tabId) => {
+          if (activeTitlebarPane) {
+            void titlebar.actions.requestCloseOtherTabs(activeTitlebarPane.paneId, tabId);
+          }
+        }}
+        onCloseTab={(tabId) => {
+          void titlebar.actions.requestCloseTab(tabId);
+        }}
+        onCloseTabsToRight={(tabId) => {
+          if (activeTitlebarPane) {
+            void titlebar.actions.requestCloseTabsToRight(activeTitlebarPane.paneId, tabId);
+          }
+        }}
+        onReorderTab={(tabId, overTabId) => {
+          if (activeTitlebarPane) titlebar.actions.reorderTab(activeTitlebarPane.paneId, tabId, overTabId);
+        }}
+        onMoveTabToOtherPane={titlebar.actions.moveActiveTabToOtherPane}
+        onReopenLastClosedTab={titlebar.actions.reopenLastClosedTab}
+        onSelectTab={(tabId) => {
+          if (activeTitlebarPane) {
+            titlebar.actions.selectTab(activeTitlebarPane.paneId, tabId);
+          }
+        }}
+        onKeepTab={titlebar.actions.keepTab}
+        onSplitPane={titlebar.actions.splitActiveTab}
         paneLayout={{
-          paneCount: titlebar.state.panes.length,
           zoomed: Boolean(titlebar.state.zoomedPaneId),
+          onSplitDown: titlebar.actions.splitActivePaneDown,
           onToggleZoom: titlebar.actions.togglePaneZoom,
           onEqualize: titlebar.actions.equalizePanes,
+        }}
+        paneActions={{
+          canMoveToOtherPane: titlebar.state.panes.length > 1,
+          canReopenLastClosedTab: titlebar.state.recentlyClosedTabs.length > 0,
+          canSplit: titlebar.state.panes.length < MAX_NOTE_PANES,
         }}
         platform={window.hackdeskAPI?.platform ?? 'unknown'}
         navigatorCollapsed={titlebar.layout.navigatorCollapsed}
         navigatorPanelId={NOTE_NAVIGATOR_PANEL_ID}
+        tabs={activeTitlebarTabs}
         onToggleNavigator={titlebar.actions.toggleNavigator}
+        onNewTab={titlebar.actions.onNewTab}
       />
 
       {backupNotice ? <WorkspaceBackupNotice {...backupNotice} /> : null}
@@ -89,8 +146,6 @@ export function ElectronHomeWorkspace({
           defaultValue={NAVIGATOR_WIDTH_DEFAULT}
           disabled={navigatorResize.disabled}
           onChange={navigatorResize.onChange}
-          collapseThreshold={NAVIGATOR_WIDTH_MIN - 90}
-          onCollapse={titlebar.actions.toggleNavigator}
           previewTargetId={NOTE_NAVIGATOR_PANEL_ID}
           edge
           previewProperties={['--panel-width', '--sidebar-content-width']}
