@@ -125,6 +125,7 @@ export function useHomeWorkspaceProps({
   getTabSyncState,
   homeStatus,
   inspectorCollapsed,
+  isPaneInspectorCollapsed,
   localDocumentRecovery,
   localVaultActions,
   mutations,
@@ -169,6 +170,7 @@ export function useHomeWorkspaceProps({
   getTabSyncState: ElectronHomeWorkspaceProps['titlebar']['getTabSyncState'];
   homeStatus: HomeStatus;
   inspectorCollapsed: boolean;
+  isPaneInspectorCollapsed?: (paneId: string) => boolean;
   localDocumentRecovery: LocalDocumentRecovery;
   localVaultActions: HomeLocalVaultActions;
   mutations: NoteMutations;
@@ -187,7 +189,7 @@ export function useHomeWorkspaceProps({
     'requestCloseOtherTabs' | 'requestCloseTab' | 'requestCloseTabsToRight'
   >;
   teams: TeamSummary[];
-  toggleInspectorCollapsed: () => void;
+  toggleInspectorCollapsed: (paneId?: string) => void;
   toggleNavigatorCollapsed: () => void;
   user: UserSummary | undefined;
   uploadingTabIds?: readonly string[];
@@ -512,6 +514,7 @@ export function useHomeWorkspaceProps({
       editorMode,
       folderTree,
       isInspectorCollapsed: inspectorCollapsed,
+      isPaneInspectorCollapsed,
       getPaneView: (pane) => {
         const view = documents.getPaneView(pane);
         return {

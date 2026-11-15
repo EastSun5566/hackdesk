@@ -36,10 +36,6 @@ export type InspectorFormAction =
   | { type: 'set-tags'; value: string[] }
   | { type: 'set-write-permission'; value: NotePermissionRole };
 
-export type NoteInspectorStatus = {
-  saving: boolean;
-};
-
 export type NoteInspectorActions = {
   onCopyLink: (document: DocumentSummary) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;

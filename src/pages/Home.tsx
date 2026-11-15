@@ -172,10 +172,10 @@ export function Home() {
   } = workspaceState;
   useEffect(() => { overlayControls.set('history', false); }, [scopeStorageKey, overlayControls]);
   const {
-    inspectorCollapsed,
     navigatorCollapsed,
     navigatorWidth,
     expandNavigator,
+    isPaneInspectorCollapsed,
     setNavigatorCollapsed,
     setNavigatorWidth,
     toggleInspectorCollapsed,
@@ -197,6 +197,8 @@ export function Home() {
     toggleNavigatorCollapsed();
   }, [expandNavigator, hackMode, overlayControls, toggleNavigatorCollapsed]);
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey, usingInitialDrafts && settingsQuery.data?.shouldShowHackmdOnboarding === true);
+  const activePaneId = noteWorkspace.state.activePaneId;
+  const inspectorCollapsed = isPaneInspectorCollapsed(activePaneId);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
 
@@ -284,15 +286,19 @@ export function Home() {
   const openKeyboardShortcuts = useCallback(() => {
     overlayControls.set('shortcutHelp', { region: focusedZone, target: getLastFocusedTarget() });
   }, [focusedZone, getLastFocusedTarget, overlayControls]);
-  // Note Details floats over the note: opening it moves focus inside, and closing it from inside
+  // Note Details floats over each pane: opening it moves focus inside, and closing it from inside
   // returns to the note rather than leaving focus nowhere.
-  const toggleNoteDetails = useCallback(() => {
+  const toggleNoteDetails = useCallback((paneId?: string) => {
+    const targetPaneId = paneId ?? activePaneId;
+    const wasCollapsed = isPaneInspectorCollapsed(targetPaneId);
     const active = document.activeElement;
     const leavingDetails = !active || active === document.body || Boolean(active.closest('[data-hackdesk-focus="inspector"]'));
-    toggleInspectorCollapsed();
-    if (inspectorCollapsed) focusZone('inspector');
-    else if (leavingDetails) focusZone('editor');
-  }, [focusZone, inspectorCollapsed, toggleInspectorCollapsed]);
+    toggleInspectorCollapsed(targetPaneId);
+    if (targetPaneId === activePaneId) {
+      if (wasCollapsed) focusZone('inspector');
+      else if (leavingDetails) focusZone('editor');
+    }
+  }, [activePaneId, focusZone, isPaneInspectorCollapsed, toggleInspectorCollapsed]);
   const toggleHackMode = useCallback(() => {
     if (hackMode) {
       setHackMode(false);
@@ -1255,6 +1261,7 @@ export function Home() {
     getTabSyncState,
     homeStatus,
     inspectorCollapsed,
+    isPaneInspectorCollapsed,
     localDocumentRecovery,
     remoteDocumentRecovery,
     localVaultActions,

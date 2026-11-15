@@ -37,7 +37,7 @@ export type WorkbenchDocumentActions = {
   onDelete: (document: DocumentSummary) => void;
   onTitleChange: (tab: OpenNoteTab, title: string) => void;
   onContentChange: (tab: OpenNoteTab, content: string) => void;
-  onToggleInspector: () => void;
+  onToggleInspector: (paneId?: string) => void;
   onCopyDraft: (content: string) => void;
   onExportDraft: (title: string, content: string) => void;
   onOpenAsNewDraft: (title: string, content: string, paneId: string) => void;
@@ -73,12 +73,13 @@ export function DocumentActionsProvider({ value, children }: { value: DocumentDe
  */
 export function PaneDocumentActions({ tab, paneId, children }: { tab: OpenNoteTab | null; paneId: string; children: ReactNode }) {
   const workbench = useWorkbenchDocumentActions();
-  // Share and Versions open over the active pane; the workbench overlays hold whether they are open.
+  // Note Settings, Share and Versions open over the active pane; the workbench overlays hold whether they are open.
   const overlayControls = useOverlayControls();
+  const onNoteMetadataOpenChange = useCallback((open: boolean) => overlayControls.set('noteMetadata', open), [overlayControls]);
   const onShareOpenChange = useCallback((open: boolean) => overlayControls.set('share', open), [overlayControls]);
   const onVersionsOpenChange = useCallback((open: boolean) => overlayControls.set('versions', open), [overlayControls]);
   const actions = useMemo<DocumentDetailActions>(() => {
-    const { onSave, onAttachImage, onCancelImageUpload, onTitleChange, onContentChange, onOpenAsNewDraft } = workbench;
+    const { onSave, onAttachImage, onCancelImageUpload, onTitleChange, onContentChange, onOpenAsNewDraft, onToggleInspector } = workbench;
     return {
       onOpenEditor: workbench.onOpenEditor,
       onOpenExternal: workbench.onOpenExternal,
@@ -97,7 +98,7 @@ export function PaneDocumentActions({ tab, paneId, children }: { tab: OpenNoteTa
       onSaveMetadata: workbench.onSaveMetadata,
       onSaveSharing: workbench.onSaveSharing,
       onDelete: workbench.onDelete,
-      onToggleInspector: workbench.onToggleInspector,
+      onToggleInspector: () => onToggleInspector(paneId),
       onOpenAsNewDraft: (title, content) => onOpenAsNewDraft(title, content, paneId),
       onSave: (input, options) => {
         if (tab) onSave(tab, input, options);
@@ -112,10 +113,11 @@ export function PaneDocumentActions({ tab, paneId, children }: { tab: OpenNoteTa
       onContentChange: (content) => {
         if (tab) onContentChange(tab, content);
       },
+      onNoteMetadataOpenChange,
       onShareOpenChange,
       onVersionsOpenChange,
     };
-  }, [workbench, tab, paneId, onShareOpenChange, onVersionsOpenChange]);
+  }, [workbench, tab, paneId, onNoteMetadataOpenChange, onShareOpenChange, onVersionsOpenChange]);
   return <DocumentActionsContext.Provider value={actions}>{children}</DocumentActionsContext.Provider>;
 }
 

@@ -233,10 +233,10 @@ async function ensureKeyboardModality(page: Page) {
   await page.keyboard.press('Tab');
 }
 
-async function expectInsetFocus(locator: Locator, container = false) {
-  await locator.focus();
+async function expectInsetFocus(locator: Locator, container = false, focusTarget: Locator = locator) {
+  await focusTarget.focus();
   await ensureKeyboardModality(locator.page());
-  await locator.focus();
+  await focusTarget.focus();
   await expect.poll(() => locator.evaluate((element) => getComputedStyle(element).boxShadow)).toContain('inset');
   // Verify that the focused field remains fully inside every clipping ancestor.
   await locator.scrollIntoViewIfNeeded();
@@ -1194,28 +1194,39 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       await switchWorkspace(page, 'My Workspace');
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Remote UI fixture', exact: true }).click();
       await page.getByRole('button', { name: 'Expand note details', exact: true }).click();
-      const tags = page.getByRole('textbox', { name: 'Tags', exact: true });
+      await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('06-note-details.png') });
+      await page.getByRole('button', { name: 'Note settings', exact: true }).click();
+      const noteSettingsDialog = page.getByRole('dialog', { name: 'Note Settings' });
+      await expect(noteSettingsDialog).toBeVisible();
+      const tags = noteSettingsDialog.getByRole('textbox', { name: 'Tags', exact: true });
       await tags.focus();
-      await expectInsetFocus(tags.locator('..'), true);
-      const removeTag = page.getByRole('button', { name: 'Remove playground tag', exact: true });
+      await expectInsetFocus(tags.locator('..'), true, tags);
+      const removeTag = noteSettingsDialog.getByRole('button', { name: 'Remove playground tag', exact: true });
       const removeBounds = (await removeTag.boundingBox())!;
       expect(Math.min(removeBounds.width, removeBounds.height)).toBeGreaterThanOrEqual(24);
-      await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('06-note-details.png') });
-      for (const label of ['Description', 'Permalink']) {
-        const field = page.getByLabel(label, { exact: true });
-        await field.focus();
-        await expectInsetFocus(field);
-      }
-      await page.getByRole('button', { name: /Location/ }).click();
-      const folder = page.getByRole('combobox', { name: 'Folder', exact: true });
+      const description = noteSettingsDialog.getByLabel('Description', { exact: true });
+      await description.focus();
+      await expectInsetFocus(description);
+      const folder = noteSettingsDialog.getByRole('combobox', { name: 'Folder', exact: true });
       await page.keyboard.press('Tab');
       await folder.focus();
       await expectInsetFocus(folder);
-      await page.getByRole('button', { name: /Permissions/ }).click();
-      const read = page.getByRole('group', { name: 'Read', exact: true }).getByRole('radio', { name: 'Owner', exact: true });
+      await noteSettingsDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await expect(noteSettingsDialog).toBeHidden();
+
+      await page.getByRole('button', { name: 'Share note', exact: true }).click();
+      const shareDialog = page.getByRole('dialog', { name: 'Share Note' });
+      await expect(shareDialog).toBeVisible();
+      const permalink = shareDialog.getByLabel('Permalink', { exact: true });
+      await permalink.focus();
+      await expectInsetFocus(permalink.locator('..'), true, permalink);
+      const read = shareDialog.getByRole('radiogroup', { name: 'Read access', exact: true }).getByRole('radio', { name: 'Private', exact: true });
       await page.keyboard.press('Tab');
       await read.focus();
       await expectInsetFocus(read);
+      await shareDialog.locator('form').getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(shareDialog).toBeHidden();
+
       await page.getByRole('button', { name: 'Collapse note details', exact: true }).click();
       await openFixtureNote(page);
       await page.locator('.cm-content').click();
