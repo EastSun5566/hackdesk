@@ -14,6 +14,7 @@ import { createOverlayWrapper } from './test-overlays';
 vi.mock('./AppTopBar', () => ({
   AppTopBar: (props: {
     activeTab: OpenNoteTab | null;
+    segments?: Array<{ paneId?: string; isActivePane?: boolean; tabs: OpenNoteTab[]; activeTab: OpenNoteTab | null }>;
     navigation: { onBack: () => void; onForward: () => void };
     onCloseOtherTabs: (tabId: string) => void;
     onCloseTab: (tabId: string) => void;
@@ -25,6 +26,7 @@ vi.mock('./AppTopBar', () => ({
     <header data-testid="app-topbar">
       <span data-testid="active-tab">{props.activeTab?.title ?? 'none'}</span>
       <span data-testid="tab-count">{props.tabs.length}</span>
+      <span data-testid="segment-order">{(props.segments ?? []).map((s) => `${s.paneId}:${s.isActivePane ? 'active' : 'inactive'}`).join(',')}</span>
       <button type="button" onClick={() => props.onSelectTab('tab-b')}>select tab</button>
       <button type="button" onClick={() => props.onCloseTab('tab-b')}>close tab</button>
       <button type="button" onClick={() => props.onCloseOtherTabs('tab-b')}>close others</button>
@@ -261,7 +263,6 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       editorRequests: [],
       onEditorRequestHandled: noop,
       onResizeSplit: noop,
-      onTogglePaneZoom: noop,
       onFocusPane: noop,
       onCreateNote: noop,
       canCreateNote: true,
@@ -309,6 +310,16 @@ describe('ElectronHomeWorkspace', () => {
     expect(screen.getByTestId('document-workspace')).toHaveAttribute('data-active-pane', 'pane-b');
     expect(screen.getByTestId('active-tab')).toHaveTextContent('Markdown Playground');
     expect(screen.getByTestId('tab-count')).toHaveTextContent('2');
+    expect(screen.getByTestId('segment-order')).toHaveTextContent('pane-a:inactive,pane-b:active');
+  });
+
+  it('shows only the zoomed pane segment when a pane is zoomed', () => {
+    const props = createProps();
+    props.titlebar.state.zoomedPaneId = 'pane-a';
+
+    render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
+
+    expect(screen.getByTestId('segment-order')).toHaveTextContent('pane-a:inactive');
   });
 
   it('passes active-pane titlebar tab actions through with the active pane id', () => {

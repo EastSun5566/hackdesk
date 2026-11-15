@@ -873,15 +873,15 @@ export function closeTabsByNoteIdentity(state: NoteWorkspaceState, note: NoteIde
   };
 }
 
-export function openBlankNoteTab(state: NoteWorkspaceState) {
-  const activePane = getActivePane(state);
+export function openBlankNoteTab(state: NoteWorkspaceState, paneId = state.activePaneId) {
+  const targetPane = state.panes.find((pane) => pane.paneId === paneId) ?? getActivePane(state);
   const tab = createBlankTab();
-  const next = insertTabAfterActive(state, activePane.paneId, tab);
+  const next = insertTabAfterActive(state, targetPane.paneId, tab);
   return withNavigationHistory(state, next);
 }
 
-export function duplicateActiveNoteTab(state: NoteWorkspaceState) {
-  const activePane = getActivePane(state);
+export function duplicateActiveNoteTab(state: NoteWorkspaceState, paneId = state.activePaneId) {
+  const activePane = state.panes.find((pane) => pane.paneId === paneId) ?? getActivePane(state);
   const activeTabId = activePane.activeTabId;
   const activeTab = activeTabId ? state.tabs[activeTabId] : null;
   if (!activeTab || !activeTabId) {
@@ -889,7 +889,7 @@ export function duplicateActiveNoteTab(state: NoteWorkspaceState) {
   }
 
   if (isBlankNoteTab(activeTab)) {
-    return openBlankNoteTab(state);
+    return openBlankNoteTab(state, activePane.paneId);
   }
 
   const duplicateTab = { ...activeTab, tabId: createTabId() };
@@ -947,11 +947,11 @@ export function reopenLastClosedTab(state: NoteWorkspaceState) {
 }
 
 /**
- * Opens the active tab in a new pane beside the active one. A tab alone in its pane is copied, so
- * neither pane is left empty; otherwise it moves.
+ * Opens the active tab in a new pane beside the target pane. A tab alone in its pane is copied,
+ * so neither pane is left empty; otherwise it moves.
  */
-export function splitActivePane(state: NoteWorkspaceState, direction: PaneDirection) {
-  const activePane = getActivePane(state);
+export function splitActivePane(state: NoteWorkspaceState, direction: PaneDirection, paneId = state.activePaneId) {
+  const activePane = state.panes.find((pane) => pane.paneId === paneId) ?? getActivePane(state);
   const activeTabId = activePane?.activeTabId;
   if (!activePane || !activeTabId || state.panes.length >= MAX_PANES) {
     return state;
@@ -994,8 +994,8 @@ export function splitActivePane(state: NoteWorkspaceState, direction: PaneDirect
   return withNavigationHistory(state, next);
 }
 
-export function splitActiveTabRight(state: NoteWorkspaceState) {
-  return splitActivePane(state, 'right');
+export function splitActiveTabRight(state: NoteWorkspaceState, paneId = state.activePaneId) {
+  return splitActivePane(state, 'right', paneId);
 }
 
 function insertTabIdAt(tabIds: readonly string[], tabId: string, overTabId?: string) {
@@ -1167,9 +1167,9 @@ export function splitPaneWithTab(
   return withNavigationHistory(state, next);
 }
 
-/** Moves the active tab to the next pane in reading order, wrapping around. */
-export function moveActiveTabToOtherPane(state: NoteWorkspaceState) {
-  const activePane = getActivePane(state);
+/** Moves the active tab of the target pane to the next pane in reading order, wrapping around. */
+export function moveActiveTabToOtherPane(state: NoteWorkspaceState, paneId = state.activePaneId) {
+  const activePane = state.panes.find((pane) => pane.paneId === paneId) ?? getActivePane(state);
   const activeTabId = activePane?.activeTabId;
   const order = layoutPaneIds(state.layout);
   const targetPaneId = order.length > 1 ? order[(order.indexOf(activePane?.paneId ?? '') + 1) % order.length] : null;
@@ -1213,10 +1213,14 @@ export function focusPaneInDirection(state: NoteWorkspaceState, direction: PaneD
   return paneId ? focusNotePane(state, paneId) : state;
 }
 
-/** The active pane fills the editor area, or the others come back. One pane has nothing to zoom from. */
-export function toggleNotePaneZoom(state: NoteWorkspaceState) {
+/** The target pane fills the editor area, or the others come back. One pane has nothing to zoom from. */
+export function toggleNotePaneZoom(state: NoteWorkspaceState, paneId = state.activePaneId) {
   if (state.panes.length <= 1) return state;
-  return { ...state, zoomedPaneId: state.zoomedPaneId ? null : state.activePaneId };
+  if (state.zoomedPaneId) {
+    return { ...state, zoomedPaneId: null };
+  }
+  const targetPaneId = state.panes.some((pane) => pane.paneId === paneId) ? paneId : state.activePaneId;
+  return { ...state, zoomedPaneId: targetPaneId, activePaneId: targetPaneId };
 }
 
 /**

@@ -251,4 +251,78 @@ describe('AppTopBar', () => {
 
     expect(props.onSplitPane).toHaveBeenCalledOnce();
   });
+
+  it('renders multiple tab segments with a divider and independent pane actions', () => {
+    const firstTab = createTab({ tabId: 'tab-1', title: 'Alpha Note' });
+    const secondTab = createTab({ tabId: 'tab-2', noteId: 'note-2', title: 'Beta Note' });
+    const onSelectLeft = vi.fn();
+    const onSelectRight = vi.fn();
+    const onNewLeft = vi.fn();
+    const onNewRight = vi.fn();
+    const onZoomLeft = vi.fn();
+    const onEqualize = vi.fn();
+
+    renderTopBar({
+      segments: [
+        {
+          paneId: 'pane-1',
+          tabStripId: 'scope:pane-1',
+          isActivePane: false,
+          showEqualizeButton: false,
+          activeTab: firstTab,
+          tabs: [firstTab],
+          onCloseOtherTabs: vi.fn(),
+          onCloseTab: vi.fn(),
+          onCloseTabsToRight: vi.fn(),
+          onMoveTabToOtherPane: vi.fn(),
+          onReorderTab: vi.fn(),
+          onSelectTab: onSelectLeft,
+          onSplitPane: vi.fn(),
+          onNewTab: onNewLeft,
+          paneLayout: { zoomed: false, onSplitDown: vi.fn(), onToggleZoom: onZoomLeft, onEqualize },
+          paneActions: { canMoveToOtherPane: true, canReopenLastClosedTab: false, canSplit: true },
+        },
+        {
+          paneId: 'pane-2',
+          tabStripId: 'scope:pane-2',
+          isActivePane: true,
+          showEqualizeButton: true,
+          activeTab: secondTab,
+          tabs: [secondTab],
+          onCloseOtherTabs: vi.fn(),
+          onCloseTab: vi.fn(),
+          onCloseTabsToRight: vi.fn(),
+          onMoveTabToOtherPane: vi.fn(),
+          onReorderTab: vi.fn(),
+          onSelectTab: onSelectRight,
+          onSplitPane: vi.fn(),
+          onNewTab: onNewRight,
+          paneLayout: { zoomed: false, onSplitDown: vi.fn(), onToggleZoom: vi.fn(), onEqualize },
+          paneActions: { canMoveToOtherPane: true, canReopenLastClosedTab: false, canSplit: true },
+        },
+      ],
+    });
+
+    const segments = document.querySelectorAll<HTMLElement>('[data-hackdesk-focus="tabs"]');
+    expect(segments).toHaveLength(2);
+    expect(segments[0]).toHaveAttribute('data-document-pane-id', 'pane-1');
+    expect(segments[0]).toHaveAttribute('data-active-tab-segment', 'false');
+    expect(segments[1]).toHaveAttribute('data-document-pane-id', 'pane-2');
+    expect(segments[1]).toHaveAttribute('data-active-tab-segment', 'true');
+    expect(document.querySelectorAll('[data-tab-segment-divider]')).toHaveLength(1);
+
+    fireEvent.click(within(segments[0]).getByRole('tab', { name: 'Alpha Note' }));
+    fireEvent.click(within(segments[0]).getByRole('button', { name: 'New Tab' }));
+    fireEvent.click(within(segments[0]).getByRole('button', { name: 'Zoom pane' }));
+    expect(onSelectLeft).toHaveBeenCalledWith('tab-1');
+    expect(onNewLeft).toHaveBeenCalledOnce();
+    expect(onZoomLeft).toHaveBeenCalledOnce();
+    expect(within(segments[0]).queryByRole('button', { name: 'Equalize pane sizes' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(segments[1]).getByRole('button', { name: 'New Tab' }));
+    fireEvent.click(within(segments[1]).getByRole('button', { name: 'Equalize pane sizes' }));
+    expect(onNewRight).toHaveBeenCalledOnce();
+    expect(onEqualize).toHaveBeenCalledOnce();
+    expect(onSelectRight).not.toHaveBeenCalled();
+  });
 });

@@ -3,12 +3,12 @@ import { useCallback } from 'react';
 
 import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 
-import { AppTopBar } from './AppTopBar';
+import { AppTopBar, type AppTopBarTabSegment } from './AppTopBar';
 import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import { FolderNavigator } from './FolderNavigator';
 import type { NotePane, NoteWorkspaceState, OpenNoteTab } from './note-workspace';
 import { PanelResizeSash } from './PanelResizeSash';
-import type { PaneDirection } from './pane-layout';
+import { layoutPaneIds, type PaneDirection } from './pane-layout';
 import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
 import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
 import { WorkspaceNavigationProvider, type WorkspaceNavigation } from './WorkspaceNavigationContext';
@@ -40,9 +40,11 @@ export type ElectronHomeWorkspaceProps = {
     layout: {
       navigatorCollapsed: boolean;
     };
-    state: Pick<NoteWorkspaceState, 'scopeKey' | 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs' | 'zoomedPaneId'>;
+    state: Pick<NoteWorkspaceState, 'scopeKey' | 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs' | 'zoomedPaneId'> & {
+      layout?: NoteWorkspaceState['layout'];
+    };
     actions: {
-      moveActiveTabToOtherPane: () => void;
+      moveActiveTabToOtherPane: (paneId?: string) => void;
       moveTabToPane?: (tabId: string, targetPaneId: string, options?: { overTabId?: string; copy?: boolean }) => void;
       navigateBack: () => void;
       navigateForward: () => void;
@@ -53,13 +55,13 @@ export type ElectronHomeWorkspaceProps = {
       selectTab: (paneId: string, tabId: string) => void;
       keepTab: (tabId: string) => void;
       reorderTab: (paneId: string, tabId: string, overTabId: string) => void;
-      splitActiveTab: () => void;
-      splitActivePaneDown: () => void;
+      splitActiveTab: (paneId?: string) => void;
+      splitActivePaneDown: (paneId?: string) => void;
       splitTabToNewPane?: (tabId: string, target: { paneId?: string; edge?: boolean; direction: PaneDirection }, options?: { copy?: boolean }) => void;
-      togglePaneZoom: () => void;
+      togglePaneZoom: (paneId?: string) => void;
       equalizePanes: () => void;
       toggleNavigator: () => void;
-      onNewTab: () => void;
+      onNewTab: (paneId?: string) => void;
     };
   };
 };
@@ -76,6 +78,60 @@ export function ElectronHomeWorkspace({
   const activeTitlebarPane = titlebar.state.panes.find((pane) => pane.paneId === titlebar.state.activePaneId) ?? null;
   const activeTitlebarPaneView = activeTitlebarPane ? titlebar.getPaneView(activeTitlebarPane) : null;
   const activeTitlebarTabs = activeTitlebarPane ? titlebar.getPaneTabs(activeTitlebarPane) : [];
+
+  const layout = titlebar.state.layout ?? documentWorkspace.layout;
+  const orderedPaneIds = layout ? layoutPaneIds(layout) : titlebar.state.panes.map((pane) => pane.paneId);
+  const paneById = new Map(titlebar.state.panes.map((pane) => [pane.paneId, pane]));
+  const orderedPanes = [
+    ...orderedPaneIds.map((id) => paneById.get(id)).filter((pane): pane is NotePane => Boolean(pane)),
+    ...titlebar.state.panes.filter((pane) => !orderedPaneIds.includes(pane.paneId)),
+  ];
+  const visiblePanes = titlebar.state.zoomedPaneId
+    ? orderedPanes.filter((pane) => pane.paneId === titlebar.state.zoomedPaneId)
+    : orderedPanes;
+  const segments: AppTopBarTabSegment[] = visiblePanes.map((pane) => {
+    const view = titlebar.getPaneView(pane);
+    const tabs = titlebar.getPaneTabs(pane);
+    const isActivePane = pane.paneId === titlebar.state.activePaneId;
+    return {
+      paneId: pane.paneId,
+      tabStripId: `${titlebar.state.scopeKey}:${pane.paneId}`,
+      isActivePane,
+      showEqualizeButton: isActivePane,
+      activeTab: view?.activeTab ?? null,
+      tabs,
+      onCloseOtherTabs: (tabId) => {
+        void titlebar.actions.requestCloseOtherTabs(pane.paneId, tabId);
+      },
+      onCloseTab: (tabId) => {
+        void titlebar.actions.requestCloseTab(tabId);
+      },
+      onCloseTabsToRight: (tabId) => {
+        void titlebar.actions.requestCloseTabsToRight(pane.paneId, tabId);
+      },
+      onMoveTabToOtherPane: () => titlebar.actions.moveActiveTabToOtherPane(pane.paneId),
+      onReorderTab: (tabId, overTabId) => {
+        titlebar.actions.reorderTab(pane.paneId, tabId, overTabId);
+      },
+      onSelectTab: (tabId) => {
+        titlebar.actions.selectTab(pane.paneId, tabId);
+      },
+      onKeepTab: titlebar.actions.keepTab,
+      onSplitPane: () => titlebar.actions.splitActiveTab(pane.paneId),
+      onNewTab: () => titlebar.actions.onNewTab(pane.paneId),
+      paneLayout: {
+        zoomed: Boolean(titlebar.state.zoomedPaneId),
+        onSplitDown: () => titlebar.actions.splitActivePaneDown(pane.paneId),
+        onToggleZoom: () => titlebar.actions.togglePaneZoom(pane.paneId),
+        onEqualize: titlebar.actions.equalizePanes,
+      },
+      paneActions: {
+        canMoveToOtherPane: titlebar.state.panes.length > 1,
+        canReopenLastClosedTab: titlebar.state.recentlyClosedTabs.length > 0,
+        canSplit: titlebar.state.panes.length < MAX_NOTE_PANES,
+      },
+    };
+  });
 
   const getTabTitle = useCallback((tabId: string) => {
     for (const pane of titlebar.state.panes) {
@@ -98,6 +154,7 @@ export function ElectronHomeWorkspace({
       <AppTopBar
         tabStripId={`${titlebar.state.scopeKey}:${activeTitlebarPane?.paneId}`}
         paneId={activeTitlebarPane?.paneId}
+        segments={segments}
         activeTab={activeTitlebarPaneView?.activeTab ?? null}
         getTabSyncState={titlebar.getTabSyncState}
         navigation={{

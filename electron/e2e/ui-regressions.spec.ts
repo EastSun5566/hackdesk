@@ -742,11 +742,12 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await switchWorkspace(page, 'vault');
     // A sidebar pick opens a preview tab that the next pick replaces; a double-click keeps the tab.
+    const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
     const openNote = async (name: string) => {
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
-      await expect(page.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
+      await expect(activeTabSegment.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
     };
-    const strip = page.getByRole('navigation', { name: 'Open documents' });
+    const strip = activeTabSegment.getByRole('navigation', { name: 'Open documents' });
     const labels = () => strip.locator('[data-tab-title]').allTextContents();
     const dragTab = async (from: string, to: string, cancel = false) => {
       const source = (await strip.getByRole('tab', { name: new RegExp(`^${from}(?:, .+)?$`) }).boundingBox())!;
@@ -1415,10 +1416,11 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.getByRole('menuitem', { name: 'Split Right', exact: true }).press('Enter');
       const editors = page.locator('.cm-content');
       await expect(editors).toHaveCount(2);
+      const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
       const tree = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
       await tree.focus();
       await page.keyboard.press('F6');
-      await expect(page.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ })).toBeFocused();
+      await expect(activeTabSegment.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ })).toBeFocused();
       await page.keyboard.press('F6');
       await expect(editors.first()).toBeFocused();
       await expect(editors.first().locator('xpath=ancestor::section[@data-active-pane][1]')).toHaveAttribute('data-active-pane', 'true');
@@ -1432,7 +1434,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       const search = page.getByPlaceholder('Search notes', { exact: true });
       await search.focus();
       await page.keyboard.press('F6');
-      await expect(page.getByRole('tab').first()).toBeFocused();
+      await expect(activeTabSegment.getByRole('tab').first()).toBeFocused();
       await page.keyboard.press('Shift+F6');
       await expect(search).toBeFocused();
       await editors.last().focus();
@@ -1444,7 +1446,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.getByRole('toolbar', { name: 'Application controls', exact: true }).getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
       await editors.last().focus();
       await page.keyboard.press('F6');
-      await expect(page.getByRole('tab').first()).toBeFocused();
+      await expect(activeTabSegment.getByRole('tab').first()).toBeFocused();
       await page.screenshot({ path: test.info().outputPath(`13-f6-${mode}.png`), animations: 'disabled' });
     } finally {
       // Typing ? intentionally dirties Standard mode. Approve only fixture
@@ -1935,7 +1937,8 @@ test('Hack Mode leaves only the active note, centered, until the same key is pre
     const sidebarWidth = (await sidebar.boundingBox())!.width;
     const chrome = [
       page.getByRole('toolbar', { name: 'Application controls' }),
-      page.getByRole('navigation', { name: 'Open documents' }),
+      page.locator('[data-hackdesk-focus="tabs"]').first(),
+      page.locator('[data-hackdesk-focus="tabs"]').last(),
       sidebar,
       page.getByRole('note', { name: 'Keys you can press' }),
       page.locator('[data-active-pane="true"] header').first(),
@@ -2299,13 +2302,17 @@ test('panes split right and down, move by direction, and zoom without losing edi
     await page.keyboard.press(`${primary}+z`);
     await expect(editor).not.toContainText('zoomed edit');
 
-    // Each pane's header has a zoom button too.
-    const header = page.locator('section[data-active-pane="true"] header');
-    await header.hover();
-    await header.getByRole('button', { name: 'Zoom pane' }).click();
+    // Each tab segment in the top bar has unified zoom and equalize controls too.
+    const tabSegments = page.locator('[data-hackdesk-focus="tabs"]');
+    const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
+    await expect(tabSegments).toHaveCount(3);
+    await expect(activeTabSegment.getByRole('button', { name: 'Equalize pane sizes' })).toBeVisible();
+    await activeTabSegment.getByRole('button', { name: 'Zoom pane' }).click();
     await expect(visiblePanes).toHaveCount(1);
-    await page.locator('section[data-active-pane="true"] header').getByRole('button', { name: 'Restore panes' }).click();
+    await expect(tabSegments).toHaveCount(1);
+    await activeTabSegment.getByRole('button', { name: 'Restore panes' }).click();
     await expect(visiblePanes).toHaveCount(3);
+    await expect(tabSegments).toHaveCount(3);
 
     // Hack Mode leaves only the active pane of the nested split too.
     await page.keyboard.press(`${primary}+.`);
@@ -2440,7 +2447,9 @@ test('top-bar tab drag-to-split, separator equalize, and drag-to-pane move', asy
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await switchWorkspace(page, 'vault');
-    const strip = page.getByRole('navigation', { name: 'Open documents' });
+    const tabSegments = page.locator('[data-hackdesk-focus="tabs"]');
+    const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
+    const strip = activeTabSegment.getByRole('navigation', { name: 'Open documents' });
     await expect(page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Alpha', exact: true })).toBeVisible();
     for (const name of ['Alpha', 'Beta']) {
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
@@ -2460,6 +2469,11 @@ test('top-bar tab drag-to-split, separator equalize, and drag-to-pane move', asy
     const panes = page.locator('section[data-document-pane-id]');
     await expect(panes).toHaveCount(2);
     await expect(panes.nth(1)).toHaveAttribute('data-active-pane', 'true');
+    await expect(tabSegments).toHaveCount(2);
+    await expect(page.locator('[data-tab-segment-divider]')).toHaveCount(1);
+    await expect(tabSegments.nth(0).getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toBeVisible();
+    await expect(tabSegments.nth(1).getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toBeVisible();
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('31-two-segment-topbar.png') });
 
     // Drag the pane separator off-center, then double-click it to equalize panes back to ~50/50.
     const separator = page.getByRole('separator', { name: /Resize document panes/ });
@@ -2483,7 +2497,26 @@ test('top-bar tab drag-to-split, separator equalize, and drag-to-pane move', asy
       return Math.abs(left.width - right.width);
     }).toBeLessThan(12);
 
-    // Drag Beta from the top bar into the center of the left pane to move it back and collapse the 2nd pane.
+    // Clicking the unified Equalize button in the active top-bar segment also equalizes panes.
+    const equalSepBox = (await separator.boundingBox())!;
+    await page.mouse.move(equalSepBox.x + equalSepBox.width / 2, equalSepBox.y + equalSepBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(equalSepBox.x - 140, equalSepBox.y + equalSepBox.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => {
+      const left = (await panes.nth(0).boundingBox())!;
+      const right = (await panes.nth(1).boundingBox())!;
+      return Math.abs(left.width - right.width);
+    }).toBeGreaterThan(80);
+
+    await activeTabSegment.getByRole('button', { name: 'Equalize pane sizes' }).click();
+    await expect.poll(async () => {
+      const left = (await panes.nth(0).boundingBox())!;
+      const right = (await panes.nth(1).boundingBox())!;
+      return Math.abs(left.width - right.width);
+    }).toBeLessThan(12);
+
+    // Drag Beta from the right top-bar segment into the center of the left pane to move it back and collapse the 2nd pane.
     const leftPaneBox = (await panes.nth(0).boundingBox())!;
     const betaTabBox = (await strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ }).boundingBox())!;
     await page.mouse.move(betaTabBox.x + 12, betaTabBox.y + betaTabBox.height / 2);
@@ -2493,6 +2526,8 @@ test('top-bar tab drag-to-split, separator equalize, and drag-to-pane move', asy
     await page.mouse.up();
 
     await expect(panes).toHaveCount(1);
+    await expect(tabSegments).toHaveCount(1);
+    await expect(page.locator('[data-tab-segment-divider]')).toHaveCount(0);
     await expect(strip.getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toBeVisible();
     await expect(strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toBeVisible();
   } finally {

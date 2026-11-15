@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 
 import { Toolbar, ToolbarSeparator } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,43 @@ import type { DocumentSyncState } from './DocumentDetail';
 import type { ElectronActionId } from '@/lib/electron-api';
 import type { OpenNoteTab } from './note-workspace';
 import { HACK_MODE_DRAG_STRIP_CLASS } from './ui';
+
+export type AppTopBarTabSegment = {
+  paneId?: string;
+  tabStripId?: string;
+  isActivePane?: boolean;
+  showEqualizeButton?: boolean;
+  activeTab: OpenNoteTab | null;
+  tabs: OpenNoteTab[];
+  onCloseOtherTabs: (tabId: string) => void;
+  onCloseTab: (tabId: string) => void;
+  onCloseTabsToRight: (tabId: string) => void;
+  onMoveTabToOtherPane: () => void;
+  onReorderTab: (tabId: string, overTabId: string) => void;
+  onSelectTab: (tabId: string) => void;
+  onKeepTab?: (tabId: string) => void;
+  onSplitPane: () => void;
+  onNewTab: () => void;
+  paneLayout: PaneLayoutMenuActions;
+  paneActions: {
+    canMoveToOtherPane: boolean;
+    canReopenLastClosedTab: boolean;
+    canSplit: boolean;
+  };
+};
+
+const noop = () => {};
+const DEFAULT_PANE_LAYOUT: PaneLayoutMenuActions = {
+  zoomed: false,
+  onSplitDown: noop,
+  onToggleZoom: noop,
+  onEqualize: noop,
+};
+const DEFAULT_PANE_ACTIONS = {
+  canMoveToOtherPane: false,
+  canReopenLastClosedTab: false,
+  canSplit: false,
+};
 
 function TopBarIconButton({
   actionId,
@@ -49,6 +86,7 @@ export function AppTopBar({
   activeTab,
   tabStripId,
   paneId,
+  segments,
   getTabSyncState,
   navigation,
   onCloseOtherTabs,
@@ -69,9 +107,10 @@ export function AppTopBar({
   onToggleNavigator,
   onNewTab,
 }: {
-  activeTab: OpenNoteTab | null;
+  activeTab?: OpenNoteTab | null;
   tabStripId?: string;
   paneId?: string;
+  segments?: AppTopBarTabSegment[];
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
   navigation: {
     canGoBack: boolean;
@@ -79,18 +118,18 @@ export function AppTopBar({
     onBack: () => void;
     onForward: () => void;
   };
-  onCloseOtherTabs: (tabId: string) => void;
-  onCloseTab: (tabId: string) => void;
-  onCloseTabsToRight: (tabId: string) => void;
-  onMoveTabToOtherPane: () => void;
+  onCloseOtherTabs?: (tabId: string) => void;
+  onCloseTab?: (tabId: string) => void;
+  onCloseTabsToRight?: (tabId: string) => void;
+  onMoveTabToOtherPane?: () => void;
   onReopenLastClosedTab: () => void;
-  onReorderTab: (tabId: string, overTabId: string) => void;
-  onSelectTab: (tabId: string) => void;
+  onReorderTab?: (tabId: string, overTabId: string) => void;
+  onSelectTab?: (tabId: string) => void;
   /** Keeps a preview tab open. */
   onKeepTab?: (tabId: string) => void;
-  onSplitPane: () => void;
-  paneLayout: PaneLayoutMenuActions;
-  paneActions: {
+  onSplitPane?: () => void;
+  paneLayout?: PaneLayoutMenuActions;
+  paneActions?: {
     canMoveToOtherPane: boolean;
     canReopenLastClosedTab: boolean;
     canSplit: boolean;
@@ -98,9 +137,9 @@ export function AppTopBar({
   platform: string;
   navigatorCollapsed: boolean;
   navigatorPanelId: string;
-  tabs: OpenNoteTab[];
+  tabs?: OpenNoteTab[];
   onToggleNavigator: () => void;
-  onNewTab: () => void;
+  onNewTab?: () => void;
 }) {
   const [fullScreen, setFullScreen] = useState(false);
 
@@ -129,6 +168,29 @@ export function AppTopBar({
       unsubscribe();
     };
   }, [platform]);
+
+  const resolvedSegments: AppTopBarTabSegment[] = segments && segments.length > 0
+    ? segments
+    : [{
+      paneId,
+      tabStripId,
+      isActivePane: true,
+      showEqualizeButton: paneActions?.canMoveToOtherPane ?? false,
+      activeTab: activeTab ?? null,
+      tabs: tabs ?? [],
+      onCloseOtherTabs: onCloseOtherTabs ?? noop,
+      onCloseTab: onCloseTab ?? noop,
+      onCloseTabsToRight: onCloseTabsToRight ?? noop,
+      onMoveTabToOtherPane: onMoveTabToOtherPane ?? noop,
+      onReorderTab: onReorderTab ?? noop,
+      onSelectTab: onSelectTab ?? noop,
+      onKeepTab,
+      onSplitPane: onSplitPane ?? noop,
+      onNewTab: onNewTab ?? noop,
+      paneLayout: paneLayout ?? DEFAULT_PANE_LAYOUT,
+      paneActions: paneActions ?? DEFAULT_PANE_ACTIONS,
+    }];
+  const isSegmented = resolvedSegments.length > 1;
 
   return (
     <header className={cn(
@@ -166,28 +228,43 @@ export function AppTopBar({
           <ArrowRight aria-hidden="true" className="size-4.5" />
         </TopBarIconButton>
       </Toolbar>
-      <DocumentTabs
-        key={tabStripId}
-        paneId={paneId}
-        activeTab={activeTab}
-        canMoveToOtherPane={paneActions.canMoveToOtherPane}
-        canReopenLastClosedTab={paneActions.canReopenLastClosedTab}
-        canSplit={paneActions.canSplit}
-        className="h-full"
-        getTabSyncState={getTabSyncState}
-        onCloseOtherTabs={onCloseOtherTabs}
-        onCloseTab={onCloseTab}
-        onCloseTabsToRight={onCloseTabsToRight}
-        onMoveTabToOtherPane={onMoveTabToOtherPane}
-        onReopenLastClosedTab={onReopenLastClosedTab}
-        onReorderTab={onReorderTab}
-        onSelectTab={onSelectTab}
-        onKeepTab={onKeepTab}
-        onSplitPane={onSplitPane}
-        paneLayout={paneLayout}
-        onNewTab={onNewTab}
-        tabs={tabs}
-      />
+      <div className="flex h-full min-w-0 flex-1 items-center gap-1.5">
+        {resolvedSegments.map((segment, index) => (
+          <Fragment key={segment.tabStripId ?? segment.paneId ?? index}>
+            {index > 0 ? (
+              <div
+                aria-hidden="true"
+                data-tab-segment-divider=""
+                className="h-5 w-px shrink-0 bg-border-default"
+              />
+            ) : null}
+            <DocumentTabs
+              paneId={segment.paneId}
+              isActivePane={segment.isActivePane ?? true}
+              isSegmented={isSegmented}
+              showEqualizeButton={segment.showEqualizeButton ?? (segment.isActivePane ?? true)}
+              activeTab={segment.activeTab}
+              canMoveToOtherPane={segment.paneActions.canMoveToOtherPane}
+              canReopenLastClosedTab={segment.paneActions.canReopenLastClosedTab}
+              canSplit={segment.paneActions.canSplit}
+              className="h-full"
+              getTabSyncState={getTabSyncState}
+              onCloseOtherTabs={segment.onCloseOtherTabs}
+              onCloseTab={segment.onCloseTab}
+              onCloseTabsToRight={segment.onCloseTabsToRight}
+              onMoveTabToOtherPane={segment.onMoveTabToOtherPane}
+              onReopenLastClosedTab={onReopenLastClosedTab}
+              onReorderTab={segment.onReorderTab}
+              onSelectTab={segment.onSelectTab}
+              onKeepTab={segment.onKeepTab}
+              onSplitPane={segment.onSplitPane}
+              paneLayout={segment.paneLayout}
+              onNewTab={segment.onNewTab}
+              tabs={segment.tabs}
+            />
+          </Fragment>
+        ))}
+      </div>
     </header>
   );
 }

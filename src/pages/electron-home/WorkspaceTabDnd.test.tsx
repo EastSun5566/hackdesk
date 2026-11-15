@@ -75,6 +75,24 @@ describe('computeWorkspaceDropTarget', () => {
       panes: onePane,
       zoomedPaneId: null,
     })).toEqual({ zone: null, stripId: tabStripDropId('pane-a') });
+
+    const leftSegment = document.createElement('div');
+    leftSegment.dataset.documentPaneId = 'pane-a';
+    leftSegment.getBoundingClientRect = () => rect(200, 0, 400, 40);
+    const rightSegment = document.createElement('div');
+    rightSegment.dataset.documentPaneId = 'pane-b';
+    rightSegment.getBoundingClientRect = () => rect(600, 0, 400, 40);
+
+    expect(computeWorkspaceDropTarget({
+      drag: { tabId: 'tab-2', sourcePaneId: 'pane-a' },
+      copy: false,
+      point: { x: 750, y: 20 },
+      over: null,
+      workspaceEl,
+      tabRegionEls: [leftSegment, rightSegment],
+      panes: twoPanes,
+      zoomedPaneId: null,
+    })).toEqual({ zone: null, stripId: tabStripDropId('pane-b') });
   });
 
   it('detects pane edge splits and converts to workspace-local preview coordinates', () => {

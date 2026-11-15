@@ -37,7 +37,7 @@ export type WorkspaceTabDndState = {
   dropTargetId: string | null;
   dropOverlay: DropZonePreview | null;
   registerWorkspaceElement: (element: HTMLElement | null) => void;
-  registerTabRegionElement: (element: HTMLElement | null) => void;
+  registerTabRegionElement: (paneId: string, element: HTMLElement | null) => void;
 };
 
 const noop = () => {};
@@ -79,6 +79,7 @@ export function computeWorkspaceDropTarget({
   over,
   workspaceEl,
   tabRegionEl,
+  tabRegionEls,
   panes,
   zoomedPaneId,
 }: {
@@ -87,7 +88,8 @@ export function computeWorkspaceDropTarget({
   point: { x: number; y: number } | null;
   over: Over | null;
   workspaceEl: HTMLElement | null;
-  tabRegionEl: HTMLElement | null;
+  tabRegionEl?: HTMLElement | null;
+  tabRegionEls?: Iterable<HTMLElement>;
   panes: readonly NotePane[];
   zoomedPaneId: string | null;
 }): { zone: DropZonePreview | null; stripId: string | null } {
@@ -102,9 +104,16 @@ export function computeWorkspaceDropTarget({
     return { zone: null, stripId: null };
   }
 
-  if (tabRegionEl && pointInRect(point.x, point.y, tabRegionEl.getBoundingClientRect())) {
-    const targetPaneId = tabRegionEl.dataset.documentPaneId;
-    return { zone: null, stripId: targetPaneId ? tabStripDropId(targetPaneId) : null };
+  const regionList = tabRegionEls
+    ? Array.from(tabRegionEls)
+    : tabRegionEl
+      ? [tabRegionEl]
+      : [];
+  for (const regionEl of regionList) {
+    if (pointInRect(point.x, point.y, regionEl.getBoundingClientRect())) {
+      const targetPaneId = regionEl.dataset.documentPaneId;
+      return { zone: null, stripId: targetPaneId ? tabStripDropId(targetPaneId) : null };
+    }
   }
 
   const canSplitMore = panes.length < MAX_NOTE_PANES && !zoomedPaneId;
@@ -221,7 +230,7 @@ export function WorkspaceTabDndProvider({
   const [activeStripDropId, setActiveStripDropId] = useState<string | null>(null);
 
   const workspaceElRef = useRef<HTMLElement | null>(null);
-  const tabRegionElRef = useRef<HTMLElement | null>(null);
+  const tabRegionElsRef = useRef(new Map<string, HTMLElement>());
   const activeDragRef = useRef<{ tabId: string; sourcePaneId: string } | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const copyModeRef = useRef(false);
@@ -232,18 +241,23 @@ export function WorkspaceTabDndProvider({
     workspaceElRef.current = element;
   }, []);
 
-  const registerTabRegionElement = useCallback((element: HTMLElement | null) => {
-    tabRegionElRef.current = element;
+  const registerTabRegionElement = useCallback((paneId: string, element: HTMLElement | null) => {
+    if (element) {
+      tabRegionElsRef.current.set(paneId, element);
+    } else {
+      tabRegionElsRef.current.delete(paneId);
+    }
   }, []);
 
   const collisionDetection: CollisionDetection = useCallback((args) => {
     const point = pointerRef.current ?? args.pointerCoordinates;
-    const tabRegionEl = tabRegionElRef.current;
-    if (point && tabRegionEl) {
-      if (!pointInRect(point.x, point.y, tabRegionEl.getBoundingClientRect())) {
+    const regionEls = Array.from(tabRegionElsRef.current.values());
+    if (point && regionEls.length > 0) {
+      const hoveredRegion = regionEls.find((regionEl) => pointInRect(point.x, point.y, regionEl.getBoundingClientRect()));
+      if (!hoveredRegion) {
         return [];
       }
-      const hoveredPaneId = tabRegionEl.dataset.documentPaneId ?? null;
+      const hoveredPaneId = hoveredRegion.dataset.documentPaneId ?? null;
       if (!hoveredPaneId) {
         return [];
       }
@@ -255,7 +269,7 @@ export function WorkspaceTabDndProvider({
         const data = container.data.current as { type?: string; paneId?: string } | undefined;
         return data?.type === 'tab-strip' && data.paneId === hoveredPaneId;
       });
-      const tabListEl = tabRegionEl.querySelector<HTMLElement>('[role="tablist"]');
+      const tabListEl = hoveredRegion.querySelector<HTMLElement>('[role="tablist"]');
       if (tabContainers.length > 0 && (!tabListEl || point.x <= tabListEl.getBoundingClientRect().right + 16)) {
         return closestCenter({ ...args, droppableContainers: tabContainers });
       }
@@ -279,7 +293,7 @@ export function WorkspaceTabDndProvider({
       point,
       over,
       workspaceEl: workspaceElRef.current,
-      tabRegionEl: tabRegionElRef.current,
+      tabRegionEls: tabRegionElsRef.current.values(),
       panes,
       zoomedPaneId,
     });

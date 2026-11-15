@@ -336,6 +336,40 @@ describe('note workspace tabs', () => {
     expect(closed.panes).toHaveLength(1);
   });
 
+  it('targets a specific inactive pane for blank tab, duplicate, move, zoom, and split actions', () => {
+    const withTabs = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const split = splitActiveTabRight(withTabs);
+    const leftPaneId = split.panes[0].paneId;
+    const rightPaneId = split.panes[1].paneId;
+    expect(split.activePaneId).toBe(rightPaneId);
+
+    // Zooming the inactive left pane zooms and activates it
+    const zoomedLeft = toggleNotePaneZoom(split, leftPaneId);
+    expect(zoomedLeft.zoomedPaneId).toBe(leftPaneId);
+    expect(zoomedLeft.activePaneId).toBe(leftPaneId);
+    expect(toggleNotePaneZoom(zoomedLeft, rightPaneId).zoomedPaneId).toBeNull();
+
+    // Opening a blank tab on the inactive left pane adds it there
+    const withBlank = openBlankNoteTab(split, leftPaneId);
+    expect(withBlank.activePaneId).toBe(leftPaneId);
+    expect(isBlankNoteTab(getPaneActiveTab(withBlank, leftPaneId))).toBe(true);
+
+    // Duplicating active tab on an inactive pane duplicates that pane's active tab
+    const duplicated = duplicateActiveNoteTab(split, leftPaneId);
+    expect(duplicated.activePaneId).toBe(leftPaneId);
+    expect(duplicated.panes.find((pane) => pane.paneId === leftPaneId)?.tabIds).toHaveLength(2);
+
+    // Moving active tab of an inactive pane moves from that pane to the next pane
+    const movedFromLeft = moveActiveTabToOtherPane(duplicated, leftPaneId);
+    expect(movedFromLeft.panes.find((pane) => pane.paneId === leftPaneId)?.tabIds).toHaveLength(1);
+    expect(movedFromLeft.panes.find((pane) => pane.paneId === rightPaneId)?.tabIds).toHaveLength(2);
+
+    // Splitting an inactive pane splits from that pane
+    const splitLeftDown = splitActivePane(movedFromLeft, 'down', leftPaneId);
+    expect(splitLeftDown.panes).toHaveLength(3);
+  });
+
   it('closes other tabs only inside the target pane', () => {
     const withTabs = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' })]
       .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));

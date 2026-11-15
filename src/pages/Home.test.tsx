@@ -2112,7 +2112,7 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: '\\', metaKey: true });
 
-    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(1);
+    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(2);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
   });
 
@@ -2517,7 +2517,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await findRenderedNoteTitle();
     fireEvent.keyDown(window, { key: '\\', metaKey: true, shiftKey: true });
-    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(1);
+    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(2);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
     act(() => {
       commandHandler?.({ type: 'delete-note' });

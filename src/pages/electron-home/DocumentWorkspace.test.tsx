@@ -150,7 +150,6 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     isInspectorCollapsed: false,
     onFocusPane: vi.fn(),
     onResizeSplit: vi.fn(),
-    onTogglePaneZoom: vi.fn(),
     canCreateNote: true,
     onCreateNote: vi.fn(),
     onQuickOpen: vi.fn(),

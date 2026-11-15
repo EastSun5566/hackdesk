@@ -238,24 +238,28 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     setState(reopenLastClosedTab);
   }, []);
 
-  const duplicateActiveTab = useCallback(() => {
-    setState(duplicateActiveNoteTab);
+  const duplicateActiveTab = useCallback((paneId?: string) => {
+    const targetPaneId = typeof paneId === 'string' ? paneId : undefined;
+    setState((current) => duplicateActiveNoteTab(current, targetPaneId));
   }, []);
 
-  const openBlankTab = useCallback(() => {
-    setState(openBlankNoteTab);
+  const openBlankTab = useCallback((paneId?: string) => {
+    const targetPaneId = typeof paneId === 'string' ? paneId : undefined;
+    setState((current) => openBlankNoteTab(current, targetPaneId));
   }, []);
 
-  const splitActivePaneDown = useCallback(() => {
-    setState((current) => splitActivePane(current, 'down'));
+  const splitActivePaneDown = useCallback((paneId?: string) => {
+    const targetPaneId = typeof paneId === 'string' ? paneId : undefined;
+    setState((current) => splitActivePane(current, 'down', targetPaneId));
   }, []);
 
   const focusPaneToward = useCallback((direction: PaneDirection) => {
     setState((current) => focusPaneInDirection(current, direction));
   }, []);
 
-  const togglePaneZoom = useCallback(() => {
-    setState(toggleNotePaneZoom);
+  const togglePaneZoom = useCallback((paneId?: string) => {
+    const targetPaneId = typeof paneId === 'string' ? paneId : undefined;
+    setState((current) => toggleNotePaneZoom(current, targetPaneId));
   }, []);
 
   const equalizePanes = useCallback(() => {
@@ -266,12 +270,14 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     setState((current) => equalizeNoteSplit(current, splitId));
   }, []);
 
-  const splitActiveTab = useCallback(() => {
-    setState(splitActiveTabRight);
+  const splitActiveTab = useCallback((paneId?: string) => {
+    const targetPaneId = typeof paneId === 'string' ? paneId : undefined;
+    setState((current) => splitActiveTabRight(current, targetPaneId));
   }, []);
 
-  const moveActiveTabToOtherPaneAction = useCallback(() => {
-    setState(moveActiveTabToOtherPane);
+  const moveActiveTabToOtherPaneAction = useCallback((paneId?: string) => {
+    const targetPaneId = typeof paneId === 'string' ? paneId : undefined;
+    setState((current) => moveActiveTabToOtherPane(current, targetPaneId));
   }, []);
 
   const moveTabToPane = useCallback((

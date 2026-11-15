@@ -199,7 +199,6 @@ export function DocumentWorkspace({
   onEditorRequestHandled,
   onResizeSplit,
   onEqualizeSplit,
-  onTogglePaneZoom,
   onFocusPane,
   canCreateNote,
   onCreateNote,
@@ -223,8 +222,6 @@ export function DocumentWorkspace({
   onResizeSplit: (splitId: string, sizes: Record<string, number>) => void;
   /** Equalizes the children of a split container (e.g. separator double-click). */
   onEqualizeSplit?: (splitId: string) => void;
-  /** Zooms the active pane or restores the others; a pane's button makes it active first. */
-  onTogglePaneZoom: () => void;
   onFocusPane: (paneId: string) => void;
   canCreateNote: boolean;
   onCreateNote: () => void;
@@ -360,7 +357,6 @@ export function DocumentWorkspace({
                 shareOpen: isActivePane && shareOpen,
                 versionsOpen: isActivePane && versionsOpen,
                 inspectorCollapsed: isPaneInspectorCollapsed ? isPaneInspectorCollapsed(pane.paneId) : (!isActivePane || isInspectorCollapsed),
-                paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,
               }}
               status={{
                 loading: view.isLoading,

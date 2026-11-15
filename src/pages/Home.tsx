@@ -32,6 +32,7 @@ import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace, getL
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace, NOTE_NAVIGATOR_PANEL_ID } from './electron-home/ElectronHomeWorkspace';
+import { readNewTabOpens } from './electron-home/new-tab-preference';
 import { useSplitStatusLine } from './electron-home/split-status-line-preference';
 import { useStatusLineVisible } from './electron-home/status-line-preference';
 import { useElectronSettings } from './electron-home/useElectronSettings';
@@ -309,9 +310,10 @@ export function Home() {
     toast.info(shortcut ? `Hack Mode · Press ${shortcut.split(', ')[0]} to leave` : 'Hack Mode');
     if (!document.activeElement?.closest('[data-hackdesk-focus="editor"]')) focusZone('editor');
   }, [api?.platform, focusZone, hackMode, settingsQuery.data?.shortcuts]);
-  const togglePaneZoom = useCallback(() => {
+  const togglePaneZoom = useCallback((paneId?: string) => {
+    const targetPaneId = typeof paneId === 'string' ? paneId : undefined;
     const zooming = !noteWorkspace.state.zoomedPaneId;
-    noteWorkspace.togglePaneZoom();
+    noteWorkspace.togglePaneZoom(targetPaneId);
     if (!zooming) return;
     const shortcut = getResolvedActionShortcut('toggle-pane-zoom', settingsQuery.data?.shortcuts, api?.platform ?? navigator.platform);
     toast.info(shortcut ? `Pane zoomed · Press ${shortcut.split(', ')[0]} to restore` : 'Pane zoomed');
@@ -1193,6 +1195,32 @@ export function Home() {
     scope,
     selectedFolder,
   });
+  const handleNewTab = useCallback((paneId?: string) => {
+    const targetPaneId = typeof paneId === 'string' ? paneId : undefined;
+    if (targetPaneId && targetPaneId !== noteWorkspace.state.activePaneId) {
+      noteWorkspace.focusPane(targetPaneId);
+      if (usingInitialDrafts) {
+        noteWorkspace.openDraftNote({ paneId: targetPaneId });
+        focusZone('editor');
+        return;
+      }
+      const targetPane = noteWorkspace.state.panes.find((pane) => pane.paneId === targetPaneId);
+      const hasPaneTab = Boolean(targetPane?.activeTabId);
+      if (readNewTabOpens() === 'empty') {
+        noteWorkspace.openBlankTab(targetPaneId);
+        if (hasPaneTab) focusZone('editor');
+        return;
+      }
+      if (hasPaneTab) {
+        noteWorkspace.duplicateActiveTab(targetPaneId);
+        focusZone('editor');
+        return;
+      }
+      openPalette();
+      return;
+    }
+    runShortcutAction('new-tab');
+  }, [focusZone, noteWorkspace, openPalette, runShortcutAction, usingInitialDrafts]);
   const workspaceProps = useHomeWorkspaceProps({
     api,
     openNoteTarget,
@@ -1285,7 +1313,7 @@ export function Home() {
     toggleNavigatorCollapsed: toggleSidebar,
     user,
     overlayControls,
-    onNewTab: () => runShortcutAction('new-tab'),
+    onNewTab: handleNewTab,
     recentNotes,
   });
   const overlayProps = useHomeOverlayProps({

@@ -6,7 +6,7 @@ import { DndContext, closestCenter, PointerSensor, useDroppable, useSensor, useS
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, Equal, FileText, Maximize2, MoreHorizontal, Plus, Rows2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, Equal, FileText, Maximize2, Minimize2, MoreHorizontal, Plus, Rows2, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 
 import { isBlankNoteTab, isDraftNoteTab, isPreviewNoteTab, type OpenNoteTab } from './note-workspace';
-import { ToolbarDropdownIconTrigger } from './interaction-primitives';
+import { ToolbarDropdownIconTrigger, ToolbarIconButton } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import { useScrollOverflow } from './useScrollOverflow';
@@ -62,6 +62,8 @@ function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
 function DocumentTab({
   tab,
   selected,
+  isActivePane = true,
+  isSegmented = false,
   syncState,
   activeTabRef,
   draggedRef,
@@ -76,6 +78,8 @@ function DocumentTab({
 }: {
   tab: OpenNoteTab;
   selected: boolean;
+  isActivePane?: boolean;
+  isSegmented?: boolean;
   syncState: DocumentSyncState;
   activeTabRef?: MutableRefObject<HTMLLIElement | null>;
   draggedRef: MutableRefObject<boolean>;
@@ -119,10 +123,13 @@ function DocumentTab({
       ref={setTabNode}
       style={{ transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null), transition }}
       className={cn(
-        'group/tab app-region-no-drag relative flex h-8 min-w-40 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
+        'group/tab app-region-no-drag relative flex h-8 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
+        isSegmented ? 'min-w-28 max-w-52' : 'min-w-40 max-w-56',
         isDragging && (inWorkspaceDnd ? 'z-10 opacity-40' : 'z-10 opacity-70'),
         selected
-          ? 'border-border-subtle bg-background-default text-text-default'
+          ? (isSegmented && !isActivePane
+            ? 'border-border-subtle/60 bg-background-default/70 text-text-subtle'
+            : 'border-border-subtle bg-background-default text-text-default')
           : 'border-transparent bg-transparent text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
       )}
     >
@@ -201,6 +208,9 @@ export function DocumentTabs({
   canSplit,
   className,
   getTabSyncState,
+  isActivePane = true,
+  isSegmented = false,
+  showEqualizeButton = false,
   onCloseOtherTabs,
   onCloseTab,
   onCloseTabsToRight,
@@ -221,6 +231,9 @@ export function DocumentTabs({
   canSplit: boolean;
   className?: string;
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
+  isActivePane?: boolean;
+  isSegmented?: boolean;
+  showEqualizeButton?: boolean;
   onCloseOtherTabs: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onCloseTabsToRight: (tabId: string) => void;
@@ -306,13 +319,14 @@ export function DocumentTabs({
     });
   }, [activeTab?.tabId, activeTabIndex]);
 
+  const regionKey = paneId ?? 'standalone';
   useLayoutEffect(() => {
     if (!workspaceDnd.inWorkspaceDnd) return;
-    workspaceDnd.registerTabRegionElement(regionRef.current);
+    workspaceDnd.registerTabRegionElement(regionKey, regionRef.current);
     return () => {
-      workspaceDnd.registerTabRegionElement(null);
+      workspaceDnd.registerTabRegionElement(regionKey, null);
     };
-  }, [workspaceDnd]);
+  }, [regionKey, workspaceDnd]);
 
   // Tabs past either edge fade out there, so a cut-off strip reads as one that continues.
   const [strip, setStrip] = useState<HTMLElement | null>(null);
@@ -323,7 +337,17 @@ export function DocumentTabs({
   const overflow = useScrollOverflow(strip, 'x');
 
   const content = (
-    <div ref={regionRef} data-hackdesk-focus="tabs" data-document-pane-id={paneId} className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
+    <div
+      ref={regionRef}
+      data-hackdesk-focus="tabs"
+      data-document-pane-id={paneId}
+      data-active-tab-segment={paneId ? (isActivePane ? 'true' : 'false') : undefined}
+      className={cn(
+        'flex min-w-0 flex-1 items-center gap-1.5',
+        isSegmented && !isActivePane && 'opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none',
+        className,
+      )}
+    >
       {/* Not a window drag region, gaps included: a drag region swallows the wheel, so scrolling the
           tabs stopped whenever the pointer crossed a gap. It is only as wide as the tabs, so the
           empty title bar after them still drags the window. */}
@@ -346,6 +370,8 @@ export function DocumentTabs({
                     key={tab.tabId}
                     tab={tab}
                     selected={activeTab?.tabId === tab.tabId}
+                    isActivePane={isActivePane}
+                    isSegmented={isSegmented}
                     focused={effectiveFocusedTabId === tab.tabId}
                     paneId={paneId}
                     onFocus={() => {
@@ -379,7 +405,7 @@ export function DocumentTabs({
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="app-region-no-drag h-7 w-7 shrink-0 rounded-md"
+            className="app-topbar-button app-region-no-drag h-7 w-7 shrink-0 rounded-md"
             aria-label="New Tab"
             onClick={onNewTab}
           >
@@ -387,9 +413,30 @@ export function DocumentTabs({
           </Button>
         </Tooltip>
         <div aria-hidden="true" className="min-w-0 flex-1" />
-        <Toolbar aria-label="Pane controls">
+        <Toolbar aria-label="Pane controls" className="shrink-0">
+          {canMoveToOtherPane ? (
+            <ToolbarIconButton
+              actionId="toggle-pane-zoom"
+              onClick={paneLayout.onToggleZoom}
+              aria-pressed={paneLayout.zoomed}
+              label={paneLayout.zoomed ? 'Restore panes' : 'Zoom pane'}
+              className="app-topbar-button app-region-no-drag h-7 w-7 rounded-md"
+            >
+              {paneLayout.zoomed ? <Minimize2 aria-hidden="true" className="h-4 w-4" /> : <Maximize2 aria-hidden="true" className="h-4 w-4" />}
+            </ToolbarIconButton>
+          ) : null}
+          {canMoveToOtherPane && showEqualizeButton && !paneLayout.zoomed ? (
+            <ToolbarIconButton
+              actionId="equalize-panes"
+              onClick={paneLayout.onEqualize}
+              label="Equalize pane sizes"
+              className="app-topbar-button app-region-no-drag h-7 w-7 rounded-md"
+            >
+              <Equal aria-hidden="true" className="h-4 w-4" />
+            </ToolbarIconButton>
+          ) : null}
           <DropdownMenu>
-            <ToolbarDropdownIconTrigger label="Pane actions" className="app-region-no-drag h-7 w-7">
+            <ToolbarDropdownIconTrigger label="Pane actions" className="app-topbar-button app-region-no-drag h-7 w-7 rounded-md">
               <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
             </ToolbarDropdownIconTrigger>
             <DropdownMenuContent align="end">

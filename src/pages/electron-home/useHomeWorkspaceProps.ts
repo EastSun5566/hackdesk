@@ -58,8 +58,8 @@ type RemoteDocumentRecovery = ReturnType<typeof useRemoteDocumentRecovery>;
 
 type WorkspaceActions = {
   saveDraftNote: (tab: OpenNoteTab, input: { title?: string; content?: string }) => void;
-  /** Zooms or restores the active pane, saying how to restore it. */
-  togglePaneZoom: () => void;
+  /** Zooms or restores the target pane (defaulting to active pane), saying how to restore it. */
+  togglePaneZoom: (paneId?: string) => void;
   attachImageToTab: WorkbenchDocumentActions['onAttachImage'];
   cancelImageUpload?: WorkbenchDocumentActions['onCancelImageUpload'];
   copyDraftText: WorkbenchDocumentActions['onCopyDraft'];
@@ -194,7 +194,7 @@ export function useHomeWorkspaceProps({
   user: UserSummary | undefined;
   uploadingTabIds?: readonly string[];
   overlayControls: OverlayControls;
-  onNewTab: () => void;
+  onNewTab: (paneId?: string) => void;
   recentNotes: ElectronRecentNote[];
   /** Every folder of the open named set, in its stored order. */
   workspaceFolders?: WorkspaceFolderTree[];
@@ -323,6 +323,7 @@ export function useHomeWorkspaceProps({
         activePaneId: noteWorkspace.state.activePaneId,
         backStack: noteWorkspace.state.backStack,
         forwardStack: noteWorkspace.state.forwardStack,
+        layout: noteWorkspace.state.layout,
         panes: noteWorkspace.state.panes,
         recentlyClosedTabs: noteWorkspace.state.recentlyClosedTabs,
         zoomedPaneId: noteWorkspace.state.zoomedPaneId,
@@ -526,7 +527,6 @@ export function useHomeWorkspaceProps({
       },
       onResizeSplit: noteWorkspace.resizeSplit,
       onEqualizeSplit: noteWorkspace.equalizeSplit,
-      onTogglePaneZoom: actions.togglePaneZoom,
       onFocusPane: noteWorkspace.focusPane,
       canCreateNote: homeStatus.navigatorStatus.canCreate,
       onCreateNote: folderCommands.handleCreateNote,
