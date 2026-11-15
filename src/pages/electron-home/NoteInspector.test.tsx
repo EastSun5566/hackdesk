@@ -118,15 +118,15 @@ describe('NoteInspector', () => {
     window.hackdeskAPI = { hackmd: { listNoteComments } } as unknown as NonNullable<typeof window.hackdeskAPI>;
 
     const { unmount } = renderNoteInspector();
-    expect(screen.queryByRole('tab', { name: /^Comments/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Comments/ })).not.toBeInTheDocument();
     expect(listNoteComments).not.toHaveBeenCalled();
     unmount();
 
     renderNoteInspector({ actions: { onRevealComment: vi.fn(() => true) } });
-    const commentsTab = screen.getByRole('tab', { name: /^Comments/ });
-    expect(commentsTab).toHaveAttribute('aria-selected', 'true');
+    const commentsButton = screen.getByRole('button', { name: /^Comments/ });
+    expect(commentsButton).toHaveAttribute('aria-pressed', 'true');
     expect(await screen.findByText('No comments on this note.')).toBeVisible();
-    expect(commentsTab).toHaveTextContent('Comments (0)');
+    expect(commentsButton).toHaveTextContent('Comments (0)');
     expect(listNoteComments).toHaveBeenCalledWith('note-1', { page: 1 });
   });
 
@@ -153,6 +153,7 @@ describe('NoteInspector', () => {
     );
 
     expect(await screen.findByRole('heading', { name: /Linked from · 0/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Backlinks (0)' })).toBeVisible();
     expect(screen.getByText('No other notes link here.')).toBeVisible();
     const footer = container.querySelector('[data-inspector-note-data="true"]');
     expect(footer).toHaveTextContent('1 word · 1 min read');
@@ -177,7 +178,7 @@ describe('NoteInspector Linked from', () => {
     renderNoteInspector({ document: documentSummary({ permalink: 'hello', userPath: 'me' }), actions: { onOpenNote } });
 
     expect(await screen.findByRole('heading', { name: /Linked from · 1/ })).toBeVisible();
-    expect(screen.getByRole('tab', { name: 'Backlinks (1)' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Backlinks (1)' })).toBeVisible();
     expect(backlinks).toHaveBeenCalledWith({
       target: { source: 'hackmd', id: 'note-1', shortId: 'note-1', permalink: 'hello', userPath: 'me', teamPath: null },
     });

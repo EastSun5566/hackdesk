@@ -96,12 +96,11 @@ function NoteInspectorPanel({
     >
       <h2 className="sr-only">Note Details</h2>
       <header className="scroll-edge-top relative flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-b border-border-subtle px-3 py-2.5">
-        <div role="tablist" aria-label="Note details sections" className="flex min-w-0 items-center gap-1">
+        <nav aria-label="Note details sections" className="flex min-w-0 items-center gap-1">
           {hasComments ? (
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === 'comments'}
+              aria-pressed={activeTab === 'comments'}
               className={cn(
                 'shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-xs transition-colors',
                 FOCUS_RING_CLASS,
@@ -117,8 +116,7 @@ function NoteInspectorPanel({
           {hasBacklinks ? (
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === 'backlinks'}
+              aria-pressed={activeTab === 'backlinks'}
               className={cn(
                 'shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-xs transition-colors',
                 FOCUS_RING_CLASS,
@@ -134,7 +132,7 @@ function NoteInspectorPanel({
           {!hasComments && !hasBacklinks ? (
             <span className="px-1 text-xs font-medium text-text-default">Details</span>
           ) : null}
-        </div>
+        </nav>
 
         {hasToolbarActions ? (
           <Toolbar aria-label="Note details actions" className="shrink-0 gap-1">
@@ -223,6 +221,7 @@ export function LocalNoteInspector({
 }) {
   const backlinksState = useNoteBacklinks(document);
   const backlinkCount = backlinksState.query.data ? backlinksState.query.data.notes.length : null;
+  const scrollRegionRef = useRef<HTMLDivElement>(null);
 
   return (
     <aside
@@ -232,12 +231,21 @@ export function LocalNoteInspector({
       className="scroll-edges flex h-full w-full flex-col bg-background-muted outline-none"
     >
       <h2 className="sr-only">Note Details</h2>
-      <header className="scroll-edge-top relative flex items-center justify-between gap-2 border-b border-border-subtle px-3.5 py-2.5">
-        <span className="rounded-md bg-background-selected px-2 py-1 text-xs font-medium text-text-default">
+      <header className="scroll-edge-top relative flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-2.5">
+        <button
+          type="button"
+          aria-pressed="true"
+          className={cn(
+            'shrink-0 whitespace-nowrap rounded-md bg-background-selected px-2 py-1 text-xs font-medium text-text-default transition-colors',
+            FOCUS_RING_CLASS,
+          )}
+          onClick={() => scrollRegionRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' })}
+        >
           Backlinks{backlinkCount === null ? '' : ` (${backlinkCount})`}
-        </span>
+        </button>
       </header>
       <div
+        ref={scrollRegionRef}
         data-inspector-scroll-region="true"
         className="scroll-edges-source min-h-0 flex-1 overflow-auto overscroll-contain px-3.5 py-3 scrollbar-gutter-stable"
       >

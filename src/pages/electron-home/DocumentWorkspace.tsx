@@ -311,7 +311,6 @@ export function DocumentWorkspace({
   const [copyMode, setCopyMode] = useState(false);
   const [dropOverlay, setDropOverlay] = useState<DropZonePreview | null>(null);
   const [activeStripDropId, setActiveStripDropId] = useState<string | null>(null);
-  const initialPointRef = useRef<{ x: number; y: number } | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const copyModeRef = useRef(false);
   const overRef = useRef<Over | null>(null);
@@ -352,14 +351,12 @@ export function DocumentWorkspace({
     const workspaceEl = workspaceRef.current;
     if (!drag || !workspaceEl) return { zone: null, stripId: null };
 
+    const overData = over?.data.current as { type?: string; paneId?: string } | undefined;
+    if ((overData?.type === 'tab' || overData?.type === 'tab-strip') && overData.paneId) {
+      return { zone: null, stripId: tabStripDropId(overData.paneId) };
+    }
+
     if (!point) {
-      const overData = over?.data.current as { type?: string; paneId?: string } | undefined;
-      if (overData?.type === 'tab' && overData.paneId) {
-        return { zone: null, stripId: tabStripDropId(overData.paneId) };
-      }
-      if (overData?.type === 'tab-strip' && overData.paneId) {
-        return { zone: null, stripId: tabStripDropId(overData.paneId) };
-      }
       return { zone: null, stripId: null };
     }
 
@@ -506,7 +503,6 @@ export function DocumentWorkspace({
     setDropOverlay(null);
     dropOverlayRef.current = null;
     setActiveStripDropId(null);
-    initialPointRef.current = null;
     pointerRef.current = null;
     overRef.current = null;
   }, []);
@@ -520,7 +516,6 @@ export function DocumentWorkspace({
     const activator = event.activatorEvent as MouseEvent | PointerEvent | undefined;
     const initialCopy = Boolean(activator?.altKey);
     const initialPoint = activator && 'clientX' in activator ? { x: activator.clientX, y: activator.clientY } : null;
-    initialPointRef.current = initialPoint;
     pointerRef.current = initialPoint;
     copyModeRef.current = initialCopy;
     overRef.current = null;
@@ -531,13 +526,7 @@ export function DocumentWorkspace({
   const handleDragMove = useCallback((event: DragMoveEvent) => {
     overRef.current = event.over;
     if (!activeDrag) return;
-    const nextPoint = initialPointRef.current
-      ? { x: initialPointRef.current.x + event.delta.x, y: initialPointRef.current.y + event.delta.y }
-      : pointerRef.current;
-    if (nextPoint) {
-      pointerRef.current = nextPoint;
-    }
-    syncDropState(activeDrag, copyModeRef.current, nextPoint, event.over);
+    syncDropState(activeDrag, copyModeRef.current, pointerRef.current, event.over);
   }, [activeDrag, syncDropState]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
@@ -557,6 +546,24 @@ export function DocumentWorkspace({
     const sourcePaneId = activeDrag.sourcePaneId;
     clearDragState();
 
+    const { over } = event;
+    const overData = over?.data.current as { type?: string; paneId?: string; tabId?: string } | undefined;
+    if (overData?.type === 'tab' && overData.paneId) {
+      const overTabId = overData.tabId ?? String(over?.id);
+      if (overData.paneId === sourcePaneId && !finalCopy) {
+        if (tabId !== overTabId) tabsWorkspace.onReorderTab(sourcePaneId, tabId, overTabId);
+      } else {
+        tabsWorkspace.onMoveTabToPane(tabId, overData.paneId, { overTabId, copy: finalCopy });
+      }
+      return;
+    }
+    if (overData?.type === 'tab-strip' && overData.paneId) {
+      if (overData.paneId !== sourcePaneId || finalCopy) {
+        tabsWorkspace.onMoveTabToPane(tabId, overData.paneId, { copy: finalCopy });
+      }
+      return;
+    }
+
     if (zone) {
       if (zone.kind === 'workspace-edge') {
         tabsWorkspace.onSplitTabToNewPane(tabId, { edge: true, direction: zone.direction }, { copy: finalCopy });
@@ -572,24 +579,7 @@ export function DocumentWorkspace({
       }
     }
 
-    const { over } = event;
     if (!over) return;
-    const overData = over.data.current as { type?: string; paneId?: string; tabId?: string } | undefined;
-    if (overData?.type === 'tab' && overData.paneId) {
-      const overTabId = overData.tabId ?? String(over.id);
-      if (overData.paneId === sourcePaneId && !finalCopy) {
-        if (tabId !== overTabId) tabsWorkspace.onReorderTab(sourcePaneId, tabId, overTabId);
-      } else {
-        tabsWorkspace.onMoveTabToPane(tabId, overData.paneId, { overTabId, copy: finalCopy });
-      }
-      return;
-    }
-    if (overData?.type === 'tab-strip' && overData.paneId) {
-      if (overData.paneId !== sourcePaneId || finalCopy) {
-        tabsWorkspace.onMoveTabToPane(tabId, overData.paneId, { copy: finalCopy });
-      }
-      return;
-    }
 
     if (String(event.active.id) !== String(over.id)) {
       const fallbackOverPane = panes.find((candidate) => candidate.tabIds.includes(String(over.id)))?.paneId;
