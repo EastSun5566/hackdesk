@@ -2434,3 +2434,68 @@ test('the leader menu runs commands from a few letters with Space or the leader 
     await expect(page.getByRole('note', { name: 'Keys you can press' })).toHaveCount(0);
   } finally { await stopApp(app); }
 });
+
+test('top-bar tab drag-to-split, separator equalize, and drag-to-pane move', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await switchWorkspace(page, 'vault');
+    const strip = page.getByRole('navigation', { name: 'Open documents' });
+    await expect(page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Alpha', exact: true })).toBeVisible();
+    for (const name of ['Alpha', 'Beta']) {
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
+      await expect(strip.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
+    }
+
+    // Drag Beta tab from top bar onto the right edge of the pane to split into two panes.
+    const pane = page.locator('section[data-document-pane-id]').first();
+    const paneBox = (await pane.boundingBox())!;
+    const tabBox = (await strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ }).boundingBox())!;
+    await page.mouse.move(tabBox.x + 12, tabBox.y + tabBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(paneBox.x + paneBox.width - 12, paneBox.y + paneBox.height / 2, { steps: 14 });
+    await expect(page.locator('[data-drop-preview-kind="pane-edge"][data-drop-preview-direction="right"]')).toBeVisible();
+    await page.mouse.up();
+
+    const panes = page.locator('section[data-document-pane-id]');
+    await expect(panes).toHaveCount(2);
+    await expect(panes.nth(1)).toHaveAttribute('data-active-pane', 'true');
+
+    // Drag the pane separator off-center, then double-click it to equalize panes back to ~50/50.
+    const separator = page.getByRole('separator', { name: /Resize document panes/ });
+    const sepBox = (await separator.boundingBox())!;
+    await page.mouse.move(sepBox.x + sepBox.width / 2, sepBox.y + sepBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(sepBox.x + 140, sepBox.y + sepBox.height / 2, { steps: 8 });
+    await page.mouse.up();
+
+    await expect.poll(async () => {
+      const left = (await panes.nth(0).boundingBox())!;
+      const right = (await panes.nth(1).boundingBox())!;
+      return Math.abs(left.width - right.width);
+    }).toBeGreaterThan(80);
+
+    const movedSepBox = (await separator.boundingBox())!;
+    await page.mouse.dblclick(movedSepBox.x + movedSepBox.width / 2, movedSepBox.y + movedSepBox.height / 2);
+    await expect.poll(async () => {
+      const left = (await panes.nth(0).boundingBox())!;
+      const right = (await panes.nth(1).boundingBox())!;
+      return Math.abs(left.width - right.width);
+    }).toBeLessThan(12);
+
+    // Drag Beta from the top bar into the center of the left pane to move it back and collapse the 2nd pane.
+    const leftPaneBox = (await panes.nth(0).boundingBox())!;
+    const betaTabBox = (await strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ }).boundingBox())!;
+    await page.mouse.move(betaTabBox.x + 12, betaTabBox.y + betaTabBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(leftPaneBox.x + leftPaneBox.width / 2, leftPaneBox.y + leftPaneBox.height / 2, { steps: 14 });
+    await expect(page.locator('[data-drop-preview-kind="pane-center"]')).toBeVisible();
+    await page.mouse.up();
+
+    await expect(panes).toHaveCount(1);
+    await expect(strip.getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toBeVisible();
+    await expect(strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});

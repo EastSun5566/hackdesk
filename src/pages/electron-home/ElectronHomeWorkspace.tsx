@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { useCallback } from 'react';
 
 import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 
@@ -7,10 +8,12 @@ import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import { FolderNavigator } from './FolderNavigator';
 import type { NotePane, NoteWorkspaceState, OpenNoteTab } from './note-workspace';
 import { PanelResizeSash } from './PanelResizeSash';
+import type { PaneDirection } from './pane-layout';
 import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
 import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
 import { WorkspaceNavigationProvider, type WorkspaceNavigation } from './WorkspaceNavigationContext';
 import { WorkbenchDocumentActionsProvider, type WorkbenchDocumentActions } from './DocumentActionsContext';
+import { WorkspaceTabDndProvider } from './WorkspaceTabDnd';
 
 export const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
 
@@ -40,6 +43,7 @@ export type ElectronHomeWorkspaceProps = {
     state: Pick<NoteWorkspaceState, 'scopeKey' | 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs' | 'zoomedPaneId'>;
     actions: {
       moveActiveTabToOtherPane: () => void;
+      moveTabToPane?: (tabId: string, targetPaneId: string, options?: { overTabId?: string; copy?: boolean }) => void;
       navigateBack: () => void;
       navigateForward: () => void;
       reopenLastClosedTab: () => void;
@@ -51,6 +55,7 @@ export type ElectronHomeWorkspaceProps = {
       reorderTab: (paneId: string, tabId: string, overTabId: string) => void;
       splitActiveTab: () => void;
       splitActivePaneDown: () => void;
+      splitTabToNewPane?: (tabId: string, target: { paneId?: string; edge?: boolean; direction: PaneDirection }, options?: { copy?: boolean }) => void;
       togglePaneZoom: () => void;
       equalizePanes: () => void;
       toggleNavigator: () => void;
@@ -72,8 +77,24 @@ export function ElectronHomeWorkspace({
   const activeTitlebarPaneView = activeTitlebarPane ? titlebar.getPaneView(activeTitlebarPane) : null;
   const activeTitlebarTabs = activeTitlebarPane ? titlebar.getPaneTabs(activeTitlebarPane) : [];
 
+  const getTabTitle = useCallback((tabId: string) => {
+    for (const pane of titlebar.state.panes) {
+      const match = titlebar.getPaneTabs(pane).find((tab) => tab.tabId === tabId);
+      if (match) return match.title || 'Untitled';
+    }
+    return 'Untitled';
+  }, [titlebar]);
+
   return (
-    <>
+    <WorkspaceTabDndProvider
+      panes={titlebar.state.panes}
+      activePaneId={titlebar.state.activePaneId}
+      zoomedPaneId={titlebar.state.zoomedPaneId}
+      getTabTitle={getTabTitle}
+      onReorderTab={titlebar.actions.reorderTab}
+      onMoveTabToPane={titlebar.actions.moveTabToPane}
+      onSplitTabToNewPane={titlebar.actions.splitTabToNewPane}
+    >
       <AppTopBar
         tabStripId={`${titlebar.state.scopeKey}:${activeTitlebarPane?.paneId}`}
         paneId={activeTitlebarPane?.paneId}
@@ -155,6 +176,6 @@ export function ElectronHomeWorkspace({
           <DocumentWorkspace {...documentWorkspace} />
         </WorkbenchDocumentActionsProvider>
       </main>
-    </>
+    </WorkspaceTabDndProvider>
   );
 }

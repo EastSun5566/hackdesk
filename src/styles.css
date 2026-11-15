@@ -736,6 +736,20 @@
     display: none !important;
   }
 
+  .workspace-drop-preview {
+    left: var(--drop-preview-left);
+    top: var(--drop-preview-top);
+    width: var(--drop-preview-width);
+    height: var(--drop-preview-height);
+    transition: left 100ms ease-out, top 100ms ease-out, width 100ms ease-out, height 100ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workspace-drop-preview {
+      transition: none;
+    }
+  }
+
 }
 
 /*

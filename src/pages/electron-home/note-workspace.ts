@@ -5,12 +5,14 @@ import { trySetStorageItem } from '@/lib/storage';
 
 import {
   equalizeLayout,
+  equalizeLayoutSplit,
   layoutPaneIds,
   paneInDirection,
   paneLeaf,
   parsePaneLayout,
   reconcileLayout,
   resizeLayoutSplit,
+  splitLayoutAtEdge,
   splitLayoutPane,
   type PaneDirection,
   type PaneLayoutNode,
@@ -996,6 +998,175 @@ export function splitActiveTabRight(state: NoteWorkspaceState) {
   return splitActivePane(state, 'right');
 }
 
+function insertTabIdAt(tabIds: readonly string[], tabId: string, overTabId?: string) {
+  const next = [...tabIds];
+  const insertAt = overTabId ? next.indexOf(overTabId) : -1;
+  if (insertAt >= 0) {
+    next.splice(insertAt, 0, tabId);
+  } else {
+    next.push(tabId);
+  }
+  return next;
+}
+
+/**
+ * Moves or copies a tab into the target pane, optionally before a specific tab in that pane.
+ * Dragging onto a tab in the same pane without `copy` delegates to in-pane reordering.
+ */
+export function moveNoteTabToPane(
+  state: NoteWorkspaceState,
+  tabId: string,
+  targetPaneId: string,
+  options: { overTabId?: string; copy?: boolean } = {},
+) {
+  const sourceTab = state.tabs[tabId];
+  const sourcePane = getTabPane(state, tabId);
+  const targetPane = state.panes.find((candidate) => candidate.paneId === targetPaneId);
+  if (!sourceTab || !sourcePane || !targetPane) {
+    return state;
+  }
+
+  const { overTabId, copy = false } = options;
+
+  if (!copy && sourcePane.paneId === targetPane.paneId) {
+    if (overTabId) {
+      return reorderNoteTab(state, targetPane.paneId, tabId, overTabId);
+    }
+    const withoutTab = targetPane.tabIds.filter((candidate) => candidate !== tabId);
+    const reordered = [...withoutTab, tabId];
+    if (reordered.every((candidate, index) => candidate === targetPane.tabIds[index])) {
+      return state;
+    }
+    return {
+      ...state,
+      panes: state.panes.map((pane) => (
+        pane.paneId === targetPane.paneId ? { ...pane, tabIds: reordered } : pane
+      )),
+    };
+  }
+
+  if (copy) {
+    const clonedTab = { ...sourceTab, tabId: createTabId() };
+    const next = normalizeState({
+      ...state,
+      tabs: {
+        ...state.tabs,
+        [clonedTab.tabId]: clonedTab,
+      },
+      drafts: state.drafts[tabId]
+        ? { ...state.drafts, [clonedTab.tabId]: state.drafts[tabId] }
+        : state.drafts,
+      panes: state.panes.map((pane) => pane.paneId === targetPane.paneId
+        ? {
+          ...pane,
+          tabIds: insertTabIdAt(pane.tabIds, clonedTab.tabId, overTabId),
+          activeTabId: clonedTab.tabId,
+        }
+        : pane),
+      activePaneId: targetPane.paneId,
+      zoomedPaneId: state.zoomedPaneId === targetPane.paneId ? state.zoomedPaneId : null,
+    });
+    return withNavigationHistory(state, next);
+  }
+
+  const next = normalizeState({
+    ...state,
+    panes: state.panes.map((pane) => {
+      if (pane.paneId === sourcePane.paneId) {
+        const closedIndex = pane.tabIds.indexOf(tabId);
+        const tabIds = pane.tabIds.filter((candidate) => candidate !== tabId);
+        const activeTabId = pane.activeTabId === tabId
+          ? tabIds[Math.min(closedIndex, tabIds.length - 1)] ?? null
+          : pane.activeTabId;
+        return { ...pane, tabIds, activeTabId };
+      }
+
+      if (pane.paneId === targetPane.paneId) {
+        const filtered = pane.tabIds.filter((candidate) => candidate !== tabId);
+        return {
+          ...pane,
+          tabIds: insertTabIdAt(filtered, tabId, overTabId),
+          activeTabId: tabId,
+        };
+      }
+
+      return pane;
+    }),
+    activePaneId: targetPane.paneId,
+    zoomedPaneId: state.zoomedPaneId === targetPane.paneId ? state.zoomedPaneId : null,
+  });
+  return withNavigationHistory(state, next);
+}
+
+/**
+ * Splits a pane or the outer workspace perimeter by dropping a dragged tab.
+ * Moves the tab unless `copy` is requested or moving it would leave a lone pane without a partner.
+ */
+export function splitPaneWithTab(
+  state: NoteWorkspaceState,
+  tabId: string,
+  target: { paneId?: string; edge?: boolean; direction: PaneDirection },
+  options: { copy?: boolean } = {},
+) {
+  const sourceTab = state.tabs[tabId];
+  const sourcePane = getTabPane(state, tabId);
+  if (!sourceTab || !sourcePane || state.panes.length >= MAX_PANES) {
+    return state;
+  }
+
+  const anchorPaneId = target.paneId ?? sourcePane.paneId;
+  if (!target.edge && !state.panes.some((pane) => pane.paneId === anchorPaneId)) {
+    return state;
+  }
+
+  const shouldCopy = Boolean(options.copy)
+    || (sourcePane.tabIds.length === 1 && (target.edge ? state.panes.length === 1 : anchorPaneId === sourcePane.paneId));
+
+  const nextPane = createInitialPane();
+  const layout = target.edge
+    ? splitLayoutAtEdge(state.layout, nextPane.paneId, target.direction)
+    : splitLayoutPane(state.layout, anchorPaneId, nextPane.paneId, target.direction);
+
+  if (shouldCopy) {
+    const clonedTab = { ...sourceTab, tabId: createTabId() };
+    const next = normalizeState({
+      ...state,
+      tabs: {
+        ...state.tabs,
+        [clonedTab.tabId]: clonedTab,
+      },
+      drafts: state.drafts[tabId]
+        ? { ...state.drafts, [clonedTab.tabId]: state.drafts[tabId] }
+        : state.drafts,
+      panes: [...state.panes, { ...nextPane, tabIds: [clonedTab.tabId], activeTabId: clonedTab.tabId }],
+      layout,
+      zoomedPaneId: null,
+      activePaneId: nextPane.paneId,
+    });
+    return withNavigationHistory(state, next);
+  }
+
+  const next = normalizeState({
+    ...state,
+    panes: [
+      ...state.panes.map((pane) => {
+        if (pane.paneId !== sourcePane.paneId) return pane;
+        const closedIndex = pane.tabIds.indexOf(tabId);
+        const tabIds = pane.tabIds.filter((candidate) => candidate !== tabId);
+        const activeTabId = pane.activeTabId === tabId
+          ? tabIds[Math.min(closedIndex, tabIds.length - 1)] ?? null
+          : pane.activeTabId;
+        return { ...pane, tabIds, activeTabId };
+      }),
+      { ...nextPane, tabIds: [tabId], activeTabId: tabId },
+    ],
+    layout,
+    zoomedPaneId: null,
+    activePaneId: nextPane.paneId,
+  });
+  return withNavigationHistory(state, next);
+}
+
 /** Moves the active tab to the next pane in reading order, wrapping around. */
 export function moveActiveTabToOtherPane(state: NoteWorkspaceState) {
   const activePane = getActivePane(state);
@@ -1006,26 +1177,7 @@ export function moveActiveTabToOtherPane(state: NoteWorkspaceState) {
     return state;
   }
 
-  const next = normalizeState({
-    ...state,
-    panes: state.panes.map((pane) => {
-      if (pane.paneId === activePane.paneId) {
-        return { ...pane, tabIds: pane.tabIds.filter((tabId) => tabId !== activeTabId) };
-      }
-
-      if (pane.paneId === targetPaneId) {
-        return {
-          ...pane,
-          tabIds: pane.tabIds.includes(activeTabId) ? pane.tabIds : [...pane.tabIds, activeTabId],
-          activeTabId,
-        };
-      }
-
-      return pane;
-    }),
-    activePaneId: targetPaneId,
-  });
-  return withNavigationHistory(state, next);
+  return moveNoteTabToPane(state, activeTabId, targetPaneId);
 }
 
 /** Applies the sizes one split reports, keyed by each child's panel id. */
@@ -1035,6 +1187,11 @@ export function resizeNoteSplit(state: NoteWorkspaceState, splitId: string, size
 
 export function equalizeNotePanes(state: NoteWorkspaceState) {
   return { ...state, layout: equalizeLayout(state.layout) };
+}
+
+export function equalizeNoteSplit(state: NoteWorkspaceState, splitId: string) {
+  const layout = equalizeLayoutSplit(state.layout, splitId);
+  return layout === state.layout ? state : { ...state, layout };
 }
 
 export function focusAdjacentPane(state: NoteWorkspaceState, direction: 'next' | 'previous') {

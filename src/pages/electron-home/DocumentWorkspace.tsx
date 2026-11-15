@@ -1,6 +1,6 @@
 import type { EditorRequest } from './useWorkbenchEditorRequests';
 import { FileText, Plus, Search } from 'lucide-react';
-import { Fragment, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Group, Panel, Separator, type GroupImperativeHandle, type GroupProps } from 'react-resizable-panels';
 
@@ -27,6 +27,7 @@ import { PaneTabIdContext } from './useBookSession';
 import { useNoteSummaryLookup } from './NoteSummaryCard';
 import { useOverlay } from './WorkbenchOverlaysContext';
 import { PaneDocumentActions, useWorkbenchDocumentActions } from './DocumentActionsContext';
+import { useWorkspaceTabDnd } from './WorkspaceTabDnd';
 
 function PaneGroup({ layout, id, orientation, ...props }: Omit<GroupProps, 'defaultLayout' | 'groupRef'> & { layout: Record<string, number> }) {
   const groupRef = useRef<GroupImperativeHandle | null>(null);
@@ -197,6 +198,7 @@ export function DocumentWorkspace({
   editorRequests,
   onEditorRequestHandled,
   onResizeSplit,
+  onEqualizeSplit,
   onTogglePaneZoom,
   onFocusPane,
   canCreateNote,
@@ -219,6 +221,8 @@ export function DocumentWorkspace({
   editorRequests: EditorRequest[];
   onEditorRequestHandled: (id: number) => void;
   onResizeSplit: (splitId: string, sizes: Record<string, number>) => void;
+  /** Equalizes the children of a split container (e.g. separator double-click). */
+  onEqualizeSplit?: (splitId: string) => void;
   /** Zooms the active pane or restores the others; a pane's button makes it active first. */
   onTogglePaneZoom: () => void;
   onFocusPane: (paneId: string) => void;
@@ -228,6 +232,10 @@ export function DocumentWorkspace({
   recentNotes?: ElectronRecentNote[];
 }) {
   const { onOpenNoteTarget, onCopyDraft, onExportDraft, onOpenAsNewDraft, onRetryLoad } = useWorkbenchDocumentActions();
+  const workspaceDnd = useWorkspaceTabDnd();
+  const attachWorkspace = useCallback((element: HTMLDivElement | null) => {
+    workspaceDnd.registerWorkspaceElement(element);
+  }, [workspaceDnd]);
   // Note Settings, Share and Versions open over the active pane; the workbench overlays hold whether they are open.
   const noteMetadataOpen = useOverlay((overlays) => overlays.noteMetadata);
   const shareOpen = useOverlay((overlays) => overlays.share);
@@ -389,6 +397,7 @@ export function DocumentWorkspace({
                 id={`document-pane-separator-${childId}`}
                 aria-label={`Resize document panes ${orientation === 'horizontal' ? 'side by side' : 'stacked'}, between pane ${paneOrder.indexOf(layoutPaneIds(children[index - 1]).at(-1)!) + 1} and pane ${paneOrder.indexOf(layoutPaneIds(child)[0]) + 1}`}
                 className={orientation === 'horizontal' ? GAP_SASH_CLASS : GAP_SASH_ROW_CLASS}
+                onDoubleClick={node.type === 'split' && onEqualizeSplit ? () => onEqualizeSplit(node.id) : undefined}
               />
             ) : null}
             <Panel
@@ -406,14 +415,35 @@ export function DocumentWorkspace({
     </PaneGroup>
   );
 
+  const dropOverlay = workspaceDnd.dropOverlay;
+
   return (
     // While a pane is zoomed, the others stay mounted but hidden, keeping their editors' state.
-    <div data-document-workspace="" data-pane-zoomed={zoomedPaneId ? 'true' : undefined} className="flex min-h-0 min-w-0 flex-1">
+    <div
+      ref={attachWorkspace}
+      data-document-workspace=""
+      data-pane-zoomed={zoomedPaneId ? 'true' : undefined}
+      className="relative flex min-h-0 min-w-0 flex-1"
+    >
       {layout.type === 'split'
         ? renderGroup(layout, layout.children, layout.orientation, layout.sizes)
         : renderGroup(layout, [layout], 'horizontal', [100])}
       {/* Editor ownership stays flat even when the resize tree gains or loses split groups. */}
       {panes.map(pane => createPortal(renderPane(pane), paneHost(pane.paneId).element, `${scopeKey}:${pane.paneId}`))}
+      {dropOverlay ? (
+        <div
+          aria-hidden="true"
+          data-drop-preview-kind={dropOverlay.kind}
+          data-drop-preview-direction={'direction' in dropOverlay ? dropOverlay.direction : undefined}
+          className="workspace-drop-preview pointer-events-none absolute z-30 rounded-lg border-2 border-primary-default bg-primary-soft/35"
+          style={{
+            '--drop-preview-left': `${dropOverlay.rect.left}px`,
+            '--drop-preview-top': `${dropOverlay.rect.top}px`,
+            '--drop-preview-width': `${dropOverlay.rect.width}px`,
+            '--drop-preview-height': `${dropOverlay.rect.height}px`,
+          } as CSSProperties}
+        />
+      ) : null}
     </div>
   );
 }

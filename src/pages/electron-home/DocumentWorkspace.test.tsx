@@ -473,4 +473,14 @@ describe('DocumentWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(props.onRetryLoad).toHaveBeenCalledWith(expect.objectContaining({ tabId: 'tab-a' }));
   });
+
+  it('calls onEqualizeSplit when a pane separator is double-clicked', () => {
+    const onEqualizeSplit = vi.fn();
+    const props = renderWorkspace({ onEqualizeSplit });
+    if (props.layout.type !== 'split') throw new Error('Expected a split');
+
+    fireEvent.doubleClick(screen.getByRole('separator'));
+
+    expect(onEqualizeSplit).toHaveBeenCalledWith(props.layout.id);
+  });
 });

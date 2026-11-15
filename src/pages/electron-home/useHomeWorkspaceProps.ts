@@ -329,6 +329,7 @@ export function useHomeWorkspaceProps({
       },
       actions: {
         moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
+        moveTabToPane: noteWorkspace.moveTabToPane,
         navigateBack: noteWorkspace.navigateBack,
         navigateForward: noteWorkspace.navigateForward,
         reopenLastClosedTab: noteWorkspace.reopenLastClosed,
@@ -340,6 +341,7 @@ export function useHomeWorkspaceProps({
         reorderTab: noteWorkspace.reorderTab,
         splitActiveTab: noteWorkspace.splitActiveTab,
         splitActivePaneDown: noteWorkspace.splitActivePaneDown,
+        splitTabToNewPane: noteWorkspace.splitTabToNewPane,
         togglePaneZoom: actions.togglePaneZoom,
         equalizePanes: noteWorkspace.equalizePanes,
         toggleNavigator: toggleNavigatorCollapsed,
@@ -523,6 +525,7 @@ export function useHomeWorkspaceProps({
         };
       },
       onResizeSplit: noteWorkspace.resizeSplit,
+      onEqualizeSplit: noteWorkspace.equalizeSplit,
       onTogglePaneZoom: actions.togglePaneZoom,
       onFocusPane: noteWorkspace.focusPane,
       canCreateNote: homeStatus.navigatorStatus.canCreate,
