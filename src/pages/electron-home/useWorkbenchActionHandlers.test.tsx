@@ -118,6 +118,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     refreshWorkspace: vi.fn(),
     renameFolder: vi.fn(),
     requestCloseOtherTabs: vi.fn(async () => undefined),
+    requestClosePane: vi.fn(async () => true),
     requestCloseTab: vi.fn(async () => true),
     requestCloseTabsToRight: vi.fn(async () => undefined),
     requestDeleteFolder: vi.fn(),
@@ -129,6 +130,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     selectedFolderId: 'folder-1',
     overlayControls: { set: vi.fn(), close: vi.fn(), openSettings: vi.fn() },
     splitActiveTab: vi.fn(),
+    splitPane: vi.fn(),
     switchToHistory: vi.fn(),
     toggleInspector: vi.fn(),
     toggleNavigator: vi.fn(),
@@ -227,6 +229,25 @@ describe('useWorkbenchActionHandlers', () => {
     result.current.renameNote();
 
     expect(bumpRenameRequest).toHaveBeenCalledOnce();
+  });
+
+  it('opens Note Settings only for non-local notes', () => {
+    const set = vi.fn();
+    const { result, rerender } = renderHook(
+      (props: WorkbenchActionHandlersOptions) => useWorkbenchActionHandlers(props),
+      { initialProps: createOptions({ overlayControls: { set, close: vi.fn(), openSettings: vi.fn() } }) },
+    );
+
+    result.current.noteSettings();
+    expect(set).toHaveBeenCalledWith('noteMetadata', true);
+
+    set.mockClear();
+    rerender(createOptions({
+      overlayControls: { set, close: vi.fn(), openSettings: vi.fn() },
+      selectedDocument: createDocument({ teamPath: '__hackdesk_local_vault__' }),
+    }));
+    result.current.noteSettings();
+    expect(set).not.toHaveBeenCalled();
   });
 
   it('saves a draft tab through create instead of update', () => {

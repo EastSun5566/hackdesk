@@ -194,12 +194,10 @@ async function openInspector() {
   await screen.findByRole('heading', { name: 'Note Details' });
 }
 
-async function expandInspectorSection(name: string) {
-  const trigger = await screen.findByRole('button', { name });
-  if (trigger.getAttribute('aria-expanded') !== 'true') {
-    fireEvent.click(trigger);
-    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'true'));
-  }
+async function openNoteSettingsFromInspector() {
+  await openInspector();
+  fireEvent.click(screen.getByRole('button', { name: 'Note settings' }));
+  return screen.findByRole('dialog', { name: 'Note Settings' });
 }
 
 async function openDocumentActions() {
@@ -2114,7 +2112,7 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: '\\', metaKey: true });
 
-    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(1);
+    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(2);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
   });
 
@@ -2519,7 +2517,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await findRenderedNoteTitle();
     fireEvent.keyDown(window, { key: '\\', metaKey: true, shiftKey: true });
-    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(1);
+    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(2);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
     act(() => {
       commandHandler?.({ type: 'delete-note' });
@@ -3059,7 +3057,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByRole('button', { name: 'Expand Projects' })).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('updates note metadata from the inspector', async () => {
+  it('updates note metadata from Note Settings opened via the inspector', async () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
@@ -3067,38 +3065,36 @@ describe('Home native-feel behavior', () => {
           ...document,
           description: input.description ?? document.description,
           tags: input.tags ?? document.tags,
-          readPermission: input.readPermission ?? document.readPermission,
-          writePermission: input.writePermission ?? document.writePermission,
         })),
       },
     });
 
     renderHome(api);
     await findRenderedNoteTitle();
-    await openInspector();
+    const dialog = await openNoteSettingsFromInspector();
 
-    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Updated metadata' } });
-    const tagInput = screen.getByLabelText('Tags');
+    fireEvent.change(within(dialog).getByLabelText('Description'), { target: { value: 'Updated metadata' } });
+    const tagInput = within(dialog).getByLabelText('Tags');
     fireEvent.change(tagInput, { target: { value: 'desktop' } });
     fireEvent.keyDown(tagInput, { key: 'Enter' });
-    await expandInspectorSection('Permissions');
-    fireEvent.click(within(screen.getByRole('group', { name: 'Read' })).getByRole('radio', { name: 'Signed in' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save Settings' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       description: 'Updated metadata',
       tags: ['desktop'],
-      readPermission: 'signed_in',
     }));
   });
 
-  it('copies a HackMD link from the inspector header', async () => {
+  it('opens the share dialog from the inspector header and copies a HackMD link', async () => {
     const api = createApi();
 
     renderHome(api);
     await findRenderedNoteTitle();
     await openInspector();
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share note' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy HackMD link' }));
 
     await waitFor(() => expect(api.app.writeClipboardText).toHaveBeenCalledWith('https://hackmd.io/@michael/note-1'));
   });
@@ -3135,9 +3131,9 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(screen.getByText('Share…'));
 
     const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
-    await selectOption('Read Access', 'Signed-in users', dialog, 'first');
-    await selectOption('Write Access', 'Signed-in users', dialog, 'last');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save Access' }));
+    fireEvent.click(within(within(dialog).getByRole('radiogroup', { name: 'Read access' })).getByRole('radio', { name: 'Signed in' }));
+    fireEvent.click(within(within(dialog).getByRole('radiogroup', { name: 'Write access' })).getByRole('radio', { name: 'Signed in' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       readPermission: 'signed_in',
@@ -3145,7 +3141,7 @@ describe('Home native-feel behavior', () => {
     }));
   });
 
-  it('moves a note to a selected folder from the inspector', async () => {
+  it('moves a note to a selected folder from Note Settings', async () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
@@ -3159,18 +3155,17 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    await openInspector();
+    const dialog = await openNoteSettingsFromInspector();
 
-    await expandInspectorSection('Location');
-    await selectOption('Folder', 'Projects');
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await selectOption('Folder', 'Projects', dialog);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save Settings' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       parentFolderId: 'folder-1',
     }));
   });
 
-  it('moves a note to root from the inspector with null parentFolderId', async () => {
+  it('moves a note to root from Note Settings with null parentFolderId', async () => {
     const folderNote = { ...note, folderPaths: [folder] };
     const folderDocument = { ...document, folderPaths: [folder] };
     const api = createApi({
@@ -3185,11 +3180,10 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    await openInspector();
+    const dialog = await openNoteSettingsFromInspector();
 
-    await expandInspectorSection('Location');
-    await selectOption('Folder', 'Root');
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await selectOption('Folder', 'Root', dialog);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save Settings' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       parentFolderId: null,

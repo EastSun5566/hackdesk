@@ -77,6 +77,7 @@ function createOptions(overrides: Partial<WorkbenchTabLifecycleOptions> = {}): W
     activePaneId: pane.paneId,
     autoSelectSuppressionRef: { current: null },
     closeOtherTabs: vi.fn(),
+    closePane: vi.fn(),
     closeTab: vi.fn(),
     closeTabsToRight: vi.fn(),
     focusEditor: vi.fn(),
@@ -205,5 +206,29 @@ describe('useWorkbenchTabLifecycle', () => {
     expect(options.selectTab).toHaveBeenNthCalledWith(1, 'pane-1', 'tab-1');
     expect(options.selectTab).toHaveBeenNthCalledWith(2, 'pane-1', 'tab-2');
     expect(options.focusEditor).toHaveBeenCalledTimes(2);
+  });
+
+  it('closes a pane only after confirming unsafe tabs inside it', async () => {
+    mockConfirm(false);
+    const canceledOptions = createOptions({
+      isTabDirty: vi.fn((tab: OpenNoteTab) => tab.tabId === 'tab-2'),
+    });
+    const canceledHook = renderHook(() => useWorkbenchTabLifecycle(canceledOptions));
+    await act(async () => {
+      expect(await canceledHook.result.current.requestClosePane('pane-1')).toBe(false);
+    });
+    expect(confirmDialogMock).toHaveBeenCalledOnce();
+    expect(canceledOptions.closePane).not.toHaveBeenCalled();
+
+    confirmDialogMock.mockReset();
+    mockConfirm(true);
+    const confirmedOptions = createOptions({
+      isTabDirty: vi.fn((tab: OpenNoteTab) => tab.tabId === 'tab-2'),
+    });
+    const confirmedHook = renderHook(() => useWorkbenchTabLifecycle(confirmedOptions));
+    await act(async () => {
+      expect(await confirmedHook.result.current.requestClosePane('pane-1')).toBe(true);
+    });
+    expect(confirmedOptions.closePane).toHaveBeenCalledWith('pane-1');
   });
 });

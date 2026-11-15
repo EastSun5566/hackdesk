@@ -327,6 +327,15 @@ describe('DocumentWorkspace', () => {
     expect(activeDetail).toHaveAttribute('data-inspector-collapsed', 'false');
   });
 
+  it('passes per-pane inspector collapsed state independently when provided', () => {
+    renderWorkspace({
+      isPaneInspectorCollapsed: (paneId) => paneId !== 'pane-a',
+    });
+
+    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-inspector-collapsed', 'false');
+    expect(screen.getByTestId('document-detail-Right note')).toHaveAttribute('data-inspector-collapsed', 'true');
+  });
+
   it('does not route a request to another workspace or document inside the same pane', () => {
     const props = createWorkspaceProps();
     const { rerender } = render(<DocumentWorkspace {...props} />);
@@ -463,5 +472,78 @@ describe('DocumentWorkspace', () => {
     expect(screen.queryByRole('button', { name: 'Copy draft' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(props.onRetryLoad).toHaveBeenCalledWith(expect.objectContaining({ tabId: 'tab-a' }));
+  });
+
+  it('calls onEqualizeSplit when a pane separator is double-clicked', () => {
+    const onEqualizeSplit = vi.fn();
+    const props = renderWorkspace({ onEqualizeSplit });
+    if (props.layout.type !== 'split') throw new Error('Expected a split');
+
+    fireEvent.doubleClick(screen.getByRole('separator'));
+
+    expect(onEqualizeSplit).toHaveBeenCalledWith(props.layout.id);
+  });
+
+  it('renders per-pane DocumentTabs inside each pane card when tabsWorkspace is provided', async () => {
+    const { TooltipProvider } = await import('@/components/ui/tooltip');
+    const onSelectTab = vi.fn();
+    const onClosePane = vi.fn();
+    const onSplitPane = vi.fn();
+    const tabsById = {
+      'tab-a': {
+        noteId: 'note-a',
+        shortId: 'short-a',
+        tabId: 'tab-a',
+        teamPath: null,
+        title: 'Left Tab',
+        updatedAtMillis: null,
+      },
+      'tab-b': {
+        noteId: 'note-b',
+        shortId: 'short-b',
+        tabId: 'tab-b',
+        teamPath: null,
+        title: 'Right Tab',
+        updatedAtMillis: null,
+      },
+    };
+    const props = createWorkspaceProps({
+      tabsWorkspace: {
+        getPaneTabs: (candidate) => candidate.tabIds.flatMap((id) => (id in tabsById ? [tabsById[id as keyof typeof tabsById]] : [])),
+        getTabSyncState: () => 'saved',
+        recentlyClosedCount: 0,
+        onSelectTab,
+        onCloseTab: vi.fn(),
+        onCloseOtherTabs: vi.fn(),
+        onCloseTabsToRight: vi.fn(),
+        onReorderTab: vi.fn(),
+        onMoveTabToPane: vi.fn(),
+        onSplitTabToNewPane: vi.fn(),
+        onReopenLastClosedTab: vi.fn(),
+        onKeepTab: vi.fn(),
+        onSplitPane,
+        onMoveTabToOtherPane: vi.fn(),
+        onClosePane,
+        onEqualizePanes: vi.fn(),
+        onNewTab: vi.fn(),
+      },
+    });
+    render(<DocumentWorkspace {...props} />, {
+      wrapper: ({ children }) => <TooltipProvider delayDuration={0}>{children}</TooltipProvider>,
+    });
+
+    const leftPane = screen.getByRole('region', { name: 'Document pane 1' });
+    const rightPane = screen.getByRole('tabpanel', { name: 'Right Tab' });
+    expect(rightPane).toHaveAttribute('data-document-pane-id', 'pane-b');
+    expect(leftPane.querySelector('[data-hackdesk-focus="tabs"]')).toBeInTheDocument();
+    expect(rightPane.querySelector('[data-hackdesk-focus="tabs"]')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Left Tab' }));
+    expect(onSelectTab).toHaveBeenCalledWith('pane-a', 'tab-a');
+
+    const closePaneButtons = screen.getAllByRole('button', { name: 'Close pane' });
+    expect(closePaneButtons).toHaveLength(2);
+    fireEvent.click(closePaneButtons[0]);
+    expect(onClosePane).toHaveBeenCalledWith('pane-a');
   });
 });

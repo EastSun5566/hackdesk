@@ -2,7 +2,10 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  INSPECTOR_WIDTH_DEFAULT,
+  INSPECTOR_WIDTH_KEY,
   NAVIGATOR_COLLAPSED_KEY,
+  NAVIGATOR_WIDTH_DEFAULT,
   NAVIGATOR_WIDTH_KEY,
 } from './ui-preferences';
 import { useWorkbenchPanelState } from './useWorkbenchPanelState';
@@ -33,15 +36,21 @@ describe('useWorkbenchPanelState', () => {
     expect(window.localStorage.getItem('hackdesk_inspector_collapsed')).toBe('false');
   });
 
-  it('persists the sidebar width', () => {
+  it('defaults and persists the sidebar and inspector widths', () => {
     const { result } = renderHook(() => useWorkbenchPanelState());
+
+    expect(result.current.navigatorWidth).toBe(NAVIGATOR_WIDTH_DEFAULT);
+    expect(result.current.inspectorWidth).toBe(INSPECTOR_WIDTH_DEFAULT);
 
     act(() => {
       result.current.setNavigatorWidth(420);
+      result.current.setInspectorWidth(380);
     });
 
     expect(result.current.navigatorWidth).toBe(420);
     expect(window.localStorage.getItem(NAVIGATOR_WIDTH_KEY)).toBe('420');
+    expect(result.current.inspectorWidth).toBe(380);
+    expect(window.localStorage.getItem(INSPECTOR_WIDTH_KEY)).toBe('380');
   });
 
   it.each([
@@ -67,5 +76,27 @@ describe('useWorkbenchPanelState', () => {
     window.localStorage.setItem('hackdesk_navigator_collapsed', 'false');
 
     expect(renderHook(() => useWorkbenchPanelState()).result.current.navigatorCollapsed).toBe(true);
+  });
+
+  it('tracks open Note Details sidebars independently per pane', () => {
+    const { result } = renderHook(() => useWorkbenchPanelState());
+
+    expect(result.current.isPaneInspectorCollapsed('pane-a')).toBe(true);
+    expect(result.current.isPaneInspectorCollapsed('pane-b')).toBe(true);
+
+    act(() => result.current.toggleInspectorCollapsed('pane-a'));
+
+    expect(result.current.isPaneInspectorCollapsed('pane-a')).toBe(false);
+    expect(result.current.isPaneInspectorCollapsed('pane-b')).toBe(true);
+
+    act(() => result.current.toggleInspectorCollapsed('pane-b'));
+
+    expect(result.current.isPaneInspectorCollapsed('pane-a')).toBe(false);
+    expect(result.current.isPaneInspectorCollapsed('pane-b')).toBe(false);
+
+    act(() => result.current.toggleInspectorCollapsed('pane-a'));
+
+    expect(result.current.isPaneInspectorCollapsed('pane-a')).toBe(true);
+    expect(result.current.isPaneInspectorCollapsed('pane-b')).toBe(false);
   });
 });

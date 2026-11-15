@@ -172,10 +172,12 @@ export function Home() {
   } = workspaceState;
   useEffect(() => { overlayControls.set('history', false); }, [scopeStorageKey, overlayControls]);
   const {
-    inspectorCollapsed,
+    inspectorWidth,
     navigatorCollapsed,
     navigatorWidth,
     expandNavigator,
+    isPaneInspectorCollapsed,
+    setInspectorWidth,
     setNavigatorCollapsed,
     setNavigatorWidth,
     toggleInspectorCollapsed,
@@ -197,6 +199,8 @@ export function Home() {
     toggleNavigatorCollapsed();
   }, [expandNavigator, hackMode, overlayControls, toggleNavigatorCollapsed]);
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey, usingInitialDrafts && settingsQuery.data?.shouldShowHackmdOnboarding === true);
+  const activePaneId = noteWorkspace.state.activePaneId;
+  const inspectorCollapsed = isPaneInspectorCollapsed(activePaneId);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
 
@@ -284,15 +288,19 @@ export function Home() {
   const openKeyboardShortcuts = useCallback(() => {
     overlayControls.set('shortcutHelp', { region: focusedZone, target: getLastFocusedTarget() });
   }, [focusedZone, getLastFocusedTarget, overlayControls]);
-  // Note Details floats over the note: opening it moves focus inside, and closing it from inside
+  // Note Details floats over each pane: opening it moves focus inside, and closing it from inside
   // returns to the note rather than leaving focus nowhere.
-  const toggleNoteDetails = useCallback(() => {
+  const toggleNoteDetails = useCallback((paneId?: string) => {
+    const targetPaneId = paneId ?? activePaneId;
+    const wasCollapsed = isPaneInspectorCollapsed(targetPaneId);
     const active = document.activeElement;
     const leavingDetails = !active || active === document.body || Boolean(active.closest('[data-hackdesk-focus="inspector"]'));
-    toggleInspectorCollapsed();
-    if (inspectorCollapsed) focusZone('inspector');
-    else if (leavingDetails) focusZone('editor');
-  }, [focusZone, inspectorCollapsed, toggleInspectorCollapsed]);
+    toggleInspectorCollapsed(targetPaneId);
+    if (targetPaneId === activePaneId) {
+      if (wasCollapsed) focusZone('inspector');
+      else if (leavingDetails) focusZone('editor');
+    }
+  }, [activePaneId, focusZone, isPaneInspectorCollapsed, toggleInspectorCollapsed]);
   const toggleHackMode = useCallback(() => {
     if (hackMode) {
       setHackMode(false);
@@ -835,12 +843,14 @@ export function Home() {
   const {
     confirmCloseUnsafeTabs,
     requestCloseOtherTabs,
+    requestClosePane,
     requestCloseTab,
     requestCloseTabsToRight,
   } = useWorkbenchTabLifecycle({
     activePaneId: noteWorkspace.state.activePaneId,
     autoSelectSuppressionRef,
     closeOtherTabs: noteWorkspace.closeOtherTabs,
+    closePane: noteWorkspace.closePane,
     closeTab: noteWorkspace.closeTab,
     closeTabsToRight: noteWorkspace.closeTabsToRight,
     focusEditor: () => focusZone('editor'),
@@ -920,6 +930,7 @@ export function Home() {
     refreshWorkspace,
     renameFolder: folderCommands.handleRenameFolder,
     requestCloseOtherTabs,
+    requestClosePane,
     requestCloseTab,
     requestCloseTabsToRight,
     requestDeleteFolder: folderCommands.handleDeleteFolderRequest,
@@ -948,6 +959,7 @@ export function Home() {
     selectedFolderId: selectedFolder?.id ?? null,
     overlayControls,
     splitActiveTab: noteWorkspace.splitActiveTab,
+    splitPane: noteWorkspace.splitPane,
     switchToHistory: () => { if (scope.type !== 'local') { overlayControls.set('history', true); } },
     toggleInspector: toggleNoteDetails,
     toggleKeyHints: () => {
@@ -1255,6 +1267,8 @@ export function Home() {
     getTabSyncState,
     homeStatus,
     inspectorCollapsed,
+    isPaneInspectorCollapsed,
+    inspectorWidth,
     localDocumentRecovery,
     remoteDocumentRecovery,
     localVaultActions,
@@ -1266,10 +1280,12 @@ export function Home() {
     refreshWorkspace,
     selectedFolderId,
     selectedNote,
+    setInspectorWidth,
     setNavigatorWidth,
     settings,
     tabLifecycle: {
       requestCloseOtherTabs,
+      requestClosePane,
       requestCloseTab,
       requestCloseTabsToRight,
     },
@@ -1278,7 +1294,10 @@ export function Home() {
     toggleNavigatorCollapsed: toggleSidebar,
     user,
     overlayControls,
-    onNewTab: () => runShortcutAction('new-tab'),
+    onNewTab: (paneId?: string) => {
+      if (paneId && paneId !== noteWorkspace.state.activePaneId) noteWorkspace.focusPane(paneId);
+      runShortcutAction('new-tab');
+    },
     recentNotes,
   });
   const overlayProps = useHomeOverlayProps({

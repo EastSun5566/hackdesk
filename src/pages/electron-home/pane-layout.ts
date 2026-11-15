@@ -118,6 +118,16 @@ export function splitLayoutPane(node: PaneLayoutNode, paneId: string, newPaneId:
   return visit(node);
 }
 
+/** Places a new pane along an outer edge of the entire layout tree. */
+export function splitLayoutAtEdge(node: PaneLayoutNode, newPaneId: string, direction: PaneDirection): PaneLayoutNode {
+  const orientation = orientationOf(direction);
+  const before = direction === 'left' || direction === 'up';
+  const edgeShare = node.type === 'pane' ? 50 : 35;
+  const pair = before ? [paneLeaf(newPaneId), node] : [node, paneLeaf(newPaneId)];
+  const sizes = before ? [edgeShare, 100 - edgeShare] : [100 - edgeShare, edgeShare];
+  return makeSplit(orientation, pair, sizes);
+}
+
 /** Removes a pane; its space goes to the rest of its split, and a split left with one child gives way to it. */
 export function removeLayoutPane(node: PaneLayoutNode, paneId: string): PaneLayoutNode | null {
   if (node.type === 'pane') return node.paneId === paneId ? null : node;
@@ -147,6 +157,15 @@ export function resizeLayoutSplit(node: PaneLayoutNode, splitId: string, sizesBy
 export function equalizeLayout(node: PaneLayoutNode): PaneLayoutNode {
   if (node.type === 'pane') return node;
   return { ...node, children: node.children.map(equalizeLayout), sizes: equalSizes(node.children.length) };
+}
+
+/** Equalizes the children of one split without changing nested splits inside it. */
+export function equalizeLayoutSplit(node: PaneLayoutNode, splitId: string): PaneLayoutNode {
+  if (node.type === 'pane') return node;
+  if (node.id === splitId) {
+    return { ...node, sizes: equalSizes(node.children.length) };
+  }
+  return { ...node, children: node.children.map(child => equalizeLayoutSplit(child, splitId)) };
 }
 
 /**

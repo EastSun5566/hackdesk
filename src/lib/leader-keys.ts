@@ -20,7 +20,7 @@ export const LEADER_KEYS: Record<string, LeaderEntry> = {
     label: 'Note',
     keys: {
       n: 'new-note', t: 'new-note-from-template', r: 'rename-note', d: 'duplicate-note', m: 'move-note-to-folder',
-      s: 'save-note', l: 'copy-note-link', k: 'copy-markdown-link', c: 'copy-note-content', h: 'share-note', v: 'show-note-versions',
+      s: 'save-note', l: 'copy-note-link', k: 'copy-markdown-link', c: 'copy-note-content', i: 'note-settings', h: 'share-note', v: 'show-note-versions',
       e: 'export-note-markdown', b: 'open-as-book', p: 'present-note', x: 'delete-note',
     },
   },
@@ -34,7 +34,7 @@ export const LEADER_KEYS: Record<string, LeaderEntry> = {
   p: {
     label: 'Pane',
     keys: {
-      s: 'split-pane-right', d: 'split-pane-down', z: 'toggle-pane-zoom', '=': 'equalize-panes', m: 'move-tab-to-other-pane',
+      s: 'split-pane-right', d: 'split-pane-down', x: 'close-pane', z: 'toggle-pane-zoom', '=': 'equalize-panes', m: 'move-tab-to-other-pane',
       h: 'focus-pane-left', j: 'focus-pane-down', k: 'focus-pane-up', l: 'focus-pane-right',
     },
   },

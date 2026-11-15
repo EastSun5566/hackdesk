@@ -332,4 +332,43 @@ describe('DocumentTabs', () => {
     expect(props.onCloseTabsToRight).not.toHaveBeenCalled();
     expect(props.onReopenLastClosedTab).not.toHaveBeenCalled();
   });
+
+  it('exposes Split Left, Split Up, and Close Pane controls when configured', async () => {
+    const onSplitLeft = vi.fn();
+    const onSplitUp = vi.fn();
+    const onClosePane = vi.fn();
+    const props = createDocumentTabsProps({
+      canClosePane: true,
+      onClosePane,
+      paneLayout: {
+        zoomed: false,
+        onSplitDown: vi.fn(),
+        onSplitLeft,
+        onSplitUp,
+        onToggleZoom: vi.fn(),
+        onEqualize: vi.fn(),
+      },
+    });
+    render(
+      <TooltipProvider delayDuration={0}>
+        <DocumentTabs {...props} />
+      </TooltipProvider>,
+    );
+
+    await expectToolbarRovingFocus('Pane controls', ['Pane actions', 'Close pane']);
+    fireEvent.click(screen.getByRole('button', { name: 'Close pane' }));
+    expect(onClosePane).toHaveBeenCalledOnce();
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Pane actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Split Left' }));
+    expect(onSplitLeft).toHaveBeenCalledOnce();
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Pane actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Split Up' }));
+    expect(onSplitUp).toHaveBeenCalledOnce();
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Pane actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Close Pane' }));
+    expect(onClosePane).toHaveBeenCalledTimes(2);
+  });
 });

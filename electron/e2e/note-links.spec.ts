@@ -107,7 +107,7 @@ test('HackMD embeds show as cards, links open in the app, and pasted URLs offer 
     await expect(page.getByRole('status', { name: /^Sync state:/ })).toHaveAccessibleName('Sync state: Saved');
 
     await page.getByRole('button', { name: 'Expand note details' }).click();
-    await page.getByRole('button', { name: /^Linked from/ }).click();
+    await expect(page.getByRole('heading', { name: /^Linked from/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Alpha\s*My Workspace/ })).toBeVisible();
 
     await openAlpha();
