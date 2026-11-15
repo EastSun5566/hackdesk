@@ -2655,3 +2655,41 @@ test('a note dragged from the sidebar opens in the pane, tab bar or new split it
     await stopApp(app);
   }
 });
+
+test('three panes each load their own note', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await switchWorkspace(page, 'vault');
+    const tree = page.locator('[data-folder-tree-kind="note"]');
+    const panes = page.locator('section[data-document-pane-id]');
+    const activeBar = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
+    const open = async (name: string) => {
+      await tree.getByRole('treeitem', { name, exact: true }).dblclick();
+      await expect(page.locator('section[data-active-pane="true"]').getByRole('navigation', { name: 'Note location' })).toContainText(name);
+    };
+    const split = async (item: 'Split Right' | 'Split Down') => {
+      await activeBar.getByRole('button', { name: 'Pane actions', exact: true }).click();
+      // The previous menu may still be animating closed.
+      await page.locator('[role="menu"]:not([data-closed])').getByRole('menuitem', { name: item, exact: true }).click();
+    };
+
+    await open('Alpha');
+    await split('Split Right');
+    await expect(panes).toHaveCount(2);
+    await open('Beta');
+    // With two tabs, splitting moves the active one (Beta) into the new pane, leaving Alpha behind.
+    await split('Split Down');
+    await expect(panes).toHaveCount(3);
+    await panes.nth(1).locator('.cm-content').click();
+    await open('Gamma');
+
+    // Every pane shows its own note's editor; none falls back to the empty state.
+    await expect.poll(() => panes.evaluateAll(sections => sections
+      .map(section => section.querySelector('.cm-content')?.textContent?.match(/^# (Alpha|Beta|Gamma)/)?.[1] ?? 'none')
+      .sort())).toEqual(['Alpha', 'Beta', 'Gamma']);
+    await expect(page.getByText('No note selected', { exact: true })).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
+});

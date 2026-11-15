@@ -1,3 +1,4 @@
+import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useShowHiddenFiles } from './hidden-files-preference';
@@ -95,7 +96,8 @@ export function useElectronLocalVault({
         seen.add(key);
         return true;
       })
-      .slice(0, 2);
+      // Every pane shows its own note, so each visible one loads (not only the first two).
+      .slice(0, MAX_NOTE_PANES);
   }, [activeDocumentNotes, selectedNote]);
 
   const documentQueryResults = useQueries({
