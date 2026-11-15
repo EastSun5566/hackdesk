@@ -2,6 +2,10 @@ import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import {
+  INSPECTOR_WIDTH_DEFAULT,
+  INSPECTOR_WIDTH_KEY,
+  INSPECTOR_WIDTH_MAX,
+  INSPECTOR_WIDTH_MIN,
   NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_DEFAULT,
   NAVIGATOR_WIDTH_KEY,
@@ -15,9 +19,11 @@ import {
 
 export type WorkbenchPanelState = {
   inspectorCollapsed: boolean;
+  inspectorWidth: number;
   navigatorCollapsed: boolean;
   navigatorWidth: number;
   expandNavigator: () => void;
+  setInspectorWidth: (width: number) => void;
   setNavigatorCollapsed: Dispatch<SetStateAction<boolean>>;
   setNavigatorWidth: (width: number) => void;
   toggleInspectorCollapsed: () => void;
@@ -31,6 +37,9 @@ function writeNavigatorCollapsed(collapsed: boolean) {
 export function useWorkbenchPanelState(): WorkbenchPanelState {
   // Note Details is an overlay over the note, so it always starts closed.
   const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
+  const [inspectorWidth, setInspectorWidthState] = useState(() => (
+    readNumberStorage(INSPECTOR_WIDTH_KEY, INSPECTOR_WIDTH_DEFAULT, INSPECTOR_WIDTH_MIN, INSPECTOR_WIDTH_MAX)
+  ));
   const [navigatorCollapsed, setNavigatorCollapsedState] = useState(readSidebarCollapsed);
   const [navigatorWidth, setNavigatorWidthState] = useState(() => (
     readNumberStorage(NAVIGATOR_WIDTH_KEY, NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX)
@@ -60,6 +69,11 @@ export function useWorkbenchPanelState(): WorkbenchPanelState {
     setNavigatorCollapsed(false);
   }, [setNavigatorCollapsed]);
 
+  const setInspectorWidth = useCallback((width: number) => {
+    setInspectorWidthState(width);
+    writeNumberStorage(INSPECTOR_WIDTH_KEY, width);
+  }, []);
+
   const setNavigatorWidth = useCallback((width: number) => {
     setNavigatorWidthState(width);
     writeNumberStorage(NAVIGATOR_WIDTH_KEY, width);
@@ -67,9 +81,11 @@ export function useWorkbenchPanelState(): WorkbenchPanelState {
 
   return {
     inspectorCollapsed,
+    inspectorWidth,
     navigatorCollapsed,
     navigatorWidth,
     expandNavigator,
+    setInspectorWidth,
     setNavigatorCollapsed,
     setNavigatorWidth,
     toggleInspectorCollapsed,

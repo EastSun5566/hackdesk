@@ -80,7 +80,10 @@ import {
 import { getLocalImageContext, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
   INSPECTOR_WIDTH_DEFAULT,
+  INSPECTOR_WIDTH_MAX,
+  INSPECTOR_WIDTH_MIN,
 } from './ui-preferences';
+import { PanelResizeSash } from './PanelResizeSash';
 import { DOCUMENT_SYNC_STATE_LABELS, syncStateNeedsAttention, type DocumentSyncState } from './document-sync-state';
 
 const NOTE_INSPECTOR_PANEL_ID = 'note-inspector-panel';
@@ -110,6 +113,8 @@ export type DocumentDetailLayout = {
   focusRequestId: number;
   inspectorCollapsed: boolean;
   inspectorPanelId?: string;
+  inspectorWidth?: number;
+  onInspectorWidthChange?: (width: number) => void;
   searchRequestId: number;
   shareOpen: boolean;
   versionsOpen?: boolean;
@@ -678,6 +683,8 @@ function ActiveDocumentDetail({
           folderTree={folderTree}
           inspectorCollapsed={layout.inspectorCollapsed}
           inspectorPanelId={inspectorPanelId}
+          inspectorWidth={layout.inspectorWidth}
+          onInspectorWidthChange={layout.onInspectorWidthChange}
           isLocalDocument={isLocalDocument}
           status={status}
         />
@@ -848,7 +855,7 @@ function DocumentHeader({
   return (
     <PanelHeader
       // Its line shows only once the note scrolls under it; the pane is the scroll-edge scope.
-      className={cn('group/document-header scroll-edge-top relative px-4 py-2.25', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('group/document-header scroll-edge-top relative px-4 py-1.5', HACK_MODE_HIDDEN_CLASS)}
       actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
@@ -1106,6 +1113,8 @@ function InspectorPanel({
   folderTree,
   inspectorCollapsed,
   inspectorPanelId,
+  inspectorWidth,
+  onInspectorWidthChange,
   isLocalDocument,
   status,
 }: {
@@ -1113,11 +1122,14 @@ function InspectorPanel({
   folderTree: FolderTree;
   inspectorCollapsed: boolean;
   inspectorPanelId: string;
+  inspectorWidth?: number;
+  onInspectorWidthChange?: (width: number) => void;
   isLocalDocument: boolean;
   onRevealComment: (comment: NoteComment) => boolean;
   status: DocumentDetailStatus;
 }) {
   const actions = useDocumentActions();
+  const width = inspectorWidth ?? INSPECTOR_WIDTH_DEFAULT;
   // The details mount when first opened and stay through the closing slide, then unmount, so a
   // note opened with them closed loads nothing extra.
   const [showContent, setShowContent] = useState(!inspectorCollapsed);
@@ -1147,30 +1159,48 @@ function InspectorPanel({
       }}
       className={cn(
         // A card floating over the note, a gap in from the pane's edges.
-        'absolute inset-y-1.5 right-1.5 z-20 w-(--inspector-width) max-w-full overflow-clip rounded-lg border border-border-subtle bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
+        'absolute inset-y-1.5 right-1.5 z-20 flex w-(--inspector-width) max-w-full rounded-lg border border-border-subtle bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none [html[data-panel-resizing]_&]:transition-none',
         inspectorCollapsed && 'pointer-events-none translate-x-full opacity-0 ease-in',
       )}
-      style={{ '--inspector-width': `${INSPECTOR_WIDTH_DEFAULT}px` }}
+      style={{ '--inspector-width': `${width}px` }}
     >
-      {!showContent ? null : isLocalDocument ? (
-        <LocalNoteInspector document={document} onOpenNote={actions.onOpenNoteTarget!} />
-      ) : (
-        <NoteInspector
-          document={document}
-          folderTree={folderTree}
-          status={{
-            saving: status.savingMetadata,
-          }}
-          actions={{
-            onSaveMetadata: actions.onSaveMetadata,
-            onCopyLink: actions.onCopyLink,
-            onShowVersions: actions.onVersionsOpenChange && (() => actions.onVersionsOpenChange?.(true)),
-            // Comments live on HackMD, so they are offered where versions are.
-            onRevealComment: actions.onVersionsOpenChange && onRevealComment,
-            onOpenNote: actions.onOpenNoteTarget,
-          }}
+      {onInspectorWidthChange ? (
+        <PanelResizeSash
+          edge
+          direction="left"
+          label="Resize note details"
+          value={width}
+          min={INSPECTOR_WIDTH_MIN}
+          max={INSPECTOR_WIDTH_MAX}
+          defaultValue={INSPECTOR_WIDTH_DEFAULT}
+          disabled={inspectorCollapsed}
+          onChange={onInspectorWidthChange}
+          previewTargetId={inspectorPanelId}
+          previewProperties={['--inspector-width']}
+          className="absolute inset-y-0 left-0 z-30"
         />
-      )}
+      ) : null}
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-clip rounded-lg">
+        {!showContent ? null : isLocalDocument ? (
+          <LocalNoteInspector document={document} onOpenNote={actions.onOpenNoteTarget!} />
+        ) : (
+          <NoteInspector
+            document={document}
+            folderTree={folderTree}
+            status={{
+              saving: status.savingMetadata,
+            }}
+            actions={{
+              onSaveMetadata: actions.onSaveMetadata,
+              onCopyLink: actions.onCopyLink,
+              onShowVersions: actions.onVersionsOpenChange && (() => actions.onVersionsOpenChange?.(true)),
+              // Comments live on HackMD, so they are offered where versions are.
+              onRevealComment: actions.onVersionsOpenChange && onRevealComment,
+              onOpenNote: actions.onOpenNoteTarget,
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

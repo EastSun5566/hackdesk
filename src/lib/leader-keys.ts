@@ -34,7 +34,7 @@ export const LEADER_KEYS: Record<string, LeaderEntry> = {
   p: {
     label: 'Pane',
     keys: {
-      s: 'split-pane-right', d: 'split-pane-down', z: 'toggle-pane-zoom', '=': 'equalize-panes', m: 'move-tab-to-other-pane',
+      s: 'split-pane-right', d: 'split-pane-down', x: 'close-pane', z: 'toggle-pane-zoom', '=': 'equalize-panes', m: 'move-tab-to-other-pane',
       h: 'focus-pane-left', j: 'focus-pane-down', k: 'focus-pane-up', l: 'focus-pane-right',
     },
   },

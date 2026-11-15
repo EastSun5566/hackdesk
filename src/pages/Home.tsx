@@ -173,9 +173,11 @@ export function Home() {
   useEffect(() => { overlayControls.set('history', false); }, [scopeStorageKey, overlayControls]);
   const {
     inspectorCollapsed,
+    inspectorWidth,
     navigatorCollapsed,
     navigatorWidth,
     expandNavigator,
+    setInspectorWidth,
     setNavigatorCollapsed,
     setNavigatorWidth,
     toggleInspectorCollapsed,
@@ -835,12 +837,14 @@ export function Home() {
   const {
     confirmCloseUnsafeTabs,
     requestCloseOtherTabs,
+    requestClosePane,
     requestCloseTab,
     requestCloseTabsToRight,
   } = useWorkbenchTabLifecycle({
     activePaneId: noteWorkspace.state.activePaneId,
     autoSelectSuppressionRef,
     closeOtherTabs: noteWorkspace.closeOtherTabs,
+    closePane: noteWorkspace.closePane,
     closeTab: noteWorkspace.closeTab,
     closeTabsToRight: noteWorkspace.closeTabsToRight,
     focusEditor: () => focusZone('editor'),
@@ -920,6 +924,7 @@ export function Home() {
     refreshWorkspace,
     renameFolder: folderCommands.handleRenameFolder,
     requestCloseOtherTabs,
+    requestClosePane,
     requestCloseTab,
     requestCloseTabsToRight,
     requestDeleteFolder: folderCommands.handleDeleteFolderRequest,
@@ -948,6 +953,7 @@ export function Home() {
     selectedFolderId: selectedFolder?.id ?? null,
     overlayControls,
     splitActiveTab: noteWorkspace.splitActiveTab,
+    splitPane: noteWorkspace.splitPane,
     switchToHistory: () => { if (scope.type !== 'local') { overlayControls.set('history', true); } },
     toggleInspector: toggleNoteDetails,
     toggleKeyHints: () => {
@@ -1255,6 +1261,7 @@ export function Home() {
     getTabSyncState,
     homeStatus,
     inspectorCollapsed,
+    inspectorWidth,
     localDocumentRecovery,
     remoteDocumentRecovery,
     localVaultActions,
@@ -1266,10 +1273,12 @@ export function Home() {
     refreshWorkspace,
     selectedFolderId,
     selectedNote,
+    setInspectorWidth,
     setNavigatorWidth,
     settings,
     tabLifecycle: {
       requestCloseOtherTabs,
+      requestClosePane,
       requestCloseTab,
       requestCloseTabsToRight,
     },
@@ -1278,7 +1287,10 @@ export function Home() {
     toggleNavigatorCollapsed: toggleSidebar,
     user,
     overlayControls,
-    onNewTab: () => runShortcutAction('new-tab'),
+    onNewTab: (paneId?: string) => {
+      if (paneId && paneId !== noteWorkspace.state.activePaneId) noteWorkspace.focusPane(paneId);
+      runShortcutAction('new-tab');
+    },
     recentNotes,
   });
   const overlayProps = useHomeOverlayProps({

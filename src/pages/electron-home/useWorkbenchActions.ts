@@ -47,6 +47,7 @@ export type WorkbenchActionHandlers = {
   openKeyboardShortcuts: () => void;
   openLeaderMenu: () => void;
   focusNextRegion: (backwards?: boolean) => boolean;
+  closeActivePane: () => void;
   closeActiveTab: () => void;
   closeOtherTabs: () => void;
   closeTabsToRight: () => void;
@@ -94,7 +95,9 @@ export type WorkbenchActionHandlers = {
   reopenLastClosedTab: () => void;
   saveNote: () => void;
   setEditorMode: (mode: EditorMode) => void;
+  splitPaneLeft: () => void;
   splitPaneRight: () => void;
+  splitPaneUp: () => void;
   splitPaneDown: () => void;
   focusPaneInDirection: (direction: PaneDirection) => void;
   togglePaneZoom: () => void;
@@ -471,11 +474,20 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     case 'reopen-last-closed-tab':
       handlers.reopenLastClosedTab();
       break;
+    case 'split-pane-left':
+      handlers.splitPaneLeft();
+      break;
     case 'split-pane-right':
       handlers.splitPaneRight();
       break;
+    case 'split-pane-up':
+      handlers.splitPaneUp();
+      break;
     case 'split-pane-down':
       handlers.splitPaneDown();
+      break;
+    case 'close-pane':
+      handlers.closeActivePane();
       break;
     case 'toggle-pane-zoom':
       handlers.togglePaneZoom();

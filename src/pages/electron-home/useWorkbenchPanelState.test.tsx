@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  INSPECTOR_WIDTH_KEY,
   NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_KEY,
 } from './ui-preferences';
@@ -33,15 +34,18 @@ describe('useWorkbenchPanelState', () => {
     expect(window.localStorage.getItem('hackdesk_inspector_collapsed')).toBe('false');
   });
 
-  it('persists the sidebar width', () => {
+  it('persists the sidebar and inspector widths', () => {
     const { result } = renderHook(() => useWorkbenchPanelState());
 
     act(() => {
       result.current.setNavigatorWidth(420);
+      result.current.setInspectorWidth(380);
     });
 
     expect(result.current.navigatorWidth).toBe(420);
     expect(window.localStorage.getItem(NAVIGATOR_WIDTH_KEY)).toBe('420');
+    expect(result.current.inspectorWidth).toBe(380);
+    expect(window.localStorage.getItem(INSPECTOR_WIDTH_KEY)).toBe('380');
   });
 
   it.each([

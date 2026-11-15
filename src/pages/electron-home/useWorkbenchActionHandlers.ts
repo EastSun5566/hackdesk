@@ -71,6 +71,7 @@ export type WorkbenchActionHandlersOptions = {
   refreshWorkspace: () => void;
   renameFolder: (folderId: string) => void;
   requestCloseOtherTabs: (paneId: string, tabId: string) => Promise<unknown>;
+  requestClosePane: (paneId: string) => Promise<boolean>;
   requestCloseTab: (tabId: string) => Promise<boolean>;
   requestCloseTabsToRight: (paneId: string, tabId: string) => Promise<unknown>;
   requestDeleteFolder: (folderId: string) => void;
@@ -82,6 +83,7 @@ export type WorkbenchActionHandlersOptions = {
   selectedFolderId: string | null;
   overlayControls: OverlayControls;
   splitActiveTab: () => void;
+  splitPane: (direction: PaneDirection, paneId?: string) => void;
   switchToHistory: () => void;
   toggleInspector: () => void;
   toggleKeyHints: () => void;
@@ -148,6 +150,7 @@ export function useWorkbenchActionHandlers({
   refreshWorkspace,
   renameFolder,
   requestCloseOtherTabs,
+  requestClosePane,
   requestCloseTab,
   requestCloseTabsToRight,
   requestDeleteFolder,
@@ -159,6 +162,7 @@ export function useWorkbenchActionHandlers({
   selectedFolderId,
   overlayControls,
   splitActiveTab,
+  splitPane,
   switchToHistory,
   toggleInspector,
   toggleKeyHints,
@@ -177,6 +181,11 @@ export function useWorkbenchActionHandlers({
   revealLocalVault,
 }: WorkbenchActionHandlersOptions): WorkbenchActionHandlers {
   return useMemo<WorkbenchActionHandlers>(() => ({
+    closeActivePane: () => {
+      void requestClosePane(activePaneId).then((closed) => {
+        if (closed) focusZone('editor', { afterMove: true });
+      });
+    },
     closeActiveTab: () => {
       if (activeTab) {
         void requestCloseTab(activeTab.tabId).then((closed) => {
@@ -320,8 +329,16 @@ export function useWorkbenchActionHandlers({
       }
     },
     setEditorMode,
+    splitPaneLeft: () => {
+      splitPane('left');
+      focusZone('editor', { afterMove: true });
+    },
     splitPaneRight: () => {
       splitActiveTab();
+      focusZone('editor', { afterMove: true });
+    },
+    splitPaneUp: () => {
+      splitPane('up');
       focusZone('editor', { afterMove: true });
     },
     splitPaneDown: () => {
@@ -416,6 +433,7 @@ export function useWorkbenchActionHandlers({
     renameFolder,
     reopenLastClosedTab,
     requestCloseOtherTabs,
+    requestClosePane,
     requestCloseTab,
     requestCloseTabsToRight,
     requestDeleteFolder,
@@ -427,6 +445,7 @@ export function useWorkbenchActionHandlers({
     overlayControls,
     splitActiveTab,
     splitActivePaneDown,
+    splitPane,
     focusPaneToward,
     togglePaneZoom,
     equalizePanes,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useShowHiddenFiles } from './hidden-files-preference';
 
+import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 import type { DocumentSummary, HackDeskElectronAPI, RepositoryValue } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { stripIpcErrorPrefix } from '@/lib/note-errors';
@@ -95,7 +96,7 @@ export function useElectronLocalVault({
         seen.add(key);
         return true;
       })
-      .slice(0, 2);
+      .slice(0, MAX_NOTE_PANES);
   }, [activeDocumentNotes, selectedNote]);
 
   const documentQueryResults = useQueries({

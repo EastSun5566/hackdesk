@@ -45,7 +45,7 @@ function NoteInspectorPanel({
       data-hackdesk-focus="inspector"
       tabIndex={-1}
       // The header and footer show their lines only while the sections scroll under them.
-      className="scroll-edges flex h-full w-80 flex-col bg-background-muted outline-none"
+      className="scroll-edges flex h-full w-full flex-col bg-background-muted outline-none"
     >
       <InspectorHeader
         document={document}
@@ -100,7 +100,7 @@ export function LocalNoteInspector({ document, onOpenNote }: { document: Documen
       data-hackdesk-focus="inspector"
       tabIndex={-1}
       // The header and footer show their lines only while the sections scroll under them.
-      className="scroll-edges flex h-full w-80 flex-col bg-background-muted outline-none"
+      className="scroll-edges flex h-full w-full flex-col bg-background-muted outline-none"
     >
       <PanelHeader title="Note Details" className="scroll-edge-top relative px-4 py-2.5" />
       <div className="scroll-edges-source min-h-0 flex-1 overflow-auto overscroll-contain px-5 pb-3 pt-1 scrollbar-gutter-stable">

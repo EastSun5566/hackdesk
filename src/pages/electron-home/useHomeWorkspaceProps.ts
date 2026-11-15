@@ -38,6 +38,9 @@ import type { OpenNoteTarget } from './useNoteLinkOpener';
 import type { WorkspaceFolderTree } from './FolderNavigator';
 import type { OverlayControls } from './workbench-overlays';
 
+import type { useWorkbenchTabLifecycle } from './useWorkbenchTabLifecycle';
+import type { DocumentSyncState } from './document-sync-state';
+
 const EMPTY_WORKSPACE_FOLDERS: WorkspaceFolderTree[] = [];
 const NO_LOCAL_VAULTS: ElectronHomeWorkspaceProps['workspaceNavigation']['localVaults'] = [];
 
@@ -125,6 +128,7 @@ export function useHomeWorkspaceProps({
   getTabSyncState,
   homeStatus,
   inspectorCollapsed,
+  inspectorWidth,
   localDocumentRecovery,
   localVaultActions,
   mutations,
@@ -136,6 +140,7 @@ export function useHomeWorkspaceProps({
   remoteDocumentRecovery,
   selectedFolderId,
   selectedNote,
+  setInspectorWidth,
   setNavigatorWidth,
   settings,
   tabLifecycle,
@@ -166,9 +171,10 @@ export function useHomeWorkspaceProps({
   editorMode: ElectronHomeWorkspaceProps['documentWorkspace']['editorMode'];
   folderCommands: WorkbenchFolderCommands;
   folderTree: FolderTree;
-  getTabSyncState: ElectronHomeWorkspaceProps['titlebar']['getTabSyncState'];
+  getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
   homeStatus: HomeStatus;
   inspectorCollapsed: boolean;
+  inspectorWidth: number;
   localDocumentRecovery: LocalDocumentRecovery;
   localVaultActions: HomeLocalVaultActions;
   mutations: NoteMutations;
@@ -180,11 +186,12 @@ export function useHomeWorkspaceProps({
   remoteDocumentRecovery: RemoteDocumentRecovery;
   selectedFolderId: string | null;
   selectedNote: { id: string } | null;
+  setInspectorWidth: (width: number) => void;
   setNavigatorWidth: (width: number) => void;
   settings: ElectronSafeSettings | undefined;
   tabLifecycle: Pick<
-    ElectronHomeWorkspaceProps['titlebar']['actions'],
-    'requestCloseOtherTabs' | 'requestCloseTab' | 'requestCloseTabsToRight'
+    ReturnType<typeof useWorkbenchTabLifecycle>,
+    'requestCloseOtherTabs' | 'requestClosePane' | 'requestCloseTab' | 'requestCloseTabsToRight'
   >;
   teams: TeamSummary[];
   toggleInspectorCollapsed: () => void;
@@ -192,7 +199,7 @@ export function useHomeWorkspaceProps({
   user: UserSummary | undefined;
   uploadingTabIds?: readonly string[];
   overlayControls: OverlayControls;
-  onNewTab: () => void;
+  onNewTab: (paneId?: string) => void;
   recentNotes: ElectronRecentNote[];
   /** Every folder of the open named set, in its stored order. */
   workspaceFolders?: WorkspaceFolderTree[];
@@ -310,38 +317,21 @@ export function useHomeWorkspaceProps({
 
   return {
     titlebar: {
-      getPaneTabs: documents.getPaneTabs,
-      getPaneView: documents.getPaneView,
-      getTabSyncState,
       layout: {
         navigatorCollapsed,
       },
       state: {
-        scopeKey: noteWorkspace.state.scopeKey,
-        activePaneId: noteWorkspace.state.activePaneId,
         backStack: noteWorkspace.state.backStack,
         forwardStack: noteWorkspace.state.forwardStack,
         panes: noteWorkspace.state.panes,
-        recentlyClosedTabs: noteWorkspace.state.recentlyClosedTabs,
         zoomedPaneId: noteWorkspace.state.zoomedPaneId,
       },
       actions: {
-        moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
         navigateBack: noteWorkspace.navigateBack,
         navigateForward: noteWorkspace.navigateForward,
-        reopenLastClosedTab: noteWorkspace.reopenLastClosed,
-        requestCloseOtherTabs: tabLifecycle.requestCloseOtherTabs,
-        requestCloseTab: tabLifecycle.requestCloseTab,
-        requestCloseTabsToRight: tabLifecycle.requestCloseTabsToRight,
-        selectTab: noteWorkspace.selectTab,
-        keepTab: noteWorkspace.keepTab,
-        reorderTab: noteWorkspace.reorderTab,
-        splitActiveTab: noteWorkspace.splitActiveTab,
-        splitActivePaneDown: noteWorkspace.splitActivePaneDown,
         togglePaneZoom: actions.togglePaneZoom,
         equalizePanes: noteWorkspace.equalizePanes,
         toggleNavigator: toggleNavigatorCollapsed,
-        onNewTab,
       },
     },
     workspaceNavigation: {
@@ -512,6 +502,8 @@ export function useHomeWorkspaceProps({
       editorMode,
       folderTree,
       isInspectorCollapsed: inspectorCollapsed,
+      inspectorWidth,
+      onInspectorWidthChange: setInspectorWidth,
       getPaneView: (pane) => {
         const view = documents.getPaneView(pane);
         return {
@@ -520,12 +512,32 @@ export function useHomeWorkspaceProps({
         };
       },
       onResizeSplit: noteWorkspace.resizeSplit,
+      onEqualizeSplit: noteWorkspace.equalizeSplit,
       onTogglePaneZoom: actions.togglePaneZoom,
       onFocusPane: noteWorkspace.focusPane,
       canCreateNote: homeStatus.navigatorStatus.canCreate,
       onCreateNote: folderCommands.handleCreateNote,
       onQuickOpen: actions.openQuickOpen,
       recentNotes,
+      tabsWorkspace: {
+        getPaneTabs: documents.getPaneTabs,
+        getTabSyncState,
+        recentlyClosedCount: noteWorkspace.state.recentlyClosedTabs.length,
+        onSelectTab: noteWorkspace.selectTab,
+        onCloseTab: (tabId) => { void tabLifecycle.requestCloseTab(tabId); },
+        onCloseOtherTabs: (paneId, tabId) => { void tabLifecycle.requestCloseOtherTabs(paneId, tabId); },
+        onCloseTabsToRight: (paneId, tabId) => { void tabLifecycle.requestCloseTabsToRight(paneId, tabId); },
+        onReorderTab: noteWorkspace.reorderTab,
+        onMoveTabToPane: noteWorkspace.moveTabToPane,
+        onSplitTabToNewPane: noteWorkspace.splitTabToNewPane,
+        onReopenLastClosedTab: noteWorkspace.reopenLastClosed,
+        onKeepTab: noteWorkspace.keepTab,
+        onSplitPane: noteWorkspace.splitPane,
+        onMoveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
+        onClosePane: (paneId) => { void tabLifecycle.requestClosePane(paneId); },
+        onEqualizePanes: noteWorkspace.equalizePanes,
+        onNewTab: (paneId) => onNewTab(paneId),
+      },
     },
     documentActions: {
       onOpenEditor: actions.handleOpenEditor,

@@ -9,9 +9,12 @@ export const FOLDER_EXPANDED_PREFIX = 'hackdesk_folder_expanded:';
 export const LAST_WORKSPACE_SCOPE_KEY = 'hackdesk_last_workspace_scope';
 
 export const NAVIGATOR_WIDTH_DEFAULT = 400;
-export const NAVIGATOR_WIDTH_MIN = 300;
-export const NAVIGATOR_WIDTH_MAX = 560;
+export const NAVIGATOR_WIDTH_MIN = 220;
+export const NAVIGATOR_WIDTH_MAX = 680;
+export const INSPECTOR_WIDTH_KEY = 'hackdesk_inspector_width';
 export const INSPECTOR_WIDTH_DEFAULT = 320;
+export const INSPECTOR_WIDTH_MIN = 260;
+export const INSPECTOR_WIDTH_MAX = 560;
 
 export function clampPanelWidth(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(value)));

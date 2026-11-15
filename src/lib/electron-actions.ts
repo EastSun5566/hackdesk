@@ -165,7 +165,7 @@ function requireNavigationForward(context: ElectronActionContext) {
 }
 
 /** Each visible pane holds an editor, so the editor area splits into at most this many. */
-export const MAX_NOTE_PANES = 6;
+export const MAX_NOTE_PANES = 8;
 
 function requireSplitAvailable(context: ElectronActionContext) {
   const tabReason = requireOpenTab(context);
@@ -635,6 +635,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireTabsToRight,
   },
   {
+    id: 'split-pane-left',
+    label: 'Split Pane Left',
+    description: 'Open the active note tab in a new pane to the left.',
+    keywords: ['pane', 'split', 'layout', 'left'],
+    category: 'view',
+    scope: 'editor',
+    getDisabledReason: requireSplitAvailable,
+  },
+  {
     id: 'split-pane-right',
     label: 'Split Pane Right',
     description: 'Open the active note tab in a new pane to the right.',
@@ -646,6 +655,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     menuAccelerator: 'CmdOrCtrl+\\',
     // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
     rendererShortcut: true,
+    getDisabledReason: requireSplitAvailable,
+  },
+  {
+    id: 'split-pane-up',
+    label: 'Split Pane Up',
+    description: 'Open the active note tab in a new pane above.',
+    keywords: ['pane', 'split', 'layout', 'above', 'up', 'vertical'],
+    category: 'view',
+    scope: 'editor',
     getDisabledReason: requireSplitAvailable,
   },
   {
@@ -661,6 +679,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
     rendererShortcut: true,
     getDisabledReason: requireSplitAvailable,
+  },
+  {
+    id: 'close-pane',
+    label: 'Close Pane',
+    description: 'Close the active editor pane and its tabs.',
+    keywords: ['pane', 'close', 'remove'],
+    category: 'view',
+    scope: 'editor',
+    getDisabledReason: requireSeveralPanes,
   },
   {
     id: 'toggle-pane-zoom',
