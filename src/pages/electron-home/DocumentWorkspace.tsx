@@ -1,6 +1,6 @@
 import type { EditorRequest } from './useWorkbenchEditorRequests';
 import { FileText, Plus, Search } from 'lucide-react';
-import { Fragment, useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Group, Panel, Separator, type GroupImperativeHandle, type GroupProps } from 'react-resizable-panels';
 
@@ -18,8 +18,8 @@ import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
 import { getNoteTabEditorKey, getSavedTabNoteIdentity, isDraftNoteTab, isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { EmptyState } from './interaction-primitives';
-import { layoutNodeId, layoutPaneIds, type PaneLayoutNode } from './pane-layout';
-import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
+import { layoutNodeId, layoutPaneIds, leadingPaneId, topRowPaneIds, type PaneLayoutNode } from './pane-layout';
+import { CARD_SURFACE_CLASS, GAP_SASH_ROW_CLASS, PANE_GAP_SASH_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import { NoteIcon } from './note-kind';
@@ -156,6 +156,9 @@ function PaneOutlet({ host }: { host: PaneHost }) {
   return <div ref={attach} className="flex min-h-0 min-w-0 flex-1" />;
 }
 
+/** Where a pane sits, for its tab bar: along the top edge, and whether in the top-left corner. */
+export type PaneHeaderPlacement = { topRow: boolean; leading: boolean };
+
 export type DocumentPaneView = {
   pane: NotePane;
   activeTab: OpenNoteTab | null;
@@ -204,6 +207,8 @@ export function DocumentWorkspace({
   onCreateNote,
   onQuickOpen,
   recentNotes = [],
+  renderPaneHeader,
+  emptyHeader,
 }: {
   panes: NotePane[];
   /** How the panes are arranged; see pane-layout. */
@@ -227,6 +232,10 @@ export function DocumentWorkspace({
   onCreateNote: () => void;
   onQuickOpen: () => void;
   recentNotes?: ElectronRecentNote[];
+  /** Each pane's tab bar, drawn above its card and moving with it between splits. */
+  renderPaneHeader?: (pane: NotePane, placement: PaneHeaderPlacement) => ReactNode;
+  /** The title bar row above the empty state, where no pane is left to carry one. */
+  emptyHeader?: ReactNode;
 }) {
   const { onOpenNoteTarget, onCopyDraft, onExportDraft, onOpenAsNewDraft, onRetryLoad } = useWorkbenchDocumentActions();
   const workspaceDnd = useWorkspaceTabDnd();
@@ -260,7 +269,9 @@ export function DocumentWorkspace({
   };
   if (isEmpty) {
     return (
-      <section className={cn('flex min-w-0 flex-1 flex-col', CARD_SURFACE_CLASS)}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {emptyHeader}
+      <section className={cn('flex min-h-0 min-w-0 flex-1 flex-col', CARD_SURFACE_CLASS)}>
         <EmptyState
           icon={<FileText className="size-6" />}
           title="No note selected"
@@ -272,10 +283,14 @@ export function DocumentWorkspace({
           )}
         />
       </section>
+      </div>
     );
   }
 
   const paneOrder = layoutPaneIds(layout);
+  // A zoomed pane fills the editor area, so it is both on the top row and in the corner.
+  const topRow = new Set(zoomedPaneId ? [zoomedPaneId] : topRowPaneIds(layout));
+  const cornerPaneId = zoomedPaneId ?? leadingPaneId(layout);
 
   const renderPane = (pane: NotePane) => {
     const index = paneOrder.indexOf(pane.paneId);
@@ -290,6 +305,8 @@ export function DocumentWorkspace({
     const requestId = (kind: EditorRequest['kind']) => requests.find(request => request.kind === kind)?.id ?? 0;
 
     return (
+    <>
+    {renderPaneHeader?.(pane, { topRow: topRow.has(pane.paneId), leading: pane.paneId === cornerPaneId })}
     <section
       id={documentPaneId(pane.paneId)}
       role={isActivePane ? 'tabpanel' : 'region'}
@@ -300,7 +317,7 @@ export function DocumentWorkspace({
       aria-label={isActivePane ? `Active document pane ${index + 1}` : `Document pane ${index + 1}`}
       data-active-pane={isActivePane ? 'true' : 'false'}
       className={cn(
-        'scroll-edges relative flex h-full min-w-0 flex-1 flex-col',
+        'scroll-edges relative flex min-h-0 min-w-0 flex-1 flex-col',
         CARD_SURFACE_CLASS,
         // Only several panes need telling apart; zoom and Hack Mode leave one.
         isActivePane && panes.length > 1 && !zoomedPaneId && 'border-primary-default/50',
@@ -370,16 +387,20 @@ export function DocumentWorkspace({
         </PaneTabIdContext.Provider>
       )}
     </section>
+    </>
     );
   };
 
   // A split is a panel group running its way; a pane is a card. Each child is known by its id, which
   // is also how the group reports sizes back.
-  const renderGroup = (node: PaneLayoutNode, children: PaneLayoutNode[], orientation: 'horizontal' | 'vertical', sizes: number[]) => (
+  // A group along the top edge has the taller, title bar tab bars above its cards (see PaneTabBar);
+  // the line of a resize handle between side-by-side panes starts below them.
+  const renderGroup = (node: PaneLayoutNode, children: PaneLayoutNode[], orientation: 'horizontal' | 'vertical', sizes: number[], onTopRow = true) => (
     <PaneGroup
       id={node.type === 'split' ? node.id : 'document-workspace-panes'}
       orientation={orientation}
       className="min-h-0 min-w-0 flex-1"
+      data-pane-row={onTopRow ? 'top' : 'inner'}
       layout={Object.fromEntries(children.map((child, index) => [layoutNodeId(child), sizes[index]]))}
       onLayoutChanged={node.type === 'split' ? (sizesById) => onResizeSplit(node.id, sizesById) : undefined}
     >
@@ -392,7 +413,7 @@ export function DocumentWorkspace({
               <Separator
                 id={`document-pane-separator-${childId}`}
                 aria-label={`Resize document panes ${orientation === 'horizontal' ? 'side by side' : 'stacked'}, between pane ${paneOrder.indexOf(layoutPaneIds(children[index - 1]).at(-1)!) + 1} and pane ${paneOrder.indexOf(layoutPaneIds(child)[0]) + 1}`}
-                className={orientation === 'horizontal' ? GAP_SASH_CLASS : GAP_SASH_ROW_CLASS}
+                className={orientation === 'horizontal' ? PANE_GAP_SASH_CLASS : GAP_SASH_ROW_CLASS}
                 onDoubleClick={node.type === 'split' && onEqualizeSplit ? () => onEqualizeSplit(node.id) : undefined}
               />
             ) : null}
@@ -402,7 +423,7 @@ export function DocumentWorkspace({
               className="flex min-h-0 min-w-0 overflow-hidden"
             >
               {child.type === 'split'
-                ? renderGroup(child, child.children, child.orientation, child.sizes)
+                ? renderGroup(child, child.children, child.orientation, child.sizes, onTopRow && (orientation === 'horizontal' || index === 0))
                 : pane ? <PaneOutlet host={paneHost(pane.paneId)} /> : null}
             </Panel>
           </Fragment>

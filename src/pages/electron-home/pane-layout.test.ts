@@ -4,6 +4,7 @@ import {
   equalizeLayout,
   equalizeLayoutSplit,
   layoutPaneIds,
+  leadingPaneId,
   normalizeSizes,
   paneInDirection,
   paneLeaf,
@@ -14,6 +15,7 @@ import {
   resizeLayoutSplit,
   splitLayoutAtEdge,
   splitLayoutPane,
+  topRowPaneIds,
   type PaneLayoutNode,
 } from './pane-layout';
 
@@ -196,5 +198,19 @@ describe('pane layout', () => {
       row: ['a', { column: ['b', 'c'], sizes: [70, 30] }],
       sizes: [50, 50],
     });
+  });
+});
+
+describe('pane tab bar placement', () => {
+  it('finds the panes along the top edge and the one in the top-left corner', () => {
+    // a | (b over c), then d below everything.
+    let layout = splitLayoutPane(paneLeaf('a'), 'a', 'b', 'right');
+    layout = splitLayoutPane(layout, 'b', 'c', 'down');
+    expect(topRowPaneIds(layout)).toEqual(['a', 'b']);
+    expect(leadingPaneId(layout)).toBe('a');
+
+    layout = splitLayoutAtEdge(layout, 'd', 'up');
+    expect(topRowPaneIds(layout)).toEqual(['d']);
+    expect(leadingPaneId(layout)).toBe('d');
   });
 });

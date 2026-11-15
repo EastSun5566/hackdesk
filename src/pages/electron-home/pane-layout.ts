@@ -32,6 +32,17 @@ export function layoutPaneIds(node: PaneLayoutNode): string[] {
   return node.type === 'pane' ? [node.paneId] : node.children.flatMap(layoutPaneIds);
 }
 
+/** Panes whose top edge is the editor area's top edge, so their tab bars line up with the title bar. */
+export function topRowPaneIds(node: PaneLayoutNode): string[] {
+  if (node.type === 'pane') return [node.paneId];
+  return node.orientation === 'horizontal' ? node.children.flatMap(topRowPaneIds) : topRowPaneIds(node.children[0]);
+}
+
+/** The pane in the editor area's top-left corner. */
+export function leadingPaneId(node: PaneLayoutNode): string {
+  return node.type === 'pane' ? node.paneId : leadingPaneId(node.children[0]);
+}
+
 /** The id a child is known by in its split, which is also its panel id. */
 export function layoutNodeId(node: PaneLayoutNode) {
   return node.type === 'pane' ? node.paneId : node.id;

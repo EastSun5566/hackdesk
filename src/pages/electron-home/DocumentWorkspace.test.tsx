@@ -482,4 +482,46 @@ describe('DocumentWorkspace', () => {
 
     expect(onEqualizeSplit).toHaveBeenCalledWith(props.layout.id);
   });
+
+  it('puts each pane\'s header directly above its card, telling it where the pane sits', () => {
+    const panes = [pane('pane-a', ['tab-a']), pane('pane-b', ['tab-b']), pane('pane-c', ['tab-c'])];
+    // pane-a | (pane-b over pane-c)
+    const layout = splitLayoutPane(reconcileLayout(null, ['pane-a', 'pane-b']), 'pane-b', 'pane-c', 'down');
+    const renderPaneHeader = vi.fn((candidate: NotePane, placement: { topRow: boolean; leading: boolean }) => (
+      <div data-testid={`header-${candidate.paneId}`} data-top-row={String(placement.topRow)} data-leading={String(placement.leading)} />
+    ));
+    renderWorkspace({ panes, layout, renderPaneHeader });
+
+    for (const id of ['pane-a', 'pane-b', 'pane-c']) {
+      const header = screen.getByTestId(`header-${id}`);
+      expect(header.nextElementSibling).toHaveAttribute('data-document-pane-id', id);
+    }
+    expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-top-row', 'true');
+    expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-leading', 'true');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-top-row', 'true');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-leading', 'false');
+    expect(screen.getByTestId('header-pane-c')).toHaveAttribute('data-top-row', 'false');
+  });
+
+  it('treats a zoomed pane as the top-left one', () => {
+    const panes = [pane('pane-a', ['tab-a']), pane('pane-b', ['tab-b'])];
+    const renderPaneHeader = vi.fn((candidate: NotePane, placement: { topRow: boolean; leading: boolean }) => (
+      <div data-testid={`header-${candidate.paneId}`} data-top-row={String(placement.topRow)} data-leading={String(placement.leading)} />
+    ));
+    renderWorkspace({ panes, zoomedPaneId: 'pane-b', renderPaneHeader });
+
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-leading', 'true');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-top-row', 'true');
+    expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-leading', 'false');
+  });
+
+  it('shows the empty header above the blank state', () => {
+    renderWorkspace({
+      panes: [pane('pane-a', [], undefined)],
+      emptyHeader: <div data-testid="empty-header" />,
+    });
+
+    expect(screen.getByTestId('empty-header')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No note selected' })).toBeInTheDocument();
+  });
 });

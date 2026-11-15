@@ -1956,8 +1956,9 @@ test('Hack Mode leaves only the active note, centered, until the same key is pre
       const box = (await editor.boundingBox())!;
       return Math.abs(box.x + box.width / 2 - 720);
     }).toBeLessThan(16);
-    // The top bar stays as a blank strip, so the window can still be dragged, and the accent line clears.
-    await expect(page.locator('.app-topbar')).toBeVisible();
+    // The pane's tab bar stays as a blank strip, so the window can still be dragged, and the accent line clears.
+    await expect(page.locator('.pane-tab-bar:visible')).toHaveCount(1);
+    await expect(page.locator('.pane-tab-bar:visible')).toHaveCSS('height', '40px');
     await expect.poll(() => page.locator('[data-active-pane="true"]').evaluate(element => getComputedStyle(element, '::before').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
     // Vim's Escape stays with the editor.
     await page.keyboard.press('Escape');
@@ -2135,8 +2136,9 @@ test('Equalize updates flat and nested pane sizes and keeps the saved layout in 
     await page.setViewportSize({ width: 1600, height: 900 });
     await openFixtureNote(page);
     const panes = page.locator('section[data-document-pane-id]');
+    // The panels, not the cards: a top-row pane's tab bar is a little taller than a lower one's.
     const dimensions = () => panes.evaluateAll(elements => elements.map(element => {
-      const { width, height } = element.getBoundingClientRect();
+      const { width, height } = (element.closest('[data-panel]') ?? element).getBoundingClientRect();
       return { width, height };
     }));
     const equalize = async () => {
@@ -2302,8 +2304,8 @@ test('panes split right and down, move by direction, and zoom without losing edi
     await page.keyboard.press(`${primary}+z`);
     await expect(editor).not.toContainText('zoomed edit');
 
-    // Each tab segment in the top bar has unified zoom and equalize controls too.
-    const tabSegments = page.locator('[data-hackdesk-focus="tabs"]');
+    // Each pane's tab bar has unified zoom and equalize controls too. A zoomed-away pane keeps its bar mounted, hidden.
+    const tabSegments = page.locator('[data-hackdesk-focus="tabs"]:visible');
     const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
     await expect(tabSegments).toHaveCount(3);
     await expect(activeTabSegment.getByRole('button', { name: 'Equalize pane sizes' })).toBeVisible();
@@ -2442,7 +2444,7 @@ test('the leader menu runs commands from a few letters with Space or the leader 
   } finally { await stopApp(app); }
 });
 
-test('top-bar tab drag-to-split, separator equalize, and drag-to-pane move', async () => {
+test('pane tab bar drag-to-split, separator equalize, and drag-to-pane move', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -2470,7 +2472,14 @@ test('top-bar tab drag-to-split, separator equalize, and drag-to-pane move', asy
     await expect(panes).toHaveCount(2);
     await expect(panes.nth(1)).toHaveAttribute('data-active-pane', 'true');
     await expect(tabSegments).toHaveCount(2);
-    await expect(page.locator('[data-tab-segment-divider]')).toHaveCount(1);
+    // Each pane's tab bar sits right above its own card, as wide as it.
+    for (const index of [0, 1]) {
+      const bar = (await page.locator('[data-pane-tab-bar]').nth(index).boundingBox())!;
+      const card = (await panes.nth(index).boundingBox())!;
+      expect(Math.abs(bar.x - card.x)).toBeLessThan(2);
+      expect(Math.abs(bar.width - card.width)).toBeLessThan(2);
+      expect(Math.abs(bar.y + bar.height - card.y)).toBeLessThan(2);
+    }
     await expect(tabSegments.nth(0).getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toBeVisible();
     await expect(tabSegments.nth(1).getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toBeVisible();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('31-two-segment-topbar.png') });
@@ -2527,9 +2536,48 @@ test('top-bar tab drag-to-split, separator equalize, and drag-to-pane move', asy
 
     await expect(panes).toHaveCount(1);
     await expect(tabSegments).toHaveCount(1);
-    await expect(page.locator('[data-tab-segment-divider]')).toHaveCount(0);
     await expect(strip.getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toBeVisible();
     await expect(strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('a pane split below gets its own tab bar, and the sidebar title bar keeps the window controls', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openFixtureNote(page);
+    await page.getByRole('button', { name: 'Pane actions', exact: true }).press('Enter');
+    await page.getByRole('menuitem', { name: 'Split Down', exact: true }).press('Enter');
+    const panes = page.locator('section[data-document-pane-id]');
+    await expect(panes).toHaveCount(2);
+
+    const bars = page.locator('[data-pane-tab-bar]');
+    await expect(bars).toHaveCount(2);
+    await expect(bars.nth(0)).toHaveAttribute('data-pane-tab-bar-row', 'top');
+    await expect(bars.nth(1)).toHaveAttribute('data-pane-tab-bar-row', 'inner');
+    // Only the top row is part of the window's title bar.
+    expect(await bars.nth(0).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region'))).toBe('drag');
+    expect(await bars.nth(1).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region'))).not.toBe('drag');
+    const upper = (await panes.nth(0).boundingBox())!;
+    const lowerBar = (await bars.nth(1).boundingBox())!;
+    const lower = (await panes.nth(1).boundingBox())!;
+    expect(lowerBar.y).toBeGreaterThanOrEqual(upper.y + upper.height);
+    expect(Math.abs(lowerBar.y + lowerBar.height - lower.y)).toBeLessThan(2);
+    await expect(bars.nth(1).getByRole('tab')).toHaveCount(1);
+
+    // The sidebar's own title bar holds the window controls; collapsing it moves them to the top-left pane.
+    const sidebarColumn = page.locator('#note-navigator-panel').locator('..');
+    const controls = page.getByRole('toolbar', { name: 'Application controls', exact: true });
+    await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    await controls.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
+    await expect(bars.nth(0).getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    await expect(controls).toHaveCount(1);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('32-split-down-collapsed.png') });
+    await controls.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+    await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    await expect(controls).toHaveCount(1);
   } finally {
     await stopApp(app);
   }
