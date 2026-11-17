@@ -1,6 +1,6 @@
 import type { EditorRequest } from './useWorkbenchEditorRequests';
 import { FileText, Plus, Search } from 'lucide-react';
-import { Fragment, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Group, Panel, Separator, type GroupImperativeHandle, type GroupProps } from 'react-resizable-panels';
 
@@ -18,8 +18,8 @@ import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
 import { getNoteTabEditorKey, getSavedTabNoteIdentity, isDraftNoteTab, isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { EmptyState } from './interaction-primitives';
-import { layoutNodeId, layoutPaneIds, type PaneLayoutNode } from './pane-layout';
-import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
+import { layoutNodeId, layoutPaneIds, leadingPaneId, topRowPaneIds, type PaneLayoutNode } from './pane-layout';
+import { CARD_SURFACE_CLASS, GAP_SASH_ROW_CLASS, PANE_GAP_SASH_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import { NoteIcon } from './note-kind';
@@ -27,6 +27,7 @@ import { PaneTabIdContext } from './useBookSession';
 import { useNoteSummaryLookup } from './NoteSummaryCard';
 import { useOverlay } from './WorkbenchOverlaysContext';
 import { PaneDocumentActions, useWorkbenchDocumentActions } from './DocumentActionsContext';
+import { useWorkspaceTabDnd } from './WorkspaceTabDnd';
 
 function PaneGroup({ layout, id, orientation, ...props }: Omit<GroupProps, 'defaultLayout' | 'groupRef'> & { layout: Record<string, number> }) {
   const groupRef = useRef<GroupImperativeHandle | null>(null);
@@ -155,6 +156,9 @@ function PaneOutlet({ host }: { host: PaneHost }) {
   return <div ref={attach} className="flex min-h-0 min-w-0 flex-1" />;
 }
 
+/** Where a pane sits, for its tab bar: along the top edge, and whether in the top-left corner. */
+export type PaneHeaderPlacement = { topRow: boolean; leading: boolean };
+
 export type DocumentPaneView = {
   pane: NotePane;
   activeTab: OpenNoteTab | null;
@@ -191,17 +195,20 @@ export function DocumentWorkspace({
   editorMode,
   folderTree,
   isInspectorCollapsed,
+  isPaneInspectorCollapsed,
   getPaneView,
   scopeKey,
   editorRequests,
   onEditorRequestHandled,
   onResizeSplit,
-  onTogglePaneZoom,
+  onEqualizeSplit,
   onFocusPane,
   canCreateNote,
   onCreateNote,
   onQuickOpen,
   recentNotes = [],
+  renderPaneHeader,
+  emptyHeader,
 }: {
   panes: NotePane[];
   /** How the panes are arranged; see pane-layout. */
@@ -212,21 +219,31 @@ export function DocumentWorkspace({
   editorMode: EditorMode;
   folderTree: FolderTree;
   isInspectorCollapsed: boolean;
+  isPaneInspectorCollapsed?: (paneId: string) => boolean;
   getPaneView: (pane: NotePane) => DocumentPaneView;
   scopeKey: string;
   editorRequests: EditorRequest[];
   onEditorRequestHandled: (id: number) => void;
   onResizeSplit: (splitId: string, sizes: Record<string, number>) => void;
-  /** Zooms the active pane or restores the others; a pane's button makes it active first. */
-  onTogglePaneZoom: () => void;
+  /** Equalizes the children of a split container (e.g. separator double-click). */
+  onEqualizeSplit?: (splitId: string) => void;
   onFocusPane: (paneId: string) => void;
   canCreateNote: boolean;
   onCreateNote: () => void;
   onQuickOpen: () => void;
   recentNotes?: ElectronRecentNote[];
+  /** Each pane's tab bar, drawn above its card and moving with it between splits. */
+  renderPaneHeader?: (pane: NotePane, placement: PaneHeaderPlacement) => ReactNode;
+  /** The title bar row above the empty state, where no pane is left to carry one. */
+  emptyHeader?: ReactNode;
 }) {
   const { onOpenNoteTarget, onCopyDraft, onExportDraft, onOpenAsNewDraft, onRetryLoad } = useWorkbenchDocumentActions();
-  // Share and Versions open over the active pane; the workbench overlays hold whether they are open.
+  const workspaceDnd = useWorkspaceTabDnd();
+  const attachWorkspace = useCallback((element: HTMLDivElement | null) => {
+    workspaceDnd.registerWorkspaceElement(element);
+  }, [workspaceDnd]);
+  // Note Settings, Share and Versions open over the active pane; the workbench overlays hold whether they are open.
+  const noteMetadataOpen = useOverlay((overlays) => overlays.noteMetadata);
   const shareOpen = useOverlay((overlays) => overlays.share);
   const versionsOpen = useOverlay((overlays) => overlays.versions);
   const [paneHosts] = useState(() => new Map<string, PaneHost>());
@@ -252,7 +269,9 @@ export function DocumentWorkspace({
   };
   if (isEmpty) {
     return (
-      <section className={cn('flex min-w-0 flex-1 flex-col', CARD_SURFACE_CLASS)}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {emptyHeader}
+      <section className={cn('flex min-h-0 min-w-0 flex-1 flex-col', CARD_SURFACE_CLASS)}>
         <EmptyState
           icon={<FileText className="size-6" />}
           title="No note selected"
@@ -264,10 +283,14 @@ export function DocumentWorkspace({
           )}
         />
       </section>
+      </div>
     );
   }
 
   const paneOrder = layoutPaneIds(layout);
+  // A zoomed pane fills the editor area, so it is both on the top row and in the corner.
+  const topRow = new Set(zoomedPaneId ? [zoomedPaneId] : topRowPaneIds(layout));
+  const cornerPaneId = zoomedPaneId ?? leadingPaneId(layout);
 
   const renderPane = (pane: NotePane) => {
     const index = paneOrder.indexOf(pane.paneId);
@@ -282,6 +305,8 @@ export function DocumentWorkspace({
     const requestId = (kind: EditorRequest['kind']) => requests.find(request => request.kind === kind)?.id ?? 0;
 
     return (
+    <>
+    {renderPaneHeader?.(pane, { topRow: topRow.has(pane.paneId), leading: pane.paneId === cornerPaneId })}
     <section
       id={documentPaneId(pane.paneId)}
       role={isActivePane ? 'tabpanel' : 'region'}
@@ -292,7 +317,7 @@ export function DocumentWorkspace({
       aria-label={isActivePane ? `Active document pane ${index + 1}` : `Document pane ${index + 1}`}
       data-active-pane={isActivePane ? 'true' : 'false'}
       className={cn(
-        'scroll-edges relative flex h-full min-w-0 flex-1 flex-col',
+        'scroll-edges relative flex min-h-0 min-w-0 flex-1 flex-col',
         CARD_SURFACE_CLASS,
         // Only several panes need telling apart; zoom and Hack Mode leave one.
         isActivePane && panes.length > 1 && !zoomedPaneId && 'border-primary-default/50',
@@ -345,10 +370,10 @@ export function DocumentWorkspace({
                 aiAssistRequestId: requestId('ai-assist'),
                 dictateRequestId: requestId('dictate'),
                 onRequestHandled: onEditorRequestHandled,
+                noteMetadataOpen: isActivePane && noteMetadataOpen,
                 shareOpen: isActivePane && shareOpen,
                 versionsOpen: isActivePane && versionsOpen,
-                inspectorCollapsed: !isActivePane || isInspectorCollapsed,
-                paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,
+                inspectorCollapsed: isPaneInspectorCollapsed ? isPaneInspectorCollapsed(pane.paneId) : (!isActivePane || isInspectorCollapsed),
               }}
               status={{
                 loading: view.isLoading,
@@ -362,16 +387,20 @@ export function DocumentWorkspace({
         </PaneTabIdContext.Provider>
       )}
     </section>
+    </>
     );
   };
 
   // A split is a panel group running its way; a pane is a card. Each child is known by its id, which
   // is also how the group reports sizes back.
-  const renderGroup = (node: PaneLayoutNode, children: PaneLayoutNode[], orientation: 'horizontal' | 'vertical', sizes: number[]) => (
+  // A group along the top edge has the taller, title bar tab bars above its cards (see PaneTabBar);
+  // the line of a resize handle between side-by-side panes starts below them.
+  const renderGroup = (node: PaneLayoutNode, children: PaneLayoutNode[], orientation: 'horizontal' | 'vertical', sizes: number[], onTopRow = true) => (
     <PaneGroup
       id={node.type === 'split' ? node.id : 'document-workspace-panes'}
       orientation={orientation}
       className="min-h-0 min-w-0 flex-1"
+      data-pane-row={onTopRow ? 'top' : 'inner'}
       layout={Object.fromEntries(children.map((child, index) => [layoutNodeId(child), sizes[index]]))}
       onLayoutChanged={node.type === 'split' ? (sizesById) => onResizeSplit(node.id, sizesById) : undefined}
     >
@@ -384,7 +413,8 @@ export function DocumentWorkspace({
               <Separator
                 id={`document-pane-separator-${childId}`}
                 aria-label={`Resize document panes ${orientation === 'horizontal' ? 'side by side' : 'stacked'}, between pane ${paneOrder.indexOf(layoutPaneIds(children[index - 1]).at(-1)!) + 1} and pane ${paneOrder.indexOf(layoutPaneIds(child)[0]) + 1}`}
-                className={orientation === 'horizontal' ? GAP_SASH_CLASS : GAP_SASH_ROW_CLASS}
+                className={orientation === 'horizontal' ? PANE_GAP_SASH_CLASS : GAP_SASH_ROW_CLASS}
+                onDoubleClick={node.type === 'split' && onEqualizeSplit ? () => onEqualizeSplit(node.id) : undefined}
               />
             ) : null}
             <Panel
@@ -393,7 +423,7 @@ export function DocumentWorkspace({
               className="flex min-h-0 min-w-0 overflow-hidden"
             >
               {child.type === 'split'
-                ? renderGroup(child, child.children, child.orientation, child.sizes)
+                ? renderGroup(child, child.children, child.orientation, child.sizes, onTopRow && (orientation === 'horizontal' || index === 0))
                 : pane ? <PaneOutlet host={paneHost(pane.paneId)} /> : null}
             </Panel>
           </Fragment>
@@ -402,14 +432,35 @@ export function DocumentWorkspace({
     </PaneGroup>
   );
 
+  const dropOverlay = workspaceDnd.dropOverlay;
+
   return (
     // While a pane is zoomed, the others stay mounted but hidden, keeping their editors' state.
-    <div data-document-workspace="" data-pane-zoomed={zoomedPaneId ? 'true' : undefined} className="flex min-h-0 min-w-0 flex-1">
+    <div
+      ref={attachWorkspace}
+      data-document-workspace=""
+      data-pane-zoomed={zoomedPaneId ? 'true' : undefined}
+      className="relative flex min-h-0 min-w-0 flex-1"
+    >
       {layout.type === 'split'
         ? renderGroup(layout, layout.children, layout.orientation, layout.sizes)
         : renderGroup(layout, [layout], 'horizontal', [100])}
       {/* Editor ownership stays flat even when the resize tree gains or loses split groups. */}
       {panes.map(pane => createPortal(renderPane(pane), paneHost(pane.paneId).element, `${scopeKey}:${pane.paneId}`))}
+      {dropOverlay ? (
+        <div
+          aria-hidden="true"
+          data-drop-preview-kind={dropOverlay.kind}
+          data-drop-preview-direction={'direction' in dropOverlay ? dropOverlay.direction : undefined}
+          className="workspace-drop-preview pointer-events-none absolute z-30 rounded-lg border-2 border-primary-default bg-primary-soft/35"
+          style={{
+            '--drop-preview-left': `${dropOverlay.rect.left}px`,
+            '--drop-preview-top': `${dropOverlay.rect.top}px`,
+            '--drop-preview-width': `${dropOverlay.rect.width}px`,
+            '--drop-preview-height': `${dropOverlay.rect.height}px`,
+          } as CSSProperties}
+        />
+      ) : null}
     </div>
   );
 }

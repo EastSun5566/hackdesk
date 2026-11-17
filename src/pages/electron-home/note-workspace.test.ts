@@ -7,6 +7,7 @@ import {
   keepNoteTab,
   openNotePreview,
   openNoteInPlace,
+  openNoteAtDropTarget,
   closeNoteTab,
   closeOtherNoteTabs,
   closeTabsToRight,
@@ -26,17 +27,21 @@ import {
   hydrateNoteWorkspaceLayout,
   materializeDraftNoteTab,
   moveActiveTabToOtherPane,
+  moveNoteTabToPane,
   navigateNoteWorkspace,
   openDraftNoteTab,
   openNoteTab,
   reopenLastClosedTab,
   reorderNoteTab,
   reconcileSavedNoteTab,
+  resizeNoteSplit,
   selectNoteTab,
   splitActivePane,
   splitActiveTabRight,
+  splitPaneWithTab,
   syncNoteTabSummary,
   equalizeNotePanes,
+  equalizeNoteSplit,
   focusPaneInDirection,
   toggleNotePaneZoom,
   focusNotePane,
@@ -330,6 +335,40 @@ describe('note workspace tabs', () => {
 
     const closed = closeNoteTab(moved, active?.tabId ?? '');
     expect(closed.panes).toHaveLength(1);
+  });
+
+  it('targets a specific inactive pane for blank tab, duplicate, move, zoom, and split actions', () => {
+    const withTabs = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const split = splitActiveTabRight(withTabs);
+    const leftPaneId = split.panes[0].paneId;
+    const rightPaneId = split.panes[1].paneId;
+    expect(split.activePaneId).toBe(rightPaneId);
+
+    // Zooming the inactive left pane zooms and activates it
+    const zoomedLeft = toggleNotePaneZoom(split, leftPaneId);
+    expect(zoomedLeft.zoomedPaneId).toBe(leftPaneId);
+    expect(zoomedLeft.activePaneId).toBe(leftPaneId);
+    expect(toggleNotePaneZoom(zoomedLeft, rightPaneId).zoomedPaneId).toBeNull();
+
+    // Opening a blank tab on the inactive left pane adds it there
+    const withBlank = openBlankNoteTab(split, leftPaneId);
+    expect(withBlank.activePaneId).toBe(leftPaneId);
+    expect(isBlankNoteTab(getPaneActiveTab(withBlank, leftPaneId))).toBe(true);
+
+    // Duplicating active tab on an inactive pane duplicates that pane's active tab
+    const duplicated = duplicateActiveNoteTab(split, leftPaneId);
+    expect(duplicated.activePaneId).toBe(leftPaneId);
+    expect(duplicated.panes.find((pane) => pane.paneId === leftPaneId)?.tabIds).toHaveLength(2);
+
+    // Moving active tab of an inactive pane moves from that pane to the next pane
+    const movedFromLeft = moveActiveTabToOtherPane(duplicated, leftPaneId);
+    expect(movedFromLeft.panes.find((pane) => pane.paneId === leftPaneId)?.tabIds).toHaveLength(1);
+    expect(movedFromLeft.panes.find((pane) => pane.paneId === rightPaneId)?.tabIds).toHaveLength(2);
+
+    // Splitting an inactive pane splits from that pane
+    const splitLeftDown = splitActivePane(movedFromLeft, 'down', leftPaneId);
+    expect(splitLeftDown.panes).toHaveLength(3);
   });
 
   it('closes other tabs only inside the target pane', () => {
@@ -699,6 +738,65 @@ describe('note workspace panes', () => {
     expect(legacy.layout).toMatchObject({ type: 'split', orientation: 'horizontal', sizes: [30, 70] });
     expect(layoutPaneIds(legacy.layout)).toEqual(twoPanes.panes.map(pane => pane.paneId));
   });
+
+  it('equalizes a single split without disturbing nested splits', () => {
+    const start = withNotes(3);
+    const firstPaneId = start.activePaneId;
+    const splitUp = splitActivePane(start, 'up');
+    const topPaneId = splitUp.activePaneId;
+    const rootSplitId = splitUp.layout.type === 'split' ? splitUp.layout.id : '';
+    const resized = resizeNoteSplit(splitUp, rootSplitId, { [topPaneId]: 70, [firstPaneId]: 30 });
+    expect(resized.layout).toMatchObject({ sizes: [70, 30] });
+
+    const equalized = equalizeNoteSplit(resized, rootSplitId);
+    expect(equalized.layout).toMatchObject({ sizes: [50, 50] });
+  });
+
+  it('moves or copies a tab across panes and inserts before target tab when specified', () => {
+    const split = splitActiveTabRight(withNotes(3));
+    const [leftPaneId, rightPaneId] = layoutPaneIds(split.layout);
+    const leftPane = split.panes.find((pane) => pane.paneId === leftPaneId)!;
+    const rightPane = split.panes.find((pane) => pane.paneId === rightPaneId)!;
+    const [leftFirst, leftSecond] = leftPane.tabIds;
+    const rightFirst = rightPane.tabIds[0];
+
+    const copied = moveNoteTabToPane(split, leftFirst, rightPaneId, { overTabId: rightFirst, copy: true });
+    expect(copied.panes.find((pane) => pane.paneId === leftPaneId)?.tabIds).toEqual([leftFirst, leftSecond]);
+    const copiedRightTabs = copied.panes.find((pane) => pane.paneId === rightPaneId)!.tabIds;
+    expect(copiedRightTabs).toHaveLength(2);
+    expect(copiedRightTabs[1]).toBe(rightFirst);
+    expect(copied.tabs[copiedRightTabs[0]]?.title).toBe('Note 0');
+
+    const moved = moveNoteTabToPane(copied, leftFirst, rightPaneId, { overTabId: rightFirst });
+    expect(moved.panes.find((pane) => pane.paneId === leftPaneId)?.tabIds).toEqual([leftSecond]);
+    expect(moved.panes.find((pane) => pane.paneId === rightPaneId)?.tabIds).toEqual([copiedRightTabs[0], leftFirst, rightFirst]);
+    expect(moved.activePaneId).toBe(rightPaneId);
+  });
+
+  it('splits a pane or workspace edge by dropping a tab (with move, re-dock, and copy)', () => {
+    const start = withNotes(2);
+    const primaryPane = start.panes[0];
+    const [tabA, tabB] = primaryPane.tabIds;
+
+    // Dropping tabA onto its own pane bottom edge moves it into a bottom pane
+    const downSplit = splitPaneWithTab(start, tabA, { paneId: primaryPane.paneId, direction: 'down' });
+    const [topPaneId, bottomPaneId] = layoutPaneIds(downSplit.layout);
+    expect(topPaneId).toBe(primaryPane.paneId);
+    expect(downSplit.panes.find((p) => p.paneId === topPaneId)?.tabIds).toEqual([tabB]);
+    expect(downSplit.panes.find((p) => p.paneId === bottomPaneId)?.tabIds).toEqual([tabA]);
+
+    // Dropping lone tabA onto the outer workspace left edge docks it on the left and removes empty bottom pane
+    const redocked = splitPaneWithTab(downSplit, tabA, { edge: true, direction: 'left' });
+    const [newLeftPaneId, remainingTopPaneId] = layoutPaneIds(redocked.layout);
+    expect(redocked.panes).toHaveLength(2);
+    expect(remainingTopPaneId).toBe(topPaneId);
+    expect(redocked.panes.find((p) => p.paneId === newLeftPaneId)?.tabIds).toEqual([tabA]);
+
+    // Alt-copy drop creates a 3rd pane without removing from source
+    const copiedSplit = splitPaneWithTab(redocked, tabB, { paneId: newLeftPaneId, direction: 'up' }, { copy: true });
+    expect(copiedSplit.panes).toHaveLength(3);
+    expect(copiedSplit.panes.find((p) => p.paneId === topPaneId)?.tabIds).toEqual([tabB]);
+  });
 });
 
 
@@ -841,5 +939,75 @@ describe('preview tabs', () => {
     const state = openNotePreview(createEmptyNoteWorkspaceState('personal'), note({ id: 'a', title: 'A' }));
     const restored = hydrateNoteWorkspaceLayout('personal', JSON.parse(JSON.stringify(toPersistedNoteWorkspaceLayout(state))));
     expect(titles(restored)).toEqual(['A (preview)']);
+  });
+});
+
+describe('dropping a sidebar note on the workspace', () => {
+  const alpha = note({ id: 'alpha', title: 'Alpha' });
+  const beta = note({ id: 'beta', title: 'Beta' });
+  const gamma = note({ id: 'gamma', title: 'Gamma' });
+
+  it('opens a kept tab after the active one, or before the tab it was dropped on', () => {
+    const start = openNoteTab(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha), beta);
+    const paneId = start.activePaneId;
+    const [alphaTab] = start.panes[0].tabIds;
+
+    const after = openNoteAtDropTarget(start, gamma, { kind: 'pane', paneId });
+    expect(after.panes[0].tabIds.map((id) => after.tabs[id].title)).toEqual(['Alpha', 'Beta', 'Gamma']);
+    expect(getActiveTab(after)?.title).toBe('Gamma');
+    expect(isPreviewNoteTab(getActiveTab(after))).toBe(false);
+
+    const before = openNoteAtDropTarget(start, gamma, { kind: 'pane', paneId, overTabId: alphaTab });
+    expect(before.panes[0].tabIds.map((id) => before.tabs[id].title)).toEqual(['Gamma', 'Alpha', 'Beta']);
+  });
+
+  it('selects and keeps a tab the pane already has for the note', () => {
+    const start = openNotePreview(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha), beta);
+    const betaTab = start.panes[0].activeTabId!;
+    const focused = selectNoteTab(start, start.activePaneId, start.panes[0].tabIds[0]);
+
+    const next = openNoteAtDropTarget(focused, beta, { kind: 'pane', paneId: start.activePaneId });
+    expect(next.panes[0].tabIds).toHaveLength(2);
+    expect(next.panes[0].activeTabId).toBe(betaTab);
+    expect(isPreviewNoteTab(next.tabs[betaTab])).toBe(false);
+  });
+
+  it('opens the note in the dropped pane even when another pane shows it', () => {
+    const start = splitActiveTabRight(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha));
+    const [left, right] = layoutPaneIds(start.layout);
+    const withBeta = openNoteTab(start, beta, right);
+
+    const next = openNoteAtDropTarget(withBeta, beta, { kind: 'pane', paneId: left });
+    const leftPane = next.panes.find((pane) => pane.paneId === left)!;
+    expect(leftPane.tabIds.map((id) => next.tabs[id].title)).toEqual(['Alpha', 'Beta']);
+    expect(next.activePaneId).toBe(left);
+  });
+
+  it('shows the note on a pane\'s new-tab page instead of opening another tab', () => {
+    const start = openBlankNoteTab(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha));
+    const next = openNoteAtDropTarget(start, beta, { kind: 'pane', paneId: start.activePaneId });
+    expect(next.panes[0].tabIds.map((id) => next.tabs[id].title)).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('opens a new pane beside a pane or along the workspace edge', () => {
+    const start = openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha);
+    const paneId = start.activePaneId;
+
+    const below = openNoteAtDropTarget(start, beta, { kind: 'split', paneId, direction: 'down' });
+    expect(below.panes).toHaveLength(2);
+    expect(layoutPaneIds(below.layout)[0]).toBe(paneId);
+    expect(getActiveTab(below)?.title).toBe('Beta');
+    expect(below.panes.find((pane) => pane.paneId === paneId)!.tabIds).toHaveLength(1);
+
+    const left = openNoteAtDropTarget(below, gamma, { kind: 'split', edge: true, direction: 'left' });
+    expect(left.panes).toHaveLength(3);
+    expect(layoutPaneIds(left.layout)[0]).toBe(left.activePaneId);
+    expect(getActiveTab(left)?.title).toBe('Gamma');
+  });
+
+  it('ignores a split once the workspace has as many panes as it can', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha);
+    while (state.panes.length < MAX_PANES) state = splitActiveTabRight(state);
+    expect(openNoteAtDropTarget(state, beta, { kind: 'split', paneId: state.activePaneId, direction: 'right' })).toBe(state);
   });
 });

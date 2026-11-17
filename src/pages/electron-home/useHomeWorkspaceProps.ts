@@ -58,8 +58,8 @@ type RemoteDocumentRecovery = ReturnType<typeof useRemoteDocumentRecovery>;
 
 type WorkspaceActions = {
   saveDraftNote: (tab: OpenNoteTab, input: { title?: string; content?: string }) => void;
-  /** Zooms or restores the active pane, saying how to restore it. */
-  togglePaneZoom: () => void;
+  /** Zooms or restores the target pane (defaulting to active pane), saying how to restore it. */
+  togglePaneZoom: (paneId?: string) => void;
   attachImageToTab: WorkbenchDocumentActions['onAttachImage'];
   cancelImageUpload?: WorkbenchDocumentActions['onCancelImageUpload'];
   copyDraftText: WorkbenchDocumentActions['onCopyDraft'];
@@ -125,6 +125,7 @@ export function useHomeWorkspaceProps({
   getTabSyncState,
   homeStatus,
   inspectorCollapsed,
+  isPaneInspectorCollapsed,
   localDocumentRecovery,
   localVaultActions,
   mutations,
@@ -169,6 +170,7 @@ export function useHomeWorkspaceProps({
   getTabSyncState: ElectronHomeWorkspaceProps['titlebar']['getTabSyncState'];
   homeStatus: HomeStatus;
   inspectorCollapsed: boolean;
+  isPaneInspectorCollapsed?: (paneId: string) => boolean;
   localDocumentRecovery: LocalDocumentRecovery;
   localVaultActions: HomeLocalVaultActions;
   mutations: NoteMutations;
@@ -187,12 +189,12 @@ export function useHomeWorkspaceProps({
     'requestCloseOtherTabs' | 'requestCloseTab' | 'requestCloseTabsToRight'
   >;
   teams: TeamSummary[];
-  toggleInspectorCollapsed: () => void;
+  toggleInspectorCollapsed: (paneId?: string) => void;
   toggleNavigatorCollapsed: () => void;
   user: UserSummary | undefined;
   uploadingTabIds?: readonly string[];
   overlayControls: OverlayControls;
-  onNewTab: () => void;
+  onNewTab: (paneId?: string) => void;
   recentNotes: ElectronRecentNote[];
   /** Every folder of the open named set, in its stored order. */
   workspaceFolders?: WorkspaceFolderTree[];
@@ -321,12 +323,15 @@ export function useHomeWorkspaceProps({
         activePaneId: noteWorkspace.state.activePaneId,
         backStack: noteWorkspace.state.backStack,
         forwardStack: noteWorkspace.state.forwardStack,
+        layout: noteWorkspace.state.layout,
         panes: noteWorkspace.state.panes,
         recentlyClosedTabs: noteWorkspace.state.recentlyClosedTabs,
         zoomedPaneId: noteWorkspace.state.zoomedPaneId,
       },
       actions: {
         moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
+        moveTabToPane: noteWorkspace.moveTabToPane,
+        openNoteAt: noteWorkspace.openNoteAt,
         navigateBack: noteWorkspace.navigateBack,
         navigateForward: noteWorkspace.navigateForward,
         reopenLastClosedTab: noteWorkspace.reopenLastClosed,
@@ -338,6 +343,7 @@ export function useHomeWorkspaceProps({
         reorderTab: noteWorkspace.reorderTab,
         splitActiveTab: noteWorkspace.splitActiveTab,
         splitActivePaneDown: noteWorkspace.splitActivePaneDown,
+        splitTabToNewPane: noteWorkspace.splitTabToNewPane,
         togglePaneZoom: actions.togglePaneZoom,
         equalizePanes: noteWorkspace.equalizePanes,
         toggleNavigator: toggleNavigatorCollapsed,
@@ -512,6 +518,7 @@ export function useHomeWorkspaceProps({
       editorMode,
       folderTree,
       isInspectorCollapsed: inspectorCollapsed,
+      isPaneInspectorCollapsed,
       getPaneView: (pane) => {
         const view = documents.getPaneView(pane);
         return {
@@ -520,7 +527,7 @@ export function useHomeWorkspaceProps({
         };
       },
       onResizeSplit: noteWorkspace.resizeSplit,
-      onTogglePaneZoom: actions.togglePaneZoom,
+      onEqualizeSplit: noteWorkspace.equalizeSplit,
       onFocusPane: noteWorkspace.focusPane,
       canCreateNote: homeStatus.navigatorStatus.canCreate,
       onCreateNote: folderCommands.handleCreateNote,

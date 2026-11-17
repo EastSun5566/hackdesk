@@ -62,6 +62,7 @@ import { useCollapsedTagGroups, toggleCollapsedTagGroup, useTagGroupingEnabled, 
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
+import { createPortal } from 'react-dom';
 import { useScrollOverflow } from './useScrollOverflow';
 import { RowOverlayHost } from './row-overlays';
 import { FOLDER_EXPANDED_PREFIX } from './ui-preferences';
@@ -69,6 +70,7 @@ import { FOLDER_EXPANDED_PREFIX } from './ui-preferences';
 import { applyTreeGuides } from './tree-guides-preference';
 import { cn } from '@/lib/utils';
 import { HACK_MODE_HIDDEN_CLASS } from './ui';
+import { useWorkspaceNoteDrop } from './WorkspaceTabDnd';
 
 import { EmptyState, PanelHeader, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
@@ -1060,6 +1062,20 @@ function NavigatorTree({
   // outside React state; the mark is a data attribute, so moving the pointer re-renders nothing.
   const pointerYRef = useRef<number | null>(null);
   const stopPointerTrackingRef = useRef<(() => void) | null>(null);
+  // A note dragged out of the tree onto the panes opens there (see WorkspaceNoteDrop).
+  const noteDrop = useWorkspaceNoteDrop();
+  const notePointerRef = useRef<{ x: number; y: number } | null>(null);
+  const stopNotePointerRef = useRef<(() => void) | null>(null);
+  // dnd-kit scrolls a list by the pointer's height alone, so a note held low over the panes would
+  // keep scrolling the tree. Only scroll a list while the pointer is beside it.
+  const autoScroll = useMemo(() => ({
+    canScroll: (element: Element) => {
+      const point = notePointerRef.current;
+      if (!point) return true;
+      const bounds = element.getBoundingClientRect();
+      return point.x >= bounds.left && point.x <= bounds.right;
+    },
+  }), []);
   const folderDropRef = useRef<FolderDropIndicator | null>(null);
   const visibleFolderItems = useMemo(
     () => flattenFolderTree(tree, layout.collapsedFolderIds),
@@ -1288,6 +1304,16 @@ function NavigatorTree({
     if (noteId) {
       setActiveNoteId(noteId);
       setActiveFolderId(null);
+      const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
+      if (noteDrop && pointerStart) {
+        notePointerRef.current = { x: pointerStart.clientX, y: pointerStart.clientY };
+        const track = (moveEvent: PointerEvent) => {
+          notePointerRef.current = { x: moveEvent.clientX, y: moveEvent.clientY };
+          noteDrop.preview(notePointerRef.current);
+        };
+        document.addEventListener('pointermove', track, { passive: true });
+        stopNotePointerRef.current = () => document.removeEventListener('pointermove', track);
+      }
       return;
     }
 
@@ -1296,8 +1322,25 @@ function NavigatorTree({
     setKeyboardFolderDrag(!trackPointer(event));
   };
 
+  const endNotePointerDrag = () => {
+    stopNotePointerRef.current?.();
+    stopNotePointerRef.current = null;
+    const point = notePointerRef.current;
+    notePointerRef.current = null;
+    return point;
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id);
+    const notePoint = endNotePointerDrag();
+    const droppedNoteId = parseNoteDragId(activeId);
+    if (droppedNoteId && notePoint && noteDrop) {
+      const entry = tree.allNotes.find((candidate) => candidate.note.id === droppedNoteId);
+      if (entry && noteDrop.drop(notePoint, entry.note)) {
+        setActiveNoteId(null);
+        return;
+      }
+    }
     const overId = event.over ? String(event.over.id) : null;
     const pointerFolderDrop = pointerYRef.current === null ? undefined : folderDropRef.current;
     const sectionDrop = parseWorkspaceFolderDragId(activeId) !== null
@@ -1368,6 +1411,7 @@ function NavigatorTree({
   };
 
   const handleDragCancel = () => {
+    if (endNotePointerDrag()) noteDrop?.preview(null);
     endPointerFolderDrag();
     setActiveFolderId(null);
     setActiveNoteId(null);
@@ -1496,6 +1540,7 @@ function NavigatorTree({
     <DndContext
       sensors={sensors}
       collisionDetection={treeCollisionDetection}
+      autoScroll={autoScroll}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       // The last move can enter a new row before dnd-kit updates event.over.
@@ -1602,14 +1647,18 @@ function NavigatorTree({
         </div>
       </SortableContext>
       {/* The preview never takes the pointer: after a drop it animates back over the tree, where
-          it would swallow the press that starts the next drag. */}
-      <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS}>
-        {activeNote ? (
-          <NoteDragOverlay entry={activeNote} />
-        ) : (
-          <FolderDragOverlay node={activeFolderId ? tree.nodesById.get(activeFolderId) ?? null : null} />
-        )}
-      </DragOverlay>
+          it would swallow the press that starts the next drag. It renders on the body: the sidebar
+          is a size container, which would clip it at its edge as a note is dragged onto the panes. */}
+      {createPortal(
+        <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS}>
+          {activeNote ? (
+            <NoteDragOverlay entry={activeNote} />
+          ) : (
+            <FolderDragOverlay node={activeFolderId ? tree.nodesById.get(activeFolderId) ?? null : null} />
+          )}
+        </DragOverlay>,
+        document.body,
+      )}
     </DndContext>
   );
 }

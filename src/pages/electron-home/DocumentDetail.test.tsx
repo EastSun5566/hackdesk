@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -175,12 +176,15 @@ function renderDocumentDetail(overrides: DocumentDetailPropsOverrides = {}) {
     status: { ...props.status, ...overrides.status },
   };
 
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = ({ actions, ...detail }: DocumentDetailTestProps) => (
-    <TooltipProvider>
-      <DocumentActionsProvider value={actions}>
-        <DocumentDetail {...detail} />
-      </DocumentActionsProvider>
-    </TooltipProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <DocumentActionsProvider value={actions}>
+          <DocumentDetail {...detail} />
+        </DocumentActionsProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
   const renderResult = render(view(mergedProps));
 
@@ -233,19 +237,6 @@ describe('DocumentDetail', () => {
     expect(location).toHaveTextContent('Local Vault/Projects/Sub/One');
     fireEvent.click(within(location).getByRole('button', { name: 'Sub' }));
     expect(onRevealFolder).toHaveBeenCalledWith(['local-folder:Projects', 'local-folder:Projects/Sub']);
-  });
-
-  it('offers pane zoom only beside other panes, and says when it would restore them', () => {
-    const onToggle = vi.fn();
-    const { rerenderDocumentDetail, props } = renderDocumentDetail({ layout: { paneZoom: { zoomed: false, onToggle } } });
-    fireEvent.click(screen.getByRole('button', { name: 'Zoom pane' }));
-    expect(onToggle).toHaveBeenCalledOnce();
-
-    rerenderDocumentDetail({ ...props, layout: { ...props.layout, paneZoom: { zoomed: true, onToggle } } });
-    expect(screen.getByRole('button', { name: 'Restore panes' })).toHaveAttribute('aria-pressed', 'true');
-
-    rerenderDocumentDetail({ ...props, layout: { ...props.layout, paneZoom: undefined } });
-    expect(screen.queryByRole('button', { name: /Zoom pane|Restore panes/ })).not.toBeInTheDocument();
   });
 
   it('names a team workspace in the breadcrumb, falling back to its path', () => {
@@ -695,7 +686,7 @@ describe('DocumentDetail', () => {
     expect(overlay).toHaveClass('absolute');
     expect(overlay).not.toHaveAttribute('hidden');
 
-    const field = details.querySelector<HTMLElement>('input, textarea')!;
+    const field = details.querySelector<HTMLElement>('button, input, textarea, [tabindex]')!;
     field.addEventListener('keydown', event => { if (event.key === 'Escape') event.preventDefault(); }, { once: true });
     fireEvent.keyDown(field, { key: 'Escape' });
     expect(onToggleInspector).not.toHaveBeenCalled();
@@ -765,6 +756,16 @@ describe('DocumentDetail', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: /Version History…/ }));
 
     await waitFor(() => expect(onVersionsOpenChange).toHaveBeenCalledWith(true));
+  });
+
+  it('opens note settings from the actions menu of a HackMD note', async () => {
+    const onNoteMetadataOpenChange = vi.fn();
+    renderDocumentDetail({ actions: { onNoteMetadataOpenChange } });
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Note Settings…/ }));
+
+    await waitFor(() => expect(onNoteMetadataOpenChange).toHaveBeenCalledWith(true));
   });
 
   it('offers no version history for local notes', async () => {

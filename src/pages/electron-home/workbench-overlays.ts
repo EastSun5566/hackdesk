@@ -26,6 +26,7 @@ export type WorkbenchOverlays = {
   deleteFolder: FolderTreeNode | null;
   /** `tab` is where Settings opens. */
   settings: { open: boolean; tab: SettingsTab };
+  noteMetadata: boolean;
   share: boolean;
   versions: boolean;
   /** The Trash panel in the sidebar. */
@@ -60,6 +61,7 @@ export const INITIAL_OVERLAYS: WorkbenchOverlays = {
   deleteNote: null,
   deleteFolder: null,
   settings: { open: false, tab: 'general' },
+  noteMetadata: false,
   share: false,
   versions: false,
   trash: false,
@@ -80,6 +82,7 @@ export const INITIAL_OVERLAYS: WorkbenchOverlays = {
 export const OVERLAY_CLOSE_ORDER = [
   'shortcutHelp',
   'palette',
+  'noteMetadata',
   'share',
   'versions',
   'trash',

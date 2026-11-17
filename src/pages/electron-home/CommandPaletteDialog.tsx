@@ -284,6 +284,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'copy-note-link': <Link className="h-4 w-4" />,
   'copy-markdown-link': <Link className="h-4 w-4" />,
   'copy-note-content': <ClipboardCopy className="h-4 w-4" />,
+  'note-settings': <SlidersHorizontal className="h-4 w-4" />,
   'share-note': <Share2 className="h-4 w-4" />,
   'move-tab-left': <ArrowBigLeftDash className="h-4 w-4" />,
   'move-tab-right': <ArrowBigRightDash className="h-4 w-4" />,

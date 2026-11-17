@@ -10,6 +10,7 @@
  *   pnpm render:preview --find "link"                     # open find (Cmd/Ctrl+F) and type a query
  *   pnpm render:preview --eval "document.querySelectorAll('.cm-line').length"
  *   pnpm render:preview --window --translucency clear     # macOS: the whole window as the screen shows it
+ *   pnpm render:preview --page                            # the whole page (title bars, sidebar, panes), not just the editor
  *
  * Screenshots land in .local/render-preview/<name>-<mode>.png. The script starts its own Vite dev
  * server, so source edits are picked up on every run; it builds the Electron main bundle first.
@@ -67,6 +68,7 @@ const { values } = parseArgs({
     find: { type: 'string' },
     eval: { type: 'string' },
     window: { type: 'boolean', default: false },
+    page: { type: 'boolean', default: false },
     translucency: { type: 'string' },
     width: { type: 'string', default: '1280' },
     height: { type: 'string', default: '1400' },
@@ -200,6 +202,8 @@ try {
           throw new Error('--window: screencapture failed. The screen must be awake and unlocked, and the terminal needs '
             + 'Screen Recording permission (System Settings > Privacy & Security).', { cause: error });
         }
+      } else if (values.page) {
+        await page.screenshot({ path: file });
       } else {
         await page.locator('.cm-editor').first().screenshot({ path: file });
       }

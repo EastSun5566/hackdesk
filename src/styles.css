@@ -545,11 +545,13 @@
 
   /* A resize handle that is a surface's border (PanelResizeSash edge): it lays a primary line over
      the border beside it while hovered, focused or dragged. The line fades out toward both ends and
-     is gone before the surface's rounded corners turn away from it. */
+     is gone before the surface's rounded corners turn away from it. The card beside the sidebar
+     starts below the title bar row (2.5rem, as the pane tab bars are), so the line does too. */
   .edge-sash::after {
     content: '';
     position: absolute;
-    inset-block: 0;
+    top: 2.5rem;
+    bottom: 0;
     /* Overlay the surface's 1px border. */
     right: -1px;
     width: 1px;
@@ -564,6 +566,49 @@
     opacity: 0;
     transition: opacity 150ms ease-out;
     pointer-events: none;
+  }
+
+  /* The handle between side-by-side panes: a line down the middle of the gap, beside the cards only.
+     Each pane's tab bar sits above its card, so the line starts below them (--pane-sash-top, set
+     per split by data-pane-row: the top row's bars are taller), and fades out before the cards' corners as above. */
+  [data-pane-row='top'] {
+    --pane-sash-top: 2.5rem;
+  }
+
+  [data-pane-row='inner'] {
+    --pane-sash-top: 2.25rem;
+  }
+
+  .pane-gap-sash::after {
+    content: '';
+    position: absolute;
+    top: var(--pane-sash-top, 0px);
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: linear-gradient(
+      to bottom,
+      transparent 1.5rem,
+      var(--primary-default) 3rem,
+      var(--primary-default) calc(100% - 3rem),
+      transparent calc(100% - 1.5rem)
+    );
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+    pointer-events: none;
+  }
+
+  .pane-gap-sash:hover::after,
+  .pane-gap-sash:focus-visible::after,
+  .pane-gap-sash:is([data-separator='hover'], [data-separator='focus'], [data-separator='active'])::after {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pane-gap-sash::after {
+      transition: none;
+    }
   }
 
   .edge-sash:hover::after,
@@ -734,6 +779,27 @@
   [data-pane-zoomed] [data-panel]:not(:has([data-active-pane='true'])),
   [data-pane-zoomed] [data-separator] {
     display: none !important;
+  }
+
+  /* Hack Mode keeps the one pane's tab bar as a blank title bar strip (see HACK_MODE_DRAG_STRIP_CLASS),
+     wherever that pane sits, so the window can still be dragged by its top edge. */
+  [data-hack-mode] .pane-tab-bar {
+    height: 2.5rem;
+    -webkit-app-region: drag;
+  }
+
+  .workspace-drop-preview {
+    left: var(--drop-preview-left);
+    top: var(--drop-preview-top);
+    width: var(--drop-preview-width);
+    height: var(--drop-preview-height);
+    transition: left 100ms ease-out, top 100ms ease-out, width 100ms ease-out, height 100ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workspace-drop-preview {
+      transition: none;
+    }
   }
 
 }
