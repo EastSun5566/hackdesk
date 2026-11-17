@@ -420,7 +420,7 @@ describe('DocumentWorkspace', () => {
     const separator = screen.getByLabelText('Resize document panes side by side, between pane 1 and pane 2');
 
     expect(separator).toHaveAttribute('id', 'document-pane-separator-pane-b');
-    expect(separator).toHaveClass('focus-visible:after:bg-primary-default');
+    expect(separator).toHaveClass('pane-gap-sash');
   });
 
   it('shows a retained draft with copy, export and new-draft actions when the original is missing', () => {
