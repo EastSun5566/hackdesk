@@ -99,7 +99,10 @@ describe('AppTopBar', () => {
     const applicationControls = within(header).getByRole('toolbar', { name: 'Application controls' });
     expect(header).toHaveClass('app-topbar', 'h-10');
     expect(header.firstElementChild).toHaveClass('pl-21.5');
-    expect(within(applicationControls).getByRole('separator')).toBeInTheDocument();
+    // Spread across the sidebar: the toggle at the start, the history buttons at the end, no divider.
+    expect(applicationControls).toHaveClass('flex-1', 'justify-between');
+    expect(within(applicationControls).queryByRole('separator')).not.toBeInTheDocument();
+    expect(within(applicationControls).getByRole('group', { name: 'Note history' })).toContainElement(screen.getByRole('button', { name: 'Back' }));
     expect(within(header).queryByRole('navigation', { name: 'Open documents' })).not.toBeInTheDocument();
 
     const navigatorToggle = screen.getByRole('button', { name: 'Collapse sidebar' });

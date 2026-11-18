@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { Toolbar, ToolbarSeparator } from '@/components/ui/toolbar';
+import { Toolbar, ToolbarGroup } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
 import { ToolbarIconButton } from './interaction-primitives';
 import { DocumentTabs, type PaneLayoutMenuActions } from './DocumentTabs';
@@ -35,6 +35,8 @@ export type PaneTabBarSegment = {
 };
 
 export type ApplicationControlsProps = {
+  /** Spread across the sidebar's width: the toggle at the start, the history buttons at the end. */
+  spread?: boolean;
   navigation: {
     canGoBack: boolean;
     canGoForward: boolean;
@@ -123,9 +125,10 @@ export function ApplicationControls({
   navigatorCollapsed,
   navigatorPanelId,
   onToggleNavigator,
+  spread = false,
 }: ApplicationControlsProps) {
   return (
-    <Toolbar aria-label="Application controls" className="shrink-0">
+    <Toolbar aria-label="Application controls" className={spread ? 'min-w-0 flex-1 justify-between' : 'shrink-0'}>
       <TopBarIconButton
         actionId="toggle-navigator"
         controls={navigatorPanelId}
@@ -135,25 +138,26 @@ export function ApplicationControls({
       >
         {navigatorCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
       </TopBarIconButton>
-      <ToolbarSeparator />
-      <TopBarIconButton
-        actionId="navigate-back"
-        disabled={!navigation.canGoBack}
-        label="Back"
-        tooltip={navigation.canGoBack ? 'Back' : 'No previous note location'}
-        onClick={navigation.onBack}
-      >
-        <ArrowLeft aria-hidden="true" className="size-4.5" />
-      </TopBarIconButton>
-      <TopBarIconButton
-        actionId="navigate-forward"
-        disabled={!navigation.canGoForward}
-        label="Forward"
-        tooltip={navigation.canGoForward ? 'Forward' : 'No next note location'}
-        onClick={navigation.onForward}
-      >
-        <ArrowRight aria-hidden="true" className="size-4.5" />
-      </TopBarIconButton>
+      <ToolbarGroup aria-label="Note history">
+        <TopBarIconButton
+          actionId="navigate-back"
+          disabled={!navigation.canGoBack}
+          label="Back"
+          tooltip={navigation.canGoBack ? 'Back' : 'No previous note location'}
+          onClick={navigation.onBack}
+        >
+          <ArrowLeft aria-hidden="true" className="size-4.5" />
+        </TopBarIconButton>
+        <TopBarIconButton
+          actionId="navigate-forward"
+          disabled={!navigation.canGoForward}
+          label="Forward"
+          tooltip={navigation.canGoForward ? 'Forward' : 'No next note location'}
+          onClick={navigation.onForward}
+        >
+          <ArrowRight aria-hidden="true" className="size-4.5" />
+        </TopBarIconButton>
+      </ToolbarGroup>
     </Toolbar>
   );
 }
@@ -172,7 +176,7 @@ export function AppTopBar({
     // No width of its own (w-0, padding inside): the column is as wide as the sidebar below, down to nothing.
     <header className={cn('app-topbar h-10 w-0 min-w-full shrink-0 overflow-hidden', HACK_MODE_DRAG_STRIP_CLASS)}>
       <div className={cn('flex h-full items-center gap-2 pr-2', trafficLightInset ? 'pl-21.5' : 'pl-2')}>
-        {controls.navigatorCollapsed ? null : <ApplicationControls {...controls} />}
+        {controls.navigatorCollapsed ? null : <ApplicationControls {...controls} spread />}
       </div>
     </header>
   );
@@ -210,7 +214,7 @@ export function PaneTabBar({
         'pane-tab-bar flex min-w-0 shrink-0 items-center gap-2 pr-1',
         topRow ? 'app-topbar h-10' : 'h-9 [&_[data-tab-id]]:h-7',
         HACK_MODE_DRAG_STRIP_CLASS,
-        leading && trafficLightInset ? 'pl-20' : 'pl-0.5',
+        leading && trafficLightInset ? 'pl-20' : 'pl-0',
       )}
     >
       {leading}
