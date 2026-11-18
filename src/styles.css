@@ -464,6 +464,16 @@
     -webkit-app-region: no-drag;
   }
 
+  /* The title bar's leading slot (TitleBarLeadingSlot): one column that animates between nothing and
+     its content's width, in step with the sidebar. */
+  [data-title-bar-leading] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-title-bar-leading='closed'] {
+    grid-template-columns: 0fr;
+  }
+
   .app-region-drag {
     -webkit-app-region: drag;
   }

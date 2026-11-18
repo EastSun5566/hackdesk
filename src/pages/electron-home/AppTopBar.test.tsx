@@ -99,7 +99,10 @@ describe('AppTopBar', () => {
     const applicationControls = within(header).getByRole('toolbar', { name: 'Application controls' });
     expect(header).toHaveClass('app-topbar', 'h-10');
     expect(header.firstElementChild).toHaveClass('pl-21.5');
-    expect(within(applicationControls).getByRole('separator')).toBeInTheDocument();
+    // Across the sidebar: the toggle at the start, the history buttons at the end, no divider.
+    expect(applicationControls).toHaveClass('flex-1');
+    expect(within(applicationControls).queryByRole('separator')).not.toBeInTheDocument();
+    expect(within(applicationControls).getByRole('group', { name: 'Note history' })).toContainElement(screen.getByRole('button', { name: 'Back' }));
     expect(within(header).queryByRole('navigation', { name: 'Open documents' })).not.toBeInTheDocument();
 
     const navigatorToggle = screen.getByRole('button', { name: 'Collapse sidebar' });
@@ -113,14 +116,21 @@ describe('AppTopBar', () => {
   it('takes no width of its own, so a collapsed sidebar column closes completely', () => {
     renderTopBar();
 
-    expect(screen.getByRole('banner')).toHaveClass('w-0', 'min-w-full', 'overflow-hidden');
+    expect(screen.getByRole('banner')).toHaveClass('w-0', 'min-w-full');
   });
 
-  it('leaves its controls to the panes while the sidebar is collapsed', () => {
+  it('keeps its controls while collapsed, overflowing above the panes', () => {
     renderTopBar({ navigatorCollapsed: true });
 
-    expect(screen.getByRole('banner')).toBeInTheDocument();
-    expect(screen.queryByRole('toolbar', { name: 'Application controls' })).not.toBeInTheDocument();
+    const header = screen.getByRole('banner');
+    // Not clipped: the toggle overflows the collapsed column, over the space the top-left pane keeps for it.
+    expect(header).not.toHaveClass('overflow-hidden');
+    expect(header).toHaveClass('relative', 'z-10');
+    expect(within(header).getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
+    // The history buttons never drop below their width, so a collapsed row leaves them beside the toggle.
+    const history = within(header).getByRole('group', { name: 'Note history' });
+    expect(history.parentElement).toHaveClass('min-w-fit', 'flex-1', 'justify-end');
+    expect(within(history).getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
 
   it('only reserves traffic-light space when asked', () => {
@@ -236,23 +246,27 @@ describe('PaneTabBar', () => {
     expect(screen.getByRole('button', { name: 'Pane actions' })).toHaveClass('app-region-no-drag');
   });
 
-  it('leads with the application controls, clear of the traffic lights, when given them', () => {
-    renderPaneTabBar({
-      leading: (
-        <ApplicationControls
-          navigation={{ canGoBack: false, canGoForward: false, onBack: vi.fn(), onForward: vi.fn() }}
-          navigatorCollapsed
-          navigatorPanelId="note-navigator-panel"
-          onToggleNavigator={vi.fn()}
-        />
-      ),
-      trafficLightInset: true,
-    });
+  it('keeps room for the application controls, clear of the traffic lights, while its slot is open', () => {
+    renderPaneTabBar({ leadingSpace: true, leadingOpen: true, trafficLightInset: true });
 
     const bar = document.querySelector<HTMLElement>('[data-pane-tab-bar]')!;
-    expect(bar).toHaveClass('pl-20');
+    const slot = bar.querySelector<HTMLElement>('[data-title-bar-leading]')!;
+    expect(slot).toHaveAttribute('data-title-bar-leading', 'open');
+    expect(slot).toHaveAttribute('aria-hidden', 'true');
+    expect(slot).toHaveClass('grid', 'transition-all');
+    // The controls (in the sidebar's title bar) lie over this no-drag space: toggle and both history buttons.
+    expect(slot.querySelector('.pl-20 > span')).toHaveClass('app-region-no-drag', 'w-23', 'h-7');
+    expect(within(bar).queryByRole('button', { name: /sidebar|Back|Forward/ })).not.toBeInTheDocument();
     const regions = Array.from(bar.querySelectorAll<HTMLElement>('[role="toolbar"], nav[aria-label="Open documents"]'));
-    expect(regions.map(region => region.getAttribute('aria-label'))).toEqual(['Application controls', 'Open documents', 'Pane controls']);
+    expect(regions.map(region => region.getAttribute('aria-label'))).toEqual(['Open documents', 'Pane controls']);
+  });
+
+  it('keeps a closed leading slot mounted, so it can animate shut', () => {
+    renderPaneTabBar({ leadingSpace: true, leadingOpen: false, trafficLightInset: false });
+
+    const slot = document.querySelector<HTMLElement>('[data-title-bar-leading]')!;
+    expect(slot).toHaveAttribute('data-title-bar-leading', 'closed');
+    expect(slot.querySelector('.pl-0\\.5')).not.toBeNull();
   });
 
   it('calls tab select and close callbacks from its tabs', () => {

@@ -2567,13 +2567,27 @@ test('a pane split below gets its own tab bar, and the sidebar title bar keeps t
     expect(Math.abs(lowerBar.y + lowerBar.height - lower.y)).toBeLessThan(2);
     await expect(bars.nth(1).getByRole('tab')).toHaveCount(1);
 
-    // The sidebar's own title bar holds the window controls; collapsing it moves them to the top-left pane.
+    // The sidebar's own title bar holds the window controls, collapsed or not: the toggle stays where it
+    // was and the history buttons settle beside it, over room the top-left pane keeps for them.
     const sidebarColumn = page.locator('#note-navigator-panel').locator('..');
     const controls = page.getByRole('toolbar', { name: 'Application controls', exact: true });
     await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    const toggleBefore = (await controls.getByRole('button', { name: 'Collapse sidebar', exact: true }).boundingBox())!;
     await controls.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
-    await expect(bars.nth(0).getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
     await expect(controls).toHaveCount(1);
+    await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    const toggleAfter = (await controls.getByRole('button', { name: 'Expand sidebar', exact: true }).boundingBox())!;
+    expect(toggleAfter.x).toBe(toggleBefore.x);
+    expect(toggleAfter.y).toBe(toggleBefore.y);
+    const forward = controls.getByRole('button', { name: 'Forward', exact: true });
+    const firstTab = bars.nth(0).getByRole('tab').first();
+    await expect.poll(async () => (await forward.boundingBox())!.x).toBeLessThan((await firstTab.boundingBox())!.x);
+    // Drawn on top of the pane's tab bar, so the pointer reaches them there (a disabled button lets
+    // the pointer through to its own toolbar, still above the tab bar).
+    expect(await forward.evaluate((button) => {
+      const box = button.getBoundingClientRect();
+      return button.closest('[role="toolbar"]')!.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    })).toBe(true);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('32-split-down-collapsed.png') });
     await controls.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
     await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();

@@ -357,7 +357,7 @@ export function DocumentTabs({
         data-overflow-start={overflow.start || undefined}
         data-overflow-end={overflow.end || undefined}
         className={cn(
-          'edge-fade-x app-region-no-drag flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1',
+          'edge-fade-x app-region-no-drag flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none py-1 pr-1',
           isStripDropTarget && 'rounded-md bg-primary-soft/20 ring-1 ring-primary-default/40',
         )}
       >

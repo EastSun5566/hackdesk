@@ -1,14 +1,14 @@
 import { ArrowLeft, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { Toolbar, ToolbarSeparator } from '@/components/ui/toolbar';
+import { Toolbar, ToolbarGroup } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
 import { ToolbarIconButton } from './interaction-primitives';
 import { DocumentTabs, type PaneLayoutMenuActions } from './DocumentTabs';
 import type { DocumentSyncState } from './DocumentDetail';
 import type { ElectronActionId } from '@/lib/electron-api';
 import type { OpenNoteTab } from './note-workspace';
-import { HACK_MODE_DRAG_STRIP_CLASS } from './ui';
+import { HACK_MODE_DRAG_STRIP_CLASS, PANEL_MOTION_CLASS } from './ui';
 
 /** One pane's tabs and the actions its tab bar runs. */
 export type PaneTabBarSegment = {
@@ -110,32 +110,16 @@ function TopBarIconButton({
       disabled={disabled}
       label={label}
       tooltip={tooltip}
-      className="app-topbar-button app-region-no-drag h-7 w-7 rounded-md"
+      className="app-topbar-button app-region-no-drag h-7 w-7 shrink-0 rounded-md"
     >
       {children}
     </ToolbarIconButton>
   );
 }
 
-/** The sidebar toggle and note history buttons: the window's own controls, not any pane's. */
-export function ApplicationControls({
-  navigation,
-  navigatorCollapsed,
-  navigatorPanelId,
-  onToggleNavigator,
-}: ApplicationControlsProps) {
+function NoteHistoryButtons({ navigation }: Pick<ApplicationControlsProps, 'navigation'>) {
   return (
-    <Toolbar aria-label="Application controls" className="shrink-0">
-      <TopBarIconButton
-        actionId="toggle-navigator"
-        controls={navigatorPanelId}
-        expanded={!navigatorCollapsed}
-        label={navigatorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        onClick={onToggleNavigator}
-      >
-        {navigatorCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
-      </TopBarIconButton>
-      <ToolbarSeparator />
+    <>
       <TopBarIconButton
         actionId="navigate-back"
         disabled={!navigation.canGoBack}
@@ -154,6 +138,40 @@ export function ApplicationControls({
       >
         <ArrowRight aria-hidden="true" className="size-4.5" />
       </TopBarIconButton>
+    </>
+  );
+}
+
+/**
+ * The sidebar toggle and note history buttons: the window's own controls, not any pane's. Both stay
+ * in the sidebar's title bar, collapsed or not. The toggle sits beside the traffic lights and never
+ * moves. The history buttons sit at the sidebar's end and ride its edge as it narrows, until they
+ * meet the toggle; there they stay while it is collapsed (over TitleBarLeadingSlot's space).
+ */
+export function ApplicationControls({
+  navigation,
+  navigatorCollapsed,
+  navigatorPanelId,
+  onToggleNavigator,
+}: ApplicationControlsProps) {
+  return (
+    <Toolbar aria-label="Application controls" className="min-w-fit flex-1">
+      <TopBarIconButton
+        actionId="toggle-navigator"
+        controls={navigatorPanelId}
+        expanded={!navigatorCollapsed}
+        label={navigatorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        onClick={onToggleNavigator}
+      >
+        {navigatorCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
+      </TopBarIconButton>
+      {/* Takes the rest of the row and pushes the history buttons to its end, but never less than
+          their width, so a narrower row leaves them beside the toggle. */}
+      <div className="flex min-w-fit flex-1 justify-end">
+        <ToolbarGroup aria-label="Note history">
+          <NoteHistoryButtons navigation={navigation} />
+        </ToolbarGroup>
+      </div>
     </Toolbar>
   );
 }
@@ -161,8 +179,8 @@ export function ApplicationControls({
 /**
  * The sidebar's title bar: the traffic lights and the application controls, as wide as the sidebar.
  * The panes beside it carry their own tab bars, so a split never has to share one strip of tabs.
- * While the sidebar is collapsed the controls move to the top-left pane's tab bar, and this row
- * stays empty (it is clipped to nothing anyway).
+ * It does not clip: while the sidebar is collapsed (the row then has no width at all) its controls
+ * overflow it, over the space the top-left pane's tab bar keeps free for them.
  */
 export function AppTopBar({
   trafficLightInset,
@@ -170,11 +188,38 @@ export function AppTopBar({
 }: ApplicationControlsProps & { trafficLightInset: boolean }) {
   return (
     // No width of its own (w-0, padding inside): the column is as wide as the sidebar below, down to nothing.
-    <header className={cn('app-topbar h-10 w-0 min-w-full shrink-0 overflow-hidden', HACK_MODE_DRAG_STRIP_CLASS)}>
+    // z-10: the controls, overflowing a collapsed column, paint and take clicks above the pane's tab bar.
+    <header className={cn('app-topbar relative z-10 h-10 w-0 min-w-full shrink-0', HACK_MODE_DRAG_STRIP_CLASS)}>
       <div className={cn('flex h-full items-center gap-2 pr-2', trafficLightInset ? 'pl-21.5' : 'pl-2')}>
-        {controls.navigatorCollapsed ? null : <ApplicationControls {...controls} />}
+        <ApplicationControls {...controls} />
       </div>
     </header>
+  );
+}
+
+/**
+ * The start of the top-left title bar row. While the sidebar is collapsed it keeps room for the
+ * application controls, which stay in the sidebar's title bar and lie over it. It opens and closes
+ * with the sidebar's own width animation, so the tabs after it glide along with the card instead of
+ * jumping when the sidebar starts to move. Its left padding puts the space exactly under the
+ * controls; the middle wrapper carries no padding, so `0fr` really closes it to nothing.
+ */
+export function TitleBarLeadingSlot({ open, trafficLightInset }: { open: boolean; trafficLightInset: boolean }) {
+  return (
+    <div
+      aria-hidden="true"
+      data-title-bar-leading={open ? 'open' : 'closed'}
+      // Its column (0fr closed, 1fr open) is set in styles.css, keyed on data-title-bar-leading.
+      className={cn('grid shrink-0', PANEL_MOTION_CLASS)}
+    >
+      <div className="min-w-0 overflow-hidden">
+        <div className={cn('flex w-max pr-2', trafficLightInset ? 'pl-20' : 'pl-0.5')}>
+          {/* The toggle, a gap and two history buttons (7 + 1 + 7 + 1 + 7). No-drag, so the window
+              does not drag from under the controls. */}
+          <span className="app-region-no-drag h-7 w-23" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -188,7 +233,8 @@ export function PaneTabBar({
   onReopenLastClosedTab,
   isSegmented,
   topRow,
-  leading,
+  leadingSpace = false,
+  leadingOpen = false,
   trafficLightInset = false,
 }: {
   segment: PaneTabBarSegment;
@@ -197,8 +243,9 @@ export function PaneTabBar({
   /** More than one pane is showing, so each bar's tabs are narrower and the inactive ones dim. */
   isSegmented: boolean;
   topRow: boolean;
-  /** The application controls, when the sidebar that normally holds them is collapsed. */
-  leading?: ReactNode;
+  /** The top-left pane: its bar keeps room for the application controls while the sidebar is collapsed. */
+  leadingSpace?: boolean;
+  leadingOpen?: boolean;
   trafficLightInset?: boolean;
 }) {
   return (
@@ -207,13 +254,12 @@ export function PaneTabBar({
       data-pane-tab-bar-row={topRow ? 'top' : 'inner'}
       className={cn(
         // pr-1: the panel clips at the card's edge, which would cut off the last button's focus ring.
-        'pane-tab-bar flex min-w-0 shrink-0 items-center gap-2 pr-1',
+        'pane-tab-bar flex min-w-0 shrink-0 items-center pr-1',
         topRow ? 'app-topbar h-10' : 'h-9 [&_[data-tab-id]]:h-7',
         HACK_MODE_DRAG_STRIP_CLASS,
-        leading && trafficLightInset ? 'pl-20' : 'pl-0.5',
       )}
     >
-      {leading}
+      {leadingSpace ? <TitleBarLeadingSlot open={leadingOpen} trafficLightInset={trafficLightInset} /> : null}
       <DocumentTabs
         paneId={segment.paneId}
         isActivePane={segment.isActivePane}

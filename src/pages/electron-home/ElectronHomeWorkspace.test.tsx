@@ -28,9 +28,10 @@ vi.mock('./AppTopBar', () => {
   return {
     useTrafficLightInset: () => true,
     ApplicationControls,
+    TitleBarLeadingSlot: (props: { open: boolean }) => <div data-testid="leading-slot" data-open={String(props.open)} />,
     AppTopBar: (props: Controls) => (
       <header data-testid="app-topbar">
-        {props.navigatorCollapsed ? null : <ApplicationControls {...props} />}
+        <ApplicationControls {...props} />
       </header>
     ),
     PaneTabBar: (props: {
@@ -46,7 +47,8 @@ vi.mock('./AppTopBar', () => {
       };
       isSegmented: boolean;
       topRow: boolean;
-      leading?: ReactNode;
+      leadingSpace?: boolean;
+      leadingOpen?: boolean;
     }) => (
       <div
         data-testid={`pane-tab-bar-${props.segment.paneId}`}
@@ -54,7 +56,7 @@ vi.mock('./AppTopBar', () => {
         data-segmented={String(props.isSegmented)}
         data-top-row={String(props.topRow)}
       >
-        {props.leading}
+        {props.leadingSpace ? <div data-testid="leading-slot" data-open={String(props.leadingOpen)} /> : null}
         <span data-testid={`active-tab-${props.segment.paneId}`}>{props.segment.activeTab?.title ?? 'none'}</span>
         <span data-testid={`tab-count-${props.segment.paneId}`}>{props.segment.tabs.length}</span>
         <button type="button" onClick={() => props.segment.onSelectTab('tab-b')}>{`select tab ${props.segment.paneId}`}</button>
@@ -351,29 +353,32 @@ describe('ElectronHomeWorkspace', () => {
     expect(screen.getByTestId('active-tab-pane-a')).toHaveTextContent('Features');
     expect(screen.getByTestId('active-tab-pane-b')).toHaveTextContent('Markdown Playground');
     expect(screen.getByTestId('tab-count-pane-b')).toHaveTextContent('2');
-    // The sidebar holds the controls, so no pane repeats them.
+    // The sidebar holds the controls, so no pane repeats them; the top-left pane only keeps a closed slot.
     expect(screen.getAllByTestId('application-controls')).toHaveLength(1);
+    expect(within(screen.getByTestId('pane-tab-bar-pane-a')).getByTestId('leading-slot')).toHaveAttribute('data-open', 'false');
+    expect(within(screen.getByTestId('pane-tab-bar-pane-b')).queryByTestId('leading-slot')).not.toBeInTheDocument();
   });
 
-  it('moves the application controls to the top-left pane while the sidebar is collapsed', () => {
+  it('keeps the controls in the sidebar title bar while collapsed, with room for them in the top-left pane', () => {
     const props = createProps();
     props.titlebar.layout.navigatorCollapsed = true;
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
-    expect(within(screen.getByTestId('app-topbar')).queryByTestId('application-controls')).not.toBeInTheDocument();
-    expect(within(screen.getByTestId('pane-tab-bar-pane-a')).getByTestId('application-controls')).toBeInTheDocument();
-    expect(within(screen.getByTestId('pane-tab-bar-pane-b')).queryByTestId('application-controls')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('app-topbar')).getByTestId('application-controls')).toBeInTheDocument();
+    expect(screen.getAllByTestId('application-controls')).toHaveLength(1);
+    expect(within(screen.getByTestId('pane-tab-bar-pane-a')).getByTestId('leading-slot')).toHaveAttribute('data-open', 'true');
+    expect(within(screen.getByTestId('pane-tab-bar-pane-b')).queryByTestId('leading-slot')).not.toBeInTheDocument();
   });
 
-  it('keeps the controls in reach above the empty state while the sidebar is collapsed', () => {
+  it('keeps room for the controls above the empty state while the sidebar is collapsed', () => {
     const props = createProps();
     props.titlebar.layout.navigatorCollapsed = true;
     props.documentWorkspace = { ...props.documentWorkspace, panes: [] };
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
-    expect(within(screen.getByTestId('document-workspace')).getByTestId('application-controls')).toBeInTheDocument();
+    expect(within(screen.getByTestId('document-workspace')).getByTestId('leading-slot')).toHaveAttribute('data-open', 'true');
   });
 
   it('shows a single unsegmented tab bar when a pane is zoomed', () => {
