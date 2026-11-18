@@ -239,7 +239,7 @@ describe('PaneTabBar', () => {
     expect(screen.getByRole('button', { name: 'Pane actions' })).toHaveClass('app-region-no-drag');
   });
 
-  it('leads with the application controls, clear of the traffic lights, when given them', () => {
+  it('leads with the application controls, clear of the traffic lights, while its slot is open', () => {
     renderPaneTabBar({
       leading: (
         <ApplicationControls
@@ -249,13 +249,38 @@ describe('PaneTabBar', () => {
           onToggleNavigator={vi.fn()}
         />
       ),
+      leadingOpen: true,
       trafficLightInset: true,
     });
 
     const bar = document.querySelector<HTMLElement>('[data-pane-tab-bar]')!;
-    expect(bar).toHaveClass('pl-20');
+    const slot = bar.querySelector<HTMLElement>('[data-title-bar-leading]')!;
+    expect(slot).toHaveAttribute('data-title-bar-leading', 'open');
+    expect(slot.querySelector('.pl-20')).toContainElement(screen.getByRole('toolbar', { name: 'Application controls' }));
     const regions = Array.from(bar.querySelectorAll<HTMLElement>('[role="toolbar"], nav[aria-label="Open documents"]'));
     expect(regions.map(region => region.getAttribute('aria-label'))).toEqual(['Application controls', 'Open documents', 'Pane controls']);
+  });
+
+  it('keeps a closed leading slot mounted at no width, inert and hidden, so it can animate', () => {
+    renderPaneTabBar({
+      leading: (
+        <ApplicationControls
+          navigation={{ canGoBack: false, canGoForward: false, onBack: vi.fn(), onForward: vi.fn() }}
+          navigatorCollapsed={false}
+          navigatorPanelId="note-navigator-panel"
+          onToggleNavigator={vi.fn()}
+        />
+      ),
+      leadingOpen: false,
+      trafficLightInset: true,
+    });
+
+    const slot = document.querySelector<HTMLElement>('[data-title-bar-leading]')!;
+    expect(slot).toHaveAttribute('data-title-bar-leading', 'closed');
+    expect(slot).toHaveClass('grid', 'transition-all');
+    expect(slot).toHaveAttribute('inert');
+    expect(slot).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('toolbar', { name: 'Application controls' })).not.toBeInTheDocument();
   });
 
   it('calls tab select and close callbacks from its tabs', () => {

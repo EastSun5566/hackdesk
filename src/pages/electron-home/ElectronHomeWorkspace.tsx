@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   AppTopBar,
   ApplicationControls,
+  TitleBarLeadingSlot,
   PaneTabBar,
   useTrafficLightInset,
   type ApplicationControlsProps,
@@ -106,7 +107,8 @@ export function ElectronHomeWorkspace({
     onToggleNavigator: titlebar.actions.toggleNavigator,
   };
   // The sidebar holds the application controls; while it is collapsed they lead the top-left pane's tabs.
-  const leadingControls = navigatorCollapsed ? <ApplicationControls {...applicationControls} /> : null;
+  // That pane always carries them, in a slot that opens and closes with the sidebar's animation.
+  const leadingControls = <ApplicationControls {...applicationControls} />;
 
   const paneSegment = (pane: NotePane): PaneTabBarSegment => {
     const view = titlebar.getPaneView(pane);
@@ -158,6 +160,7 @@ export function ElectronHomeWorkspace({
       isSegmented={visiblePaneCount > 1}
       topRow={placement.topRow}
       leading={placement.leading ? leadingControls : null}
+      leadingOpen={navigatorCollapsed}
       trafficLightInset={trafficLightInset}
     />
   );
@@ -165,11 +168,10 @@ export function ElectronHomeWorkspace({
   // controls while the sidebar is collapsed.
   const emptyHeader = (
     <div className={cn(
-      'pane-tab-bar app-topbar flex h-10 shrink-0 items-center gap-2',
+      'pane-tab-bar app-topbar flex h-10 shrink-0 items-center',
       HACK_MODE_DRAG_STRIP_CLASS,
-      leadingControls && trafficLightInset ? 'pl-20' : 'pl-0.5',
     )}>
-      {leadingControls}
+      <TitleBarLeadingSlot open={navigatorCollapsed} trafficLightInset={trafficLightInset}>{leadingControls}</TitleBarLeadingSlot>
     </div>
   );
 

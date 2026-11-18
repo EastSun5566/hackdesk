@@ -8,7 +8,7 @@ import { DocumentTabs, type PaneLayoutMenuActions } from './DocumentTabs';
 import type { DocumentSyncState } from './DocumentDetail';
 import type { ElectronActionId } from '@/lib/electron-api';
 import type { OpenNoteTab } from './note-workspace';
-import { HACK_MODE_DRAG_STRIP_CLASS } from './ui';
+import { HACK_MODE_DRAG_STRIP_CLASS, PANEL_MOTION_CLASS } from './ui';
 
 /** One pane's tabs and the actions its tab bar runs. */
 export type PaneTabBarSegment = {
@@ -183,6 +183,39 @@ export function AppTopBar({
 }
 
 /**
+ * The start of the top-left title bar row, which holds the application controls while the sidebar is
+ * collapsed. It opens and closes with the sidebar's own width animation, so the tabs after it glide
+ * along with the card instead of jumping when the sidebar starts to move. A closed slot stays mounted
+ * (inert, hidden) for its closing animation. The middle wrapper carries no padding, so `0fr` really
+ * closes it to nothing.
+ */
+export function TitleBarLeadingSlot({
+  open,
+  trafficLightInset,
+  children,
+}: {
+  open: boolean;
+  trafficLightInset: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      data-title-bar-leading={open ? 'open' : 'closed'}
+      aria-hidden={open ? undefined : true}
+      {...({ inert: open ? undefined : '' } as Record<string, string | undefined>)}
+      // Its column (0fr closed, 1fr open) is set in styles.css, keyed on data-title-bar-leading.
+      className={cn('grid shrink-0', PANEL_MOTION_CLASS)}
+    >
+      <div className="min-w-0 overflow-hidden">
+        <div className={cn('flex w-max items-center pr-2', trafficLightInset && 'pl-20')}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * A pane's own tab bar, above its card. Bars along the top edge are part of the window's title bar
  * (they drag the window and line up with the sidebar's); the ones lower down are a little shorter.
  */
@@ -193,6 +226,7 @@ export function PaneTabBar({
   isSegmented,
   topRow,
   leading,
+  leadingOpen = false,
   trafficLightInset = false,
 }: {
   segment: PaneTabBarSegment;
@@ -201,8 +235,9 @@ export function PaneTabBar({
   /** More than one pane is showing, so each bar's tabs are narrower and the inactive ones dim. */
   isSegmented: boolean;
   topRow: boolean;
-  /** The application controls, when the sidebar that normally holds them is collapsed. */
+  /** The application controls, on the top-left pane; shown while the sidebar that normally holds them is collapsed. */
   leading?: ReactNode;
+  leadingOpen?: boolean;
   trafficLightInset?: boolean;
 }) {
   return (
@@ -211,13 +246,12 @@ export function PaneTabBar({
       data-pane-tab-bar-row={topRow ? 'top' : 'inner'}
       className={cn(
         // pr-1: the panel clips at the card's edge, which would cut off the last button's focus ring.
-        'pane-tab-bar flex min-w-0 shrink-0 items-center gap-2 pr-1',
+        'pane-tab-bar flex min-w-0 shrink-0 items-center pr-1',
         topRow ? 'app-topbar h-10' : 'h-9 [&_[data-tab-id]]:h-7',
         HACK_MODE_DRAG_STRIP_CLASS,
-        leading && trafficLightInset ? 'pl-20' : 'pl-0',
       )}
     >
-      {leading}
+      {leading ? <TitleBarLeadingSlot open={leadingOpen} trafficLightInset={trafficLightInset}>{leading}</TitleBarLeadingSlot> : null}
       <DocumentTabs
         paneId={segment.paneId}
         isActivePane={segment.isActivePane}

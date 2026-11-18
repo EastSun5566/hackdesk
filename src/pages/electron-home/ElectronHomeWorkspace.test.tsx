@@ -28,6 +28,8 @@ vi.mock('./AppTopBar', () => {
   return {
     useTrafficLightInset: () => true,
     ApplicationControls,
+    // Only an open slot is visible to assistive technology; a closed one is inert and hidden.
+    TitleBarLeadingSlot: (props: { open: boolean; children: ReactNode }) => (props.open ? <>{props.children}</> : null),
     AppTopBar: (props: Controls) => (
       <header data-testid="app-topbar">
         {props.navigatorCollapsed ? null : <ApplicationControls {...props} />}
@@ -47,6 +49,7 @@ vi.mock('./AppTopBar', () => {
       isSegmented: boolean;
       topRow: boolean;
       leading?: ReactNode;
+      leadingOpen?: boolean;
     }) => (
       <div
         data-testid={`pane-tab-bar-${props.segment.paneId}`}
@@ -54,7 +57,7 @@ vi.mock('./AppTopBar', () => {
         data-segmented={String(props.isSegmented)}
         data-top-row={String(props.topRow)}
       >
-        {props.leading}
+        {props.leadingOpen ? props.leading : null}
         <span data-testid={`active-tab-${props.segment.paneId}`}>{props.segment.activeTab?.title ?? 'none'}</span>
         <span data-testid={`tab-count-${props.segment.paneId}`}>{props.segment.tabs.length}</span>
         <button type="button" onClick={() => props.segment.onSelectTab('tab-b')}>{`select tab ${props.segment.paneId}`}</button>
