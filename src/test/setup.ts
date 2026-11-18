@@ -3,6 +3,11 @@ import { afterEach, vi } from 'vitest';
 
 import { resetConfirmDialogs } from '@/components/ConfirmDialogHost';
 
+import { installJsdomFastQueries } from './jsdom-fast-queries';
+
+// Faster `labels` and `[id="…"]` lookups with the same results; see jsdom-fast-queries.ts.
+installJsdomFastQueries();
+
 // In-app confirm requests live in a module queue; an unanswered one must not open in the next test.
 afterEach(() => resetConfirmDialogs());
 
