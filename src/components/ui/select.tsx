@@ -35,15 +35,23 @@ function SelectLabelValue({
   );
 }
 
+const selectTriggerVariantClassNames = {
+  default: '',
+  /** On the page fill, with its focus ring inside the box, like a `filled` Textarea. */
+  filled: 'bg-background-default px-2.5 focus-visible:ring-inset',
+} as const;
+
 function SelectTrigger({
   className,
   children,
+  variant = 'default',
   ...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>) {
+}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & { variant?: keyof typeof selectTriggerVariantClassNames }) {
   return (
     <SelectPrimitive.Trigger
       className={cn(
         'inline-flex h-[34px] min-w-36 items-center justify-between gap-2 rounded border border-border-default bg-transparent px-3 py-1.5 text-sm leading-5 text-text-default transition-colors placeholder:text-text-subtler hover:bg-element-bg-hover focus:border-border-primary-subtler focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary-subtler disabled:pointer-events-none disabled:border-element-border-disabled disabled:bg-element-bg-disabled disabled:opacity-65',
+        selectTriggerVariantClassNames[variant],
         className,
       )}
       {...props}

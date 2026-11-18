@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode } from 'react';
+import type { ComponentProps, InputHTMLAttributes, ReactNode } from 'react';
 import { CircleHelp, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -216,7 +216,7 @@ function SettingsHelpTooltip({
   );
 }
 
-export function SettingsInput(props: InputHTMLAttributes<HTMLInputElement>) {
+export function SettingsInput(props: ComponentProps<typeof Input>) {
   return <Input {...props} />;
 }
 
@@ -231,7 +231,8 @@ export function SettingsSecretInput({
   return (
     <div className="flex overflow-hidden rounded border border-border-default bg-background-muted transition-colors focus-within:border-border-primary-subtler">
       <Input
-        className="min-w-0 flex-1 rounded-none border-0 bg-transparent focus:border-transparent focus-visible:ring-0"
+        variant="embedded"
+        className="min-w-0 flex-1"
         type={visible ? 'text' : 'password'}
         spellCheck={false}
         {...props}
@@ -240,9 +241,8 @@ export function SettingsSecretInput({
         pressed={visible}
         onPressedChange={onVisibleChange}
         aria-label={visible ? 'Hide token' : 'Show token'}
-        className="rounded-none border-0 border-l border-border-default"
         size="sm"
-        variant="ghost"
+        variant="field-end"
       >
         {visible ? 'Hide' : 'Show'}
       </Toggle>

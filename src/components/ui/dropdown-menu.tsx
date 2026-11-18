@@ -16,16 +16,24 @@ import {
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 
+const dropdownMenuTriggerVariantClassNames = {
+  default: '',
+  /** A quiet icon button that stays highlighted while its menu has settings applied (`data-applied`). */
+  'icon-indicator': 'rounded text-icon-subtle hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring data-[applied]:bg-background-selected data-[applied]:text-text-default',
+} as const;
+
 type DropdownMenuTriggerProps = React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger> & {
   asChild?: boolean;
+  variant?: keyof typeof dropdownMenuTriggerVariantClassNames;
 };
 
 const DropdownMenuTrigger = React.forwardRef<
   HTMLButtonElement,
   DropdownMenuTriggerProps
->(({ asChild, children, onPointerDown, ...props }, ref) => (
+>(({ asChild, children, onPointerDown, variant = 'default', className, ...props }, ref) => (
   <DropdownMenuPrimitive.Trigger
     ref={ref}
+    className={variant === 'default' ? className : cn(dropdownMenuTriggerVariantClassNames[variant], typeof className === 'string' ? className : undefined)}
     render={asChild && React.isValidElement(children) ? children : undefined}
     onPointerDown={(event) => {
       onPointerDown?.(event);

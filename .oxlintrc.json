@@ -132,7 +132,10 @@
             "allow": [
               "layout",
               "app-region-*",
-              "app-topbar-button"
+              "app-topbar-button",
+              "scroll-edges",
+              "scroll-edges-source",
+              "scroll-edge-*"
             ]
           }
         ]

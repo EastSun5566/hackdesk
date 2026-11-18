@@ -44,11 +44,14 @@ CommandInput.displayName = CommandPrimitive.Input.displayName;
 
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.List> & {
+    /** Space above the first and below the last item, for a list in a popover. */
+    padded?: boolean;
+  }
+>(({ className, padded = false, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
-    className={cn('max-h-[300px] overflow-y-auto overflow-x-hidden', className)}
+    className={cn('max-h-[300px] overflow-y-auto overflow-x-hidden', padded && 'py-1.5', className)}
     {...props}
   />
 ));

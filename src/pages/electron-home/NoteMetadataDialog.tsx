@@ -108,12 +108,12 @@ function NoteMetadataDialogContent({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-145">
-        <DialogHeader className="pr-8">
-          <DialogTitle className="flex items-center gap-2">
+        <DialogHeader variant="beside-close">
+          <DialogTitle variant="with-icon">
             <SlidersHorizontal aria-hidden="true" className="h-4 w-4 text-text-subtle" />
             Note Settings
           </DialogTitle>
-          <DialogDescription className="truncate text-xs">
+          <DialogDescription variant="meta">
             {noteTitle} · {getLocationLabel(document)}
           </DialogDescription>
         </DialogHeader>
@@ -161,7 +161,8 @@ function NoteMetadataDialogContent({
                   <SelectTrigger
                     id={folderId}
                     aria-label="Folder"
-                    className="h-9 w-full justify-between bg-background-default px-2.5 text-text-default focus-visible:ring-inset"
+                    variant="filled"
+                    className="h-9 w-full justify-between"
                   >
                     <SelectLabelValue value={inspector.state.parentFolderId} labels={folderLabels} />
                   </SelectTrigger>
@@ -192,7 +193,8 @@ function NoteMetadataDialogContent({
                   value={inspector.state.description}
                   onChange={(event) => inspector.dispatch({ type: 'set-description', value: event.target.value })}
                   placeholder="Add a brief summary…"
-                  className="min-h-16 bg-background-default px-2.5 py-2 text-text-default focus-visible:ring-inset"
+                  variant="filled"
+                  className="min-h-16"
                   rows={3}
                 />
               </div>
@@ -259,7 +261,7 @@ function NoteMetadataDialogContent({
             ) : null}
           </div>
 
-          <DialogFooter className="items-center justify-between gap-3 pt-1 sm:justify-between">
+          <DialogFooter variant="status">
             <span className="min-w-0 truncate text-xs text-text-subtle" aria-live="polite">
               {isSaving
                 ? 'Saving settings…'

@@ -26,7 +26,7 @@ import { TAG_GROUP_ORDER_LABELS, TAG_GROUP_ORDER_MODES } from '@/lib/electron-ta
 import { setTagGroupingEnabled, setTagGroupOrder, useTagGroupingEnabled, useTagGroupOrder } from './tag-group-preference';
 import { cn } from '@/lib/utils';
 
-import { FOCUS_RING_CLASS, FOCUS_RING_INSET_CLASS } from './ui';
+import { FOCUS_RING_CLASS } from './ui';
 import { setShowHiddenFiles, useShowHiddenFiles } from './hidden-files-preference';
 import {
   DropdownMenu,
@@ -268,18 +268,15 @@ export function NoteViewOptionsMenu({
         <TooltipTrigger
           render={(
             <DropdownMenuTrigger
+              variant="icon-indicator"
+              className={cn('relative flex size-7 items-center justify-center', className)}
               render={(
                 <button
                   type="button"
                   aria-label="View options"
                   tabIndex={tabIndex}
                   data-folder-tree-ignore-keyboard={treeControl || undefined}
-                  className={cn(
-                    'relative flex size-7 items-center justify-center rounded text-icon-subtle hover:text-text-default',
-                    FOCUS_RING_INSET_CLASS,
-                    viewOptionCount && 'bg-background-selected text-text-default',
-                    className,
-                  )}
+                  data-applied={viewOptionCount ? '' : undefined}
                 />
               )}
             >

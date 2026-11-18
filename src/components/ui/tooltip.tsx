@@ -47,6 +47,12 @@ TooltipTrigger.displayName = 'TooltipTrigger';
 
 const TooltipPortal = TooltipPrimitive.Portal;
 
+const tooltipContentVariantClassNames = {
+  default: '',
+  /** A hover card with several lines, such as a note row's summary. */
+  card: 'w-64 max-w-64 rounded-md border-border-default bg-background-raised px-3 py-2.5 text-sm font-normal leading-5 text-text-default shadow-lg drop-shadow-none',
+} as const;
+
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Popup>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Popup> & {
@@ -54,8 +60,9 @@ const TooltipContent = React.forwardRef<
     sideOffset?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>['sideOffset'];
     /** The element it points at, for a tooltip opened without a trigger (a list's shared hover card). */
     anchor?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>['anchor'];
+    variant?: keyof typeof tooltipContentVariantClassNames;
   }
->(({ className, side, sideOffset = 6, anchor, ...props }, ref) => (
+>(({ className, side, sideOffset = 6, anchor, variant = 'default', ...props }, ref) => (
   <TooltipPortal>
     {/* Fixed, and kept 8px inside the window, so a card near an edge shifts in instead of overflowing. */}
     <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} anchor={anchor} positionMethod="fixed" collisionPadding={8} className={FLOATING_LAYER_CLASS}>
@@ -63,6 +70,7 @@ const TooltipContent = React.forwardRef<
         ref={ref}
         className={cn(
           'max-w-64 rounded border border-border-default bg-background-raised px-2 py-1 text-xs font-medium leading-4 text-text-default shadow-md origin-(--transform-origin) duration-100 ease-out data-[open]:animate-in data-[open]:fade-in-0 motion-reduce:animate-none',
+          tooltipContentVariantClassNames[variant],
           className,
         )}
         {...props}

@@ -883,7 +883,7 @@ function DocumentHeader({
             onClick={() => actions.onSave({ title: documentState.title, content: documentState.content })}
             label="Save"
             tooltip={saveTooltip}
-            className={noteDirty ? 'bg-primary-solid text-primary-solid-foreground hover:bg-primary-solid-hover hover:text-primary-solid-foreground' : undefined}
+            variant={noteDirty ? 'icon-primary' : 'icon'}
           >
             {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>

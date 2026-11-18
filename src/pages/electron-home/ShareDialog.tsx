@@ -137,12 +137,12 @@ function ShareDialogContent({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-140">
-        <DialogHeader className="pr-8">
-          <DialogTitle className="flex items-center gap-2">
+        <DialogHeader variant="beside-close">
+          <DialogTitle variant="with-icon">
             <Share2 aria-hidden="true" className="h-4 w-4 text-text-subtle" />
             Share Note
           </DialogTitle>
-          <DialogDescription className="truncate text-xs">
+          <DialogDescription variant="meta">
             {noteTitle} · {getReadSummary(readPermission)}
           </DialogDescription>
         </DialogHeader>
@@ -217,7 +217,8 @@ function ShareDialogContent({
                   id="share-hackmd-link"
                   readOnly
                   value={hackmdLink}
-                  className="h-8 min-w-0 flex-1 bg-background-muted text-xs text-text-subtle"
+                  variant="read-only"
+                  className="h-8 min-w-0 flex-1"
                 />
                 <Button
                   variant="secondary"
@@ -246,7 +247,8 @@ function ShareDialogContent({
                   id="share-markdown-link"
                   readOnly
                   value={markdownLink}
-                  className="h-8 min-w-0 flex-1 bg-background-muted text-xs text-text-subtle"
+                  variant="read-only"
+                  className="h-8 min-w-0 flex-1"
                 />
                 <Button
                   variant="secondary"
@@ -267,7 +269,7 @@ function ShareDialogContent({
             </div>
           </SettingsSection>
 
-          <DialogFooter className="items-center justify-between gap-3 pt-1 sm:justify-between">
+          <DialogFooter variant="status">
             <span className="min-w-0 truncate text-xs text-text-subtle" aria-live="polite">
               {isSaving
                 ? 'Saving sharing settings…'

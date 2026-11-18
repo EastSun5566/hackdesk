@@ -38,7 +38,6 @@ import { EditorSettingsPanel } from './EditorSettingsPanel';
 import { GeneralSettingsPanel } from './GeneralSettingsPanel';
 import { HackmdSettingsPanel, type TokenTestState } from './HackmdSettingsPanel';
 import {
-  SETTINGS_PANEL_CLASS,
   SETTINGS_TABS,
   type SettingsTab,
 } from './SettingsDialogConfig';
@@ -488,7 +487,8 @@ function SettingsDialogContent({
         ref={dialogRef}
         size="wide"
         showCloseButton={false}
-        className="gap-0 overflow-hidden p-0"
+        layout="flush"
+        className="overflow-hidden"
         data-keyboard-navigation-scope="settings"
         data-navigation-page={activeTab}
       >
@@ -543,7 +543,7 @@ function SettingsDialogContent({
                     <DialogClose className="shrink-0" />
                   </div>
                 </header>
-                <TabsContent data-settings-tab="general" value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="general" value="general" keepMounted variant="page" className="scroll-edges-source">
                   <SettingsPage>
                     <GeneralSettingsPanel
                       title={title}
@@ -570,7 +570,7 @@ function SettingsDialogContent({
                   </SettingsPage>
                 </TabsContent>
 
-                <TabsContent data-settings-tab="editor" value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="editor" value="editor" keepMounted variant="page" className="scroll-edges-source">
                   <EditorSettingsPanel
                     editorMode={editorMode}
                     onEditorModeChange={handleEditorModeChange}
@@ -578,7 +578,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="appearance" value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="appearance" value="appearance" keepMounted variant="page" className="scroll-edges-source">
                   <AppearanceSettingsPanel
                     controller={appearanceController}
                     platform={platform}
@@ -591,7 +591,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="shortcuts" value="shortcuts" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="shortcuts" value="shortcuts" keepMounted variant="page" className="scroll-edges-source">
                   <ShortcutsSettingsPanel
                     platform={platform}
                     characterShortcutsEnabled={characterShortcutsEnabled}
@@ -614,7 +614,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="vault" value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="vault" value="vault" keepMounted variant="page" className="scroll-edges-source">
                   <VaultSettingsPanel
                     error={localVaultError}
                     settings={settings}
@@ -628,7 +628,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="hackmd" value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="hackmd" value="hackmd" keepMounted variant="page" className="scroll-edges-source">
                   <HackmdSettingsPanel
                     accounts={settings?.hackmdAccounts?.accounts ?? []}
                     activeAccountId={settings?.hackmdAccounts?.activeAccountId ?? null}
@@ -658,21 +658,21 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="ai" value="ai" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="ai" value="ai" keepMounted variant="page" className="scroll-edges-source">
                   <AiSettingsPanel
                     active={open && activeTab === 'ai'}
                     resetSignal={resetRequest?.tab === 'ai' ? resetRequest.nonce : 0}
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="dictation" value="dictation" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="dictation" value="dictation" keepMounted variant="page" className="scroll-edges-source">
                   <DictationSettingsPanel
                     active={open && activeTab === 'dictation'}
                     resetSignal={resetRequest?.tab === 'dictation' ? resetRequest.nonce : 0}
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="advanced" value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="advanced" value="advanced" keepMounted variant="page" className="scroll-edges-source">
                   <AdvancedSettingsPanel appVersion={appVersion} onResetAllSettings={handleResetAllSettings} />
                 </TabsContent>
                 <AlertDialog open={resetConfirmTab !== null} onOpenChange={(nextOpen) => { if (!nextOpen) setResetConfirmTab(null); }}>

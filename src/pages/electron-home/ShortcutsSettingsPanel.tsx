@@ -214,7 +214,7 @@ export function ShortcutsSettingsPanel({
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder="Search shortcuts"
-          className="pl-8"
+          variant="leading-icon"
           autoComplete="off"
           spellCheck={false}
         />

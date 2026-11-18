@@ -226,7 +226,8 @@ function ThemeSeedFields({
             id={fieldId}
             value={inputs[field.key]}
             onChange={(event) => onChange(field.key, event.target.value)}
-            className="h-9 min-w-0 flex-1 bg-background-default px-2 text-text-default"
+            variant="filled"
+            className="h-9 min-w-0 flex-1"
             placeholder="#5D54E8…"
             autoComplete="off"
             spellCheck={false}

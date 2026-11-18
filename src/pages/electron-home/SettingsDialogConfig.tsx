@@ -2,8 +2,6 @@ import type { ReactNode } from 'react';
 import { Command, FolderOpen, Keyboard, Mic, Monitor, Settings as SettingsIcon, Shield, Sparkles, Zap } from 'lucide-react';
 
 export const SETTINGS_TITLE_ID = 'settings-title';
-export const SETTINGS_PANEL_CLASS = 'scroll-edges-source min-h-0 flex-1 overflow-y-auto overscroll-contain pb-8 pl-8 pr-8 pt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
-
 export type SettingsTab = 'general' | 'editor' | 'shortcuts' | 'appearance' | 'vault' | 'hackmd' | 'ai' | 'dictation' | 'advanced';
 
 export const SETTINGS_TABS: {

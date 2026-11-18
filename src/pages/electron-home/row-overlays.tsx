@@ -18,8 +18,6 @@ import {
 import { ContextMenuContent } from '@/components/ui/context-menu';
 import { TooltipContent, TooltipRoot } from '@/components/ui/tooltip';
 
-import { NOTE_CARD_CLASS } from './NoteSummaryCard';
-
 /**
  * Row context menus and hover cards, one of each per list instead of one per row.
  *
@@ -228,7 +226,7 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
             anchor={card.anchor}
             side="right"
             sideOffset={10}
-            className={NOTE_CARD_CLASS}
+            variant="card"
             data-row-card=""
             onPointerLeave={handleCardPointerLeave}
           >
