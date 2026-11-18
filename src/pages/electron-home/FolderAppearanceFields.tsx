@@ -55,23 +55,22 @@ export function FolderAppearanceFields({
         <RadioGroup
           value={normalizedIcon}
           onValueChange={(value) => onIconChange(value)}
-          className="grid grid-cols-4 gap-2"
         >
-          {folderIconOptions.map((option) => (
-            <RadioGroupItem
-              key={option.value}
-              value={option.value}
-              aria-label={option.label}
-              className={cn(
-                'flex size-10 items-center justify-center rounded-md border text-lg transition-colors hover:bg-element-bg-hover data-[checked]:border-primary-default data-[checked]:bg-primary-soft',
-                FOCUS_RING_CLASS,
-              )}
-              title={option.label}
-            >
-              <span aria-hidden="true">{option.glyph}</span>
-              <span className="sr-only">{option.label}</span>
-            </RadioGroupItem>
-          ))}
+          <div className="grid grid-cols-4 gap-2">
+            {folderIconOptions.map((option) => (
+              <RadioGroupItem
+                key={option.value}
+                value={option.value}
+                aria-label={option.label}
+                variant="swatch"
+                className="size-10"
+                title={option.label}
+              >
+                <span aria-hidden="true">{option.glyph}</span>
+                <span className="sr-only">{option.label}</span>
+              </RadioGroupItem>
+            ))}
+          </div>
         </RadioGroup>
         <Button
           variant="secondary"
@@ -89,20 +88,19 @@ export function FolderAppearanceFields({
         <RadioGroup
           value={selectedColor}
           onValueChange={(value) => onColorChange(value)}
-          className="grid grid-cols-8 gap-2"
         >
-          {folderColorOptions.map((option) => (
-            <RadioGroupItem
-              key={option}
-              aria-label={`Use folder color ${option}`}
-              value={option}
-              className={cn(
-                'size-8 rounded-md border border-border-default bg-(--swatch) transition-transform hover:scale-105 data-[checked]:ring-2 data-[checked]:ring-primary-default data-[checked]:ring-offset-2 data-[checked]:ring-offset-background-default',
-                FOCUS_RING_CLASS,
-              )}
-              style={{ '--swatch': option }}
-            />
-          ))}
+          <div className="grid grid-cols-8 gap-2">
+            {folderColorOptions.map((option) => (
+              <RadioGroupItem
+                key={option}
+                aria-label={`Use folder color ${option}`}
+                value={option}
+                variant="color-swatch"
+                className="size-8"
+                style={{ '--swatch': option }}
+              />
+            ))}
+          </div>
         </RadioGroup>
         <Button
           variant="secondary"

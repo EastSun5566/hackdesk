@@ -76,39 +76,29 @@ export function ThemeAppearanceFields({
         <RadioGroup
           value={draftMode}
           onValueChange={(value) => draftActions.changeMode(value as ThemeMode)}
-          className={cn(
-            compact
-              ? 'inline-flex rounded-md border border-border-default bg-background-muted p-0.5'
-              : 'grid grid-cols-1 gap-3 sm:grid-cols-3',
-          )}
+          variant={compact ? 'segmented' : 'default'}
         >
-          {themeModeOptions.map((option) => (
-            <RadioGroupItem
-              key={option.id}
-              value={option.id}
-              aria-label={option.label}
-              className={cn(
-                focusClassName,
-                compact
-                  ? 'inline-flex h-7 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-sm font-medium transition-colors hover:bg-element-bg-hover'
-                  : 'flex h-auto w-auto flex-col items-center gap-2 rounded-lg border-2 p-4 transition duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
-                draftMode === option.id && compact ? 'bg-background-primary-subtler text-primary-default' : null,
-                draftMode === option.id && !compact ? 'border-primary-default bg-primary-soft' : null,
-                draftMode !== option.id && compact ? 'text-text-subtle' : null,
-                draftMode !== option.id && !compact ? 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover' : null,
-              )}
-            >
-              {compact ? option.icon : (
-                <div className={cn(
-                  'rounded-full p-2',
-                  draftMode === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle',
-                )}>
-                  {option.icon}
-                </div>
-              )}
-              <span className={cn(compact ? null : 'text-sm font-medium')}>{option.label}</span>
-            </RadioGroupItem>
-          ))}
+          {/* In the compact form, `contents` keeps each segment a direct item of the segmented track. */}
+          <div className={compact ? 'contents' : 'grid grid-cols-1 gap-3 sm:grid-cols-3'}>
+            {themeModeOptions.map((option) => (
+              <RadioGroupItem
+                key={option.id}
+                value={option.id}
+                aria-label={option.label}
+                variant={compact ? 'segment' : 'tile'}
+              >
+                {compact ? option.icon : (
+                  <div className={cn(
+                    'rounded-full p-2',
+                    draftMode === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle',
+                  )}>
+                    {option.icon}
+                  </div>
+                )}
+                <span className={cn(compact ? null : 'text-sm font-medium')}>{option.label}</span>
+              </RadioGroupItem>
+            ))}
+          </div>
         </RadioGroup>
       </fieldset>
 

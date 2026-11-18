@@ -21,7 +21,6 @@ import {
   getHackmdNoteUrl,
   getMarkdownNoteLink,
 } from '@/lib/electron-note-links';
-import { cn } from '@/lib/utils';
 
 import { SettingsSection } from './SettingsPrimitives';
 
@@ -330,7 +329,8 @@ function PermissionCardRow({
         name={name}
         value={value}
         onValueChange={(nextValue) => onChange(nextValue as NotePermissionRole)}
-        className="grid flex-1 grid-cols-3 gap-0.5 rounded-md border border-border-default bg-background-muted p-0.5"
+        variant="segmented"
+        className="flex-1"
       >
         {options.map((option) => {
           const Icon = option.icon;
@@ -339,11 +339,7 @@ function PermissionCardRow({
               key={option.value}
               value={option.value}
               aria-label={option.label}
-              className={cn(
-                'flex h-7 w-full min-w-0 cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-sm border-0 bg-transparent px-2 text-xs text-text-subtle transition-colors',
-                'hover:text-text-default focus-visible:ring-inset focus-visible:ring-offset-0',
-                'data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default',
-              )}
+              variant="segment"
             >
               <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-80" />
               <span className="truncate whitespace-nowrap">{option.label}</span>
