@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { defaultSettings } from '@/lib/settings';
@@ -295,7 +295,7 @@ describe('SettingsDialog: appearance, title, app icon', () => {
     expect(onSave).toHaveBeenCalledWith({ title: 'Closing Desk' });
   });
 
-  it('does not save a typed title over a revert that followed it', async () => {
+  it('does not save a typed title over a revert that followed it', () => {
     const { onSave } = renderSettingsDialog({
       settings: {
         title: 'Custom Desk',
@@ -313,10 +313,16 @@ describe('SettingsDialog: appearance, title, app icon', () => {
     });
 
     const title = screen.getByLabelText('Window title');
-    fireEvent.change(title, { target: { value: 'Typed Desk' } });
-    fireEvent.click(screen.getByRole('button', { name: `Reset window title to ${defaultSettings.title}` }));
-    fireEvent.blur(title);
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      fireEvent.change(title, { target: { value: 'Typed Desk' } });
+      fireEvent.click(screen.getByRole('button', { name: `Reset window title to ${defaultSettings.title}` }));
+      fireEvent.blur(title);
+      // Past the title's 600 ms save debounce.
+      act(() => { vi.advanceTimersByTime(700); });
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(onSave).toHaveBeenCalledWith({ title: defaultSettings.title });
     expect(onSave).not.toHaveBeenCalledWith({ title: 'Typed Desk' });
