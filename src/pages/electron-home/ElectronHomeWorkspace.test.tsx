@@ -30,9 +30,14 @@ vi.mock('./AppTopBar', () => {
     ApplicationControls,
     // Only an open slot is visible to assistive technology; a closed one is inert and hidden.
     TitleBarLeadingSlot: (props: { open: boolean; children: ReactNode }) => (props.open ? <>{props.children}</> : null),
+    CollapsedSidebarControls: (props: { navigation: Controls['navigation'] }) => (
+      <div data-testid="collapsed-sidebar-controls">
+        <button type="button" onClick={props.navigation.onBack}>back</button>
+      </div>
+    ),
     AppTopBar: (props: Controls) => (
       <header data-testid="app-topbar">
-        {props.navigatorCollapsed ? null : <ApplicationControls {...props} />}
+        <ApplicationControls {...props} />
       </header>
     ),
     PaneTabBar: (props: {
@@ -356,27 +361,29 @@ describe('ElectronHomeWorkspace', () => {
     expect(screen.getByTestId('tab-count-pane-b')).toHaveTextContent('2');
     // The sidebar holds the controls, so no pane repeats them.
     expect(screen.getAllByTestId('application-controls')).toHaveLength(1);
+    expect(screen.queryByTestId('collapsed-sidebar-controls')).not.toBeInTheDocument();
   });
 
-  it('moves the application controls to the top-left pane while the sidebar is collapsed', () => {
+  it('keeps the sidebar toggle in place and leads the top-left pane with the history buttons while collapsed', () => {
     const props = createProps();
     props.titlebar.layout.navigatorCollapsed = true;
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
-    expect(within(screen.getByTestId('app-topbar')).queryByTestId('application-controls')).not.toBeInTheDocument();
-    expect(within(screen.getByTestId('pane-tab-bar-pane-a')).getByTestId('application-controls')).toBeInTheDocument();
-    expect(within(screen.getByTestId('pane-tab-bar-pane-b')).queryByTestId('application-controls')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('app-topbar')).getByTestId('application-controls')).toBeInTheDocument();
+    expect(screen.getAllByTestId('application-controls')).toHaveLength(1);
+    expect(within(screen.getByTestId('pane-tab-bar-pane-a')).getByTestId('collapsed-sidebar-controls')).toBeInTheDocument();
+    expect(within(screen.getByTestId('pane-tab-bar-pane-b')).queryByTestId('collapsed-sidebar-controls')).not.toBeInTheDocument();
   });
 
-  it('keeps the controls in reach above the empty state while the sidebar is collapsed', () => {
+  it('keeps the history buttons in reach above the empty state while the sidebar is collapsed', () => {
     const props = createProps();
     props.titlebar.layout.navigatorCollapsed = true;
     props.documentWorkspace = { ...props.documentWorkspace, panes: [] };
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
-    expect(within(screen.getByTestId('document-workspace')).getByTestId('application-controls')).toBeInTheDocument();
+    expect(within(screen.getByTestId('document-workspace')).getByTestId('collapsed-sidebar-controls')).toBeInTheDocument();
   });
 
   it('shows a single unsegmented tab bar when a pane is zoomed', () => {

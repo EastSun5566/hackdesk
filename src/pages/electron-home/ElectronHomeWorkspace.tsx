@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 import {
   AppTopBar,
-  ApplicationControls,
+  CollapsedSidebarControls,
   TitleBarLeadingSlot,
   PaneTabBar,
   useTrafficLightInset,
@@ -106,9 +106,10 @@ export function ElectronHomeWorkspace({
     navigatorPanelId: NOTE_NAVIGATOR_PANEL_ID,
     onToggleNavigator: titlebar.actions.toggleNavigator,
   };
-  // The sidebar holds the application controls; while it is collapsed they lead the top-left pane's tabs.
-  // That pane always carries them, in a slot that opens and closes with the sidebar's animation.
-  const leadingControls = <ApplicationControls {...applicationControls} />;
+  // The sidebar's title bar holds the application controls. While it is collapsed its toggle stays put,
+  // and the top-left pane's tabs make room for it and lead with the history buttons, in a slot that
+  // opens and closes with the sidebar's animation.
+  const leadingControls = <CollapsedSidebarControls navigation={applicationControls.navigation} />;
 
   const paneSegment = (pane: NotePane): PaneTabBarSegment => {
     const view = titlebar.getPaneView(pane);
@@ -221,11 +222,11 @@ export function ElectronHomeWorkspace({
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Above the panes, so error toasts at the bottom never cover its buttons. With the sidebar
-              collapsed it starts at the window's edge, under the traffic lights, so it steps past them. */}
+              collapsed it starts at the window's edge, under the traffic lights and the sidebar toggle, so it steps past them. */}
           {backupNotice ? (
             <WorkspaceBackupNotice
               {...backupNotice}
-              className={cn('my-1.5 rounded-lg border', navigatorCollapsed && trafficLightInset && 'ml-20')}
+              className={cn('my-1.5 rounded-lg border', navigatorCollapsed && (trafficLightInset ? 'ml-30' : 'ml-9'))}
             />
           ) : null}
           <WorkbenchDocumentActionsProvider value={documentActions}>

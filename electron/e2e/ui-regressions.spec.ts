@@ -2567,13 +2567,19 @@ test('a pane split below gets its own tab bar, and the sidebar title bar keeps t
     expect(Math.abs(lowerBar.y + lowerBar.height - lower.y)).toBeLessThan(2);
     await expect(bars.nth(1).getByRole('tab')).toHaveCount(1);
 
-    // The sidebar's own title bar holds the window controls; collapsing it moves them to the top-left pane.
+    // The sidebar's own title bar holds the window controls. Collapsing it leaves the toggle where it
+    // was, and the top-left pane leads with the history buttons instead.
     const sidebarColumn = page.locator('#note-navigator-panel').locator('..');
     const controls = page.getByRole('toolbar', { name: 'Application controls', exact: true });
     await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    const toggleBefore = (await controls.getByRole('button', { name: 'Collapse sidebar', exact: true }).boundingBox())!;
     await controls.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
-    await expect(bars.nth(0).getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    await expect(bars.nth(0).getByRole('toolbar', { name: 'Note history', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(1);
     await expect(controls).toHaveCount(1);
+    const toggleAfter = (await controls.getByRole('button', { name: 'Expand sidebar', exact: true }).boundingBox())!;
+    expect(toggleAfter.x).toBe(toggleBefore.x);
+    expect(toggleAfter.y).toBe(toggleBefore.y);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('32-split-down-collapsed.png') });
     await controls.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
     await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();

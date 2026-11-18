@@ -9,7 +9,7 @@ import {
   expectToolbarRovingFocus,
 } from '@/test/accessibility-contracts';
 
-import { AppTopBar, ApplicationControls, PaneTabBar, useTrafficLightInset, type PaneTabBarSegment } from './AppTopBar';
+import { AppTopBar, ApplicationControls, CollapsedSidebarControls, PaneTabBar, useTrafficLightInset, type PaneTabBarSegment } from './AppTopBar';
 
 function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
@@ -99,8 +99,8 @@ describe('AppTopBar', () => {
     const applicationControls = within(header).getByRole('toolbar', { name: 'Application controls' });
     expect(header).toHaveClass('app-topbar', 'h-10');
     expect(header.firstElementChild).toHaveClass('pl-21.5');
-    // Spread across the sidebar: the toggle at the start, the history buttons at the end, no divider.
-    expect(applicationControls).toHaveClass('flex-1', 'justify-between');
+    // Across the sidebar: the toggle at the start, the history buttons at the end, no divider.
+    expect(applicationControls).toHaveClass('flex-1');
     expect(within(applicationControls).queryByRole('separator')).not.toBeInTheDocument();
     expect(within(applicationControls).getByRole('group', { name: 'Note history' })).toContainElement(screen.getByRole('button', { name: 'Back' }));
     expect(within(header).queryByRole('navigation', { name: 'Open documents' })).not.toBeInTheDocument();
@@ -116,14 +116,22 @@ describe('AppTopBar', () => {
   it('takes no width of its own, so a collapsed sidebar column closes completely', () => {
     renderTopBar();
 
-    expect(screen.getByRole('banner')).toHaveClass('w-0', 'min-w-full', 'overflow-hidden');
+    expect(screen.getByRole('banner')).toHaveClass('w-0', 'min-w-full');
   });
 
-  it('leaves its controls to the panes while the sidebar is collapsed', () => {
+  it('keeps the sidebar toggle in place while collapsed, above the panes, and hides its history buttons', () => {
     renderTopBar({ navigatorCollapsed: true });
 
-    expect(screen.getByRole('banner')).toBeInTheDocument();
-    expect(screen.queryByRole('toolbar', { name: 'Application controls' })).not.toBeInTheDocument();
+    const header = screen.getByRole('banner');
+    // Not clipped: the toggle overflows the collapsed column, over the space the top-left pane keeps for it.
+    expect(header).not.toHaveClass('overflow-hidden');
+    expect(header).toHaveClass('relative', 'z-10');
+    expect(within(header).getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
+    const history = header.querySelector<HTMLElement>('[aria-label="Note history"]')!;
+    expect(history).toHaveAttribute('inert');
+    expect(history).toHaveAttribute('aria-hidden', 'true');
+    expect(history).toHaveClass('opacity-0', 'transition-opacity');
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
   });
 
   it('only reserves traffic-light space when asked', () => {
@@ -239,16 +247,10 @@ describe('PaneTabBar', () => {
     expect(screen.getByRole('button', { name: 'Pane actions' })).toHaveClass('app-region-no-drag');
   });
 
-  it('leads with the application controls, clear of the traffic lights, while its slot is open', () => {
+  it('leads with room for the sidebar toggle and the history buttons, clear of the traffic lights, while its slot is open', () => {
+    const onBack = vi.fn();
     renderPaneTabBar({
-      leading: (
-        <ApplicationControls
-          navigation={{ canGoBack: false, canGoForward: false, onBack: vi.fn(), onForward: vi.fn() }}
-          navigatorCollapsed
-          navigatorPanelId="note-navigator-panel"
-          onToggleNavigator={vi.fn()}
-        />
-      ),
+      leading: <CollapsedSidebarControls navigation={{ canGoBack: true, canGoForward: false, onBack, onForward: vi.fn() }} />,
       leadingOpen: true,
       trafficLightInset: true,
     });
@@ -256,21 +258,20 @@ describe('PaneTabBar', () => {
     const bar = document.querySelector<HTMLElement>('[data-pane-tab-bar]')!;
     const slot = bar.querySelector<HTMLElement>('[data-title-bar-leading]')!;
     expect(slot).toHaveAttribute('data-title-bar-leading', 'open');
-    expect(slot.querySelector('.pl-20')).toContainElement(screen.getByRole('toolbar', { name: 'Application controls' }));
+    const content = slot.querySelector<HTMLElement>('.pl-20')!;
+    expect(content).not.toHaveClass('opacity-0');
+    // The sidebar toggle (in the sidebar's title bar) lies over the first, empty, no-drag space.
+    expect(content.querySelector('span[aria-hidden="true"]')).toHaveClass('app-region-no-drag', 'size-7');
+    expect(screen.queryByRole('button', { name: /sidebar/ })).not.toBeInTheDocument();
     const regions = Array.from(bar.querySelectorAll<HTMLElement>('[role="toolbar"], nav[aria-label="Open documents"]'));
-    expect(regions.map(region => region.getAttribute('aria-label'))).toEqual(['Application controls', 'Open documents', 'Pane controls']);
+    expect(regions.map(region => region.getAttribute('aria-label'))).toEqual(['Note history', 'Open documents', 'Pane controls']);
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalledOnce();
   });
 
-  it('keeps a closed leading slot mounted at no width, inert and hidden, so it can animate', () => {
+  it('keeps a closed leading slot mounted at no width, faded, inert and hidden, so it can animate', () => {
     renderPaneTabBar({
-      leading: (
-        <ApplicationControls
-          navigation={{ canGoBack: false, canGoForward: false, onBack: vi.fn(), onForward: vi.fn() }}
-          navigatorCollapsed={false}
-          navigatorPanelId="note-navigator-panel"
-          onToggleNavigator={vi.fn()}
-        />
-      ),
+      leading: <CollapsedSidebarControls navigation={{ canGoBack: true, canGoForward: false, onBack: vi.fn(), onForward: vi.fn() }} />,
       leadingOpen: false,
       trafficLightInset: true,
     });
@@ -280,7 +281,8 @@ describe('PaneTabBar', () => {
     expect(slot).toHaveClass('grid', 'transition-all');
     expect(slot).toHaveAttribute('inert');
     expect(slot).toHaveAttribute('aria-hidden', 'true');
-    expect(screen.queryByRole('toolbar', { name: 'Application controls' })).not.toBeInTheDocument();
+    expect(slot.querySelector('.pl-20')).toHaveClass('opacity-0', 'transition-opacity');
+    expect(screen.queryByRole('toolbar', { name: 'Note history' })).not.toBeInTheDocument();
   });
 
   it('calls tab select and close callbacks from its tabs', () => {
