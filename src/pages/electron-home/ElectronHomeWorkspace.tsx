@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 
 import {
   AppTopBar,
-  CollapsedSidebarControls,
   TitleBarLeadingSlot,
   PaneTabBar,
   useTrafficLightInset,
@@ -106,10 +105,6 @@ export function ElectronHomeWorkspace({
     navigatorPanelId: NOTE_NAVIGATOR_PANEL_ID,
     onToggleNavigator: titlebar.actions.toggleNavigator,
   };
-  // The sidebar's title bar holds the application controls. While it is collapsed its toggle stays put,
-  // and the top-left pane's tabs make room for it and lead with the history buttons, in a slot that
-  // opens and closes with the sidebar's animation.
-  const leadingControls = <CollapsedSidebarControls navigation={applicationControls.navigation} />;
 
   const paneSegment = (pane: NotePane): PaneTabBarSegment => {
     const view = titlebar.getPaneView(pane);
@@ -160,19 +155,21 @@ export function ElectronHomeWorkspace({
       onReopenLastClosedTab={titlebar.actions.reopenLastClosedTab}
       isSegmented={visiblePaneCount > 1}
       topRow={placement.topRow}
-      leading={placement.leading ? leadingControls : null}
+      // The sidebar's title bar keeps the application controls; while it is collapsed they overflow it,
+      // over the room the top-left pane's tabs make for them.
+      leadingSpace={placement.leading}
       leadingOpen={navigatorCollapsed}
       trafficLightInset={trafficLightInset}
     />
   );
-  // No pane is left to carry a tab bar, but the title bar row stays: it drags the window and holds the
-  // controls while the sidebar is collapsed.
+  // No pane is left to carry a tab bar, but the title bar row stays: it drags the window and keeps room
+  // for the controls while the sidebar is collapsed.
   const emptyHeader = (
     <div className={cn(
       'pane-tab-bar app-topbar flex h-10 shrink-0 items-center',
       HACK_MODE_DRAG_STRIP_CLASS,
     )}>
-      <TitleBarLeadingSlot open={navigatorCollapsed} trafficLightInset={trafficLightInset}>{leadingControls}</TitleBarLeadingSlot>
+      <TitleBarLeadingSlot open={navigatorCollapsed} trafficLightInset={trafficLightInset} />
     </div>
   );
 
@@ -222,11 +219,11 @@ export function ElectronHomeWorkspace({
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Above the panes, so error toasts at the bottom never cover its buttons. With the sidebar
-              collapsed it starts at the window's edge, under the traffic lights and the sidebar toggle, so it steps past them. */}
+              collapsed it starts at the window's edge, under the traffic lights and the application controls, so it steps past them. */}
           {backupNotice ? (
             <WorkspaceBackupNotice
               {...backupNotice}
-              className={cn('my-1.5 rounded-lg border', navigatorCollapsed && (trafficLightInset ? 'ml-30' : 'ml-9'))}
+              className={cn('my-1.5 rounded-lg border', navigatorCollapsed && (trafficLightInset ? 'ml-45' : 'ml-24'))}
             />
           ) : null}
           <WorkbenchDocumentActionsProvider value={documentActions}>

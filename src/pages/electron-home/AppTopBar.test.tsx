@@ -9,7 +9,7 @@ import {
   expectToolbarRovingFocus,
 } from '@/test/accessibility-contracts';
 
-import { AppTopBar, ApplicationControls, CollapsedSidebarControls, PaneTabBar, useTrafficLightInset, type PaneTabBarSegment } from './AppTopBar';
+import { AppTopBar, ApplicationControls, PaneTabBar, useTrafficLightInset, type PaneTabBarSegment } from './AppTopBar';
 
 function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
@@ -119,7 +119,7 @@ describe('AppTopBar', () => {
     expect(screen.getByRole('banner')).toHaveClass('w-0', 'min-w-full');
   });
 
-  it('keeps the sidebar toggle in place while collapsed, above the panes, and hides its history buttons', () => {
+  it('keeps its controls while collapsed, overflowing above the panes', () => {
     renderTopBar({ navigatorCollapsed: true });
 
     const header = screen.getByRole('banner');
@@ -127,11 +127,10 @@ describe('AppTopBar', () => {
     expect(header).not.toHaveClass('overflow-hidden');
     expect(header).toHaveClass('relative', 'z-10');
     expect(within(header).getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
-    const history = header.querySelector<HTMLElement>('[aria-label="Note history"]')!;
-    expect(history).toHaveAttribute('inert');
-    expect(history).toHaveAttribute('aria-hidden', 'true');
-    expect(history).toHaveClass('opacity-0', 'transition-opacity');
-    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+    // The history buttons never drop below their width, so a collapsed row leaves them beside the toggle.
+    const history = within(header).getByRole('group', { name: 'Note history' });
+    expect(history.parentElement).toHaveClass('min-w-fit', 'flex-1', 'justify-end');
+    expect(within(history).getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
 
   it('only reserves traffic-light space when asked', () => {
@@ -247,42 +246,27 @@ describe('PaneTabBar', () => {
     expect(screen.getByRole('button', { name: 'Pane actions' })).toHaveClass('app-region-no-drag');
   });
 
-  it('leads with room for the sidebar toggle and the history buttons, clear of the traffic lights, while its slot is open', () => {
-    const onBack = vi.fn();
-    renderPaneTabBar({
-      leading: <CollapsedSidebarControls navigation={{ canGoBack: true, canGoForward: false, onBack, onForward: vi.fn() }} />,
-      leadingOpen: true,
-      trafficLightInset: true,
-    });
+  it('keeps room for the application controls, clear of the traffic lights, while its slot is open', () => {
+    renderPaneTabBar({ leadingSpace: true, leadingOpen: true, trafficLightInset: true });
 
     const bar = document.querySelector<HTMLElement>('[data-pane-tab-bar]')!;
     const slot = bar.querySelector<HTMLElement>('[data-title-bar-leading]')!;
     expect(slot).toHaveAttribute('data-title-bar-leading', 'open');
-    const content = slot.querySelector<HTMLElement>('.pl-20')!;
-    expect(content).not.toHaveClass('opacity-0');
-    // The sidebar toggle (in the sidebar's title bar) lies over the first, empty, no-drag space.
-    expect(content.querySelector('span[aria-hidden="true"]')).toHaveClass('app-region-no-drag', 'size-7');
-    expect(screen.queryByRole('button', { name: /sidebar/ })).not.toBeInTheDocument();
+    expect(slot).toHaveAttribute('aria-hidden', 'true');
+    expect(slot).toHaveClass('grid', 'transition-all');
+    // The controls (in the sidebar's title bar) lie over this no-drag space: toggle and both history buttons.
+    expect(slot.querySelector('.pl-20 > span')).toHaveClass('app-region-no-drag', 'w-23', 'h-7');
+    expect(within(bar).queryByRole('button', { name: /sidebar|Back|Forward/ })).not.toBeInTheDocument();
     const regions = Array.from(bar.querySelectorAll<HTMLElement>('[role="toolbar"], nav[aria-label="Open documents"]'));
-    expect(regions.map(region => region.getAttribute('aria-label'))).toEqual(['Note history', 'Open documents', 'Pane controls']);
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(onBack).toHaveBeenCalledOnce();
+    expect(regions.map(region => region.getAttribute('aria-label'))).toEqual(['Open documents', 'Pane controls']);
   });
 
-  it('keeps a closed leading slot mounted at no width, faded, inert and hidden, so it can animate', () => {
-    renderPaneTabBar({
-      leading: <CollapsedSidebarControls navigation={{ canGoBack: true, canGoForward: false, onBack: vi.fn(), onForward: vi.fn() }} />,
-      leadingOpen: false,
-      trafficLightInset: true,
-    });
+  it('keeps a closed leading slot mounted, so it can animate shut', () => {
+    renderPaneTabBar({ leadingSpace: true, leadingOpen: false, trafficLightInset: false });
 
     const slot = document.querySelector<HTMLElement>('[data-title-bar-leading]')!;
     expect(slot).toHaveAttribute('data-title-bar-leading', 'closed');
-    expect(slot).toHaveClass('grid', 'transition-all');
-    expect(slot).toHaveAttribute('inert');
-    expect(slot).toHaveAttribute('aria-hidden', 'true');
-    expect(slot.querySelector('.pl-20')).toHaveClass('opacity-0', 'transition-opacity');
-    expect(screen.queryByRole('toolbar', { name: 'Note history' })).not.toBeInTheDocument();
+    expect(slot.querySelector('.pl-0\\.5')).not.toBeNull();
   });
 
   it('calls tab select and close callbacks from its tabs', () => {
