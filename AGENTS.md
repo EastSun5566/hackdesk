@@ -29,8 +29,13 @@ and a job that no runner picked up ("The job was not acquired by Runner") is not
 Rerun it with `gh run rerun <run-id> --failed`.
 
 Test timeouts while other agents or builds are running on the machine are load, not flakiness.
-`SettingsDialog.*.test.tsx` renders the whole dialog in every test (about a second each), so it is
-the first to time out. Rerun the file alone before concluding a test is flaky.
+`SettingsDialog.*.test.tsx` renders the whole dialog in every test, so it is the first to time out.
+Rerun the file alone before concluding a test is flaky.
+
+A slow jsdom test is usually slow DOM queries on a large tree, not React rendering: profile it before
+memoizing components (`--cpu-prof` in the renderer project's `execArgv`).
+`src/test/jsdom-fast-queries.ts` already makes `*ByLabelText` cheap; `*ByRole` costs about 20 ms per
+query on the Settings dialog, so scope it with `within()` in hot loops.
 
 Two cases need more than that:
 
