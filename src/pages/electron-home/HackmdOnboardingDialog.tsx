@@ -231,9 +231,9 @@ export function HackmdOnboardingDialog({
                 {status.message}
               </p>
               <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto shrink-0 gap-1 px-1 py-0 text-text-subtle hover:bg-transparent hover:text-text-default"
+                variant="bare"
+                size="inline"
+                className="shrink-0"
                 onClick={onOpenHackmdSettings}
               >
                 <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
@@ -266,7 +266,7 @@ export function HackmdOnboardingDialog({
             <Button
               variant="ghost"
               disabled={busy}
-              className="w-full text-text-subtle"
+              className="w-full"
               onClick={handleSetupLater}
             >
               Setup later

@@ -4,9 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Field, FieldLabel, Input } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { cn } from '@/lib/utils';
-
-import { FOCUS_RING_CLASS } from './ui';
 
 const CUSTOM_FOLDER_COLOR_ID = 'custom-folder-color';
 const CUSTOM_FOLDER_ICON_ID = 'custom-folder-icon';
@@ -73,10 +70,9 @@ export function FolderAppearanceFields({
           </div>
         </RadioGroup>
         <Button
-          variant="secondary"
+          variant="secondary-subtle"
           size="sm"
           onClick={() => onIconChange('')}
-          className="text-text-subtle hover:text-text-default"
         >
           <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
           Use default icon
@@ -103,18 +99,17 @@ export function FolderAppearanceFields({
           </div>
         </RadioGroup>
         <Button
-          variant="secondary"
+          variant="secondary-subtle"
           size="sm"
           onClick={() => onColorChange('')}
-          className="text-text-subtle hover:text-text-default"
         >
           <Palette aria-hidden="true" className="h-3.5 w-3.5" />
           Use default color
         </Button>
       </fieldset>
 
-      <Collapsible className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
-        <CollapsibleTrigger className={cn('flex w-full items-center justify-between rounded-sm text-left text-xs font-semibold uppercase text-text-subtle', FOCUS_RING_CLASS)}>
+      <Collapsible variant="card">
+        <CollapsibleTrigger variant="card" className="flex w-full items-center justify-between">
           <span>Custom values</span>
           <ChevronRight
             aria-hidden="true"

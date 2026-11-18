@@ -18,7 +18,6 @@ import {
   recordShortcutFromEvent,
   type ShortcutOverrides,
 } from '@/lib/keyboard-shortcuts';
-import { cn } from '@/lib/utils';
 
 import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
 import { QuickHackShortcutsSection } from './QuickHackShortcutsSection';
@@ -274,7 +273,8 @@ export function ShortcutsSettingsPanel({
                         setActiveActionId(action.id);
                       }}
                       onKeyDown={(event) => handleCaptureKeyDown(action.id, event)}
-                      className={cn('min-w-28 px-3', isActive && 'border-focus-ring bg-background-selected')}
+                      variant="shortcut-recorder"
+                      className="min-w-28"
                     >
                       {isActive ? 'Press keys…' : displayShortcut}
                     </Button>

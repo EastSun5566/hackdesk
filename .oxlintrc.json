@@ -125,6 +125,16 @@
       {
         "allow": [
           "layout"
+        ],
+        "contracts": [
+          {
+            "pattern": ".*",
+            "allow": [
+              "layout",
+              "app-region-*",
+              "app-topbar-button"
+            ]
+          }
         ]
       }
     ]

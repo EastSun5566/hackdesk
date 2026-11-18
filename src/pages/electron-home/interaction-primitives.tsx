@@ -17,7 +17,6 @@ import { getResolvedActionShortcut } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import {
   COLLAPSE_ICON_CLASS,
-  FOCUS_RING_CLASS,
   FOCUS_RING_INSET_CLASS,
   ICON_BUTTON_CLASS,
   PANEL_MOTION_CLASS,
@@ -508,11 +507,9 @@ function SectionHeader({
       <CollapsibleTrigger
         type="button"
         aria-label={typeof title === 'string' ? [title, dirty && 'Unsaved changes', typeof subtitle === 'string' && subtitle].filter(Boolean).join(', ') : undefined}
-        className={cn(
-          // The row itself is the target: sections are told apart by spacing, not lines.
-          '-mx-2 flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-          FOCUS_RING_CLASS,
-        )}
+        variant="section"
+        // The row itself is the target: sections are told apart by spacing, not lines.
+        className="-mx-2 flex min-h-8 min-w-0 flex-1 items-center"
       >
         <ChevronDown
           aria-hidden="true"
@@ -553,7 +550,8 @@ export function CollapsibleSection({
       defaultOpen={defaultOpen}
       onOpenChange={onOpenChange}
       render={<section />}
-      className={cn('py-0.5', className)}
+      variant="section"
+      className={className}
     >
       <SectionHeader
         title={title}

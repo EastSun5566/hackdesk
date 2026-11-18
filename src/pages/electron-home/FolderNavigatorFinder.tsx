@@ -421,7 +421,7 @@ export function NoteFilterChips({
           <FilterChip key={`write:${permission}`} label={`Write: ${PERMISSION_LABELS[permission]}`} removeLabel={`write permission filter ${PERMISSION_LABELS[permission]}`} onRemove={() => updateState({ writePermissionFilters: state.writePermissionFilters.filter((candidate) => candidate !== permission) })} />
         ))}
       </div>
-      <Button variant="ghost" size="xs" onClick={() => onChange(clearNoteFinderFilters(state))} className="font-normal">
+      <Button variant="ghost" size="xs" onClick={() => onChange(clearNoteFinderFilters(state))}>
         Clear
       </Button>
     </div>
