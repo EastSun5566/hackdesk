@@ -32,6 +32,27 @@ jobs:
       - run: pnpm run docs:build
       - run: pnpm run audit:prod
 
+  # Whether this push touches what the Windows signing and installer test exercises; see
+  # scripts/signing-changes.ts. It runs beside `static`, so it adds no time to the run.
+  changes:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      signing: ${{ steps.signing.outputs.signing }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - id: signing
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/signing-changes.ts "$BASE" "$GITHUB_SHA"
+
   unit:
     timeout-minutes: 20
     runs-on: ubuntu-latest
@@ -106,7 +127,7 @@ jobs:
   package-smoke:
     timeout-minutes: 45
     # Gated on the fast static checks only, so packaging runs beside the unit and E2E jobs.
-    needs: static
+    needs: [static, changes]
     strategy:
       fail-fast: false
       matrix:
@@ -130,8 +151,9 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           # Fails the build with the reason instead of only the packaged-contents check.
           HACKDESK_REQUIRE_SPEECH_HELPER: ${{ matrix.os == 'macos-latest' && '1' || '' }}
+      # About 2.5 minutes, the longest step of the run, so it only runs for signing-related changes.
       - name: Test Windows signing and installation without SignPath credentials
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && needs.changes.outputs.signing == 'true'
         timeout-minutes: 15
         shell: pwsh
         run: ./scripts/test-signpath-verification.ps1 -UnsignedPath release/electron/win-unpacked/HackDesk.exe -IncludeInstaller
