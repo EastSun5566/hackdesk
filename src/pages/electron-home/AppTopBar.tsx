@@ -170,8 +170,9 @@ export function ApplicationControls({
         {navigatorCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
       </TopBarIconButton>
       {/* Takes the rest of the row and pushes the divider and history buttons to its end, but never
-          less than their width, so a narrower row leaves them beside the toggle. */}
-      <div className="flex min-w-fit flex-1 items-center justify-end">
+          less than their width, so a narrower row leaves them beside the toggle. gap-1 matches the
+          toolbar's own gap, so the divider sits 8px from the toggle and from Back. */}
+      <div className="flex min-w-fit flex-1 items-center justify-end gap-1">
         {/* Shown only while collapsed: it fades in once the history buttons have settled beside the
             toggle, and is gone before they move away again. */}
         <ToolbarSeparator shown={navigatorCollapsed} />
@@ -221,10 +222,10 @@ export function TitleBarLeadingSlot({ open, trafficLightInset }: { open: boolean
     >
       <div className="min-w-0 overflow-hidden">
         <div className={cn('flex w-max pr-2', trafficLightInset ? 'pl-20' : 'pl-0.5')}>
-          {/* The toggle, a gap, the divider with its margins and two history buttons
-              (28 + 4 + 9 + 28 + 4 + 28 = 101px). No-drag, so the window does not drag from under the
-              controls. */}
-          <span className="app-region-no-drag h-7 w-25.25" />
+          {/* The toggle, a gap, the divider with its margins, a gap and two history buttons
+              (28 + 4 + 9 + 4 + 28 + 4 + 28 = 105px). No-drag, so the window does not drag from under
+              the controls. */}
+          <span className="app-region-no-drag h-7 w-26.25" />
         </div>
       </div>
     </div>

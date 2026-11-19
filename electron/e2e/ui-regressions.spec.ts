@@ -2586,8 +2586,10 @@ test('a pane split below gets its own tab bar, and the sidebar title bar keeps t
     const divider = controls.getByRole('separator');
     await expect(divider).toHaveCSS('opacity', '1');
     const dividerBox = (await divider.boundingBox())!;
-    expect(dividerBox.x).toBeGreaterThan(toggleAfter.x + toggleAfter.width);
-    expect(dividerBox.x + dividerBox.width).toBeLessThan((await controls.getByRole('button', { name: 'Back', exact: true }).boundingBox())!.x);
+    // Evenly spaced: as far from the toggle as from Back.
+    const backBox = (await controls.getByRole('button', { name: 'Back', exact: true }).boundingBox())!;
+    expect(dividerBox.x - (toggleAfter.x + toggleAfter.width)).toBe(8);
+    expect(backBox.x - (dividerBox.x + dividerBox.width)).toBe(8);
     // Drawn on top of the pane's tab bar, so the pointer reaches them there (a disabled button lets
     // the pointer through to its own toolbar, still above the tab bar).
     expect(await forward.evaluate((button) => {
