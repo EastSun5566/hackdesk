@@ -114,12 +114,14 @@ async function checkFeatures() {
   // The cursor's line shows its markup; a link's source opens only with the cursor inside the link.
   const revealedText = '**bottom** and link';
   const hidden = bottomText() === 'bottom and link';
+  // Link open buttons are built for the viewport only, so scrolling must add them too.
+  const linkButton = Boolean([...host.querySelectorAll('.cm-line')].find((line) => line.textContent?.includes('bottom'))?.querySelector('.cm-hackmd-link-open'));
   view.dispatch({ selection: { anchor: source.indexOf('bottom') }, scrollIntoView: true });
   await frames();
   const revealed = bottomText() === revealedText;
   view.dispatch({ selection: { anchor: 0 } });
   await frames();
-  results.push({ viewport: 'scroll/reveal/hide', hidden, revealed, hiddenAgain: bottomText() === 'bottom and link', sourceUnchanged: view.state.doc.toString() === source });
+  results.push({ viewport: 'scroll/reveal/hide', hidden, linkButton, revealed, hiddenAgain: bottomText() === 'bottom and link', sourceUnchanged: view.state.doc.toString() === source });
   view.contentDOM.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
   view.dispatch({ selection: { anchor: source.indexOf('bottom') } });
   view.scrollDOM.scrollTop = 0;
