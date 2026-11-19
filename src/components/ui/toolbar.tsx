@@ -69,13 +69,26 @@ const ToolbarButton = React.forwardRef<
 ));
 ToolbarButton.displayName = 'ToolbarButton';
 
+/**
+ * A divider between toolbar items. With `shown`, it keeps its place either way and fades in and out
+ * (hidden from assistive tech while out): it fades in after a panel's motion (200ms) has nearly settled
+ * and out at once, for a divider that only belongs in one state of a moving layout.
+ */
 const ToolbarSeparator = React.forwardRef<
   React.ElementRef<typeof ToolbarPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof ToolbarPrimitive.Separator>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof ToolbarPrimitive.Separator> & { shown?: boolean }
+>(({ className, shown, ...props }, ref) => (
   <ToolbarPrimitive.Separator
     ref={ref}
-    className={cn('mx-1 h-5 w-px bg-border-default', className)}
+    aria-hidden={shown === false ? true : undefined}
+    data-shown={shown === undefined ? undefined : String(shown)}
+    className={cn(
+      'mx-1 h-5 w-px bg-border-default',
+      shown !== undefined && 'transition-opacity ease-out motion-reduce:transition-none',
+      shown === true && 'opacity-100 delay-150 duration-150',
+      shown === false && 'opacity-0 duration-75',
+      className,
+    )}
     {...props}
   />
 ));

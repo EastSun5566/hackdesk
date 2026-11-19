@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { Toolbar, ToolbarGroup } from '@/components/ui/toolbar';
+import { Toolbar, ToolbarGroup, ToolbarSeparator } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
 import { ToolbarIconButton } from './interaction-primitives';
 import { DocumentTabs, type PaneLayoutMenuActions } from './DocumentTabs';
@@ -147,7 +147,10 @@ function NoteHistoryButtons({ navigation }: Pick<ApplicationControlsProps, 'navi
  * The sidebar toggle and note history buttons: the window's own controls, not any pane's. Both stay
  * in the sidebar's title bar, collapsed or not. The toggle sits beside the traffic lights and never
  * moves. The history buttons sit at the sidebar's end and ride its edge as it narrows, until they
- * meet the toggle; there they stay while it is collapsed (over TitleBarLeadingSlot's space).
+ * meet the toggle; there they stay while it is collapsed (over TitleBarLeadingSlot's space), set off
+ * from the toggle by a divider. The divider always holds its place just before the history buttons, so
+ * it rides the edge with them and never shifts them; it only fades in once they have settled beside the
+ * toggle, and fades out quickly as the sidebar starts to open.
  */
 export function ApplicationControls({
   navigation,
@@ -166,9 +169,12 @@ export function ApplicationControls({
       >
         {navigatorCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
       </TopBarIconButton>
-      {/* Takes the rest of the row and pushes the history buttons to its end, but never less than
-          their width, so a narrower row leaves them beside the toggle. */}
-      <div className="flex min-w-fit flex-1 justify-end">
+      {/* Takes the rest of the row and pushes the divider and history buttons to its end, but never
+          less than their width, so a narrower row leaves them beside the toggle. */}
+      <div className="flex min-w-fit flex-1 items-center justify-end">
+        {/* Shown only while collapsed: it fades in once the history buttons have settled beside the
+            toggle, and is gone before they move away again. */}
+        <ToolbarSeparator shown={navigatorCollapsed} />
         <ToolbarGroup aria-label="Note history">
           <NoteHistoryButtons navigation={navigation} />
         </ToolbarGroup>
@@ -215,9 +221,10 @@ export function TitleBarLeadingSlot({ open, trafficLightInset }: { open: boolean
     >
       <div className="min-w-0 overflow-hidden">
         <div className={cn('flex w-max pr-2', trafficLightInset ? 'pl-20' : 'pl-0.5')}>
-          {/* The toggle, a gap and two history buttons (7 + 1 + 7 + 1 + 7). No-drag, so the window
-              does not drag from under the controls. */}
-          <span className="app-region-no-drag h-7 w-23" />
+          {/* The toggle, a gap, the divider with its margins and two history buttons
+              (28 + 4 + 9 + 28 + 4 + 28 = 101px). No-drag, so the window does not drag from under the
+              controls. */}
+          <span className="app-region-no-drag h-7 w-25.25" />
         </div>
       </div>
     </div>
