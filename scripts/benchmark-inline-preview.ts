@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { cpus, release, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { build } from 'esbuild';
+import { build, type Plugin } from 'esbuild';
 import { _electron } from '@playwright/test';
 
 const repoRoot = resolve(import.meta.dirname, '..');
@@ -25,7 +25,7 @@ function profileAttribution(profile: CpuProfile) {
   const parents = new Map<number, number>();
   for (const node of profile.nodes) for (const child of node.children ?? []) parents.set(child, node.id);
   const totals = new Map<string, number>();
-  const targets = /^(buildDecorations|buildPreviewDocument|buildRichPreviewDecorations|createHfmDocumentIndex|addHackmdLineSyntaxRanges|addInlineWidgets|addDollarMathBlocks|getOrderedListMarkerPreviews|buildTableWidgets|ensureSyntaxTree)$/;
+  const targets = /^(dispatch|mount|buildLinkOpenDecorations|buildCards|buildPanelSpacers|getCodeFences|buildDecorations|buildPreviewDocument|buildRichPreviewDecorations|createHfmDocumentIndex|addHackmdLineSyntaxRanges|addInlineWidgets|addDollarMathBlocks|getOrderedListMarkerPreviews|buildTableWidgets|ensureSyntaxTree)$/;
   for (let index = 0; index < (profile.samples?.length ?? 0); index++) {
     let id: number | undefined = profile.samples![index];
     const names = new Set<string>();
@@ -38,6 +38,20 @@ function profileAttribution(profile: CpuProfile) {
   }
   return Object.fromEntries([...totals].sort((a, b) => b[1] - a[1])); // Inclusive sampling time; nested totals overlap.
 }
+
+// Vite's `?raw` and `?url` import suffixes (used by lazily loaded rich-preview assets).
+const viteAssetSuffixes: Plugin = {
+  name: 'vite-asset-suffixes',
+  setup(builder) {
+    builder.onResolve({ filter: /\?(raw|url)$/ }, async (args) => {
+      const [path, suffix] = args.path.split('?');
+      const resolved = await builder.resolve(path, { kind: args.kind, resolveDir: args.resolveDir });
+      return { path: resolved.path, namespace: `vite-${suffix}` };
+    });
+    builder.onLoad({ filter: /.*/, namespace: 'vite-raw' }, async (args) => ({ contents: await readFile(args.path, 'utf8'), loader: 'text' }));
+    builder.onLoad({ filter: /.*/, namespace: 'vite-url' }, async (args) => ({ contents: await readFile(args.path), loader: 'file' }));
+  },
+};
 
 function summarize(values: number[]) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -59,9 +73,9 @@ async function main() {
       entryPoints: [join(repoRoot, 'benchmarks/inline-preview/editor.tsx')],
       outdir: join(work, 'renderer'), bundle: true, splitting: true, format: 'esm', platform: 'browser', jsx: 'automatic',
       alias: { '@': join(sourceRoot, 'src') }, nodePaths: [join(repoRoot, 'node_modules')],
-      define: { 'process.env.NODE_ENV': '"production"' }, loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file' },
+      define: { 'process.env.NODE_ENV': '"production"' }, loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file' }, plugins: [viteAssetSuffixes],
     });
-    await writeFile(join(work, 'renderer/index.html'), '<!doctype html><style>body{margin:0;background:#202126;color:#ddd}#editor{width:1080px;height:650px;margin:20px}.hackmd-markdown-editor{height:650px}.cm-editor{height:100%;font-size:14px}.cm-content,.cm-line{font-family:monospace!important;font-size:14px!important}.cm-scroller{overflow:auto}</style><div id="editor"></div><script type="module" src="./editor.js"></script>');
+    await writeFile(join(work, 'renderer/index.html'), '<!doctype html><style>body{margin:0;background:#202126;color:#ddd}#editor{width:1080px;height:650px;margin:20px}[data-testid=hackmd-markdown-editor]{height:650px}.cm-editor{height:100%;font-size:14px}.cm-content,.cm-line{font-family:monospace!important;font-size:14px!important}.cm-scroller{overflow:auto}</style><div id="editor"></div><script type="module" src="./editor.js"></script>');
     // No production settings, IPC, clipboard or user vault access.
     await writeFile(join(work, 'main.cjs'), `const {app,BrowserWindow}=require('electron');const path=require('node:path');app.setPath('userData',path.join(__dirname,'user-data'));app.setPath('home',__dirname);app.whenReady().then(()=>new BrowserWindow({width:1120,height:760,webPreferences:{sandbox:true,contextIsolation:true}}).loadFile(path.join(__dirname,'renderer/index.html')));app.on('window-all-closed',()=>app.quit());`);
     const artifacts = argument('artifacts') ? resolve(argument('artifacts')!) : undefined;
@@ -79,15 +93,19 @@ async function main() {
       await page.waitForFunction('Boolean(window.previewBenchmark)');
       const features = await page.evaluate('window.previewBenchmark.checkFeatures()') as Record<string, unknown>[];
       assert(features.every((row) => Object.values(row).every((value) => value !== false)), JSON.stringify(features));
-      let profile: CpuProfile | undefined;
+      const profiles: Record<string, ReturnType<typeof profileAttribution>> = {};
       if (process.argv.includes('--profile')) {
+        // One profile per phase at 10,000 lines; each also includes that run's mount.
         const session = await page.context().newCDPSession(page);
         await page.evaluate('window.previewBenchmark.measure(10000)'); // Warm before CPU sampling.
         await session.send('Profiler.enable');
-        await session.send('Profiler.start');
-        await page.evaluate('window.previewBenchmark.measure(10000)');
-        profile = (await session.send('Profiler.stop')).profile;
-        if (artifacts) await writeFile(join(artifacts, 'editor.cpuprofile'), JSON.stringify(profile));
+        for (const phase of ['typing', 'cursor']) {
+          await session.send('Profiler.start');
+          await page.evaluate(`window.previewBenchmark.measure(10000, '${phase}')`);
+          const { profile } = await session.send('Profiler.stop');
+          profiles[phase] = profileAttribution(profile);
+          if (artifacts) await writeFile(join(artifacts, `editor-${phase}.cpuprofile`), JSON.stringify(profile));
+        }
         await session.detach();
       }
       const results = [];
@@ -116,7 +134,7 @@ async function main() {
         sourceSha256: sourceHash.digest('hex'),
         versions: await app.evaluate(() => process.versions), os: release(), cpu: cpus()[0]?.model,
         viewport: { width: 1080, height: 650 }, font: '14px monospace', measuredRuns: 5, features, results,
-        profileInclusiveMs: profile ? profileAttribution(profile) : undefined };
+        profileInclusiveMs: process.argv.includes('--profile') ? profiles : undefined };
       const json = `${JSON.stringify(output, null, 2)}\n`;
       if (argument('output')) await writeFile(resolve(argument('output')!), json);
       else console.log(json);

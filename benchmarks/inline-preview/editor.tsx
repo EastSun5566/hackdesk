@@ -43,7 +43,11 @@ function documentFixture(lines: number) {
   )).join('\n');
 }
 
-async function measure(lines: number) {
+type Phase = 'typing' | 'cursor' | 'scroll';
+
+/** `only` restricts a run to one phase, so a CPU profile of it attributes that phase alone. */
+async function measure(lines: number, only?: Phase) {
+  const runs = (phase: Phase) => !only || only === phase;
   longTasks = [];
   const openedMs = await mount(documentFixture(lines));
   await new Promise((resolve) => setTimeout(resolve, 300));
@@ -54,19 +58,27 @@ async function measure(lines: number) {
   const dispatchMs = { typing: [] as number[], cursor: [] as number[] };
   for (let index = 0; index < 30; index++) {
     let start = performance.now();
-    view.dispatch({ changes: { from: view.state.selection.main.head, insert: 'x' } });
-    dispatchMs.typing.push(performance.now() - start);
-    await frames();
-    samples.typing.push(performance.now() - start);
-    start = performance.now();
-    view.dispatch({ selection: { anchor: Math.min(view.state.doc.length, view.state.selection.main.head + 5) } });
-    dispatchMs.cursor.push(performance.now() - start);
-    await frames();
-    samples.cursor.push(performance.now() - start);
-    start = performance.now();
-    view.scrollDOM.scrollTop = index % 2 ? 0 : Math.min(500, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight);
-    await frames();
-    samples.scroll.push(performance.now() - start);
+    if (runs('typing')) {
+      // A typed character moves the cursor with it, as real input does.
+      const head = view.state.selection.main.head;
+      view.dispatch({ changes: { from: head, insert: 'x' }, selection: { anchor: head + 1 }, userEvent: 'input.type' });
+      dispatchMs.typing.push(performance.now() - start);
+      await frames();
+      samples.typing.push(performance.now() - start);
+    }
+    if (runs('cursor')) {
+      start = performance.now();
+      view.dispatch({ selection: { anchor: Math.min(view.state.doc.length, view.state.selection.main.head + 5) }, userEvent: 'select' });
+      dispatchMs.cursor.push(performance.now() - start);
+      await frames();
+      samples.cursor.push(performance.now() - start);
+    }
+    if (runs('scroll')) {
+      start = performance.now();
+      view.scrollDOM.scrollTop = index % 2 ? 0 : Math.min(500, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight);
+      await frames();
+      samples.scroll.push(performance.now() - start);
+    }
   }
   return { lines, openedMs, samples, dispatchMs, mountLongTasks, longTasks: [...longTasks] };
 }
@@ -99,10 +111,12 @@ async function checkFeatures() {
   await frames();
   await frames();
   const bottomText = () => [...host.querySelectorAll('.cm-line')].find((line) => line.textContent?.includes('bottom'))?.textContent;
+  // The cursor's line shows its markup; a link's source opens only with the cursor inside the link.
+  const revealedText = '**bottom** and link';
   const hidden = bottomText() === 'bottom and link';
   view.dispatch({ selection: { anchor: source.indexOf('bottom') }, scrollIntoView: true });
   await frames();
-  const revealed = bottomText() === '**bottom** and [link](https://example.com)';
+  const revealed = bottomText() === revealedText;
   view.dispatch({ selection: { anchor: 0 } });
   await frames();
   results.push({ viewport: 'scroll/reveal/hide', hidden, revealed, hiddenAgain: bottomText() === 'bottom and link', sourceUnchanged: view.state.doc.toString() === source });
@@ -117,7 +131,7 @@ async function checkFeatures() {
   document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
   await new Promise((resolve) => setTimeout(resolve, 150));
   await frames();
-  results.push({ viewport: 'pointer freeze/scroll/thaw', frozenScroll, thawed: bottomText() === '**bottom** and [link](https://example.com)' });
+  results.push({ viewport: 'pointer freeze/scroll/thaw', frozenScroll, thawed: bottomText() === revealedText });
   return results;
 }
 
