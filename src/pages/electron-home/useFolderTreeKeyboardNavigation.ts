@@ -8,6 +8,7 @@ import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import type { TagGroup as FolderTreeTagGroup } from '@/lib/electron-tag-groups';
 
 import { createFolderTreeFocusStore } from './FolderTreeFocusContext';
+import { createPendingTreeChildren } from './LazyTreeChildren';
 
 import {
   buildFolderNavigatorFocusItems,
@@ -126,15 +127,50 @@ export function useFolderTreeKeyboardNavigation({
     }
   }, []);
 
-  const focusTreeItem = useCallback((itemId: string) => {
-    const row = Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]') ?? [])
+  // Open folders far from view have no rows yet (see LazyTreeChildren); this builds them on demand.
+  const [pendingChildren] = useState(createPendingTreeChildren);
+  // Read when a row is needed, so withTreeRow stays the same function as the tree changes.
+  const itemsByIdRef = useRef(itemsById);
+  useLayoutEffect(() => {
+    itemsByIdRef.current = itemsById;
+  }, [itemsById]);
+  /**
+   * Calls `withRow` with a row, first building the open folders around it if they have not been (then
+   * a few frames later). False when there is no such row to wait for.
+   */
+  const withTreeRow = useCallback((itemId: string, withRow: (row: HTMLElement) => void): boolean => {
+    const findRow = () => Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]') ?? [])
       .find((candidate) => candidate.dataset.folderTreeRowId === itemId);
-    const target = row?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
-      ?? row?.querySelector<HTMLElement>('button:not([disabled])');
+    const row = findRow();
+    if (row) {
+      withRow(row);
+      return true;
+    }
+    const ancestors: string[] = [];
+    const items = itemsByIdRef.current;
+    for (let parent = items.get(itemId)?.parentFolderId; parent; parent = items.get(getParentFocusId(parent))?.parentFolderId) {
+      ancestors.unshift(parent);
+    }
+    if (!pendingChildren.reveal(ancestors)) return false;
+    let frames = 0;
+    const retry = () => {
+      const built = findRow();
+      if (built) withRow(built);
+      else if (++frames < 10) window.requestAnimationFrame(retry);
+    };
+    window.requestAnimationFrame(retry);
+    return true;
+  }, [pendingChildren, treeRef]);
 
-    target?.focus();
-    target?.scrollIntoView?.({ block: 'nearest' });
-  }, [treeRef]);
+  const focusTreeItem = useCallback((itemId: string) => {
+    withTreeRow(itemId, (row) => {
+      const target = row.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+        ?? row.querySelector<HTMLElement>('button:not([disabled])');
+
+      target?.focus();
+      target?.scrollIntoView?.({ block: 'nearest' });
+    });
+  }, [withTreeRow]);
 
   useLayoutEffect(() => {
     const previousItems = previousItemsRef.current;
@@ -462,5 +498,5 @@ export function useFolderTreeKeyboardNavigation({
     };
   }, [handleTreeKeyDown, onFocus, treeRef]);
 
-  return { focusContext };
+  return { focusContext, pendingChildren, withTreeRow };
 }
