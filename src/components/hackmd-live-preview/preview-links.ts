@@ -73,12 +73,12 @@ export function hackmdLinkOpenAffordance(onOpenLinkRef: OpenLinkRef): Extension 
         decorations: DecorationSet;
 
         constructor(view: EditorView) {
-          this.decorations = buildLinkOpenDecorations(view.state);
+          this.decorations = buildLinkOpenDecorations(view.state, view.visibleRanges);
         }
 
         update(update: ViewUpdate) {
           if (update.docChanged || update.selectionSet || update.viewportChanged || update.transactions.some((tr) => tr.effects.some((effect) => effect.is(revealInitialSelection)))) {
-            this.decorations = buildLinkOpenDecorations(update.state);
+            this.decorations = buildLinkOpenDecorations(update.state, update.view.visibleRanges);
           }
         }
       },
@@ -161,14 +161,26 @@ function extractLinkUrl(state: EditorState, linkRange: { from: number; name?: st
   return source.match(/\]\(([^)\s]+)(?:\s+["'][^)]+["'])?\)/)?.[1] ?? '';
 }
 
-function buildLinkOpenDecorations(state: EditorState): DecorationSet {
+/** Open buttons are inline widgets, so only the visible ranges need them (rebuilt as the viewport moves). */
+function buildLinkOpenDecorations(state: EditorState, visibleRanges: readonly { from: number; to: number }[]): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
+  const tree = syntaxTree(state);
+  // A link that straddles two visible ranges is entered once per range.
+  const seen = new Set<string>();
 
-  syntaxTree(state).iterate({
+  for (const { from, to } of visibleRanges) tree.iterate({
+    from,
+    to,
     enter(node) {
       if (node.name !== 'Link' && node.name !== 'URL') {
         return;
       }
+
+      const key = `${node.name}:${node.from}`;
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
 
       if (node.name === 'URL' && (hasParentNamed(node.node as MarkdownSyntaxNode, 'Link') || hasParentNamed(node.node as MarkdownSyntaxNode, 'Image'))) {
         return;

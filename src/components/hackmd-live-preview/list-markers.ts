@@ -19,12 +19,16 @@ export function getOrderedListMarkerPreviews(state: EditorState): Map<string, Li
   const previews = new Map<string, ListMarkerPreview>();
   const levels: OrderedListLevel[] = [];
 
-  for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
-    const line = state.doc.line(lineNumber);
-    const match = line.text.match(orderedListPattern);
+  let lineNumber = 0;
+  let nextLineFrom = 0;
+  for (const text of state.doc.iterLines()) {
+    lineNumber += 1;
+    const lineFrom = nextLineFrom;
+    nextLineFrom += text.length + 1;
+    const match = text.match(orderedListPattern);
 
     if (!match) {
-      if (line.text.trim() !== '' && countIndentColumns(line.text.match(/^\s*/)?.[0] ?? '') > 0) {
+      if (text.trim() !== '' && countIndentColumns(text.match(/^\s*/)?.[0] ?? '') > 0) {
         continue;
       }
 
@@ -42,7 +46,7 @@ export function getOrderedListMarkerPreviews(state: EditorState): Map<string, Li
     const value = level ? level.value + 1 : rawValue;
     levels[depth] = { value };
 
-    const from = line.from + match[1].length;
+    const from = lineFrom + match[1].length;
     const to = from + match[2].length + delimiter.length;
     previews.set(getListMarkerPreviewKey(from, to), {
       depth,
