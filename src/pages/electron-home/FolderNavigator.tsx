@@ -1132,8 +1132,13 @@ function NavigatorTree({
       folder.active ? { ...folder, label: vaultFolderName ?? folder.label, tree } : folder
     ));
   }, [showWorkspaceFolders, tree, vaultFolderName, workspaceFolders]);
+  // Walks every folder, so only when the tree or the open folders change, not on every render.
+  const everyFolderOpen = useMemo(
+    () => [...tree.nodesById.values()].every((node) => (!node.children.length && !node.notes.length) || !layout.collapsedFolderIds.has(node.id)),
+    [layout.collapsedFolderIds, tree],
+  );
   const allExpanded = rootSectionExpanded && collapsedWorkspaceFolderIds.size === 0
-    && [...tree.nodesById.values()].every((node) => (!node.children.length && !node.notes.length) || !layout.collapsedFolderIds.has(node.id))
+    && everyFolderOpen
     && (!showWorkspaceFolders || workspaceFolderSections.every((section) => section.active || section.tree.nodesById.size === 0 || expandCommand?.expanded));
   const toggleAll = () => {
     const expanded = !allExpanded;
