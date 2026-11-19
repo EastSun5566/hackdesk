@@ -2582,6 +2582,14 @@ test('a pane split below gets its own tab bar, and the sidebar title bar keeps t
     const forward = controls.getByRole('button', { name: 'Forward', exact: true });
     const firstTab = bars.nth(0).getByRole('tab').first();
     await expect.poll(async () => (await forward.boundingBox())!.x).toBeLessThan((await firstTab.boundingBox())!.x);
+    // A divider sets the history buttons off from the toggle, fading in once they have settled there.
+    const divider = controls.getByRole('separator');
+    await expect(divider).toHaveCSS('opacity', '1');
+    const dividerBox = (await divider.boundingBox())!;
+    // Evenly spaced: as far from the toggle as from Back.
+    const backBox = (await controls.getByRole('button', { name: 'Back', exact: true }).boundingBox())!;
+    expect(dividerBox.x - (toggleAfter.x + toggleAfter.width)).toBe(8);
+    expect(backBox.x - (dividerBox.x + dividerBox.width)).toBe(8);
     // Drawn on top of the pane's tab bar, so the pointer reaches them there (a disabled button lets
     // the pointer through to its own toolbar, still above the tab bar).
     expect(await forward.evaluate((button) => {
@@ -2592,6 +2600,7 @@ test('a pane split below gets its own tab bar, and the sidebar title bar keeps t
     await controls.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
     await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
     await expect(controls).toHaveCount(1);
+    await expect(controls.getByRole('separator')).toHaveCount(0);
   } finally {
     await stopApp(app);
   }

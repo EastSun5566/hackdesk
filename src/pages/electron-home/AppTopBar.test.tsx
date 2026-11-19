@@ -99,9 +99,13 @@ describe('AppTopBar', () => {
     const applicationControls = within(header).getByRole('toolbar', { name: 'Application controls' });
     expect(header).toHaveClass('app-topbar', 'h-10');
     expect(header.firstElementChild).toHaveClass('pl-21.5');
-    // Across the sidebar: the toggle at the start, the history buttons at the end, no divider.
+    // Across the sidebar: the toggle at the start, the history buttons at the end, no visible divider.
     expect(applicationControls).toHaveClass('flex-1');
     expect(within(applicationControls).queryByRole('separator')).not.toBeInTheDocument();
+    const hiddenDivider = applicationControls.querySelector('[data-shown]');
+    expect(hiddenDivider).toHaveAttribute('data-shown', 'false');
+    expect(hiddenDivider).toHaveAttribute('aria-hidden', 'true');
+    expect(hiddenDivider).toHaveClass('opacity-0');
     expect(within(applicationControls).getByRole('group', { name: 'Note history' })).toContainElement(screen.getByRole('button', { name: 'Back' }));
     expect(within(header).queryByRole('navigation', { name: 'Open documents' })).not.toBeInTheDocument();
 
@@ -131,6 +135,11 @@ describe('AppTopBar', () => {
     const history = within(header).getByRole('group', { name: 'Note history' });
     expect(history.parentElement).toHaveClass('min-w-fit', 'flex-1', 'justify-end');
     expect(within(history).getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    // Beside the toggle, a divider sets them apart; it fades in after they have settled there.
+    const divider = within(header).getByRole('separator');
+    expect(divider.nextElementSibling).toBe(history);
+    expect(history.parentElement).toHaveClass('gap-1');
+    expect(divider).toHaveClass('opacity-100', 'delay-150', 'transition-opacity');
   });
 
   it('only reserves traffic-light space when asked', () => {
@@ -255,7 +264,7 @@ describe('PaneTabBar', () => {
     expect(slot).toHaveAttribute('aria-hidden', 'true');
     expect(slot).toHaveClass('grid', 'transition-all');
     // The controls (in the sidebar's title bar) lie over this no-drag space: toggle and both history buttons.
-    expect(slot.querySelector('.pl-20 > span')).toHaveClass('app-region-no-drag', 'w-23', 'h-7');
+    expect(slot.querySelector('.pl-20 > span')).toHaveClass('app-region-no-drag', 'w-26.25', 'h-7');
     expect(within(bar).queryByRole('button', { name: /sidebar|Back|Forward/ })).not.toBeInTheDocument();
     const regions = Array.from(bar.querySelectorAll<HTMLElement>('[role="toolbar"], nav[aria-label="Open documents"]'));
     expect(regions.map(region => region.getAttribute('aria-label'))).toEqual(['Open documents', 'Pane controls']);
