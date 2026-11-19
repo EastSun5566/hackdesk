@@ -79,7 +79,6 @@ import {
   FolderDragOverlay,
   RowOperationsContext,
   FolderTreeView,
-  KeepMountedOnceOpen,
   NoteDragOverlay,
   NoteListSkeleton,
   NoteRow,
@@ -97,6 +96,7 @@ import {
   WorkspaceRootScopeIcon,
   WorkspaceRootTreeRow,
 } from './FolderNavigatorRows';
+import { LazyTreeChildren, PendingTreeChildrenContext } from './LazyTreeChildren';
 import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
 import { WORKSPACE_ROOT_FOCUS_ID } from './folder-tree-focus';
@@ -1132,8 +1132,13 @@ function NavigatorTree({
       folder.active ? { ...folder, label: vaultFolderName ?? folder.label, tree } : folder
     ));
   }, [showWorkspaceFolders, tree, vaultFolderName, workspaceFolders]);
+  // Walks every folder, so only when the tree or the open folders change, not on every render.
+  const everyFolderOpen = useMemo(
+    () => [...tree.nodesById.values()].every((node) => (!node.children.length && !node.notes.length) || !layout.collapsedFolderIds.has(node.id)),
+    [layout.collapsedFolderIds, tree],
+  );
   const allExpanded = rootSectionExpanded && collapsedWorkspaceFolderIds.size === 0
-    && [...tree.nodesById.values()].every((node) => (!node.children.length && !node.notes.length) || !layout.collapsedFolderIds.has(node.id))
+    && everyFolderOpen
     && (!showWorkspaceFolders || workspaceFolderSections.every((section) => section.active || section.tree.nodesById.size === 0 || expandCommand?.expanded));
   const toggleAll = () => {
     const expanded = !allExpanded;
@@ -1176,7 +1181,7 @@ function NavigatorTree({
         : showRootRow
           ? WORKSPACE_ROOT_FOCUS_ID
           : null;
-  const { focusContext } = useFolderTreeKeyboardNavigation({
+  const { focusContext, pendingChildren, withTreeRow } = useFolderTreeKeyboardNavigation({
     treeId,
     selectedRowId,
     actions,
@@ -1196,26 +1201,24 @@ function NavigatorTree({
       return;
     }
 
-    const row = Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]') ?? [])
-      .find((candidate) => candidate.dataset.folderTreeRowId === `note:${selection.selectedNoteId}`);
-    row?.scrollIntoView?.({ block: 'nearest' });
-  }, [selection.selectedNoteId]);
+    withTreeRow(`note:${selection.selectedNoteId}`, (row) => row.scrollIntoView?.({ block: 'nearest' }));
+  }, [selection.selectedNoteId, withTreeRow]);
 
   useEffect(() => {
     if (treeFocusRequestId === 0) {
       return;
     }
 
-    const row = selectedRowId
-      ? treeRef.current?.querySelector<HTMLElement>(`[data-folder-tree-row-id="${selectedRowId}"]`)
-      : null;
-    const target = row?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
-      ?? row?.querySelector<HTMLElement>('button:not([disabled])')
-      ?? treeRef.current?.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')
-      ?? treeRef.current?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
-      ?? treeRef.current?.querySelector<HTMLElement>('button:not([disabled])');
-    target?.focus();
-  }, [selectedRowId, treeFocusRequestId]);
+    const focusRow = (row: HTMLElement | null) => {
+      const target = row?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+        ?? row?.querySelector<HTMLElement>('button:not([disabled])')
+        ?? treeRef.current?.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')
+        ?? treeRef.current?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+        ?? treeRef.current?.querySelector<HTMLElement>('button:not([disabled])');
+      target?.focus();
+    };
+    if (!selectedRowId || !withTreeRow(selectedRowId, focusRow)) focusRow(null);
+  }, [selectedRowId, treeFocusRequestId, withTreeRow]);
 
   const showFolderDrop = (next: FolderDropIndicator | null) => {
     const current = folderDropRef.current;
@@ -1473,7 +1476,7 @@ function NavigatorTree({
             onToggle={() => tagGrouping.onToggle(group.tag)}
           />
         </div>
-        <KeepMountedOnceOpen open={expanded}>
+        <LazyTreeChildren id={groupId} open={expanded} rowCount={() => group.entries.length}>
           {/* mt-0.5: the same gap a folder leaves between its row and its children. */}
           <ul id={childrenGroupId} role="group" data-tree-children="true" className={cn('relative m-0 mt-0.5 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
           {group.entries.map((entry, noteIndex) => (
@@ -1502,7 +1505,7 @@ function NavigatorTree({
             </li>
           ))}
           </ul>
-        </KeepMountedOnceOpen>
+        </LazyTreeChildren>
       </li>
     );
   }) : tree.unfiled.notes.map((entry, index) => (
@@ -1561,6 +1564,7 @@ function NavigatorTree({
           aria-label="Folders and notes"
         >
           <FolderTreeFocusContext.Provider value={focusContext}>
+          <PendingTreeChildrenContext.Provider value={pendingChildren}>
             {showRootRow ? (
               <WorkspaceRootTreeRow
                 scope={scope}
@@ -1644,6 +1648,7 @@ function NavigatorTree({
               onCreateFolder={() => actions.onCreateFolderInside(null)}
               onCreateNote={() => actions.onCreateNoteInside(null)}
             />
+          </PendingTreeChildrenContext.Provider>
           </FolderTreeFocusContext.Provider>
         </div>
       </SortableContext>

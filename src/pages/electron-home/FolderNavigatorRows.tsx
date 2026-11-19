@@ -49,6 +49,7 @@ import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatD
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { countVisibleTreeRows, LazyTreeChildren } from './LazyTreeChildren';
 import { useRowOverlays } from './row-overlays';
 import { readStringArrayStorage, writeStringArrayStorage } from './ui-preferences';
 import { NoteKindIcon, useNoteKind, type NoteKind } from './note-kind';
@@ -1326,18 +1327,6 @@ export function TagGroupRow({
   );
 }
 
-/**
- * A folder's contents mount the first time it opens, then stay mounted (hidden) when it closes:
- * reopening is a style change rather than rebuilding every row. Folders never opened cost nothing.
- */
-function KeepMountedOnceOpen({ open, children }: { open: boolean; children: ReactNode }) {
-  const [opened, setOpened] = useState(open);
-  if (open && !opened) setOpened(true);
-  return opened ? <div hidden={!open} className="contents">{children}</div> : null;
-}
-
-export { KeepMountedOnceOpen };
-
 export function FolderTreeView({
   nodes,
   notes = [],
@@ -1437,7 +1426,7 @@ export function FolderTreeView({
           onRevealInFinder={onFolderRevealInFinder}
         />
         </div>
-        <KeepMountedOnceOpen open={!collapsed && !isActiveFolder}><div className="grid overflow-hidden">
+        <LazyTreeChildren id={node.id} open={!collapsed && !isActiveFolder} rowCount={() => countVisibleTreeRows(node, collapsedFolderIds)}><div className="grid overflow-hidden">
           <div className="min-h-0 overflow-hidden">
             <div className="mt-0.5 min-w-0">
               <FolderTreeView
@@ -1473,7 +1462,7 @@ export function FolderTreeView({
               />
             </div>
           </div>
-        </div></KeepMountedOnceOpen>
+        </div></LazyTreeChildren>
       </li>
     );
   });
