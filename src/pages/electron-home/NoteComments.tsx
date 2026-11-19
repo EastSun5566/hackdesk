@@ -60,10 +60,10 @@ function CommentThreadCard({
           <CommentByline comment={head} />
         </div>
         <Button
-          size="xs"
+          size="2xs"
           variant="ghost"
           disabled={busy}
-          className="-my-1 -mr-1.5 h-6 shrink-0 gap-1 px-1.5 text-xs text-text-subtle hover:text-text-default"
+          className="-my-1 -mr-1.5 shrink-0"
           onClick={() => onSetResolved(head, !resolved)}
         >
           {resolved

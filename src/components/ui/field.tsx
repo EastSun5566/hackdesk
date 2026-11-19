@@ -60,27 +60,49 @@ const FieldError = React.forwardRef<
 ));
 FieldError.displayName = 'FieldError';
 
+const inputVariantClassNames = {
+  default: '',
+  /** Room for a search or other icon placed over the start of the field. */
+  'leading-icon': 'pl-8',
+  /** Inside a box that draws the border and focus state itself, beside a button. */
+  embedded: 'rounded-none border-0 bg-transparent focus:border-transparent focus-visible:ring-0',
+  /** A value to copy, such as a link: small, muted text on a muted fill. */
+  'read-only': 'bg-background-muted text-xs text-text-subtle',
+  /** On the page fill, with tighter padding, beside a colour swatch. */
+  filled: 'bg-background-default px-2',
+} as const;
+
+export type InputVariant = keyof typeof inputVariantClassNames;
+
 const Input = React.forwardRef<
   React.ElementRef<typeof InputPrimitive>,
-  React.ComponentPropsWithoutRef<typeof InputPrimitive>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof InputPrimitive> & { variant?: InputVariant }
+>(({ className, variant = 'default', ...props }, ref) => (
   <InputPrimitive
     ref={ref}
-    className={cn(fieldInputClassName, className)}
+    className={cn(fieldInputClassName, inputVariantClassNames[variant], className)}
     {...props}
   />
 ));
 Input.displayName = 'Input';
 
-export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+const textareaVariantClassNames = {
+  default: '',
+  /** On the page fill, with its focus ring inside the box. */
+  filled: 'bg-background-default px-2.5 py-2 focus-visible:ring-inset',
+} as const;
+
+export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  variant?: keyof typeof textareaVariantClassNames;
+};
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, ...props }, ref) => (
+  ({ className, variant = 'default', ...props }, ref) => (
     <FieldPrimitive.Control
       render={(
         <textarea
           ref={ref}
-          className={cn(fieldInputClassName, 'h-auto min-h-20 py-2', className)}
+          className={cn(fieldInputClassName, 'h-auto min-h-20 py-2', textareaVariantClassNames[variant], className)}
           {...props}
         />
       )}

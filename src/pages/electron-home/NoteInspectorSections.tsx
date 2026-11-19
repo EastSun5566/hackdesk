@@ -35,10 +35,10 @@ export function TagEditor({
             {tag}
             <Button
               type="button"
-              variant="ghost"
+              variant="chip-remove"
               size="icon-sm"
               onClick={() => onRemoveTag(tag)}
-              className="-mr-1 rounded-sm focus-visible:ring-inset"
+              className="-mr-1"
               aria-label={`Remove ${tag} tag`}
             >
               <X aria-hidden="true" className="h-3 w-3" />

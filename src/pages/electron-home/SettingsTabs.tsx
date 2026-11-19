@@ -34,7 +34,7 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
       <div className="relative">
         <Search aria-hidden="true" className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-icon-default" />
         <Input
-        className="pl-8"
+        variant="leading-icon"
         autoFocus
         aria-label="Search settings"
         placeholder="Search settings"
@@ -98,13 +98,15 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
         <TabsList
           activateOnFocus
           aria-label="Settings sections"
-          className="flex min-h-0 flex-1 flex-col items-stretch gap-0.5 overflow-y-auto"
+          variant="vertical"
+          className="flex min-h-0 flex-1 overflow-y-auto"
         >
           {SETTINGS_TABS.map(tab => (
             <TabsTrigger
               key={tab.id}
               value={tab.id}
-              className="h-auto w-full min-w-0 shrink-0 justify-start whitespace-normal px-2 text-left"
+              variant="row"
+              className="min-w-0 shrink-0"
             >
               <span aria-hidden="true">{tab.icon}</span>
               <span className="min-w-0 whitespace-normal text-left leading-snug">{tab.label}</span>

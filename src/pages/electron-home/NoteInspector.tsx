@@ -1,7 +1,6 @@
 import { History } from 'lucide-react';
 import { useId, useMemo, useRef, useState } from 'react';
 
-import { buttonVariants } from '@/components/ui/button';
 import { Toolbar, ToolbarButton } from '@/components/ui/toolbar';
 import { countWordsInText } from '@/lib/editor-status-store';
 import type { DocumentSummary, NoteComment, NotePermissionRole } from '@/lib/electron-api';
@@ -135,14 +134,11 @@ function NoteInspectorPanel({
         </nav>
 
         {hasToolbarActions ? (
-          <Toolbar aria-label="Note details actions" className="shrink-0 gap-1">
+          <Toolbar aria-label="Note details actions" className="shrink-0">
             {actions.onOpenNoteSettings ? (
               <ToolbarButton
                 aria-label="Note settings"
-                className={cn(
-                  buttonVariants({ variant: 'secondary', size: 'xs' }),
-                  'h-6 bg-background-default px-2 font-medium',
-                )}
+                variant="text-compact"
                 onClick={actions.onOpenNoteSettings}
               >
                 Settings
@@ -151,10 +147,7 @@ function NoteInspectorPanel({
             {actions.onOpenShare ? (
               <ToolbarButton
                 aria-label="Share note"
-                className={cn(
-                  buttonVariants({ variant: 'secondary', size: 'xs' }),
-                  'h-6 bg-background-default px-2 font-medium',
-                )}
+                variant="text-compact"
                 onClick={actions.onOpenShare}
               >
                 Share
@@ -165,7 +158,8 @@ function NoteInspectorPanel({
                 actionId="show-note-versions"
                 onClick={actions.onShowVersions}
                 label="Version history"
-                className="size-6 text-text-subtle hover:text-text-default"
+                variant="icon-subtle"
+                className="size-6"
               >
                 <History aria-hidden="true" className="size-3.5" />
               </ToolbarIconButton>

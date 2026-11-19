@@ -6,8 +6,6 @@ import type { FolderTreeNote } from '@/lib/hackmd-folders';
 
 import { formatDate } from './ui';
 
-export const NOTE_CARD_CLASS = 'w-64 max-w-64 rounded-md border-border-default bg-background-raised px-3 py-2.5 text-sm font-normal leading-5 text-text-default shadow-lg drop-shadow-none';
-
 /** The hover card for a note row: the full title, then where it lives, its tags and when it changed. */
 export function NoteSummaryCard({ entry }: { entry: FolderTreeNote }) {
   const { note } = entry;

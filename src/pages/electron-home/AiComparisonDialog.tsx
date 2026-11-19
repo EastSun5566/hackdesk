@@ -18,18 +18,18 @@ export function AiComparisonDialog({ view, snapshot }: { view: EditorView; snaps
   };
   return <Dialog open onOpenChange={(open) => { if (!open) back(); }}>
     <DialogContent
-      size="xl" className="note-comparison-dialog flex flex-col overflow-hidden"
+      size="comparison"
       finalFocus={() => view.dom.isConnected ? view.contentDOM : false}
       onKeyDown={event => event.stopPropagation()}
     >
-      <DialogHeader className="shrink-0 pr-7">
+      <DialogHeader variant="beside-close" className="shrink-0">
         <DialogTitle>Compare AI changes</DialogTitle>
         <DialogDescription>Your draft is unchanged.</DialogDescription>
       </DialogHeader>
       <div className="min-h-0 overflow-auto p-1">
         <NoteComparisonView input={input} beforeLabel="Before" afterLabel="After AI" />
       </div>
-      <DialogFooter className="shrink-0 gap-2">
+      <DialogFooter className="shrink-0">
         <Button variant="secondary" onClick={back}>Back</Button>
         <Button onClick={() => { if (isCurrent()) acceptAiInline(view); }}>
           {getAiInlineState(snapshot).delivery === 'replace' ? 'Replace' : 'Insert'}

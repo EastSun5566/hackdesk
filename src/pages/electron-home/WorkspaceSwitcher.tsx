@@ -154,9 +154,8 @@ function WorkspaceRow({
         <div className="pointer-events-none absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity group-hover/ws-row:pointer-events-auto group-hover/ws-row:opacity-100 group-focus-within/ws-row:pointer-events-auto group-focus-within/ws-row:opacity-100 motion-reduce:transition-none">
           <Tooltip content={openLabel} side="right">
             <Button
-              variant="ghost"
+              variant="bare-icon"
               size="icon"
-              className="text-icon-default hover:bg-transparent hover:text-text-emphasize"
               aria-label={openLabel}
               onClick={(event) => {
                 event.stopPropagation();
@@ -236,9 +235,8 @@ function TeamRow({ dragHandle, active, onPinChange, onScopeChange, onOpenInNewWi
         {onOpenInNewWindow ? (
           <Tooltip content={openLabel} side="right">
             <Button
-              variant="ghost"
+              variant="bare-icon"
               size="icon"
-              className="text-icon-default hover:bg-transparent hover:text-text-emphasize"
               aria-label={openLabel}
               onClick={(event) => {
                 event.stopPropagation();
@@ -250,7 +248,7 @@ function TeamRow({ dragHandle, active, onPinChange, onScopeChange, onOpenInNewWi
           </Tooltip>
         ) : null}
         <Tooltip content={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} side="right">
-          <Button variant="ghost" size="icon" className="text-icon-default hover:bg-transparent hover:text-text-emphasize" aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} onClick={onPinChange}>
+          <Button variant="bare-icon" size="icon" aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} onClick={onPinChange}>
             {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
           </Button>
         </Tooltip>
@@ -558,7 +556,8 @@ export function WorkspaceSwitcher() {
         data-workspace-navigation-id="switcher"
         aria-label={`Switch workspace, current: ${scope.label}`}
         // The same 32px box and corners as the header's icon buttons beside it.
-        className={cn('-ml-2 flex h-8 min-w-0 max-w-full items-center gap-2 rounded px-1.5 text-left hover:bg-element-bg-hover', FOCUS_RING_INSET_CLASS)}
+        variant="ghost"
+        className="-ml-2 flex h-8 min-w-0 max-w-full items-center"
       >
         <span aria-hidden="true" className="flex shrink-0 text-text-subtle"><ScopeIcon scope={scope} teams={teams} user={user} isLocalWorkspace={Boolean(activeLocalWorkspaceId && localWorkspaces.some((workspace) => workspace.id === activeLocalWorkspaceId && workspace.vaultIds.includes(activeLocalVaultId ?? '')))} /></span>
         <span className="min-w-0 truncate text-sm font-semibold text-text-default">{scope.label}</span>

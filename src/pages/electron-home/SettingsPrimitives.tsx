@@ -1,13 +1,12 @@
-import type { InputHTMLAttributes, ReactNode } from 'react';
+import type { ComponentProps, InputHTMLAttributes, ReactNode } from 'react';
 import { CircleHelp, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/field';
-import { RadioGroup, RadioGroupIndicator, RadioGroupItem } from '@/components/ui/radio-group';
+import { RadioGroup, RadioGroupDot, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 /** A settings page's sections. The page's title is the dialog's header, beside the close button. */
 export function SettingsPage({ children }: { children: ReactNode }) {
   return <div className="flex flex-col gap-7">{children}</div>;
@@ -181,13 +180,9 @@ export function SettingsRadioList<Value extends string>({
             key={option.value}
             value={option.value}
             aria-label={option.label}
-            className={cn(
-              'group flex h-auto w-full cursor-pointer items-start justify-start gap-3 rounded-none border-0 border-b border-border-subtle last:border-b-0 data-[checked]:border-border-subtle bg-transparent px-4 py-3 text-left transition-colors hover:bg-background-hover first:rounded-t-md last:rounded-b-md focus-visible:ring-inset focus-visible:ring-offset-0',
-            )}
+            variant="row"
           >
-            <span className="mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-border-default bg-background-default text-primary-default group-data-[checked]:border-primary-default">
-              <RadioGroupIndicator />
-            </span>
+            <RadioGroupDot />
             <span className="min-w-0 text-sm">
               <span className="block font-medium leading-5 text-text-default">{option.label}</span>
               {option.description ? <span className="block text-xs leading-5 text-text-subtle">{option.description}</span> : null}
@@ -221,7 +216,7 @@ function SettingsHelpTooltip({
   );
 }
 
-export function SettingsInput(props: InputHTMLAttributes<HTMLInputElement>) {
+export function SettingsInput(props: ComponentProps<typeof Input>) {
   return <Input {...props} />;
 }
 
@@ -236,7 +231,8 @@ export function SettingsSecretInput({
   return (
     <div className="flex overflow-hidden rounded border border-border-default bg-background-muted transition-colors focus-within:border-border-primary-subtler">
       <Input
-        className="min-w-0 flex-1 rounded-none border-0 bg-transparent focus:border-transparent focus-visible:ring-0"
+        variant="embedded"
+        className="min-w-0 flex-1"
         type={visible ? 'text' : 'password'}
         spellCheck={false}
         {...props}
@@ -245,9 +241,8 @@ export function SettingsSecretInput({
         pressed={visible}
         onPressedChange={onVisibleChange}
         aria-label={visible ? 'Hide token' : 'Show token'}
-        className="rounded-none border-0 border-l border-border-default"
         size="sm"
-        variant="ghost"
+        variant="field-end"
       >
         {visible ? 'Hide' : 'Show'}
       </Toggle>

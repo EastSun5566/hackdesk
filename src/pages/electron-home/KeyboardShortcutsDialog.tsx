@@ -32,12 +32,12 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent initialFocus={searchRef} finalFocus={() => !customizing.current && returnFocus?.isConnected ? returnFocus : false} size="md" className="scroll-edges overflow-hidden p-0">
-        <DialogHeader className="shrink-0 p-5 pb-0 pr-12">
+      <DialogContent initialFocus={searchRef} finalFocus={() => !customizing.current && returnFocus?.isConnected ? returnFocus : false} size="md" layout="flush" className="scroll-edges overflow-hidden">
+        <DialogHeader className="ml-5 mr-12 mt-5 shrink-0">
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription className="sr-only">Shortcuts for the current region or all actions.</DialogDescription>
         </DialogHeader>
-        <div className="scroll-edge-top relative shrink-0 space-y-3 px-5 pb-3 pt-4">
+        <div className="scroll-edge-top relative mt-4 shrink-0 space-y-3 px-5 pb-3 pt-4">
           <label className="block">
             <span className="sr-only">Search keyboard shortcuts</span>
             <Input ref={searchRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search keyboard shortcuts" className="w-full" />
@@ -47,7 +47,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
             <Toggle pressed={!currentOnly} onPressedChange={() => setCurrentOnly(false)}>All Actions</Toggle>
           </div>
         </div>
-        <div className="scroll-edges-source min-h-0 overflow-y-auto px-5 pb-4">
+        <div className="scroll-edges-source mt-4 min-h-0 overflow-y-auto px-5 pb-4">
           {!actions.length && !widgets.length ? <p className="text-sm text-text-subtle">No matching shortcuts.</p> : null}
           <ul>
             {actions.map(action => {
@@ -68,7 +68,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
             {!currentOnly && matches('Quick Hack global') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Quick Hack</p><p className="text-xs text-text-subtle">From any app</p></div><kbd className="text-xs">{displayShortcutConfig('ctrl+alt+h', platform)}</kbd></li> : null}
           </ul>
         </div>
-        <div className="scroll-edge-bottom relative flex shrink-0 justify-end p-4"><Button onClick={() => { customizing.current = true; onCustomize(); }}>Customize in Settings</Button></div>
+        <div className="scroll-edge-bottom relative mt-4 flex shrink-0 justify-end p-4"><Button onClick={() => { customizing.current = true; onCustomize(); }}>Customize in Settings</Button></div>
       </DialogContent>
     </Dialog>
   );

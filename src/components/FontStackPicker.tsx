@@ -5,7 +5,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { buildFontStack, listLocalFontFamilies, primaryFontFamily } from '@/lib/local-fonts';
 import { isSafeFontStack } from '@/lib/themes';
-import { cn } from '@/lib/utils';
 
 // Each name previews itself through --font-preview (see .font-preview in styles.css).
 
@@ -73,17 +72,14 @@ export function FontStackPicker({
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
         title={stack}
-        className={cn(
-          'flex h-8.5 w-full min-w-0 items-center gap-2 rounded border bg-transparent px-3 text-left text-sm text-text-default transition-colors',
-          'focus-visible:border-border-primary-subtler focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary-subtler',
-          invalid ? 'border-destructive-default' : 'border-border-default',
-        )}
+        variant="field"
+        className="flex h-8.5 w-full min-w-0 items-center"
       >
         <span className="font-preview min-w-0 flex-1 truncate" style={{ '--font-preview': stack } as CSSProperties}>{current}</span>
         {isDefault ? <span className="shrink-0 text-xs text-text-subtle">Default</span> : null}
         <ChevronsUpDown aria-hidden="true" className="size-3.5 shrink-0 text-icon-default" />
       </PopoverTrigger>
-      <PopoverContent className="w-(--anchor-width) min-w-64 overflow-hidden p-0">
+      <PopoverContent className="w-(--anchor-width) min-w-64 overflow-hidden">
         {/* Plain substring match: fuzzy matching lets "av" find "Savoye" and "iA Writer". */}
         <Command filter={(itemValue, search) => (itemValue.toLowerCase().includes(search.trim().toLowerCase()) ? 1 : 0)}>
           <CommandInput
@@ -92,7 +88,7 @@ export function FontStackPicker({
             placeholder="Filter fonts or type a font stack"
             aria-label="Filter fonts"
           />
-          <CommandList className="py-1.5">
+          <CommandList padded>
             <CommandEmpty>{families === null ? 'Loading installed fonts…' : 'No matching fonts.'}</CommandEmpty>
             {offerTyped ? (
               <CommandGroup>

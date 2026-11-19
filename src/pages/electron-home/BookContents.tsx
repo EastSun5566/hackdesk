@@ -71,7 +71,7 @@ export function BookContents({ session, position }: { session: OpenBookSession; 
   if (session.contentsHidden) {
     return (
       // A toolbar, like the header's buttons it replaces: its button is a toolbar part.
-      <Toolbar aria-label="Book actions" orientation="vertical" className="shrink-0 flex-col border-r border-border-default bg-background-muted p-1.5">
+      <Toolbar aria-label="Book actions" orientation="vertical" variant="rail" className="shrink-0 flex-col">
         <ToolbarIconButton label="Show book contents" actionId="toggle-book-contents" onClick={session.toggleContents}>
           <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />
         </ToolbarIconButton>

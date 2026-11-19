@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { ChevronRight, Laptop, Minus, Moon, Plus, Sun } from 'lucide-react';
+import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
+import { NumberStepper } from '@/components/ui/number-stepper';
 import { FontStackPicker } from '@/components/FontStackPicker';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -20,7 +20,6 @@ import {
   type ThemePresetId,
   type ThemeSeed,
 } from '@/lib/themes';
-import { cn } from '@/lib/utils';
 import {
   THEME_SEED_FIELDS,
   type ThemeAppearanceDraftController,
@@ -32,10 +31,7 @@ const themeModeOptions: { id: ThemeMode; label: string; icon: ReactNode }[] = [
   { id: 'system', label: 'System', icon: <Laptop className="h-5 w-5" /> },
 ];
 
-const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
-
 type ThemeAppearanceFieldsOptions = {
-  density?: 'comfortable' | 'compact';
   customSeedsDefaultOpen?: boolean;
   /** Replaces the default spacing between fields, as when each field is a row of a settings card. */
   className?: string;
@@ -45,16 +41,14 @@ type ThemeAppearanceFieldsProps = ThemeAppearanceFieldsOptions & {
   controller: ThemeAppearanceDraftController;
 };
 
-const LEGEND_CLASS = 'text-sm font-semibold leading-5';
 // In a settings card, a field's label matches the card's other row labels. Floated, so it lays out
 // as content: a legend otherwise sits in its fieldset's top border, over the card's row rule.
-const LEGEND_COMPACT_CLASS = 'float-left mb-2 w-full text-sm font-medium leading-5';
+const LEGEND_CLASS = 'float-left mb-2 w-full text-sm font-medium leading-5';
 // Typography names a group of labelled fields, so it reads as a quieter overline above them.
-const GROUP_LEGEND_COMPACT_CLASS = 'float-left mb-3 w-full text-xs font-semibold uppercase leading-4 tracking-wide text-text-subtle';
+const GROUP_LEGEND_CLASS = 'float-left mb-3 w-full text-xs font-semibold uppercase leading-4 tracking-wide text-text-subtle';
 
 export function ThemeAppearanceFields({
   controller,
-  density = 'comfortable',
   customSeedsDefaultOpen = true,
   className,
 }: ThemeAppearanceFieldsProps) {
@@ -67,55 +61,34 @@ export function ThemeAppearanceFields({
   const { seedErrors: errors, showTypography, typographyErrors } = controller;
   const draftActions = controller.actions;
   const presets = HACKDESK_THEME_PRESETS;
-  const compact = density === 'compact';
 
   return (
-    <div className={className ?? (compact ? 'space-y-4' : 'space-y-6')}>
+    <div className={className ?? 'space-y-4'}>
       <fieldset className="space-y-2">
-        <legend className={compact ? LEGEND_COMPACT_CLASS : LEGEND_CLASS}>Mode</legend>
+        <legend className={LEGEND_CLASS}>Mode</legend>
         <RadioGroup
           value={draftMode}
           onValueChange={(value) => draftActions.changeMode(value as ThemeMode)}
-          className={cn(
-            compact
-              ? 'inline-flex rounded-md border border-border-default bg-background-muted p-0.5'
-              : 'grid grid-cols-1 gap-3 sm:grid-cols-3',
-          )}
+          variant="segmented"
         >
           {themeModeOptions.map((option) => (
             <RadioGroupItem
               key={option.id}
               value={option.id}
               aria-label={option.label}
-              className={cn(
-                focusClassName,
-                compact
-                  ? 'inline-flex h-7 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-sm font-medium transition-colors hover:bg-element-bg-hover'
-                  : 'flex h-auto w-auto flex-col items-center gap-2 rounded-lg border-2 p-4 transition duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
-                draftMode === option.id && compact ? 'bg-background-primary-subtler text-primary-default' : null,
-                draftMode === option.id && !compact ? 'border-primary-default bg-primary-soft' : null,
-                draftMode !== option.id && compact ? 'text-text-subtle' : null,
-                draftMode !== option.id && !compact ? 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover' : null,
-              )}
+              variant="segment"
             >
-              {compact ? option.icon : (
-                <div className={cn(
-                  'rounded-full p-2',
-                  draftMode === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle',
-                )}>
-                  {option.icon}
-                </div>
-              )}
-              <span className={cn(compact ? null : 'text-sm font-medium')}>{option.label}</span>
+              {option.icon}
+              <span>{option.label}</span>
             </RadioGroupItem>
           ))}
         </RadioGroup>
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className={compact ? LEGEND_COMPACT_CLASS : LEGEND_CLASS}>Preset</legend>
+        <legend className={LEGEND_CLASS}>Preset</legend>
         <Select value={draftPresetId} onValueChange={(value) => draftActions.changePreset(value as ThemePresetId)}>
-          <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
+          <SelectTrigger aria-label="Theme preset" className="w-full">
             <SelectLabelValue
               value={draftPresetId}
               labels={Object.fromEntries(presets.map((preset) => [preset.id, preset.name]))}
@@ -133,7 +106,7 @@ export function ThemeAppearanceFields({
 
       {showTypography ? (
         <fieldset className="space-y-3">
-          <legend className={compact ? GROUP_LEGEND_COMPACT_CLASS : LEGEND_CLASS}>Typography</legend>
+          <legend className={GROUP_LEGEND_CLASS}>Typography</legend>
           <div className="clear-both space-y-3">
             <ThemeFontField
               label="UI font"
@@ -179,40 +152,22 @@ export function ThemeAppearanceFields({
       ) : null}
 
       <fieldset className="space-y-2">
-        <legend className={compact ? 'sr-only' : 'text-sm font-semibold leading-5'}>Custom Seeds</legend>
-        {compact ? (
-          <Collapsible defaultOpen={customSeedsDefaultOpen}>
-            <CollapsibleTrigger
-              className={cn(
-                'group -mx-2 flex h-8 items-center gap-1.5 rounded px-2 text-left text-sm font-semibold transition-colors hover:bg-background-hover',
-                focusClassName,
-              )}
-            >
-              <ChevronRight className="h-4 w-4 text-icon-default transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
-              <span>Customize colors</span>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="grid grid-cols-1 gap-3 pt-2">
-                <ThemeSeedFields
-                  errors={errors}
-                  inputs={draftSeedInputs}
-                  onChange={draftActions.changeSeed}
-                />
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        ) : (
-          <>
-            <p className="mb-3 text-sm text-text-subtle">Empty colors use the preset.</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <legend className="sr-only">Custom Seeds</legend>
+        <Collapsible defaultOpen={customSeedsDefaultOpen}>
+          <CollapsibleTrigger variant="disclosure" className="-mx-2 flex h-8 items-center">
+            <ChevronRight className="h-4 w-4 text-icon-default transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
+            <span>Customize colors</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="grid grid-cols-1 gap-3 pt-2">
               <ThemeSeedFields
                 errors={errors}
                 inputs={draftSeedInputs}
                 onChange={draftActions.changeSeed}
               />
             </div>
-          </>
-        )}
+          </CollapsibleContent>
+        </Collapsible>
       </fieldset>
     </div>
   );
@@ -243,7 +198,8 @@ function ThemeSeedFields({
             id={fieldId}
             value={inputs[field.key]}
             onChange={(event) => onChange(field.key, event.target.value)}
-            className="h-9 min-w-0 flex-1 bg-background-default px-2 text-text-default"
+            variant="filled"
+            className="h-9 min-w-0 flex-1"
             placeholder="#5D54E8…"
             autoComplete="off"
             spellCheck={false}
@@ -302,48 +258,10 @@ function ThemeFontField({
             onChange={onChange}
           />
         </div>
-        <FontSizeStepper {...size} errorId={size.error ? sizeErrorId : undefined} />
+        <NumberStepper {...size} errorId={size.error ? sizeErrorId : undefined} />
       </div>
       {error ? <FieldError id={errorId} match={Boolean(error)}>{error}</FieldError> : null}
       {size.error ? <FieldError id={sizeErrorId} match={Boolean(size.error)}>{size.error}</FieldError> : null}
     </Field>
-  );
-}
-
-function FontSizeStepper({ label, value, min, max, error, errorId, onChange }: FontSizeStepperProps & { errorId?: string }) {
-  const parsed = Number(value);
-  const step = (delta: number) => {
-    const base = Number.isInteger(parsed) ? parsed : delta > 0 ? min : max;
-    onChange(String(Math.min(max, Math.max(min, base + delta))));
-  };
-
-  return (
-    <div
-      className={cn(
-        'flex h-8.5 shrink-0 items-center rounded border bg-transparent text-sm text-text-default',
-        error ? 'border-destructive-default' : 'border-border-default',
-      )}
-    >
-      <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-r-none" aria-label={`Decrease ${label.toLowerCase()}`} disabled={Number.isInteger(parsed) && parsed <= min} onClick={() => step(-1)}>
-        <Minus aria-hidden="true" className="size-3.5" />
-      </Button>
-      <input
-        type="number"
-        inputMode="numeric"
-        aria-label={label}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={errorId}
-        value={value}
-        min={min}
-        max={max}
-        step={1}
-        onChange={(event) => onChange(event.target.value)}
-        className="no-spinner h-full w-9 bg-transparent text-center tabular-nums outline-none focus-visible:bg-background-hover"
-        autoComplete="off"
-      />
-      <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-l-none" aria-label={`Increase ${label.toLowerCase()}`} disabled={Number.isInteger(parsed) && parsed >= max} onClick={() => step(1)}>
-        <Plus aria-hidden="true" className="size-3.5" />
-      </Button>
-    </div>
   );
 }

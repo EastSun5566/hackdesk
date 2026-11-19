@@ -42,7 +42,6 @@ export function AppearanceSettingsPanel({
       >
         <ThemeAppearanceFields
           controller={controller}
-          density="compact"
           customSeedsDefaultOpen={false}
           // Each field is a row of the section's card.
           className="settings-card-rows"

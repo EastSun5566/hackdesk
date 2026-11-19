@@ -21,7 +21,6 @@ import {
   getHackmdNoteUrl,
   getMarkdownNoteLink,
 } from '@/lib/electron-note-links';
-import { cn } from '@/lib/utils';
 
 import { SettingsSection } from './SettingsPrimitives';
 
@@ -138,12 +137,12 @@ function ShareDialogContent({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-140">
-        <DialogHeader className="pr-8">
-          <DialogTitle className="flex items-center gap-2">
+        <DialogHeader variant="beside-close">
+          <DialogTitle variant="with-icon">
             <Share2 aria-hidden="true" className="h-4 w-4 text-text-subtle" />
             Share Note
           </DialogTitle>
-          <DialogDescription className="truncate text-xs">
+          <DialogDescription variant="meta">
             {noteTitle} · {getReadSummary(readPermission)}
           </DialogDescription>
         </DialogHeader>
@@ -218,7 +217,8 @@ function ShareDialogContent({
                   id="share-hackmd-link"
                   readOnly
                   value={hackmdLink}
-                  className="h-8 min-w-0 flex-1 bg-background-muted text-xs text-text-subtle"
+                  variant="read-only"
+                  className="h-8 min-w-0 flex-1"
                 />
                 <Button
                   variant="secondary"
@@ -247,7 +247,8 @@ function ShareDialogContent({
                   id="share-markdown-link"
                   readOnly
                   value={markdownLink}
-                  className="h-8 min-w-0 flex-1 bg-background-muted text-xs text-text-subtle"
+                  variant="read-only"
+                  className="h-8 min-w-0 flex-1"
                 />
                 <Button
                   variant="secondary"
@@ -268,7 +269,7 @@ function ShareDialogContent({
             </div>
           </SettingsSection>
 
-          <DialogFooter className="items-center justify-between gap-3 pt-1 sm:justify-between">
+          <DialogFooter variant="status">
             <span className="min-w-0 truncate text-xs text-text-subtle" aria-live="polite">
               {isSaving
                 ? 'Saving sharing settings…'
@@ -330,7 +331,8 @@ function PermissionCardRow({
         name={name}
         value={value}
         onValueChange={(nextValue) => onChange(nextValue as NotePermissionRole)}
-        className="grid flex-1 grid-cols-3 gap-0.5 rounded-md border border-border-default bg-background-muted p-0.5"
+        variant="segmented"
+        className="flex-1"
       >
         {options.map((option) => {
           const Icon = option.icon;
@@ -339,11 +341,7 @@ function PermissionCardRow({
               key={option.value}
               value={option.value}
               aria-label={option.label}
-              className={cn(
-                'flex h-7 w-full min-w-0 cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-sm border-0 bg-transparent px-2 text-xs text-text-subtle transition-colors',
-                'hover:text-text-default focus-visible:ring-inset focus-visible:ring-offset-0',
-                'data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default',
-              )}
+              variant="segment"
             >
               <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-80" />
               <span className="truncate whitespace-nowrap">{option.label}</span>

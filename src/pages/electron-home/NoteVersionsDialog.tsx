@@ -96,8 +96,8 @@ function VersionPanel({
           </Button>
         ) : null}
       </div>
-      <Tabs value={tab} onValueChange={(value) => onTabChange(value as VersionTab)} className="flex min-h-0 flex-1 flex-col gap-2">
-        <TabsList aria-label="Version view">
+      <Tabs value={tab} onValueChange={(value) => onTabChange(value as VersionTab)} className="flex min-h-0 flex-1 flex-col">
+        <TabsList aria-label="Version view" className="mb-2">
           <TabsTrigger value="changes">Changes</TabsTrigger>
           <TabsTrigger value="full" disabled={!version.contentAvailable}>Full text</TabsTrigger>
         </TabsList>
@@ -135,7 +135,7 @@ type NoteVersionsDialogProps = {
 export function NoteVersionsDialog({ open, onOpenChange, ...props }: NoteVersionsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="lg" className="note-comparison-dialog gap-0 overflow-hidden p-0">
+      <DialogContent size="comparison-tall" layout="flush">
         {/* The popup unmounts when closed, so each opening starts fresh. */}
         <NoteVersionsBody {...props} onClose={() => onOpenChange(false)} />
       </DialogContent>
@@ -198,11 +198,11 @@ function NoteVersionsBody({
     <>
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border-default py-4 pl-5 pr-14">
         <DialogHeader className="min-w-0">
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle variant="with-icon">
             <History aria-hidden="true" className="size-4" />
             Version History
           </DialogTitle>
-          <DialogDescription className="truncate">{document.title || 'Untitled'}</DialogDescription>
+          <DialogDescription variant="truncate">{document.title || 'Untitled'}</DialogDescription>
         </DialogHeader>
         {versionsUnavailable || versionForm ? null : (
           <Button size="sm" variant="secondary" onClick={() => setVersionForm({ kind: 'create' })}>
@@ -272,7 +272,7 @@ function NoteVersionsBody({
         </div>
       )}
 
-      <DialogFooter className="shrink-0 gap-2 border-t border-border-default px-5 py-3">
+      <DialogFooter variant="bar" className="shrink-0">
         <Button variant="secondary" disabled={versionContent === null} onClick={openAsDraft}>
           <FilePlus aria-hidden="true" className="size-4" />
           Open as New Draft

@@ -31,8 +31,8 @@ export function ConflictComparison(props: {
   }, [snapshot, attempt]);
   const beforeLabel = snapshot.source === 'HackMD' ? 'On HackMD' : 'On disk';
   return <Dialog open onOpenChange={(open) => { if (!open) props.onClose(); }}>
-    <DialogContent size="xl" className="flex note-comparison-dialog flex-col overflow-hidden">
-      <DialogHeader className="shrink-0 pr-7">
+    <DialogContent size="comparison">
+      <DialogHeader variant="beside-close" className="shrink-0">
         <DialogTitle>Compare with {snapshot.source}</DialogTitle>
         <DialogDescription className="sr-only">Compare saved content with your draft.</DialogDescription>
       </DialogHeader>

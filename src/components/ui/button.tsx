@@ -47,6 +47,34 @@ const buttonVariantClassNames = {
     'border border-state-warning-border bg-transparent text-text-default',
     'hover:bg-state-warning-background',
   ),
+  /** A secondary button for a minor action, such as "Use default icon": subtle text until hovered. */
+  'secondary-subtle': cn(
+    'border border-border-default bg-transparent text-text-subtle',
+    'hover:border-element-border-hover hover:bg-element-bg-hover hover:text-text-default',
+  ),
+  /** No box, even on hover; only the text brightens. For a link-like action inside running text. */
+  bare: 'border border-transparent bg-transparent text-text-subtle hover:text-text-default',
+  /** No box, even on hover; for an icon action on a row that already highlights itself. */
+  'bare-icon': 'border border-transparent bg-transparent text-icon-default hover:text-text-emphasize',
+  /** A key-combination recorder: a secondary button that shows when it is listening for keys
+   *  (`data-shortcut-recording`). */
+  'shortcut-recorder': cn(
+    'border border-border-default bg-transparent px-3 text-text-default',
+    'hover:border-element-border-hover hover:bg-element-bg-hover hover:text-text-emphasize',
+    'data-[shortcut-recording]:border-focus-ring data-[shortcut-recording]:bg-background-selected',
+  ),
+  /** The remove button inside a tag chip. */
+  'chip-remove': cn(
+    'rounded-sm border border-transparent bg-transparent text-text-subtle focus-visible:ring-inset',
+    'hover:bg-element-bg-hover hover:text-text-emphasize',
+  ),
+  /** A document tab's close button: hidden until its `group/tab` is hovered, it is focused, or the
+   *  tab is selected (`data-selected`). */
+  'tab-close': cn(
+    'rounded-sm border border-transparent bg-transparent text-text-subtle opacity-0',
+    'hover:bg-background-selected hover:text-text-emphasize',
+    'focus-visible:opacity-100 group-hover/tab:opacity-100 data-[selected]:opacity-100',
+  ),
 } as const;
 
 const buttonSizeClassNames = {
@@ -56,11 +84,17 @@ const buttonSizeClassNames = {
   icon: 'size-8 gap-0 p-0',
   'icon-sm': 'size-6 gap-0 p-0',
   'icon-xs': 'size-5 gap-0 p-0',
+  /** A compact text action, such as a comment's Resolve. */
+  '2xs': 'h-6 gap-1 px-1.5 text-xs leading-5',
+  /** Text height only, for an action that sits inside a line of text. */
+  inline: 'h-auto gap-1 px-1 py-0 text-sm leading-5',
+  /** A 28px square icon button with a larger radius, as in the tab bar. */
+  'icon-md': 'size-7 gap-0 p-0 rounded-md',
 } as const;
 
 /** Variants that keep their own look when disabled and only dim. A ghost button has no box at rest,
  *  so it must not gain the disabled fill and border either. */
-const filledButtonVariants = new Set<ButtonVariant>(['primary', 'destructive-solid', 'warning', 'ghost']);
+const filledButtonVariants = new Set<ButtonVariant>(['primary', 'destructive-solid', 'warning', 'ghost', 'bare', 'bare-icon', 'chip-remove', 'tab-close']);
 
 export type ButtonVariant = keyof typeof buttonVariantClassNames;
 export type ButtonSize = keyof typeof buttonSizeClassNames;

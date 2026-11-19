@@ -175,13 +175,11 @@ function DocumentTab({
         <TooltipContent side="bottom" sideOffset={8}>{title}</TooltipContent>
       </TooltipRoot>
       <Button
-        variant="ghost"
+        variant="tab-close"
         size="icon-sm"
         tabIndex={focused ? 0 : -1}
-        className={cn(
-          'app-region-no-drag rounded-sm hover:bg-background-selected focus-visible:opacity-100 group-hover/tab:opacity-100',
-          selected ? 'opacity-100' : 'opacity-0',
-        )}
+        data-selected={selected || undefined}
+        className="app-region-no-drag"
         onClick={(event) => {
           event.stopPropagation();
           onClose();
@@ -404,8 +402,8 @@ export function DocumentTabs({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
-            className="app-topbar-button app-region-no-drag h-7 w-7 shrink-0 rounded-md"
+            size="icon-md"
+            className="app-topbar-button app-region-no-drag shrink-0"
             aria-label="New Tab"
             onClick={onNewTab}
           >
@@ -420,7 +418,8 @@ export function DocumentTabs({
               onClick={paneLayout.onToggleZoom}
               aria-pressed={paneLayout.zoomed}
               label={paneLayout.zoomed ? 'Restore panes' : 'Zoom pane'}
-              className="app-topbar-button app-region-no-drag h-7 w-7 rounded-md"
+              variant="icon-topbar"
+              className="app-topbar-button app-region-no-drag h-7 w-7"
             >
               {paneLayout.zoomed ? <Minimize2 aria-hidden="true" className="h-4 w-4" /> : <Maximize2 aria-hidden="true" className="h-4 w-4" />}
             </ToolbarIconButton>
@@ -430,13 +429,14 @@ export function DocumentTabs({
               actionId="equalize-panes"
               onClick={paneLayout.onEqualize}
               label="Equalize pane sizes"
-              className="app-topbar-button app-region-no-drag h-7 w-7 rounded-md"
+              variant="icon-topbar"
+              className="app-topbar-button app-region-no-drag h-7 w-7"
             >
               <Equal aria-hidden="true" className="h-4 w-4" />
             </ToolbarIconButton>
           ) : null}
           <DropdownMenu>
-            <ToolbarDropdownIconTrigger label="Pane actions" className="app-topbar-button app-region-no-drag h-7 w-7 rounded-md">
+            <ToolbarDropdownIconTrigger label="Pane actions" variant="icon-topbar" className="app-topbar-button app-region-no-drag h-7 w-7">
               <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
             </ToolbarDropdownIconTrigger>
             <DropdownMenuContent align="end">

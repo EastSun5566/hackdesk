@@ -187,7 +187,8 @@ export function QuickHackShortcutsSection({
               }}
               onBlur={() => setRecording((current) => (current === row ? null : current))}
               onKeyDown={(event) => handleKeyDown(row, event)}
-              className={cn('min-w-28 px-3', recording === row && 'border-focus-ring bg-background-selected')}
+              variant="shortcut-recorder"
+              className="min-w-28"
             >
               {recording === row ? 'Press keys…' : display(row)}
             </Button>

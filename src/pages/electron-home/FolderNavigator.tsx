@@ -643,8 +643,9 @@ function NavigatorFilterBar({
       {scope.type !== 'local' && !status.hasToken ? (
         <Button
           size="sm"
+          variant="secondary-subtle"
           onClick={actions.onOpenSettings}
-          className="w-full justify-start font-normal text-text-subtle hover:text-text-default"
+          className="w-full justify-start"
         >
           <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 truncate">Configure HackMD API Token</span>

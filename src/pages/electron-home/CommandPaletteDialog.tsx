@@ -108,7 +108,6 @@ import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import type { ThemeMode, ThemePreset, ThemePresetId } from '@/lib/themes';
 
 import type { CommandPaletteState, WorkspaceScope } from './types';
-import { FOCUS_RING_CLASS } from './ui';
 import { HighlightedText } from './HighlightedText';
 import { SETTINGS_TABS, type SettingsTab } from './SettingsDialogConfig';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
@@ -420,7 +419,7 @@ export function CommandPaletteDialog({
         open ? { ...state, open } : { mode: 'commands', open: false, search: '' },
       )}
     >
-      <DialogContent placement="top" className="max-w-xl overflow-hidden p-0" showCloseButton={false}>
+      <DialogContent placement="top" layout="flush" className="max-w-xl overflow-hidden" showCloseButton={false}>
         <DialogHeader className="sr-only">
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>{dialogDescription}</DialogDescription>
@@ -432,10 +431,7 @@ export function CommandPaletteDialog({
             onValueChange={(search) => onStateChange({ ...state, search })}
             placeholder={`${searchLabel}…`}
             trailing={(
-              <DialogClose
-                aria-label={`Close ${dialogTitle.toLowerCase()}`}
-                className={`inline-flex size-8 items-center justify-center p-0 ${FOCUS_RING_CLASS}`}
-              >
+              <DialogClose size="field" aria-label={`Close ${dialogTitle.toLowerCase()}`}>
                 <X aria-hidden="true" className="h-4 w-4" />
               </DialogClose>
             )}

@@ -10,10 +10,8 @@ import {
   type AppIconId,
 } from '@/lib/app-icons';
 import { isMacPlatform } from '@/lib/keyboard-shortcuts';
-import { cn } from '@/lib/utils';
 
 import { SettingsSection } from './SettingsPrimitives';
-import { FOCUS_RING_CLASS } from './ui';
 
 const GROUP_LABELS: Record<AppIconGroup, string> = {
   classic: 'Classic',
@@ -79,31 +77,29 @@ export function AppIconSettings({
         aria-label="App icon"
         value={value}
         onValueChange={(next) => onChange(next as AppIconId)}
-        className="space-y-4"
       >
-        {groups.map(({ group, options }) => (
-          <div key={group} className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-text-subtle">{GROUP_LABELS[group]}</p>
-            <div className="flex flex-wrap gap-2">
-              {options.map((option) => (
-                <RadioGroupItem
-                  key={option.id}
-                  value={option.id}
-                  aria-label={group === 'single' ? `${option.label} (single tile)` : option.label}
-                  onClick={() => handleOptionClick(option.id)}
-                  className={cn(
-                    'flex h-auto w-22 cursor-pointer flex-col items-center gap-1.5 rounded-md border border-transparent px-1.5 py-2 text-center hover:bg-element-bg-hover',
-                    FOCUS_RING_CLASS,
-                    'data-[checked]:border-primary-default/50 data-[checked]:bg-primary-soft/40',
-                  )}
-                >
-                  <img src={option.src} alt="" className="h-14 w-14" draggable={false} />
-                  <span className="text-xs leading-tight text-text-default">{option.label}</span>
-                </RadioGroupItem>
-              ))}
+        <div className="space-y-4">
+          {groups.map(({ group, options }) => (
+            <div key={group} className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-subtle">{GROUP_LABELS[group]}</p>
+              <div className="flex flex-wrap gap-2">
+                {options.map((option) => (
+                  <RadioGroupItem
+                    key={option.id}
+                    value={option.id}
+                    aria-label={group === 'single' ? `${option.label} (single tile)` : option.label}
+                    onClick={() => handleOptionClick(option.id)}
+                    variant="tile"
+                    className="w-22"
+                  >
+                    <img src={option.src} alt="" className="h-14 w-14" draggable={false} />
+                    <span className="text-xs leading-tight text-text-default">{option.label}</span>
+                  </RadioGroupItem>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </RadioGroup>
     </SettingsSection>
   );

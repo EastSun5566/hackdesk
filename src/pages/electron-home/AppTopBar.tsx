@@ -110,7 +110,8 @@ function TopBarIconButton({
       disabled={disabled}
       label={label}
       tooltip={tooltip}
-      className="app-topbar-button app-region-no-drag h-7 w-7 shrink-0 rounded-md"
+      variant="icon-topbar"
+      className="app-topbar-button app-region-no-drag h-7 w-7 shrink-0"
     >
       {children}
     </ToolbarIconButton>
