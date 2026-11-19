@@ -64,13 +64,15 @@ class NoteEmbedWidget extends WidgetType {
 
 function buildCards(state: EditorState, host: NoteEmbedHost): DecorationSet {
   const ranges: Range<Decoration>[] = [];
-  for (let number = 1; number <= state.doc.lines; number += 1) {
-    const line = state.doc.line(number);
-    if (!line.text.includes('{%')) continue;
-    const embed = parseEmbedLine(line.text);
+  let lineFrom = 0;
+  for (const text of state.doc.iterLines()) {
+    const lineTo = lineFrom + text.length;
+    lineFrom = lineTo + 1;
+    if (!text.includes('{%')) continue;
+    const embed = parseEmbedLine(text);
     // HackMD shows these as plain text inside code.
-    if (!embed || isInCodeOrFrontMatter(state, line.to)) continue;
-    ranges.push(Decoration.widget({ block: true, side: 1, widget: new NoteEmbedWidget(embed, host) }).range(line.to));
+    if (!embed || isInCodeOrFrontMatter(state, lineTo)) continue;
+    ranges.push(Decoration.widget({ block: true, side: 1, widget: new NoteEmbedWidget(embed, host) }).range(lineTo));
   }
   return Decoration.set(ranges, true);
 }
