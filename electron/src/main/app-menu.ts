@@ -184,6 +184,10 @@ const windowMenus = new WeakMap<BrowserWindow, Menu>();
  * Linux and Windows keep a menu in each window, so each window owns its copy. The window is frameless
  * there, so Electron draws no menu bar: the menu serves its accelerators, and the renderer's own title
  * bar opens it (getWindowMenuBar, popupWindowMenu).
+ *
+ * Not a documented Electron contract: its views RootView::SetMenu registers the accelerators, then
+ * creates no menu bar for a window without a frame. Re-check that a frameless window shows no menu
+ * bar, and that its shortcuts still work, after an Electron upgrade.
  */
 export function attachWindowMenu(window: BrowserWindow, options: ApplicationMenuOptions) {
   const menu = Menu.buildFromTemplate(buildMenuTemplate(options));
@@ -201,6 +205,11 @@ export function getWindowMenuBar(window: BrowserWindow): string[] {
 /**
  * Opens one entry of the window's menu, or the whole menu when `section` is null, as a native menu at
  * a point in the window. Resolves once it closes, so the renderer can put its menu bar away.
+ *
+ * Two Electron behaviours to re-check after an upgrade: `x`/`y` are DIPs from the content area's
+ * origin, which the renderer's CSS pixels match at zoom 1; and the close callback runs even when the
+ * popup cannot open (for instance over a menu that is already showing). If it did not, this would
+ * never resolve and the Alt menu bar would stay out until Escape, a click or the window losing focus.
  */
 export function popupWindowMenu(window: BrowserWindow, input: PopupMenuInput) {
   const menu = windowMenus.get(window);
