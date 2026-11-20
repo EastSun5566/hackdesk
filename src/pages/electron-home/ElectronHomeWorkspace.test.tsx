@@ -49,10 +49,12 @@ vi.mock('./AppTopBar', () => {
       topRow: boolean;
       leadingSpace?: boolean;
       leadingOpen?: boolean;
+      windowControls?: boolean;
     }) => (
       <div
         data-testid={`pane-tab-bar-${props.segment.paneId}`}
         data-active={String(props.segment.isActivePane)}
+        data-window-controls={String(Boolean(props.windowControls))}
         data-segmented={String(props.isSegmented)}
         data-top-row={String(props.topRow)}
       >
@@ -106,7 +108,7 @@ vi.mock('./DocumentWorkspace', () => ({
     activePaneId: string;
     panes: NotePane[];
     zoomedPaneId: string | null;
-    renderPaneHeader?: (pane: NotePane, placement: { topRow: boolean; leading: boolean }) => ReactNode;
+    renderPaneHeader?: (pane: NotePane, placement: { topRow: boolean; leading: boolean; trailing: boolean }) => ReactNode;
     emptyHeader?: ReactNode;
   }) => {
     const shown = props.zoomedPaneId ? props.panes.filter(pane => pane.paneId === props.zoomedPaneId) : props.panes;
@@ -114,7 +116,7 @@ vi.mock('./DocumentWorkspace', () => ({
       <section data-testid="document-workspace" data-active-pane={props.activePaneId}>
         {props.panes.length} panes
         {shown.length === 0 ? props.emptyHeader : shown.map((pane, index) => (
-          <div key={pane.paneId}>{props.renderPaneHeader?.(pane, { topRow: true, leading: index === 0 })}</div>
+          <div key={pane.paneId}>{props.renderPaneHeader?.(pane, { topRow: true, leading: index === 0, trailing: index === props.panes.length - 1 })}</div>
         ))}
       </section>
     );
@@ -379,6 +381,22 @@ describe('ElectronHomeWorkspace', () => {
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
     expect(within(screen.getByTestId('document-workspace')).getByTestId('leading-slot')).toHaveAttribute('data-open', 'true');
+  });
+
+  it('draws window controls in the top-right tab bar on Linux and Windows only', () => {
+    window.hackdeskAPI = { platform: 'linux', app: {} } as unknown as NonNullable<typeof window.hackdeskAPI>;
+    try {
+      const { unmount } = render(<ElectronHomeWorkspace {...createProps()} />, { wrapper: createOverlayWrapper().wrapper });
+      expect(screen.getByTestId('pane-tab-bar-pane-a')).toHaveAttribute('data-window-controls', 'false');
+      expect(screen.getByTestId('pane-tab-bar-pane-b')).toHaveAttribute('data-window-controls', 'true');
+      unmount();
+
+      window.hackdeskAPI = { platform: 'darwin', app: {} } as unknown as NonNullable<typeof window.hackdeskAPI>;
+      render(<ElectronHomeWorkspace {...createProps()} />, { wrapper: createOverlayWrapper().wrapper });
+      expect(screen.getByTestId('pane-tab-bar-pane-b')).toHaveAttribute('data-window-controls', 'false');
+    } finally {
+      delete window.hackdeskAPI;
+    }
   });
 
   it('shows a single unsegmented tab bar when a pane is zoomed', () => {

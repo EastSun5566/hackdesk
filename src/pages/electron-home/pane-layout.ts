@@ -43,6 +43,12 @@ export function leadingPaneId(node: PaneLayoutNode): string {
   return node.type === 'pane' ? node.paneId : leadingPaneId(node.children[0]);
 }
 
+/** The pane in the editor area's top-right corner, where Linux and Windows put the window controls. */
+export function trailingPaneId(node: PaneLayoutNode): string {
+  if (node.type === 'pane') return node.paneId;
+  return trailingPaneId(node.orientation === 'horizontal' ? node.children[node.children.length - 1] : node.children[0]);
+}
+
 /** The id a child is known by in its split, which is also its panel id. */
 export function layoutNodeId(node: PaneLayoutNode) {
   return node.type === 'pane' ? node.paneId : node.id;

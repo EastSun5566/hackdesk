@@ -17,6 +17,7 @@ import {
   splitLayoutPane,
   topRowPaneIds,
   type PaneLayoutNode,
+  trailingPaneId,
 } from './pane-layout';
 
 function shape(node: PaneLayoutNode): unknown {
@@ -212,5 +213,17 @@ describe('pane tab bar placement', () => {
     layout = splitLayoutAtEdge(layout, 'd', 'up');
     expect(topRowPaneIds(layout)).toEqual(['d']);
     expect(leadingPaneId(layout)).toBe('d');
+  });
+
+  it('finds the pane in the top-right corner, where the window controls go', () => {
+    expect(trailingPaneId(paneLeaf('a'))).toBe('a');
+    // a | (b over c): b is top right.
+    let layout = splitLayoutPane(paneLeaf('a'), 'a', 'b', 'right');
+    layout = splitLayoutPane(layout, 'b', 'c', 'down');
+    expect(trailingPaneId(layout)).toBe('b');
+
+    // (a | (b over c)) under d: d spans the top.
+    layout = splitLayoutAtEdge(layout, 'd', 'up');
+    expect(trailingPaneId(layout)).toBe('d');
   });
 });

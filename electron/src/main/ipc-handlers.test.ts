@@ -195,6 +195,10 @@ vi.mock('./hackmd-service', () => ({
   validateToken: hackmdServiceMock.validateToken,
   resolveNote: hackmdServiceMock.resolveNote,
 }));
+vi.mock('./app-menu', () => ({
+  getWindowMenuBar: vi.fn(() => []),
+  popupWindowMenu: vi.fn(async () => false),
+}));
 vi.mock('./url-policy', () => ({
   openExternalUrl: vi.fn(),
   openHackmdEditor: vi.fn(),
@@ -220,6 +224,7 @@ vi.mock('./global-shortcuts', () => ({
 
 import { registerIpcHandlers } from './ipc-handlers';
 import { clearHackmdCache } from './hackmd-service';
+import { getWindowMenuBar, popupWindowMenu } from './app-menu';
 
 const windowManager = {
   cancelClose: vi.fn(),
@@ -230,12 +235,13 @@ const windowManager = {
   confirmCloseForSender: vi.fn(),
   getMainWindow: vi.fn<WindowManager['getMainWindow']>(() => null),
   getMainWindows: vi.fn(() => []),
-  getMainWindowForWebContents: vi.fn(() => null),
+  getMainWindowForWebContents: vi.fn<WindowManager['getMainWindowForWebContents']>(() => null),
   sendToAllMainWindows: vi.fn(),
   newMainWindow: vi.fn(),
   getTargetWindow: vi.fn(() => null),
-  getWindowPresentationState: vi.fn(() => ({ fullScreen: true })),
-  getWindowPresentationStateForSender: vi.fn(() => ({ fullScreen: true })),
+  getWindowPresentationState: vi.fn(() => ({ fullScreen: true, maximized: false })),
+  getWindowPresentationStateForSender: vi.fn(() => ({ fullScreen: true, maximized: false })),
+  controlWindowForSender: vi.fn(),
   hideQuickCaptureWindow: vi.fn(),
   isTrustedIpcSender: vi.fn(() => true),
   resolveQuickCaptureSubmission: vi.fn(),
@@ -445,8 +451,33 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers(windowManager);
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.appGetWindowPresentationState);
 
-    expect(handler?.({ sender: 'sender' })).toEqual({ fullScreen: true });
+    expect(handler?.({ sender: 'sender' })).toEqual({ fullScreen: true, maximized: false });
     expect(windowManager.getWindowPresentationStateForSender).toHaveBeenCalledWith('sender');
+  });
+
+  it('runs a validated window control on the requesting window', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appWindowControl);
+
+    handler?.({ sender: 'sender' }, 'toggle-maximize');
+    expect(windowManager.controlWindowForSender).toHaveBeenCalledWith('sender', 'toggle-maximize');
+    expect(() => handler?.({ sender: 'sender' }, 'fullscreen')).toThrow();
+    expect(windowManager.controlWindowForSender).toHaveBeenCalledOnce();
+  });
+
+  it('opens the requesting window\'s menu and rejects an invalid position', async () => {
+    const window = { id: 'window' } as never;
+    windowManager.getMainWindowForWebContents.mockReturnValue(window);
+    vi.mocked(getWindowMenuBar).mockReturnValueOnce(['File', 'Edit']);
+    vi.mocked(popupWindowMenu).mockResolvedValueOnce(true);
+    registerIpcHandlers(windowManager);
+
+    expect(ipcHandlers.get(ELECTRON_CHANNELS.appGetMenuBar)?.({ sender: 'sender' })).toEqual(['File', 'Edit']);
+    const popup = ipcHandlers.get(ELECTRON_CHANNELS.appPopupMenu);
+    await expect(popup?.({ sender: 'sender' }, { section: 1, x: 40, y: 32 })).resolves.toBe(true);
+    expect(popupWindowMenu).toHaveBeenCalledWith(window, { section: 1, x: 40, y: 32 });
+    expect(() => popup?.({ sender: 'sender' }, { section: 1, x: -4, y: 32 })).toThrow();
+    windowManager.getMainWindowForWebContents.mockReturnValue(null);
   });
 
   it('opens a new window with a validated workspace', () => {

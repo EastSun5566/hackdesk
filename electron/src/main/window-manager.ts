@@ -10,6 +10,8 @@ import type {
   QuickCaptureState,
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
+  WindowControlAction,
+  WindowPresentationState,
 } from '../../../src/lib/electron-api';
 import { matchShortcutConfig } from '../../../src/lib/keyboard-shortcuts';
 import { DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT } from '../../../src/lib/quick-capture-shortcuts';
@@ -52,6 +54,13 @@ const PRESENTATION_CHANNELS = new Set<string>([
   ELECTRON_CHANNELS.appClosePresentation,
   ELECTRON_CHANNELS.appTogglePresentationFullScreen,
 ]);
+
+function presentationStateOf(window: BrowserWindow | null | undefined): WindowPresentationState {
+  return {
+    fullScreen: window?.isFullScreen() ?? false,
+    maximized: window?.isMaximized() ?? false,
+  };
+}
 
 type QuickCaptureKeyInput = Pick<Electron.Input, 'type' | 'key' | 'meta' | 'control' | 'alt' | 'shift'>;
 
@@ -301,11 +310,25 @@ export class WindowManager {
   }
 
   getWindowPresentationState() {
-    return { fullScreen: this.getMainWindow()?.isFullScreen() ?? false };
+    return presentationStateOf(this.getMainWindow());
   }
 
   getWindowPresentationStateForSender(sender: Electron.WebContents) {
-    return { fullScreen: this.getMainWindowForWebContents(sender)?.isFullScreen() ?? false };
+    return presentationStateOf(this.getMainWindowForWebContents(sender));
+  }
+
+  /** The renderer's own window controls, on Linux and Windows. Closing asks about unsaved notes as usual. */
+  controlWindowForSender(sender: Electron.WebContents, action: WindowControlAction) {
+    const window = this.getMainWindowForWebContents(sender);
+    if (!window || window.isDestroyed()) return;
+    if (action === 'minimize') {
+      window.minimize();
+    } else if (action === 'toggle-maximize') {
+      if (window.isMaximized()) window.unmaximize();
+      else window.maximize();
+    } else {
+      window.close();
+    }
   }
 
   confirmCloseForSender(sender: Electron.WebContents) {
@@ -502,6 +525,8 @@ export class WindowManager {
       show: false,
       title: 'Quick Hack',
       titleBarStyle: isMac ? 'hiddenInset' : 'default',
+      // Linux and Windows: the app menu bar stays hidden until Alt, as in the main window.
+      autoHideMenuBar: true,
       trafficLightPosition: isMac ? { x: 14, y: 12 } : undefined,
       alwaysOnTop: true,
       backgroundColor: WINDOW_BACKGROUND_COLOR,
@@ -710,6 +735,7 @@ export class WindowManager {
       ...bounds,
       show: false,
       title: deck.title || 'Presentation',
+      autoHideMenuBar: true,
       backgroundColor: PRESENTATION_BACKGROUND_COLOR,
       icon: getAppIconPath(),
       webPreferences: {
@@ -804,7 +830,9 @@ export class WindowManager {
       minHeight: 620,
       show: false,
       title: 'HackDesk',
-      titleBarStyle: isMac ? 'hiddenInset' : 'default',
+      // Linux and Windows get no system frame: the renderer draws the window controls and opens the
+      // menu from its own title bar.
+      titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
       trafficLightPosition: isMac ? { x: 16, y: 12 } : undefined,
       backgroundColor: WINDOW_BACKGROUND_COLOR,
       vibrancy: isMac ? 'sidebar' : undefined,
@@ -839,11 +867,19 @@ export class WindowManager {
     });
 
     window.on('enter-full-screen', () => {
-      this.sendWindowPresentationState(window, true);
+      this.sendWindowPresentationState(window, { fullScreen: true });
     });
 
     window.on('leave-full-screen', () => {
-      this.sendWindowPresentationState(window, false);
+      this.sendWindowPresentationState(window, { fullScreen: false });
+    });
+
+    window.on('maximize', () => {
+      this.sendWindowPresentationState(window, { maximized: true });
+    });
+
+    window.on('unmaximize', () => {
+      this.sendWindowPresentationState(window, { maximized: false });
     });
 
     window.on('focus', () => {
@@ -925,9 +961,13 @@ export class WindowManager {
     }
   }
 
-  private sendWindowPresentationState(window: BrowserWindow, fullScreen: boolean) {
+  private sendWindowPresentationState(window: BrowserWindow, change: Partial<WindowPresentationState>) {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
-      window.webContents.send(ELECTRON_CHANNELS.appWindowPresentationStateChanged, { fullScreen });
+      // The event's own value wins: the window may not report the new state yet while it fires.
+      window.webContents.send(ELECTRON_CHANNELS.appWindowPresentationStateChanged, {
+        ...presentationStateOf(window),
+        ...change,
+      });
     }
   }
 

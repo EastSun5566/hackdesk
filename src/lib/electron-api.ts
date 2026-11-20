@@ -513,7 +513,15 @@ export type ThemeSurfaceInput = {
 
 export type WindowPresentationState = {
   fullScreen: boolean;
+  /** Linux and Windows draw their own maximize button, which shows Restore while this is true. */
+  maximized: boolean;
 };
+
+/** A button in the window controls Linux and Windows draw in the title bar. */
+export type WindowControlAction = 'minimize' | 'toggle-maximize' | 'close';
+
+/** Opens one menu bar entry by index, or the whole menu when `section` is null, at a point in the window. */
+export type PopupMenuInput = { section: number | null; x: number; y: number };
 
 export type QuickCaptureShortcutStatus = {
   /** The global hotkey from Settings, such as `control+alt+h`, or `none` when turned off. */
@@ -692,6 +700,12 @@ export type HackDeskElectronAPI = {
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;
     getWindowPresentationState?: () => Promise<WindowPresentationState>;
     onWindowPresentationStateChange?: (callback: (state: WindowPresentationState) => void) => () => void;
+    /** Linux and Windows: the title bar's own window controls and menu. */
+    controlWindow?: (action: WindowControlAction) => Promise<void>;
+    /** The menu bar's top-level labels, in order. */
+    getMenuBar?: () => Promise<string[]>;
+    /** Resolves when the menu closes; false when there was nothing to open. */
+    popupMenu?: (input: PopupMenuInput) => Promise<boolean>;
     getQuickCaptureShortcutStatus?: () => Promise<QuickCaptureShortcutStatus>;
     submitQuickCapture?: (content: string) => Promise<QuickCaptureSubmitResult>;
     hideQuickCapture?: () => Promise<void>;

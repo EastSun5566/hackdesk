@@ -46,6 +46,10 @@ const toolbarButtonVariantClassNames = {
   'icon-subtle': cn(iconButtonClassName, 'text-text-subtle hover:text-text-default'),
   /** An icon button that calls for action, such as Save while there are unsaved changes. */
   'icon-primary': cn(iconButtonClassName, 'bg-primary-solid text-primary-solid-foreground hover:bg-primary-solid-hover hover:text-primary-solid-foreground'),
+  /** A window control (minimize, maximize) in the title bar Linux and Windows draw themselves. */
+  'window-control': cn(iconButtonClassName, 'rounded-md text-text-subtle hover:text-text-default'),
+  /** The close window control: red on hover, as the system's own close button is. */
+  'window-close': cn(iconButtonClassName, 'rounded-md text-text-subtle hover:bg-destructive-default hover:text-destructive-foreground'),
   /** A small secondary text button on the page fill, as in a panel header. */
   'text-compact': cn(buttonVariants({ variant: 'secondary', size: 'xs' }), 'h-6 bg-background-default px-2 font-medium'),
 } as const;

@@ -18,7 +18,7 @@ import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
 import { getNoteTabEditorKey, getSavedTabNoteIdentity, isDraftNoteTab, isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { EmptyState } from './interaction-primitives';
-import { layoutNodeId, layoutPaneIds, leadingPaneId, topRowPaneIds, type PaneLayoutNode } from './pane-layout';
+import { layoutNodeId, layoutPaneIds, leadingPaneId, topRowPaneIds, trailingPaneId, type PaneLayoutNode } from './pane-layout';
 import { CARD_SURFACE_CLASS, GAP_SASH_ROW_CLASS, PANE_GAP_SASH_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
@@ -157,7 +157,7 @@ function PaneOutlet({ host }: { host: PaneHost }) {
 }
 
 /** Where a pane sits, for its tab bar: along the top edge, and whether in the top-left corner. */
-export type PaneHeaderPlacement = { topRow: boolean; leading: boolean };
+export type PaneHeaderPlacement = { topRow: boolean; leading: boolean; trailing: boolean };
 
 export type DocumentPaneView = {
   pane: NotePane;
@@ -291,6 +291,7 @@ export function DocumentWorkspace({
   // A zoomed pane fills the editor area, so it is both on the top row and in the corner.
   const topRow = new Set(zoomedPaneId ? [zoomedPaneId] : topRowPaneIds(layout));
   const cornerPaneId = zoomedPaneId ?? leadingPaneId(layout);
+  const trailingCornerPaneId = zoomedPaneId ?? trailingPaneId(layout);
 
   const renderPane = (pane: NotePane) => {
     const index = paneOrder.indexOf(pane.paneId);
@@ -306,7 +307,11 @@ export function DocumentWorkspace({
 
     return (
     <>
-    {renderPaneHeader?.(pane, { topRow: topRow.has(pane.paneId), leading: pane.paneId === cornerPaneId })}
+    {renderPaneHeader?.(pane, {
+      topRow: topRow.has(pane.paneId),
+      leading: pane.paneId === cornerPaneId,
+      trailing: pane.paneId === trailingCornerPaneId,
+    })}
     <section
       id={documentPaneId(pane.paneId)}
       role={isActivePane ? 'tabpanel' : 'region'}
