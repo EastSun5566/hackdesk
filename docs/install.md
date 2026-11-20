@@ -39,6 +39,20 @@ xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 
 If macOS still blocks launch, try opening HackDesk once. Then open **System Settings → Privacy & Security → Open Anyway**, authenticate, and confirm **Open**.
 
+#### Download with GitHub CLI
+
+Install [GitHub CLI](https://cli.github.com/) and sign in with `gh auth login`, then download and extract the Apple silicon ZIP:
+
+```sh
+gh release download v2.0.0-beta.13 --repo EastSun5566/hackdesk \
+  --pattern 'HackDesk-2.0.0-beta.13-arm64.zip' --dir ./hackdesk-beta13
+ditto -x -k ./hackdesk-beta13/HackDesk-2.0.0-beta.13-arm64.zip ./hackdesk-beta13
+```
+
+For Intel Macs, replace `arm64` with `x64` in both commands. Quit HackDesk, then move the extracted `HackDesk.app` to Applications.
+
+Pass the beta tag explicitly. Downloads made by `gh` normally do not have the browser's quarantine attribute; the app is still unsigned. If macOS blocks launch, use the steps above.
+
 ### Windows
 
 Download and run the x64 installer. An unsigned beta can show a Microsoft Defender SmartScreen warning. For the official download, choose **More info → Run anyway** to continue.

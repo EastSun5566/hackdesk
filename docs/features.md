@@ -6,9 +6,9 @@ outline: deep
 
 Open notes in tabs, arrange them in panes, and save them to a Local Vault or HackMD. To connect a workspace, [get started](./intro.md).
 
-![Reading notes and a project plan open side by side in HackDesk](/editor.png)
+![Project plan and release checklist open in separate panes, beside two demonstration folders](/editor.png)
 
-*HackDesk beta.10 with demonstration notes.*
+*HackDesk beta.13 with demonstration notes.*
 
 ## Choose a workspace
 
@@ -103,20 +103,20 @@ HackMD tag fields also suggest existing tags. New code blocks and containers inc
 
 ## Read books
 
-A book note uses headings and bulleted links as its table of contents. HackMD books open with **Book contents** beside the editor. For another note, choose **Open as Book** from **More actions** or the Command Palette.
+A book note uses headings and bulleted links as its table of contents. Each open book has its own tab, with **Book contents** beside the editor. For another note, choose **Open as Book** from **More actions** or the Command Palette.
 
 Choose a chapter, or use **Previous Chapter** and **Next Chapter**. Chapters follow the same link rules as other notes. Edit the table of contents and save to update it. **Close book** hides the contents.
 
 ## Present slides
 
-Choose **Present** from **More actions**, the View menu, or the Command Palette. The presentation includes unsaved edits. Notes with `type: slide` also show Present in the toolbar.
+Choose **Present** from **More actions**, the View menu, or the Command Palette. Slides open in a separate window and include unsaved edits. Notes with `type: slide` also show Present in the toolbar.
 
 - Use `---` on its own line, with blank lines above and below, for a new slide; use `----` for a slide below. These separators also apply inside code blocks.
 - Start a line with `note:` for hidden speaker notes.
 - Use `<!-- .slide: ... -->` and `<!-- .element: ... -->` for slide and element attributes.
 - Set the theme, transition, and controls through `slideOptions` in front matter. Script-loading options are ignored.
 
-Arrow keys or Space advance, **O** opens the overview, and **Escape** exits. Math is supported; embeds and diagrams remain text. Themes use system fonts instead of remote web fonts.
+Arrow keys or Space advance, and **O** opens the overview. Press **F** for full screen. **Escape** leaves full screen, then closes the presentation window. Math is supported; embeds and diagrams remain text. Themes use system fonts instead of remote web fonts.
 
 ## Write with AI
 

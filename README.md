@@ -29,6 +29,8 @@ Save open notes before upgrading. Back up app data before downgrading: beta.12 c
 
 See the [installation guide](https://hackdesk.eastsun.me/install) for platform steps and the [code signing policy](docs/code-signing-policy.md) for signing status.
 
+Prefer the terminal? [Download the macOS beta with GitHub CLI](https://hackdesk.eastsun.me/install#download-with-github-cli).
+
 ### Main previews
 
 [Releases](https://github.com/EastSun5566/hackdesk/releases) also lists `main-<commit>` previews after CI passes. These builds include newer changes, are unsigned, and use manual updates.

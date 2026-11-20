@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### Workspaces and panes
 
 * Open multiple windows and local Markdown folders. Save named workspaces to keep a set of folders together in the sidebar.
+* Connect multiple HackMD accounts and switch between them, with a separate saved token for each account.
 * Use tabs in each pane. Drag tabs between panes or to an edge to split the workbench.
 * Group folder-less HackMD notes by their first tag. Keep folder structure when sorting notes.
 * Use Note Settings for metadata, Share Note for permissions and links, and Note Details for comments and backlinks.
@@ -15,7 +16,9 @@ All notable changes to this project will be documented in this file. See [standa
 
 * Pin Quick Hack to capture several ideas, use the shortcut again to close it, and choose custom shortcuts. Write highlighted Markdown with list continuation and formatting keys.
 * Improve code fences, line numbers, inline HTML, math, image sizing and containers. Collapse front matter and search from a floating Find in Note card.
+* Keep each book in its own tab and present slides in a separate window, with optional full screen.
 * Choose code syntax colors, window translucency and more app icon styles in Settings.
+* Save Settings changes automatically and reset individual sections to their defaults.
 * Reduce startup work, build large folder trees near the visible area, and reuse preview widgets while moving through long notes.
 
 ### Fixes and beta notes

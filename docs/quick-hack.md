@@ -19,7 +19,7 @@ Open a Local Vault or connect HackMD and select a personal or team workspace bef
 
 ![Quick Hack popup with a fictional idea in highlighted Markdown, the pin at the bottom left and the Capture button](/quick-hack.png)
 
-*A v2 development build, with demonstration text.*
+*HackDesk beta.13 with demonstration text.*
 
 From another app, successful capture closes the popup without bringing the main workbench forward. From HackDesk, it returns to the main window. To capture several ideas in a row, [pin the popup](#keep-the-popup-open).
 

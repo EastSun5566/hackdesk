@@ -6,21 +6,23 @@ outline: deep
 
 Open **Settings** with **Cmd+,** on macOS or **Ctrl+,** on Windows/Linux.
 
+Changes save automatically. Use the reset control beside a section's title to restore its defaults.
+
 Use **Search settings** to find a field. For example, search `font` and choose **Editor font** to open Appearance and focus the input. Arrow keys move through results; Enter opens one. Searching does not save changes.
 
 ## Change appearance
 
 In **Settings → Appearance**, choose a theme, colors, fonts, and text sizes. Search the font picker for an installed font. Prose uses a proportional font by default; code stays monospace.
 
-Choose **Apply Theme** to keep the preview or **Cancel Preview** to restore the saved appearance. **Smooth text** controls font smoothing. **Indent guides** and **Status line** take effect immediately.
+Appearance changes take effect immediately. **Smooth text** controls font smoothing; **Indent guides** and **Status line** control editor details.
 
 ![Appearance settings with the HackMD Neo dark preset](/custom-settings.png)
 
-*HackDesk beta.10 with demonstration data.*
+*HackDesk beta.13 with demonstration data.*
 
 ## Choose an editor mode
 
-In **Settings → Editor**, choose Standard, Vim, Helix, Emacs, or experimental Kakoune, then **Save**.
+In **Settings → Editor**, choose Standard, Vim, Helix, Emacs, or experimental Kakoune.
 
 Under **New tab opens**, choose **Empty page** or **Duplicate current note**. This preference takes effect immediately.
 
@@ -30,7 +32,7 @@ Editor modes control text editing. [Workbench navigation](./keyboard-navigation.
 
 ## Change shortcuts
 
-In **Settings → Shortcuts**, find an action, record a shortcut, then **Save**. Use its reset control to restore the default. You can also disable `?`, `/`, and Space outside text editing.
+In **Settings → Shortcuts**, find an action and record a shortcut. Use its reset control to restore the default. You can also disable `?`, `/`, and Space outside text editing.
 
 The **Quick Hack** section holds Quick Hack's two shortcuts: **Open or close Quick Hack**, the global hotkey (**Ctrl+Alt+H** by default), and **Pin Quick Hack**, which works inside the popup. Record new keys the same way, or press Backspace while recording to turn one off. Both need Cmd, Ctrl or Alt, and they can't share keys with each other or with the popup's editor. The hotkey's row shows whether the system accepted it. See [Quick Hack](./quick-hack.md#change-the-global-shortcut).
 
@@ -40,9 +42,9 @@ In **Settings → General → Quick Hack**, turn on **Keep open after capture** 
 
 ## Manage HackMD and Local Vault
 
-Use **Settings → HackMD** to connect or disconnect an account. Disconnecting removes the saved token and offline HackMD copies; it does not delete remote notes.
+Use **Settings → HackMD** to connect an account. Choose **Connect another account** to add more, then switch accounts from the sidebar. Each account has its own saved token. Disconnecting removes the token and local offline copies; it does not delete remote notes.
 
-Use **Settings → Vault** to change or forget a vault. Forgetting keeps its files and saved workspace layout. Selecting it again restores its tabs and drafts.
+Use **Settings → Vault** to add or remove local folders and manage named workspaces. Removing a folder from HackDesk does not delete its Markdown files.
 
 ## Edit settings.json
 
