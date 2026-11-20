@@ -279,17 +279,45 @@ class InlineMathWidget extends WidgetType {
   }
 }
 
-const richPreviewField = StateField.define<DecorationSet>({
-  create: (state) => buildRichPreviewDecorations(state),
-  update(decorations, transaction) {
-    const treeGrew = transaction.effects.some((effect) => effect.is(treeGrowthEffect));
-    if (transaction.docChanged || treeGrew || transaction.effects.some((effect) => effect.is(revealInitialSelection)) || (transaction.selection && activeLinesChanged(transaction.startState, transaction.state))) {
-      return buildRichPreviewDecorations(transaction.state);
-    }
-    return decorations.map(transaction.changes);
+type RichPreview = {
+  /** Every widget the document has, as if no line were active; rebuilt only when the document or tree changes. */
+  all: DecorationSet;
+  /** `all` without the widgets on an active line, which show their source instead. */
+  shown: DecorationSet;
+};
+
+const richPreviewField = StateField.define<RichPreview>({
+  create(state) {
+    const all = buildRichPreviewDecorations(state);
+    return { all, shown: hideActiveWidgets(all, state) };
   },
-  provide: (field) => EditorView.decorations.from(field),
+  update(preview, transaction) {
+    const treeGrew = transaction.effects.some((effect) => effect.is(treeGrowthEffect));
+    if (transaction.docChanged || treeGrew) {
+      const all = buildRichPreviewDecorations(transaction.state);
+      return { all, shown: hideActiveWidgets(all, transaction.state) };
+    }
+    // Moving the cursor only changes which widgets open to their source.
+    if (transaction.effects.some((effect) => effect.is(revealInitialSelection)) || (transaction.selection && activeLinesChanged(transaction.startState, transaction.state))) {
+      return { all: preview.all, shown: hideActiveWidgets(preview.all, transaction.state) };
+    }
+    return preview;
+  },
+  provide: (field) => EditorView.decorations.from(field, (preview) => preview.shown),
 });
+
+/**
+ * A widget shows its source while any line it covers is active. Each widget spans whole lines
+ * (block widgets) or sits within one line (inline widgets), so touching an active line's range
+ * means covering that line.
+ */
+function hideActiveWidgets(all: DecorationSet, state: EditorState): DecorationSet {
+  const activeRanges = [...getActiveLines(state)].map((lineNumber) => state.doc.line(lineNumber));
+  if (activeRanges.length === 0) return all;
+  return all.update({
+    filter: (from, to) => !activeRanges.some((line) => from <= line.to && to >= line.from),
+  });
+}
 
 export function hackmdRichPreviewWidgets(): Extension {
   return richPreviewField;
@@ -297,7 +325,6 @@ export function hackmdRichPreviewWidgets(): Extension {
 
 function buildRichPreviewDecorations(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
-  const activeLines = getActiveLines(state);
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
   const fencedLineNumbers = new Set<number>();
 
@@ -316,7 +343,7 @@ function buildRichPreviewDecorations(state: EditorState): DecorationSet {
         return false;
       }
 
-      if (!richFenceLanguages.has(fence.language) || blockIsActive(state, activeLines, fence.from, fence.to)) {
+      if (!richFenceLanguages.has(fence.language)) {
         return false;
       }
 
@@ -337,8 +364,8 @@ function buildRichPreviewDecorations(state: EditorState): DecorationSet {
   const frontmatter = getFrontmatterRange(state.doc);
   for (let lineNumber = 1; frontmatter && lineNumber <= frontmatter.endLine; lineNumber += 1) fencedLineNumbers.add(lineNumber);
 
-  addDollarMathBlocks(state, activeLines, fencedLineNumbers, ranges);
-  addInlineWidgets(state, activeLines, fencedLineNumbers, ranges);
+  addDollarMathBlocks(state, fencedLineNumbers, ranges);
+  addInlineWidgets(state, fencedLineNumbers, ranges);
 
   return Decoration.set(ranges, true);
 }
@@ -403,31 +430,32 @@ function getFencePreview(state: EditorState, from: number, to: number): FencePre
 
 function addDollarMathBlocks(
   state: EditorState,
-  activeLines: ReadonlySet<number>,
   fencedLineNumbers: ReadonlySet<number>,
   ranges: Array<Range<Decoration>>,
 ) {
-  let openerLine: number | null = null;
-  for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
+  let opener: { from: number; to: number } | null = null;
+  let lineNumber = 0;
+  let from = 0;
+  for (const text of state.doc.iterLines()) {
+    lineNumber += 1;
+    const lineFrom = from;
+    from += text.length + 1;
     if (fencedLineNumbers.has(lineNumber)) {
-      openerLine = null;
+      opener = null;
       continue;
     }
 
-    const line = state.doc.line(lineNumber);
-    if (line.text.trim() !== '$$') {
+    if (!text.includes('$$') || text.trim() !== '$$') {
       continue;
     }
 
-    if (openerLine === null) {
-      openerLine = lineNumber;
+    if (opener === null) {
+      opener = { from: lineFrom, to: lineFrom + text.length };
       continue;
     }
 
-    const startLine = state.doc.line(openerLine);
-    const endLine = line;
-    const source = state.sliceDoc(startLine.to + 1, endLine.from - 1);
-    if (source.trim().length > 0 && !rangeHasActiveLine(activeLines, openerLine, lineNumber)) {
+    const source = state.sliceDoc(opener.to + 1, lineFrom - 1);
+    if (source.trim().length > 0) {
       ranges.push(Decoration.replace({
         block: true,
         widget: new AsyncHtmlWidget(
@@ -435,30 +463,34 @@ function addDollarMathBlocks(
           'math',
           source,
           () => renderMath(source, { display: true }),
-          startLine.from,
+          opener.from,
         ),
-      }).range(startLine.from, endLine.to));
+      }).range(opener.from, lineFrom + text.length));
     }
 
-    openerLine = null;
+    opener = null;
   }
 }
 
 function addInlineWidgets(
   state: EditorState,
-  activeLines: ReadonlySet<number>,
   fencedLineNumbers: ReadonlySet<number>,
   ranges: Array<Range<Decoration>>,
 ) {
-  for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
-    if (activeLines.has(lineNumber) || fencedLineNumbers.has(lineNumber)) {
+  let lineNumber = 0;
+  let from = 0;
+  for (const text of state.doc.iterLines()) {
+    lineNumber += 1;
+    const lineFrom = from;
+    from += text.length + 1;
+    if (fencedLineNumbers.has(lineNumber)) {
       continue;
     }
 
-    const line = state.doc.line(lineNumber);
-    addEmojiWidgets(line.text, line.from, ranges);
-    addFontAwesomeWidgets(line.text, line.from, ranges);
-    addInlineMathWidgets(line.text, line.from, ranges);
+    // Each pattern needs its delimiter; most lines have none of them.
+    if (text.includes(':')) addEmojiWidgets(text, lineFrom, ranges);
+    if (text.includes('<')) addFontAwesomeWidgets(text, lineFrom, ranges);
+    if (text.includes('$')) addInlineMathWidgets(text, lineFrom, ranges);
   }
 }
 
@@ -530,21 +562,6 @@ function parseFenceOptions(meta: string): { delimiter?: string; header?: boolean
     }
   }
   return options;
-}
-
-function blockIsActive(state: EditorState, activeLines: ReadonlySet<number>, from: number, to: number): boolean {
-  const startLine = state.doc.lineAt(from).number;
-  const endLine = state.doc.lineAt(Math.max(from, to - 1)).number;
-  return rangeHasActiveLine(activeLines, startLine, endLine);
-}
-
-function rangeHasActiveLine(activeLines: ReadonlySet<number>, startLine: number, endLine: number): boolean {
-  for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
-    if (activeLines.has(lineNumber)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function focusSourceLine(event: Event, view: EditorView, sourceFrom: number) {

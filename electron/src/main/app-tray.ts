@@ -1,5 +1,7 @@
 import { app, Menu, nativeImage, Tray } from 'electron';
 
+import { displayShortcutConfig } from '../../../src/lib/keyboard-shortcuts';
+import { DEFAULT_QUICK_CAPTURE_TOGGLE_SHORTCUT } from '../../../src/lib/quick-capture-shortcuts';
 import { createTrayIcon, onAppIconChanged } from './app-icon';
 
 type ApplicationTrayActions = {
@@ -7,10 +9,10 @@ type ApplicationTrayActions = {
   showQuickCaptureWindow: () => void;
 };
 
-export function createApplicationTray({
-  showMainWindow,
-  showQuickCaptureWindow,
-}: ApplicationTrayActions) {
+export function createApplicationTray(
+  actions: ApplicationTrayActions,
+  quickHackShortcut: string = DEFAULT_QUICK_CAPTURE_TOGGLE_SHORTCUT,
+) {
   const trayIcon = createTrayIcon();
 
   const tray = new Tray(trayIcon.isEmpty() ? nativeImage.createEmpty() : trayIcon);
@@ -26,9 +28,22 @@ export function createApplicationTray({
       if (!next.isEmpty()) tray.setImage(next);
     });
   }
+  setApplicationTrayMenu(tray, actions, quickHackShortcut);
+
+  return tray;
+}
+
+/** Builds the tray menu; called again when the Quick Hack hotkey changes in Settings. */
+export function setApplicationTrayMenu(
+  tray: Tray,
+  { showMainWindow, showQuickCaptureWindow }: ApplicationTrayActions,
+  quickHackShortcut: string,
+) {
+  if (tray.isDestroyed()) return;
+  const shortcutLabel = displayShortcutConfig(quickHackShortcut, process.platform);
   tray.setContextMenu(Menu.buildFromTemplate([
     {
-      label: process.platform === 'darwin' ? 'Quick Hack (⌃⌥H)' : 'Quick Hack (Ctrl+Alt+H)',
+      label: shortcutLabel ? `Quick Hack (${shortcutLabel})` : 'Quick Hack',
       click: showQuickCaptureWindow,
     },
     {
@@ -41,6 +56,4 @@ export function createApplicationTray({
       click: () => app.quit(),
     },
   ]));
-
-  return tray;
 }

@@ -4,14 +4,13 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FieldLabel, Input, Textarea } from '@/components/ui/field';
-import { RadioGroup, RadioGroupIndicator, RadioGroupItem } from '@/components/ui/radio-group';
+import { RadioGroup, RadioGroupDot, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   MAX_AI_COMMAND_NAME_CHARACTERS,
   MAX_AI_COMMAND_PROMPT_CHARACTERS,
   getAiErrorMessage,
   type AiDelivery,
 } from '@/lib/ai';
-import { cn } from '@/lib/utils';
 
 import type { AiCommandDraft } from './ai-commands';
 
@@ -106,26 +105,22 @@ export function AiCommandDialog({
               name="delivery"
               value={draft.delivery}
               onValueChange={value => setDraft(current => ({ ...current, delivery: value as AiDelivery }))}
-              className="grid gap-2 sm:grid-cols-2"
             >
-              {DELIVERY_OPTIONS.map(option => (
-                <RadioGroupItem
-                  key={option.value}
-                  value={option.value}
-                  aria-label={option.label}
-                  className={cn(
-                    'group flex h-auto w-full cursor-pointer items-start justify-start gap-3 rounded-md border border-border-default bg-background-default px-3 py-2.5 text-left text-primary-default',
-                    draft.delivery === option.value && 'border-primary-default/50 bg-primary-soft/40',
-                  )}
-                >
-                  <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border-default bg-background-default text-primary-default group-data-[checked]:border-primary-default">
-                    <RadioGroupIndicator />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-text-default">{option.label}</span>
-                  </span>
-                </RadioGroupItem>
-              ))}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {DELIVERY_OPTIONS.map(option => (
+                  <RadioGroupItem
+                    key={option.value}
+                    value={option.value}
+                    aria-label={option.label}
+                    variant="card"
+                  >
+                    <RadioGroupDot />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-text-default">{option.label}</span>
+                    </span>
+                  </RadioGroupItem>
+                ))}
+              </div>
             </RadioGroup>
           </fieldset>
           {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}

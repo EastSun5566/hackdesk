@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { DragEvent } from 'react';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
@@ -28,9 +28,12 @@ import type {
 } from '@/components/markdown-editor-types';
 import { useTheme } from '@/components/theme-provider';
 import { registerEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
+import { resolveWorkbenchShortcut } from '@/lib/electron-actions';
+import { toCodeMirrorKeys } from '@/lib/keyboard-shortcuts';
 import type { EditorMode } from '@/lib/settings';
 import type { ResolvedThemeMode } from '@/lib/themes';
 import type { LocalImageContext } from '@/lib/local-image';
+import { ActionShortcutContext } from '@/pages/electron-home/ActionShortcutContext';
 import { readFocusEditorOnOpen } from '@/pages/electron-home/note-focus-preference';
 import { getInitialCursor, hideInitialSelection } from './hfm-decoration-ranges';
 
@@ -43,6 +46,7 @@ import { resolveCodeLanguage } from './hackmd-code-languages';
 import { hackmdPanelSpacing } from './block-spacing';
 import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
+import { helixPendingKeys } from './helix-pending-keys';
 import { hackmdInlinePreview } from './inline-preview';
 import {
   clearInitialReveal,
@@ -62,22 +66,26 @@ import { editorStatusExtension } from './editor-status-extension';
 import { useSplitStatusLine } from '@/pages/electron-home/split-status-line-preference';
 import { useStatusLineVisible } from '@/pages/electron-home/status-line-preference';
 
-const reservedAppShortcutKeymap = Prec.highest(keymap.of([
-  {
-    key: 'Mod-f',
-    run: (view) => openSearchPanel(view),
-  },
-]));
+// Find in Note keeps its keys ahead of the modal keymaps (Vim and Kakoune bind Ctrl-f), so it
+// follows the user's Settings → Shortcuts choice: rebinding or clearing it frees those keys.
+// Emacs mode keeps every Ctrl chord for itself.
+function createReservedAppShortcutExtension(editorMode: EditorMode, findKeys: readonly string[]): Extension {
+  if (editorMode === 'emacs' || findKeys.length === 0) {
+    return [];
+  }
 
-function createEditorModeBaseExtension(editorMode: EditorMode): Extension {
-  return editorMode === 'emacs' ? [] : reservedAppShortcutKeymap;
+  return Prec.highest(keymap.of(findKeys.map((key) => ({
+    key,
+    run: (view: EditorView) => openSearchPanel(view),
+  }))));
 }
 
-function createConfiguredEditorModeExtension(
-  editorMode: EditorMode,
-  extension: Extension = [],
-): Extension {
-  return [createEditorModeBaseExtension(editorMode), extension];
+function useFindInNoteKeys() {
+  const { shortcuts, characterShortcutsEnabled } = useContext(ActionShortcutContext);
+  const config = resolveWorkbenchShortcut('find-in-note', shortcuts, characterShortcutsEnabled);
+  // CodeMirror resolves its own `Mod` from navigator.platform; match it.
+  const keys = toCodeMirrorKeys(config, navigator.platform).join('\n');
+  return useMemo(() => (keys ? keys.split('\n') : []), [keys]);
 }
 
 type MenuShortcutPolicySetter = NonNullable<
@@ -160,6 +168,7 @@ type LatestRef<T> = {
 type EditorRuntime = {
   view: EditorView | null;
   editorModeCompartment: Compartment;
+  reservedShortcutCompartment: Compartment;
   themeCompartment: Compartment;
   appliedEditorMode: EditorMode;
   appliedResolvedMode: ResolvedThemeMode;
@@ -170,6 +179,7 @@ type EditorRuntime = {
   value: string;
   editorMode: EditorMode;
   editorModeStatusHidden: boolean;
+  findKeys: readonly string[];
   resolvedMode: ResolvedThemeMode;
   localImageContext: LocalImageContext | null;
 };
@@ -189,12 +199,14 @@ type CreateEditorViewOptions = {
 function createEditorRuntime(
   value: string,
   editorMode: EditorMode,
+  findKeys: readonly string[],
   resolvedMode: ResolvedThemeMode,
   localImageContext: LocalImageContext | null,
 ): EditorRuntime {
   return {
     view: null,
     editorModeCompartment: new Compartment(),
+    reservedShortcutCompartment: new Compartment(),
     themeCompartment: new Compartment(),
     appliedEditorMode: 'standard',
     appliedResolvedMode: resolvedMode,
@@ -205,6 +217,7 @@ function createEditorRuntime(
     value,
     editorMode,
     editorModeStatusHidden: false,
+    findKeys,
     resolvedMode,
     localImageContext,
   };
@@ -285,7 +298,8 @@ function createHackmdEditorView({
       selection: { anchor: getInitialCursor(doc) },
       extensions: [
         ...(!readFocusEditorOnOpen() ? hideInitialSelection : []),
-        runtime.editorModeCompartment.of(createEditorModeBaseExtension(runtime.editorMode)),
+        runtime.reservedShortcutCompartment.of(createReservedAppShortcutExtension(runtime.editorMode, runtime.findKeys)),
+        runtime.editorModeCompartment.of([]),
         hackmdLinkOpenAffordance(onOpenLinkRef),
         ...editorExtensions,
         hfmBlocks(runtime.localImageContext),
@@ -354,6 +368,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     const splitStatusLine = useSplitStatusLine();
     const statusLineVisible = useStatusLineVisible();
     const hideEditorModeStatus = splitStatusLine && statusLineVisible;
+    const findKeys = useFindInNoteKeys();
     const parentRef = useRef<HTMLDivElement | null>(null);
     const onAttachImageRef = useLatestRef(onAttachImage);
     const onChangeRef = useLatestRef(onChange);
@@ -371,7 +386,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       tags: () => noteLinksRef.current?.tags() ?? [],
       userName: () => noteLinksRef.current?.userName() ?? null,
     }));
-    const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode, localImageContext));
+    const [runtime] = useState(() => createEditorRuntime(value, editorMode, findKeys, resolvedMode, localImageContext));
     const [aiPanel, setAiPanel] = useState<{ dom: HTMLElement; view: EditorView } | null>(null);
     const [aiSession, setAiSession] = useState<AiInlineState>(IDLE_AI_INLINE);
     const [aiHost] = useState<AiInlineHost>(() => ({
@@ -559,9 +574,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         delete view.dom.dataset.editorModeLoading;
         delete view.dom.dataset.editorModeError;
         view.dispatch({
-          effects: runtime.editorModeCompartment.reconfigure(
-            createEditorModeBaseExtension('standard'),
-          ),
+          effects: runtime.editorModeCompartment.reconfigure([]),
         });
         runtime.appliedEditorMode = 'standard';
         return cancelRequest;
@@ -574,9 +587,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       }
 
       view.dispatch({
-        effects: runtime.editorModeCompartment.reconfigure(
-          createEditorModeBaseExtension(editorMode),
-        ),
+        effects: runtime.editorModeCompartment.reconfigure([]),
       });
       runtime.appliedEditorMode = 'standard';
 
@@ -590,9 +601,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
           }
 
           view.dispatch({
-            effects: runtime.editorModeCompartment.reconfigure(
-              createConfiguredEditorModeExtension(editorMode, extension),
-            ),
+            effects: runtime.editorModeCompartment.reconfigure(extension),
           });
           view.dom.dataset.editorMode = editorMode;
           delete view.dom.dataset.editorModeLoading;
@@ -612,6 +621,13 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
 
       return cancelRequest;
     }, [editorMode, hideEditorModeStatus, runtime]);
+
+    useEffect(() => {
+      runtime.findKeys = findKeys;
+      runtime.view?.dispatch({
+        effects: runtime.reservedShortcutCompartment.reconfigure(createReservedAppShortcutExtension(editorMode, findKeys)),
+      });
+    }, [editorMode, findKeys, runtime]);
 
     useEffect(() => {
       const view = runtime.view;
@@ -753,7 +769,7 @@ async function loadVimModeExtension(hideBuiltinStatus: boolean): Promise<Extensi
 async function loadHelixModeExtension(): Promise<Extension> {
   helixModulePromise ??= import('codemirror-helix');
   const { helix } = await helixModulePromise;
-  return helix({ drawSelection: false });
+  return [helix({ drawSelection: false }), helixPendingKeys];
 }
 
 async function loadEmacsModeExtension(): Promise<Extension> {

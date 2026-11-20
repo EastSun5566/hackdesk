@@ -1,8 +1,10 @@
+import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 import { useCallback, useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
 import { runHackmdRequest } from '@/lib/hackmd-requests';
+import { useHistoryDismissals, withoutDismissedHistory } from '@/lib/history-dismissals';
 
 import { getNoteIdentityKey, type NoteIdentity } from './note-workspace';
 import {
@@ -63,7 +65,7 @@ export function useElectronHackmdQueries({
   });
 
   const {
-    data: notesData,
+    data: fetchedNotesData,
     isFetching: notesIsFetching,
     isLoading: notesIsLoading,
     refetch: refetchNotes,
@@ -86,6 +88,14 @@ export function useElectronHackmdQueries({
     // Changes made in HackMD's web app arrive when you come back to the window.
     refetchOnWindowFocus: true,
   });
+
+  // Notes removed from History stay in HackMD's history, so they are hidden here.
+  const historyDismissals = useHistoryDismissals(settings?.hackmdAccounts?.activeAccountId);
+  const notesData = useMemo(() => (
+    scope.type === 'history' && fetchedNotesData?.data
+      ? { ...fetchedNotesData, data: withoutDismissedHistory(fetchedNotesData.data, historyDismissals) }
+      : fetchedNotesData
+  ), [fetchedNotesData, historyDismissals, scope.type]);
 
   const {
     data: foldersData,
@@ -150,7 +160,7 @@ export function useElectronHackmdQueries({
 
       seen.add(key);
       return true;
-    }).slice(0, 2);
+    }).slice(0, MAX_NOTE_PANES);
   }, [activeDocumentNotes, hasToken, remoteScope, selectedNote]);
 
   const documentQueryResults = useQueries({

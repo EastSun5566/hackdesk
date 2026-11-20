@@ -1,4 +1,5 @@
 diff --git a/dist/adapter.js b/dist/adapter.js
+index 9337ad6b226605ee0cbbdb2c588ac4c20cc0be13..3da2d7468f26a279368f9d8e6c2dab1226caa29e 100644
 --- a/dist/adapter.js
 +++ b/dist/adapter.js
 @@ -1,6 +1,6 @@
@@ -10,9 +11,10 @@ diff --git a/dist/adapter.js b/dist/adapter.js
      view;
      constructor(view) {
 diff --git a/dist/commands.js b/dist/commands.js
+index 0852105b498d185deeec5cafcbe7de1684f328b5..dd1322096a988cd93e3a7415f7b2d9b392f007fe 100644
 --- a/dist/commands.js
 +++ b/dist/commands.js
-@@ -2,9 +2,9 @@
+@@ -2,9 +2,9 @@ import { EditorSelection } from "@codemirror/state";
  import { redo, undo, isolateHistory } from "@codemirror/commands";
  import { EditorView } from "@codemirror/view";
  import { enterInsert, enterInsertLineEnd, enterInsertLineStart, moveDown, moveLeft, moveLineEnd, moveLineStart, moveRight, moveUp, moveWordBackwardRange as coreWordBackward, moveWordEndRange as coreWordEnd, moveWordForwardRange as coreWordForward, selectWordBackward, selectWordEnd, selectWordForward, joinLines, copySelectionsOnNextLines, toUpperCaseSelection, toLowerCaseSelection, swapCaseSelection, trimSelections, addEmptyLineBelow, addEmptyLineAbove, ensureForwardDirection } from "kakoune-core-js";
@@ -25,9 +27,10 @@ diff --git a/dist/commands.js b/dist/commands.js
      return {
          ranges: selection.ranges.map(range => ({ anchor: range.anchor, head: range.head })),
 diff --git a/dist/index.js b/dist/index.js
+index 4d96005b0c6b6b64cd4c04b72f413896842a0556..f4bd9d709906f769fe14b03683c8d673eb25796c 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -4,13 +4,13 @@
+@@ -4,13 +4,47 @@ import { Prec } from "@codemirror/state";
  import { keymap, ViewPlugin } from "@codemirror/view";
  import { history } from "@codemirror/commands";
  import { search } from "@codemirror/search";
@@ -45,10 +48,55 @@ diff --git a/dist/index.js b/dist/index.js
 +export { normalizeKeyStroke, normalizeCm5Key, normalizeCm5Keys, KakouneKeyProcessor } from "./keys.js";
 +export { Cm6Adapter, withAdapter } from "./adapter.js";
 +export { buildKakouneCommands, commitSearchPrompt, deleteSearchPromptChar, cancelSearchPrompt, handleSearchPromptKey, commitSelectPrompt, deleteSelectPromptChar, cancelSelectPrompt, handleSelectPromptKey, commitSplitPrompt, deleteSplitPromptChar, cancelSplitPrompt, handleSplitPromptKey, gotoFile, extendGotoFile, gotoLastBuffer, extendGotoLastBuffer, gotoBufferEnd, extendGotoBufferEnd, centerMainSelectionVertically, centerMainSelectionHorizontally, scrollMainSelectionToTop, scrollMainSelectionToBottom, scrollMainSelectionToLeft, scrollMainSelectionToRight, scrollViewportLines, scrollViewportColumns, scrollPageMoveSelections, kakouneCommands } from "./commands.js";
++// Page-scroll chords that CodeMirror's bundled keymaps also claim (Mod-d on
++// Windows/Linux, the macOS Emacs-style Ctrl-b/f/d, PageUp/PageDown). Binding
++// them in the keymap facet lets them reach the processor before those keymaps,
++// so counts, pending prefixes and macro recording still apply.
++const scrollKeyBindings = [
++    ["Ctrl-b", "<C-b>"],
++    ["Ctrl-f", "<C-f>"],
++    ["Ctrl-u", "<C-u>"],
++    ["Ctrl-d", "<C-d>"],
++    ["PageUp", "<PageUp>"],
++    ["PageDown", "<PageDown>"]
++];
++function createScrollKeyBindings(processor) {
++    return scrollKeyBindings.map(([key, kakouneKey]) => ({
++        key,
++        run(view) {
++            const state = view.state.field(kakouneStateField);
++            if (state.mode === "insert" ||
++                state.searchPrompt !== null ||
++                state.selectPrompt !== null ||
++                state.splitPrompt !== null ||
++                state.pipePrompt !== null) {
++                return false;
++            }
++            const handled = processor.handle(state.mode, kakouneKey, view);
++            const whichKeyCallback = view.state.facet(kakouneWhichKeyFacet);
++            if (whichKeyCallback) {
++                const currentMode = view.state.field(kakouneStateField).mode;
++                whichKeyCallback(processor.getPending(), processor.getPendingItems(currentMode), processor.isWaitingForChar());
++            }
++            return handled;
++        }
++    }));
++}
  function createKakouneHandler(processor) {
      return EditorView.domEventHandlers({
          beforeinput(event, view) {
+@@ -258,7 +292,8 @@ export function kakoune(options = {}) {
+                     }
+                     return true;
+                 }
+-            }
++            },
++            ...createScrollKeyBindings(processor)
+         ])),
+         search(),
+         createKakouneHandler(processor)
 diff --git a/dist/keys.js b/dist/keys.js
+index 0e3ead120ec650dad7ba359c99103a04a853623e..79dc67992adeebe4dd569ead15d573fcddd15ce4 100644
 --- a/dist/keys.js
 +++ b/dist/keys.js
 @@ -1,6 +1,6 @@

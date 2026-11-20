@@ -145,6 +145,27 @@
   }
 }
 
+/* How far the pinned workspace row's bottom edge lies inside the rows scrolling under it; animated by
+   a scroll-driven animation (see .sidebar-pinned-rows), so it must interpolate as a length. */
+@property --pinned-rows-cut {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+/* Registered so the translucent sidebar's edge masks can transition (styles.css, .scroll-edges-source). */
+@property --sidebar-fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --sidebar-fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 @layer components {
   :root,
   :root.light {
@@ -231,8 +252,9 @@
     /* Quiet structural lines: card outlines, dividers inside panels, tree guides. Derived rather
        than set per theme so every preset and custom theme gets a solid, consistent colour,
        instead of components painting border-default at different opacities over different
-       surfaces. */
-    --border-subtle: color-mix(in srgb, var(--border-default) 55%, var(--background-default));
+       surfaces. Light mode takes more of the border: the same mix that reads on a dark surface
+       all but disappears on a light one (#418). */
+    --border-subtle: color-mix(in srgb, var(--border-default) 80%, var(--background-default));
     /* Row hover: a tint of the text colour, visible on any surface. */
     --background-hover: color-mix(in srgb, var(--text-default) 7%, transparent);
     --background-raised: var(--background-default);
@@ -280,6 +302,7 @@
   }
 
   :root.dark {
+    --border-subtle: color-mix(in srgb, var(--border-default) 55%, var(--background-default));
     color-scheme: dark;
 
     --hmd-tw-text-default: var(--color-zinc-300);
@@ -443,6 +466,16 @@
     -webkit-app-region: no-drag;
   }
 
+  /* The title bar's leading slot (TitleBarLeadingSlot): one column that animates between nothing and
+     its content's width, in step with the sidebar. */
+  [data-title-bar-leading] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-title-bar-leading='closed'] {
+    grid-template-columns: 0fr;
+  }
+
   .app-region-drag {
     -webkit-app-region: drag;
   }
@@ -524,11 +557,13 @@
 
   /* A resize handle that is a surface's border (PanelResizeSash edge): it lays a primary line over
      the border beside it while hovered, focused or dragged. The line fades out toward both ends and
-     is gone before the surface's rounded corners turn away from it. */
+     is gone before the surface's rounded corners turn away from it. The card beside the sidebar
+     starts below the title bar row (2.5rem, as the pane tab bars are), so the line does too. */
   .edge-sash::after {
     content: '';
     position: absolute;
-    inset-block: 0;
+    top: 2.5rem;
+    bottom: 0;
     /* Overlay the surface's 1px border. */
     right: -1px;
     width: 1px;
@@ -543,6 +578,49 @@
     opacity: 0;
     transition: opacity 150ms ease-out;
     pointer-events: none;
+  }
+
+  /* The handle between side-by-side panes: a line down the middle of the gap, beside the cards only.
+     Each pane's tab bar sits above its card, so the line starts below them (--pane-sash-top, set
+     per split by data-pane-row: the top row's bars are taller), and fades out before the cards' corners as above. */
+  [data-pane-row='top'] {
+    --pane-sash-top: 2.5rem;
+  }
+
+  [data-pane-row='inner'] {
+    --pane-sash-top: 2.25rem;
+  }
+
+  .pane-gap-sash::after {
+    content: '';
+    position: absolute;
+    top: var(--pane-sash-top, 0px);
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: linear-gradient(
+      to bottom,
+      transparent 1.5rem,
+      var(--primary-default) 3rem,
+      var(--primary-default) calc(100% - 3rem),
+      transparent calc(100% - 1.5rem)
+    );
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+    pointer-events: none;
+  }
+
+  .pane-gap-sash:hover::after,
+  .pane-gap-sash:focus-visible::after,
+  .pane-gap-sash:is([data-separator='hover'], [data-separator='focus'], [data-separator='active'])::after {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pane-gap-sash::after {
+      transition: none;
+    }
   }
 
   .edge-sash:hover::after,
@@ -610,16 +688,72 @@
     --background-sidebar: transparent;
   }
 
-  /* A sticky sidebar row (the pinned workspace root) is clear too while nothing is under it. Once the
-     list scrolls rows beneath it, it takes the sidebar's solid surface, the colour the top edge fade
-     below it starts from. A backdrop blur can't hide them: the page behind is transparent (the
-     material is drawn outside the page), so blurring it only smears the rows' text, still legible. */
-  .sidebar-sticky {
-    transition: background-color 150ms ease-out;
+  /* The pinned workspace root row stays as clear as the rest of the sidebar, and the rows scrolling
+     under it are masked out rather than covered. Nothing painted in the page can cover them: the
+     material is drawn outside the page, so a surface on the row is a band of another colour, and a
+     backdrop blur only smears their text. The rows (.sidebar-pinned-rows, the pinned row's sibling)
+     are cut at its bottom edge and fade in over the 1.5rem below it.
+     --pinned-rows-cut is how far that edge lies inside the rows' box. A view timeline inset by the
+     pinned row (2.25rem, as in FolderNavigator) starts its range as the rows' top meets the edge, and
+     the cut then grows a pixel per pixel scrolled (the range ends far past any real list). Before
+     that it is 0, which masks nothing, and the fade grows with the cut, so rows at rest never fade.
+     no-clip keeps the drop line drawn just above the first row, where the repeated tile is opaque. */
+  :root[data-window-vibrancy][data-sidebar-translucency] .sidebar-pinned-rows {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent var(--pinned-rows-cut),
+      #000 calc(var(--pinned-rows-cut) + min(var(--pinned-rows-cut), 1.5rem))
+    );
+    mask-clip: no-clip;
+    animation: pinned-rows-cut linear both;
+    animation-timeline: view(block 2.25rem 0px);
+    animation-range: exit-crossing 0px exit-crossing 100000px;
   }
 
-  :root[data-window-vibrancy][data-sidebar-translucency] [data-overflow-start] .sidebar-sticky {
-    --background-sidebar: var(--background-muted);
+  @keyframes pinned-rows-cut {
+    from { --pinned-rows-cut: 0px; }
+    to { --pinned-rows-cut: 100000px; }
+  }
+
+  /* The edge fades paint the opaque sidebar colour, a haze over the material (white in light mode,
+     dark in dark mode). With translucency on the sidebar list is masked at its edges instead: the
+     bottom edge while rows lie past it, and the top edge in lists without the pinned root row (whose
+     cut, above, fades the rows under it). The mask is the scroller's own box, so it stays on the
+     edges while the rows scroll. Classic scrollbars sit in a 12px gutter that the second, solid
+     layer keeps whole; overlay scrollbars only show while scrolling and fade with the rows. */
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .edge-fade-top,
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .edge-fade-bottom {
+    display: none;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .scroll-edges-source:has(> .edge-fade-bottom) {
+    --sidebar-fade-top: 0px;
+    --sidebar-fade-bottom: 0px;
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--sidebar-fade-top),
+      #000 calc(100% - var(--sidebar-fade-bottom)),
+      transparent
+    );
+    transition: --sidebar-fade-top 150ms ease-out, --sidebar-fade-bottom 150ms ease-out;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .scroll-edges-source[data-overflow-start]:has(> .edge-fade-top:not(.sidebar-pinned-fade)) {
+    --sidebar-fade-top: 2rem;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency] .app-chrome .scroll-edges-source[data-overflow-end]:has(> .edge-fade-bottom) {
+    --sidebar-fade-bottom: 2rem;
+  }
+
+  :root[data-window-vibrancy][data-sidebar-translucency][data-scrollbars='classic'] .app-chrome .scroll-edges-source:has(> .edge-fade-bottom) {
+    mask-image:
+      linear-gradient(to bottom, transparent, #000 var(--sidebar-fade-top), #000 calc(100% - var(--sidebar-fade-bottom)), transparent),
+      linear-gradient(#000, #000);
+    mask-size: calc(100% - 12px) 100%, 12px 100%;
+    mask-position: left top, right top;
+    mask-repeat: no-repeat;
   }
 
   .app-chrome input,
@@ -657,6 +791,27 @@
   [data-pane-zoomed] [data-panel]:not(:has([data-active-pane='true'])),
   [data-pane-zoomed] [data-separator] {
     display: none !important;
+  }
+
+  /* Hack Mode keeps the one pane's tab bar as a blank title bar strip (see HACK_MODE_DRAG_STRIP_CLASS),
+     wherever that pane sits, so the window can still be dragged by its top edge. */
+  [data-hack-mode] .pane-tab-bar {
+    height: 2.5rem;
+    -webkit-app-region: drag;
+  }
+
+  .workspace-drop-preview {
+    left: var(--drop-preview-left);
+    top: var(--drop-preview-top);
+    width: var(--drop-preview-width);
+    height: var(--drop-preview-height);
+    transition: left 100ms ease-out, top 100ms ease-out, width 100ms ease-out, height 100ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workspace-drop-preview {
+      transition: none;
+    }
   }
 
 }
@@ -716,12 +871,6 @@
   }
 }
 
-/* Comparisons own their width without changing other dialogs. */
-.note-comparison-dialog {
-  width: min(75rem, calc(100dvw - 3rem));
-  max-width: 75rem;
-  max-height: calc(100dvh - 4rem);
-}
 .comparison-text-preview { max-height: 40dvh; }
 
 /* Focus rings are for keyboard use. After a pointer press (data-input-modality, see

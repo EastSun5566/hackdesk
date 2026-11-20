@@ -120,6 +120,7 @@ import {
 } from './local-vault-service';
 import { openExternalUrl, openHackmdEditor } from './url-policy';
 import { createHackmdRequests } from './hackmd-requests';
+import { getWindowMenuBar, popupWindowMenu } from './app-menu';
 import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
 import { checkForElectronUpdates } from './app-updater';
@@ -161,12 +162,15 @@ import {
   localVaultCreateDirectoryInputSchema,
   openHackmdEditorInputSchema,
   openTextFileInputSchema,
+  popupMenuInputSchema,
   presentationDeckSchema,
   quickCaptureContentSchema,
+  quickCapturePinnedSchema,
   quickCaptureSubmissionAckSchema,
   saveTextFileInputSchema,
   settingsUpdateSchema,
   themeSurfaceInputSchema,
+  windowControlSchema,
   windowTranslucencySchema,
   updateFolderInputSchema,
   updateNoteInputSchema,
@@ -193,9 +197,9 @@ export function registerIpcHandlers(
   windowManager: Pick<WindowManager,
     | 'cancelClose' | 'cancelCloseForSender' | 'confirmClose' | 'confirmCloseForSender' | 'holdClose' | 'holdCloseForSender'
     | 'getMainWindow' | 'getMainWindows' | 'getMainWindowForWebContents' | 'getTargetWindow' | 'sendToAllMainWindows'
-    | 'getWindowPresentationState' | 'getWindowPresentationStateForSender' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
+    | 'getWindowPresentationState' | 'getWindowPresentationStateForSender' | 'controlWindowForSender' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
     | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface' | 'setWindowTranslucency' | 'newMainWindow'
-    | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
+    | 'submitQuickCapture' | 'getQuickCaptureState' | 'setQuickCapturePinned' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
   >,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
 ) {
@@ -849,6 +853,18 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appGetWindowPresentationState, (event) => (
     windowManager.getWindowPresentationStateForSender(event.sender)
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.appWindowControl, (event, action: unknown) => {
+    windowManager.controlWindowForSender(event.sender, validateIpcInput(ELECTRON_CHANNELS.appWindowControl, windowControlSchema, action));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appGetMenuBar, (event) => {
+    const window = windowManager.getMainWindowForWebContents(event.sender);
+    return window ? getWindowMenuBar(window) : [];
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appPopupMenu, (event, input: unknown) => {
+    const popup = validateIpcInput(ELECTRON_CHANNELS.appPopupMenu, popupMenuInputSchema, input);
+    const window = windowManager.getMainWindowForWebContents(event.sender);
+    return window ? popupWindowMenu(window, popup) : false;
+  });
   ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus, () => getQuickCaptureShortcutStatus());
   ipcMain.handle(ELECTRON_CHANNELS.appSubmitQuickCapture, (_event, content: string) => (
     windowManager.submitQuickCapture(validateIpcInput(
@@ -860,6 +876,14 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appHideQuickCapture, () => {
     windowManager.hideQuickCaptureWindow();
   });
+  ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureState, () => windowManager.getQuickCaptureState());
+  ipcMain.handle(ELECTRON_CHANNELS.appSetQuickCapturePinned, (_event, pinned: boolean) => (
+    windowManager.setQuickCapturePinned(validateIpcInput(
+      ELECTRON_CHANNELS.appSetQuickCapturePinned,
+      quickCapturePinnedSchema,
+      pinned,
+    ))
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.appResolveQuickCaptureSubmission, (_event, ack: QuickCaptureSubmissionAck) => {
     windowManager.resolveQuickCaptureSubmission(validateIpcInput(
       ELECTRON_CHANNELS.appResolveQuickCaptureSubmission,

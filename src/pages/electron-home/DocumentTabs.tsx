@@ -2,11 +2,11 @@ import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useNoteSummaryLookup } from './NoteSummaryCard';
 import { NoteIcon, NoteKindIcon } from './note-kind';
 import { useBookSessionContext } from './useBookSession';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, Equal, FileText, Maximize2, MoreHorizontal, Plus, Rows2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, Equal, FileText, Maximize2, Minimize2, MoreHorizontal, Plus, Rows2, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -21,10 +21,11 @@ import {
 import { cn } from '@/lib/utils';
 
 import { isBlankNoteTab, isDraftNoteTab, isPreviewNoteTab, type OpenNoteTab } from './note-workspace';
-import { ToolbarDropdownIconTrigger } from './interaction-primitives';
+import { ToolbarDropdownIconTrigger, ToolbarIconButton } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import { useScrollOverflow } from './useScrollOverflow';
+import { tabStripDropId, useWorkspaceTabDnd } from './WorkspaceTabDnd';
 
 function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
   const label = DOCUMENT_SYNC_STATE_LABELS[state];
@@ -61,9 +62,12 @@ function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
 function DocumentTab({
   tab,
   selected,
+  isActivePane = true,
+  isSegmented = false,
   syncState,
   activeTabRef,
   draggedRef,
+  inWorkspaceDnd,
   onSelect,
   onClose,
   onKeep,
@@ -74,9 +78,12 @@ function DocumentTab({
 }: {
   tab: OpenNoteTab;
   selected: boolean;
+  isActivePane?: boolean;
+  isSegmented?: boolean;
   syncState: DocumentSyncState;
   activeTabRef?: MutableRefObject<HTMLLIElement | null>;
   draggedRef: MutableRefObject<boolean>;
+  inWorkspaceDnd: boolean;
   onSelect: () => void;
   onClose: () => void;
   /** Keeps a preview tab open; double-clicking the tab asks for it. */
@@ -98,7 +105,10 @@ function DocumentTab({
   const bookPosition = book && !isDraftNoteTab(tab) && !isBlankNoteTab(tab)
     ? bookSession.positionOfNote({ id: tab.noteId, teamPath: tab.teamPath }, tab.tabId)
     : null;
-  const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: tab.tabId });
+  const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({
+    id: tab.tabId,
+    data: { type: 'tab', paneId, tabId: tab.tabId },
+  });
   const setTabNode = useCallback((element: HTMLLIElement | null) => {
     setNodeRef(element);
     if (activeTabRef) activeTabRef.current = element;
@@ -113,10 +123,13 @@ function DocumentTab({
       ref={setTabNode}
       style={{ transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null), transition }}
       className={cn(
-        'group/tab app-region-no-drag relative flex h-8 min-w-40 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
-        isDragging && 'z-10 opacity-70',
+        'group/tab app-region-no-drag relative flex h-8 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
+        isSegmented ? 'min-w-28 max-w-52' : 'min-w-40 max-w-56',
+        isDragging && (inWorkspaceDnd ? 'z-10 opacity-40' : 'z-10 opacity-70'),
         selected
-          ? 'border-border-subtle bg-background-default text-text-default'
+          ? (isSegmented && !isActivePane
+            ? 'border-border-subtle/60 bg-background-default/70 text-text-subtle'
+            : 'border-border-subtle bg-background-default text-text-default')
           : 'border-transparent bg-transparent text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
       )}
     >
@@ -155,20 +168,18 @@ function DocumentTab({
         {book && bookPosition && !bookPosition.isBook ? (
           <span aria-hidden="true" data-tab-book className="max-w-24 shrink truncate text-text-subtle">{book.title} ›</span>
         ) : null}
-        <span data-tab-title data-tab-preview={preview || undefined} className={cn('min-w-0 truncate', preview && 'italic')}>{title}</span>
+        <span data-tab-title data-tab-preview={preview || undefined} className={cn('min-w-0 truncate', preview && 'italic pe-1')}>{title}</span>
         {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={8}>{title}</TooltipContent>
       </TooltipRoot>
       <Button
-        variant="ghost"
+        variant="tab-close"
         size="icon-sm"
         tabIndex={focused ? 0 : -1}
-        className={cn(
-          'app-region-no-drag rounded-sm hover:bg-background-selected focus-visible:opacity-100 group-hover/tab:opacity-100',
-          selected ? 'opacity-100' : 'opacity-0',
-        )}
+        data-selected={selected || undefined}
+        className="app-region-no-drag"
         onClick={(event) => {
           event.stopPropagation();
           onClose();
@@ -195,6 +206,9 @@ export function DocumentTabs({
   canSplit,
   className,
   getTabSyncState,
+  isActivePane = true,
+  isSegmented = false,
+  showEqualizeButton = false,
   onCloseOtherTabs,
   onCloseTab,
   onCloseTabsToRight,
@@ -215,6 +229,9 @@ export function DocumentTabs({
   canSplit: boolean;
   className?: string;
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
+  isActivePane?: boolean;
+  isSegmented?: boolean;
+  showEqualizeButton?: boolean;
   onCloseOtherTabs: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onCloseTabsToRight: (tabId: string) => void;
@@ -231,13 +248,24 @@ export function DocumentTabs({
   tabs: OpenNoteTab[];
   paneId?: string;
 }) {
+  const workspaceDnd = useWorkspaceTabDnd();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   // Escape can detach the sensor before mouseup produces a native click.
   // Reset on the next pointer gesture, while allowing keyboard activation.
   const draggedRef = useRef(false);
+  useEffect(() => {
+    if (workspaceDnd.activeDragTabId) draggedRef.current = true;
+  }, [workspaceDnd.activeDragTabId]);
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (over && active.id !== over.id) onReorderTab(String(active.id), String(over.id));
   };
+  const dropId = paneId ? tabStripDropId(paneId) : 'tab-strip:standalone';
+  const { setNodeRef: setStripDropRef } = useDroppable({
+    id: dropId,
+    data: { type: 'tab-strip', paneId },
+    disabled: !workspaceDnd.inWorkspaceDnd || !paneId,
+  });
+  const isStripDropTarget = workspaceDnd.inWorkspaceDnd && workspaceDnd.dropTargetId === dropId;
   const activeTabRef = useRef<HTMLLIElement | null>(null);
   const regionRef = useRef<HTMLDivElement | null>(null);
   const [focusedTabId, setFocusedTabId] = useState(activeTab?.tabId ?? tabs[0]?.tabId ?? null);
@@ -289,52 +317,80 @@ export function DocumentTabs({
     });
   }, [activeTab?.tabId, activeTabIndex]);
 
+  const regionKey = paneId ?? 'standalone';
+  useLayoutEffect(() => {
+    if (!workspaceDnd.inWorkspaceDnd) return;
+    workspaceDnd.registerTabRegionElement(regionKey, regionRef.current);
+    return () => {
+      workspaceDnd.registerTabRegionElement(regionKey, null);
+    };
+  }, [regionKey, workspaceDnd]);
+
   // Tabs past either edge fade out there, so a cut-off strip reads as one that continues.
   const [strip, setStrip] = useState<HTMLElement | null>(null);
+  const attachStrip = useCallback((element: HTMLElement | null) => {
+    setStrip(element);
+    setStripDropRef(element);
+  }, [setStripDropRef]);
   const overflow = useScrollOverflow(strip, 'x');
 
-  return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => { draggedRef.current = true; }} onDragEnd={handleDragEnd}>
-      <div ref={regionRef} data-hackdesk-focus="tabs" data-document-pane-id={paneId} className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
-        {/* Not a window drag region, gaps included: a drag region swallows the wheel, so scrolling the
-            tabs stopped whenever the pointer crossed a gap. It is only as wide as the tabs, so the
-            empty title bar after them still drags the window. */}
-        <nav
-          ref={setStrip}
-          aria-label="Open documents"
-          data-overflow-start={overflow.start || undefined}
-          data-overflow-end={overflow.end || undefined}
-          className="edge-fade-x app-region-no-drag flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1"
-        >
-          <div className="flex min-w-0 items-center gap-1">
-            {tabs.length > 0 ? (
-              <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>
-                <ul role="tablist" aria-label="Open documents" className="m-0 flex min-w-0 list-none items-center gap-1 p-0">
-                  {tabs.map((tab) => (
-                    <DocumentTab
-                      key={tab.tabId}
-                      tab={tab}
-                      selected={activeTab?.tabId === tab.tabId}
-                      focused={effectiveFocusedTabId === tab.tabId}
-                      paneId={paneId}
-                      onFocus={() => {
-                        setFocusedTabId(tab.tabId);
-                        lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-                      }}
-                      onKeyDown={(event) => handleTabKeyDown(event, tab.tabId)}
-                      syncState={getTabSyncState(tab)}
-                      draggedRef={draggedRef}
-                      activeTabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
-                      onSelect={() => onSelectTab(tab.tabId)}
-                      onClose={() => onCloseTab(tab.tabId)}
-                      onKeep={onKeepTab ? () => onKeepTab(tab.tabId) : undefined}
-                    />
-                  ))}
-                </ul>
-              </SortableContext>
-            ) : null}
-          </div>
-        </nav>
+  const content = (
+    <div
+      ref={regionRef}
+      data-hackdesk-focus="tabs"
+      data-document-pane-id={paneId}
+      data-active-tab-segment={paneId ? (isActivePane ? 'true' : 'false') : undefined}
+      className={cn(
+        'flex min-w-0 flex-1 items-center gap-1.5',
+        isSegmented && !isActivePane && 'opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none',
+        className,
+      )}
+    >
+      {/* Not a window drag region, gaps included: a drag region swallows the wheel, so scrolling the
+          tabs stopped whenever the pointer crossed a gap. It is only as wide as the tabs, so the
+          empty title bar after them still drags the window. */}
+      <nav
+        ref={attachStrip}
+        aria-label="Open documents"
+        data-overflow-start={overflow.start || undefined}
+        data-overflow-end={overflow.end || undefined}
+        className={cn(
+          'edge-fade-x app-region-no-drag flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none py-1 pr-1',
+          isStripDropTarget && 'rounded-md bg-primary-soft/20 ring-1 ring-primary-default/40',
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-1">
+          {tabs.length > 0 ? (
+            <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>
+              <ul role="tablist" aria-label="Open documents" className="m-0 flex min-w-0 list-none items-center gap-1 p-0">
+                {tabs.map((tab) => (
+                  <DocumentTab
+                    key={tab.tabId}
+                    tab={tab}
+                    selected={activeTab?.tabId === tab.tabId}
+                    isActivePane={isActivePane}
+                    isSegmented={isSegmented}
+                    focused={effectiveFocusedTabId === tab.tabId}
+                    paneId={paneId}
+                    onFocus={() => {
+                      setFocusedTabId(tab.tabId);
+                      lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                    }}
+                    onKeyDown={(event) => handleTabKeyDown(event, tab.tabId)}
+                    syncState={getTabSyncState(tab)}
+                    draggedRef={draggedRef}
+                    inWorkspaceDnd={workspaceDnd.inWorkspaceDnd}
+                    activeTabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
+                    onSelect={() => onSelectTab(tab.tabId)}
+                    onClose={() => onCloseTab(tab.tabId)}
+                    onKeep={onKeepTab ? () => onKeepTab(tab.tabId) : undefined}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+          ) : null}
+        </div>
+      </nav>
         {/* Outside the scrolling strip, so it stays in reach however many tabs are open: right
             after the last tab, or at the strip's end once the tabs overflow. */}
         <Tooltip content={(
@@ -346,8 +402,8 @@ export function DocumentTabs({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
-            className="app-region-no-drag h-7 w-7 shrink-0 rounded-md"
+            size="icon-md"
+            className="app-topbar-button app-region-no-drag shrink-0"
             aria-label="New Tab"
             onClick={onNewTab}
           >
@@ -355,9 +411,32 @@ export function DocumentTabs({
           </Button>
         </Tooltip>
         <div aria-hidden="true" className="min-w-0 flex-1" />
-        <Toolbar aria-label="Pane controls">
+        <Toolbar aria-label="Pane controls" className="shrink-0">
+          {canMoveToOtherPane ? (
+            <ToolbarIconButton
+              actionId="toggle-pane-zoom"
+              onClick={paneLayout.onToggleZoom}
+              aria-pressed={paneLayout.zoomed}
+              label={paneLayout.zoomed ? 'Restore panes' : 'Zoom pane'}
+              variant="icon-topbar"
+              className="app-topbar-button app-region-no-drag h-7 w-7"
+            >
+              {paneLayout.zoomed ? <Minimize2 aria-hidden="true" className="h-4 w-4" /> : <Maximize2 aria-hidden="true" className="h-4 w-4" />}
+            </ToolbarIconButton>
+          ) : null}
+          {canMoveToOtherPane && showEqualizeButton && !paneLayout.zoomed ? (
+            <ToolbarIconButton
+              actionId="equalize-panes"
+              onClick={paneLayout.onEqualize}
+              label="Equalize pane sizes"
+              variant="icon-topbar"
+              className="app-topbar-button app-region-no-drag h-7 w-7"
+            >
+              <Equal aria-hidden="true" className="h-4 w-4" />
+            </ToolbarIconButton>
+          ) : null}
           <DropdownMenu>
-            <ToolbarDropdownIconTrigger label="Pane actions" className="app-region-no-drag h-7 w-7">
+            <ToolbarDropdownIconTrigger label="Pane actions" variant="icon-topbar" className="app-topbar-button app-region-no-drag h-7 w-7">
               <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
             </ToolbarDropdownIconTrigger>
             <DropdownMenuContent align="end">
@@ -414,6 +493,15 @@ export function DocumentTabs({
           </DropdownMenu>
         </Toolbar>
       </div>
+  );
+
+  if (workspaceDnd.inWorkspaceDnd) {
+    return content;
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => { draggedRef.current = true; }} onDragEnd={handleDragEnd}>
+      {content}
     </DndContext>
   );
 }

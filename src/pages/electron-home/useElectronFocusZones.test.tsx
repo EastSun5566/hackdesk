@@ -138,4 +138,32 @@ describe('useElectronFocusZones', () => {
     await new Promise(resolve => setTimeout(resolve, 40));
     expect(tab).toHaveFocus();
   });
+
+  it('cycles once through the active top-bar tab segment when split panes each render a tab segment', async () => {
+    render(<>
+      <section data-hackdesk-focus="navigator">
+        <button role="treeitem" tabIndex={0}>Tree</button>
+      </section>
+      <div data-hackdesk-focus="tabs" data-document-pane-id="left" data-active-tab-segment="false">
+        <button role="tab" tabIndex={0}>Left Tab</button>
+      </div>
+      <div data-hackdesk-focus="tabs" data-document-pane-id="right" data-active-tab-segment="true">
+        <button role="tab" tabIndex={0}>Right Tab</button>
+      </div>
+      <section data-document-pane-id="left" data-active-pane="false"><section data-hackdesk-focus="editor">
+        <div contentEditable data-hackdesk-focus-target="true" role="textbox" aria-label="Left editor" tabIndex={0} />
+      </section></section>
+      <section data-document-pane-id="right" data-active-pane="true"><section data-hackdesk-focus="editor">
+        <div contentEditable data-hackdesk-focus-target="true" role="textbox" aria-label="Right editor" tabIndex={0} />
+      </section></section>
+    </>);
+    renderHook(() => useElectronFocusZones());
+
+    const tree = screen.getByRole('treeitem');
+    act(() => tree.focus());
+    await cycleTo(screen.getByRole('tab', { name: 'Right Tab' }));
+    await cycleTo(screen.getByRole('textbox', { name: 'Left editor' }));
+    await cycleTo(screen.getByRole('textbox', { name: 'Right editor' }));
+    await cycleTo(tree);
+  });
 });

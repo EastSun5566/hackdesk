@@ -4,6 +4,8 @@ import type { WorkspaceScope } from './types';
 
 export const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_sidebar_collapsed';
 export const NAVIGATOR_WIDTH_KEY = 'hackdesk_navigator_width';
+// The widths the sidebar was dragged to, from which it learns one to snap to.
+export const NAVIGATOR_WIDTH_SNAP_KEY = 'hackdesk_navigator_width_snap';
 // Folders start collapsed; the sidebar remembers the ones you open, per workspace.
 export const FOLDER_EXPANDED_PREFIX = 'hackdesk_folder_expanded:';
 export const LAST_WORKSPACE_SCOPE_KEY = 'hackdesk_last_workspace_scope';
@@ -11,7 +13,7 @@ export const LAST_WORKSPACE_SCOPE_KEY = 'hackdesk_last_workspace_scope';
 export const NAVIGATOR_WIDTH_DEFAULT = 400;
 export const NAVIGATOR_WIDTH_MIN = 300;
 export const NAVIGATOR_WIDTH_MAX = 560;
-export const INSPECTOR_WIDTH_DEFAULT = 320;
+export const INSPECTOR_WIDTH_DEFAULT = 340;
 
 export function clampPanelWidth(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(value)));
@@ -69,7 +71,11 @@ export function readNumberStorage(key: string, fallback: number, min: number, ma
     return fallback;
   }
 
-  const parsed = Number(window.localStorage.getItem(key));
+  const raw = window.localStorage.getItem(key);
+  if (raw === null || raw.trim() === '') {
+    return fallback;
+  }
+  const parsed = Number(raw);
   return Number.isFinite(parsed) ? clampPanelWidth(parsed, min, max) : fallback;
 }
 

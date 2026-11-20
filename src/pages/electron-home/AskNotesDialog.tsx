@@ -42,8 +42,8 @@ export function AskNotesDialog({ askNotes, onOpenNote }: {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent size="lg" className="scroll-edges gap-0 p-0">
-        <DialogHeader className="scroll-edge-top relative px-5 pb-3 pt-4">
+      <DialogContent size="lg" layout="flush" className="scroll-edges">
+        <DialogHeader variant="bar" className="scroll-edge-top relative">
           <DialogTitle>Ask Your Notes</DialogTitle>
           <DialogDescription>
             Searches Local Vault notes and opened HackMD notes in this workspace.

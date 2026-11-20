@@ -97,4 +97,44 @@ writeFileSync(
 );
 writeFileSync(join(buildDir, 'icon.png'), rasterize(squareSvg, 512));
 
+writeDocsIcons();
+
 console.log(`Generated ${icons.APP_ICON_VARIANT_IDS.length} icon variants; packaged icon: ${packagedVariant}.`);
+
+/** Splits a rendered icon into its root `<svg …>` tag, its `<defs>` content and its body. */
+function splitSvg(svg: string) {
+  const match = /^(<svg[^>]*>)<defs>([\s\S]*?)<\/defs>([\s\S]*)<\/svg>\s*$/.exec(svg.trim());
+  if (!match) throw new Error('Unexpected icon SVG structure.');
+  return { open: match[1], defs: match[2], body: match[3] };
+}
+
+/**
+ * One SVG favicon that follows the browser's colour scheme: Color / Light by default,
+ * Color / Dark under `prefers-color-scheme: dark`. Defs stay outside the hidden group so
+ * every browser can still resolve the gradients and clip paths.
+ */
+function renderAdaptiveFaviconSvg() {
+  const light = splitSvg(icons.renderAppIconSvg('color-light', 'square'));
+  const dark = splitSvg(
+    icons.renderAppIconSvg('color-dark', 'square')
+      .replace(/id="([^"]+)"/g, 'id="dark-$1"')
+      .replace(/url\(#([^)]+)\)/g, 'url(#dark-$1)'),
+  );
+  const style = '<style>.dark{display:none}@media (prefers-color-scheme:dark){.light{display:none}.dark{display:inline}}</style>';
+  return `${light.open}${style}<defs>${light.defs}${dark.defs}</defs><g class="light">${light.body}</g><g class="dark">${dark.body}</g></svg>\n`;
+}
+
+/** Docs site icons: header/hero logos, favicons and the iOS home-screen icon. */
+function writeDocsIcons() {
+  const docsPublic = join(root, 'docs/public');
+  const lightSquare = icons.renderAppIconSvg('color-light', 'square');
+  writeFileSync(join(docsPublic, 'logo.png'), rasterize(icons.renderAppIconSvg('color-light', 'macos'), 512));
+  writeFileSync(join(docsPublic, 'logo-dark.png'), rasterize(icons.renderAppIconSvg('color-dark', 'macos'), 512));
+  writeFileSync(join(docsPublic, 'favicon.svg'), renderAdaptiveFaviconSvg());
+  writeFileSync(join(docsPublic, 'favicon.png'), rasterize(lightSquare, 32));
+  // iOS masks the corners itself and fills transparency with black, so give it an opaque tile.
+  writeFileSync(
+    join(docsPublic, 'apple-touch-icon.png'),
+    new Resvg(lightSquare, { fitTo: { mode: 'width', value: 180 }, background: '#FFFFFF' }).render().asPng(),
+  );
+}

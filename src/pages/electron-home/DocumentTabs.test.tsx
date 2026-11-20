@@ -74,8 +74,10 @@ describe('DocumentTabs', () => {
     });
 
     const preview = screen.getByRole('tab', { name: 'Project Plan, preview' });
-    expect(preview.querySelector('[data-tab-title]')).toHaveClass('italic');
+    // The title clips its overflow, so the italic title keeps end padding for its last glyph's slant.
+    expect(preview.querySelector('[data-tab-title]')).toHaveClass('italic', 'pe-1');
     expect(screen.getByRole('tab', { name: 'Daily Notes' }).querySelector('[data-tab-title]')).not.toHaveClass('italic');
+    expect(screen.getByRole('tab', { name: 'Daily Notes' }).querySelector('[data-tab-title]')).not.toHaveClass('pe-1');
 
     fireEvent.doubleClick(preview);
     expect(onKeepTab).toHaveBeenCalledWith('tab-2');
@@ -95,7 +97,45 @@ describe('DocumentTabs', () => {
 
     expect(screen.getByRole('tab', { name: /^Daily Notes(?:, .+)?$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close Project Plan' })).toBeInTheDocument();
-    await expectToolbarRovingFocus('Pane controls', ['Pane actions']);
+    await expectToolbarRovingFocus('Pane controls', ['Zoom pane', 'Pane actions']);
+  });
+
+  it('shows zoom, restore, and equalize controls in the tab toolbar only when split', async () => {
+    const props = createDocumentTabsProps({ showEqualizeButton: true });
+    const { rerender } = render(
+      <TooltipProvider delayDuration={0}>
+        <DocumentTabs {...props} />
+      </TooltipProvider>,
+    );
+
+    await expectToolbarRovingFocus('Pane controls', ['Zoom pane', 'Equalize pane sizes', 'Pane actions']);
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom pane' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Equalize pane sizes' }));
+    expect(props.paneLayout.onToggleZoom).toHaveBeenCalledOnce();
+    expect(props.paneLayout.onEqualize).toHaveBeenCalledOnce();
+
+    rerender(
+      <TooltipProvider delayDuration={0}>
+        <DocumentTabs {...props} paneLayout={{ ...props.paneLayout, zoomed: true }} />
+      </TooltipProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'Restore panes' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Equalize pane sizes' })).not.toBeInTheDocument();
+
+    rerender(
+      <TooltipProvider delayDuration={0}>
+        <DocumentTabs {...props} canMoveToOtherPane={false} />
+      </TooltipProvider>,
+    );
+    expect(screen.queryByRole('button', { name: /Zoom pane|Restore panes/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Equalize pane sizes' })).not.toBeInTheDocument();
+  });
+
+  it('marks inactive segments in segmented mode', () => {
+    renderDocumentTabs({ paneId: 'pane-1', isSegmented: true, isActivePane: false });
+    const region = document.querySelector('[data-hackdesk-focus="tabs"]');
+    expect(region).toHaveAttribute('data-active-tab-segment', 'false');
+    expect(region).toHaveClass('opacity-75');
   });
 
   it('exposes manual-activation tabs with one tab stop', () => {

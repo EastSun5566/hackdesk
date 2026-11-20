@@ -32,12 +32,12 @@ import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { AiSettingsPanel } from './AiSettingsPanel';
 import { DictationSettingsPanel } from './DictationSettingsPanel';
 import { OfflineSettingsSection } from './OfflineSettingsSection';
+import { QuickCaptureSettingsSection } from './QuickCaptureSettingsSection';
 import { AppearanceSettingsPanel } from './AppearanceSettingsPanel';
 import { EditorSettingsPanel } from './EditorSettingsPanel';
 import { GeneralSettingsPanel } from './GeneralSettingsPanel';
 import { HackmdSettingsPanel, type TokenTestState } from './HackmdSettingsPanel';
 import {
-  SETTINGS_PANEL_CLASS,
   SETTINGS_TABS,
   type SettingsTab,
 } from './SettingsDialogConfig';
@@ -176,6 +176,8 @@ function SettingsDialogContent({
     shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
     characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
+    quickCapturePinShortcut: settings?.quickCapture?.pinShortcut ?? defaultSettings.quickCapture.pinShortcut,
+    quickCaptureToggleShortcut: settings?.quickCapture?.toggleShortcut ?? defaultSettings.quickCapture.toggleShortcut,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
   // Appearance applies at once now, so closing only clears invalid, unapplied input.
@@ -199,7 +201,7 @@ function SettingsDialogContent({
     }
   }
   useEffect(() => cancelPreview, [cancelPreview]);
-  const { appIcon, editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible, addingAccount } = formState;
+  const { appIcon, editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, quickCapturePinShortcut, quickCaptureToggleShortcut, title, token, tokenTest, tokenVisible, addingAccount } = formState;
 
   // Every change saves at once; the footer is gone. Text fields debounce so typing saves once it pauses.
   const titleSaveTimer = useRef<number | undefined>(undefined);
@@ -264,6 +266,14 @@ function SettingsDialogContent({
       keyboardNavigation: { characterShortcutsEnabled, keyHintsVisible },
     });
   };
+  const handleQuickCapturePinShortcutChange = (next: string) => {
+    setFormState((current) => ({ ...current, quickCapturePinShortcut: next }));
+    onSave({ title: titleForSave, quickCapture: { pinShortcut: next } });
+  };
+  const handleQuickCaptureToggleShortcutChange = (next: string) => {
+    setFormState((current) => ({ ...current, quickCaptureToggleShortcut: next }));
+    onSave({ title: titleForSave, quickCapture: { toggleShortcut: next } });
+  };
   const handleKeyboardNavigationChange = (next: { characterShortcutsEnabled: boolean; keyHintsVisible: boolean }) => {
     setFormState((current) => ({ ...current, ...next }));
     onSave({ title: titleForSave, shortcuts, keyboardNavigation: next });
@@ -297,8 +307,20 @@ function SettingsDialogContent({
       setNewTabOpens('empty');
     } else if (tab === 'shortcuts') {
       const navigation = { characterShortcutsEnabled: true, keyHintsVisible: true };
-      setFormState((current) => ({ ...current, shortcuts: defaultSettings.shortcuts, ...navigation }));
-      onSave({ title: titleForSave, shortcuts: defaultSettings.shortcuts, keyboardNavigation: navigation });
+      const { pinShortcut, toggleShortcut } = defaultSettings.quickCapture;
+      setFormState((current) => ({
+        ...current,
+        shortcuts: defaultSettings.shortcuts,
+        ...navigation,
+        quickCapturePinShortcut: pinShortcut,
+        quickCaptureToggleShortcut: toggleShortcut,
+      }));
+      onSave({
+        title: titleForSave,
+        shortcuts: defaultSettings.shortcuts,
+        keyboardNavigation: navigation,
+        quickCapture: { pinShortcut, toggleShortcut },
+      });
       leaderSpacePreference.set(true);
       holdHintsPreference.set(true);
     } else if (tab === 'appearance') {
@@ -417,6 +439,8 @@ function SettingsDialogContent({
       shortcuts: defaultSettings.shortcuts,
       characterShortcutsEnabled: true,
       keyHintsVisible: true,
+      quickCapturePinShortcut: defaultSettings.quickCapture.pinShortcut,
+      quickCaptureToggleShortcut: defaultSettings.quickCapture.toggleShortcut,
     });
     setAppearance(defaultSettings.appearance);
     // Kept on this computer rather than in settings, so it resets here, as the Appearance reset does.
@@ -428,6 +452,10 @@ function SettingsDialogContent({
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
+      quickCapture: {
+        pinShortcut: defaultSettings.quickCapture.pinShortcut,
+        toggleShortcut: defaultSettings.quickCapture.toggleShortcut,
+      },
       appIcon: defaultSettings.appIcon,
     });
   };
@@ -446,6 +474,8 @@ function SettingsDialogContent({
         shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
         characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
         keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
+        quickCapturePinShortcut: settings?.quickCapture?.pinShortcut ?? defaultSettings.quickCapture.pinShortcut,
+        quickCaptureToggleShortcut: settings?.quickCapture?.toggleShortcut ?? defaultSettings.quickCapture.toggleShortcut,
       }));
     }
     onOpenChange(nextOpen);
@@ -457,7 +487,8 @@ function SettingsDialogContent({
         ref={dialogRef}
         size="wide"
         showCloseButton={false}
-        className="gap-0 overflow-hidden p-0"
+        layout="flush"
+        className="overflow-hidden"
         data-keyboard-navigation-scope="settings"
         data-navigation-page={activeTab}
       >
@@ -512,7 +543,7 @@ function SettingsDialogContent({
                     <DialogClose className="shrink-0" />
                   </div>
                 </header>
-                <TabsContent data-settings-tab="general" value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="general" value="general" keepMounted variant="page" className="scroll-edges-source">
                   <SettingsPage>
                     <GeneralSettingsPanel
                       title={title}
@@ -532,10 +563,14 @@ function SettingsDialogContent({
                       active={open && activeTab === 'general'}
                       resetSignal={resetRequest?.tab === 'general' ? resetRequest.nonce : 0}
                     />
+                    <QuickCaptureSettingsSection
+                      active={open && activeTab === 'general'}
+                      resetSignal={resetRequest?.tab === 'general' ? resetRequest.nonce : 0}
+                    />
                   </SettingsPage>
                 </TabsContent>
 
-                <TabsContent data-settings-tab="editor" value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="editor" value="editor" keepMounted variant="page" className="scroll-edges-source">
                   <EditorSettingsPanel
                     editorMode={editorMode}
                     onEditorModeChange={handleEditorModeChange}
@@ -543,7 +578,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="appearance" value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="appearance" value="appearance" keepMounted variant="page" className="scroll-edges-source">
                   <AppearanceSettingsPanel
                     controller={appearanceController}
                     platform={platform}
@@ -556,7 +591,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="shortcuts" value="shortcuts" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="shortcuts" value="shortcuts" keepMounted variant="page" className="scroll-edges-source">
                   <ShortcutsSettingsPanel
                     platform={platform}
                     characterShortcutsEnabled={characterShortcutsEnabled}
@@ -571,10 +606,15 @@ function SettingsDialogContent({
                     })}
                     shortcuts={shortcuts}
                     onShortcutsChange={handleShortcutsChange}
+                    quickCaptureToggleShortcut={quickCaptureToggleShortcut}
+                    savedQuickCaptureToggleShortcut={settings?.quickCapture?.toggleShortcut}
+                    onQuickCaptureToggleShortcutChange={handleQuickCaptureToggleShortcutChange}
+                    quickCapturePinShortcut={quickCapturePinShortcut}
+                    onQuickCapturePinShortcutChange={handleQuickCapturePinShortcutChange}
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="vault" value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="vault" value="vault" keepMounted variant="page" className="scroll-edges-source">
                   <VaultSettingsPanel
                     error={localVaultError}
                     settings={settings}
@@ -588,7 +628,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="hackmd" value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="hackmd" value="hackmd" keepMounted variant="page" className="scroll-edges-source">
                   <HackmdSettingsPanel
                     accounts={settings?.hackmdAccounts?.accounts ?? []}
                     activeAccountId={settings?.hackmdAccounts?.activeAccountId ?? null}
@@ -618,21 +658,21 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="ai" value="ai" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="ai" value="ai" keepMounted variant="page" className="scroll-edges-source">
                   <AiSettingsPanel
                     active={open && activeTab === 'ai'}
                     resetSignal={resetRequest?.tab === 'ai' ? resetRequest.nonce : 0}
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="dictation" value="dictation" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="dictation" value="dictation" keepMounted variant="page" className="scroll-edges-source">
                   <DictationSettingsPanel
                     active={open && activeTab === 'dictation'}
                     resetSignal={resetRequest?.tab === 'dictation' ? resetRequest.nonce : 0}
                   />
                 </TabsContent>
 
-                <TabsContent data-settings-tab="advanced" value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="advanced" value="advanced" keepMounted variant="page" className="scroll-edges-source">
                   <AdvancedSettingsPanel appVersion={appVersion} onResetAllSettings={handleResetAllSettings} />
                 </TabsContent>
                 <AlertDialog open={resetConfirmTab !== null} onOpenChange={(nextOpen) => { if (!nextOpen) setResetConfirmTab(null); }}>

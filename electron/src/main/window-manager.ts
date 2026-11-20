@@ -7,9 +7,14 @@ import type {
   NewWindowInput,
   PresentationDeck,
   PresentedDeck,
+  QuickCaptureState,
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
+  WindowControlAction,
+  WindowPresentationState,
 } from '../../../src/lib/electron-api';
+import { matchShortcutConfig } from '../../../src/lib/keyboard-shortcuts';
+import { DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT } from '../../../src/lib/quick-capture-shortcuts';
 import { WINDOW_TRANSLUCENCY_MATERIALS, type WindowTranslucency } from '../../../src/lib/window-translucency';
 import { appendWindowWorkspaceToUrl } from '../../../src/lib/window-workspace';
 import { getRendererEntryUrl, getRendererRouteUrl } from './paths';
@@ -38,12 +43,47 @@ const QUICK_CAPTURE_PRESENTATION_TIMEOUT_MS = 1000;
 const QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS = 15_000;
 
 // Channels only the Quick Hack and presentation windows may call; the main window may call the rest.
-const QUICK_CAPTURE_CHANNELS = new Set<string>([ELECTRON_CHANNELS.appSubmitQuickCapture, ELECTRON_CHANNELS.appHideQuickCapture]);
+const QUICK_CAPTURE_CHANNELS = new Set<string>([
+  ELECTRON_CHANNELS.appSubmitQuickCapture,
+  ELECTRON_CHANNELS.appHideQuickCapture,
+  ELECTRON_CHANNELS.appGetQuickCaptureState,
+  ELECTRON_CHANNELS.appSetQuickCapturePinned,
+]);
 const PRESENTATION_CHANNELS = new Set<string>([
   ELECTRON_CHANNELS.appGetPresentation,
   ELECTRON_CHANNELS.appClosePresentation,
   ELECTRON_CHANNELS.appTogglePresentationFullScreen,
 ]);
+
+function presentationStateOf(window: BrowserWindow | null | undefined): WindowPresentationState {
+  return {
+    fullScreen: window?.isFullScreen() ?? false,
+    maximized: window?.isMaximized() ?? false,
+  };
+}
+
+type QuickCaptureKeyInput = Pick<Electron.Input, 'type' | 'key' | 'meta' | 'control' | 'alt' | 'shift'>;
+
+/**
+ * Keys the Quick Hack popup handles itself: bold, italic and the pin shortcut. The application menu
+ * also serves the popup, so without this its accelerators, such as Toggle Sidebar on Mod+B, would
+ * fire too.
+ */
+export function isQuickCaptureOwnedShortcut(
+  input: QuickCaptureKeyInput,
+  pinShortcut: string = DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT,
+  platform: NodeJS.Platform = process.platform,
+) {
+  if (input.type !== 'keyDown' && input.type !== 'rawKeyDown') return false;
+  const press = {
+    key: input.key ?? '',
+    altKey: input.alt,
+    ctrlKey: input.control,
+    metaKey: input.meta,
+    shiftKey: input.shift,
+  };
+  return ['mod+b', 'mod+i', pinShortcut].some(config => matchShortcutConfig(config, press, platform));
+}
 
 type PendingQuickCaptureSubmission = {
   resolve: (result: QuickCaptureSubmitResult) => void;
@@ -70,6 +110,12 @@ export class WindowManager {
   private quickCaptureOpener: BrowserWindow | null = null;
   private quickCapturePresentationInProgress = false;
   private quickCapturePresentationTimeout: NodeJS.Timeout | null = null;
+  /** The Keep open setting: whether each Quick Hack opening starts pinned. */
+  private quickCaptureKeepOpen = false;
+  /** Pinned keeps the popup open after a capture; it lasts until the popup is dismissed. */
+  private quickCapturePinned = false;
+  /** The Pin Quick Hack shortcut from Settings, which the popup and its menu handling both follow. */
+  private quickCapturePinShortcut = DEFAULT_QUICK_CAPTURE_PIN_SHORTCUT;
 
   getMainWindow() {
     const focused = BrowserWindow.getFocusedWindow();
@@ -264,11 +310,25 @@ export class WindowManager {
   }
 
   getWindowPresentationState() {
-    return { fullScreen: this.getMainWindow()?.isFullScreen() ?? false };
+    return presentationStateOf(this.getMainWindow());
   }
 
   getWindowPresentationStateForSender(sender: Electron.WebContents) {
-    return { fullScreen: this.getMainWindowForWebContents(sender)?.isFullScreen() ?? false };
+    return presentationStateOf(this.getMainWindowForWebContents(sender));
+  }
+
+  /** The renderer's own window controls, on Linux and Windows. Closing asks about unsaved notes as usual. */
+  controlWindowForSender(sender: Electron.WebContents, action: WindowControlAction) {
+    const window = this.getMainWindowForWebContents(sender);
+    if (!window || window.isDestroyed()) return;
+    if (action === 'minimize') {
+      window.minimize();
+    } else if (action === 'toggle-maximize') {
+      if (window.isMaximized()) window.unmaximize();
+      else window.maximize();
+    } else {
+      window.close();
+    }
   }
 
   confirmCloseForSender(sender: Electron.WebContents) {
@@ -465,6 +525,8 @@ export class WindowManager {
       show: false,
       title: 'Quick Hack',
       titleBarStyle: isMac ? 'hiddenInset' : 'default',
+      // Linux and Windows: the app menu bar stays hidden until Alt, as in the main window.
+      autoHideMenuBar: true,
       trafficLightPosition: isMac ? { x: 14, y: 12 } : undefined,
       alwaysOnTop: true,
       backgroundColor: WINDOW_BACKGROUND_COLOR,
@@ -495,6 +557,7 @@ export class WindowManager {
       this.completeQuickCapturePresentation();
     });
     window.webContents.on('before-input-event', (event, input) => {
+      window.webContents.setIgnoreMenuShortcuts(isQuickCaptureOwnedShortcut(input, this.quickCapturePinShortcut));
       if (process.platform === 'darwin' && input.type === 'keyDown'
         && input.key?.toLowerCase() === 'q' && input.meta
         && !input.alt && !input.control && !input.shift) {
@@ -525,9 +588,55 @@ export class WindowManager {
     return window;
   }
 
+  /** The Quick Hack hotkey: dismisses the popup while it is in front, otherwise opens or focuses it. */
+  toggleQuickCaptureWindow() {
+    const existingWindow = this.getQuickCaptureWindow();
+    if (existingWindow?.isVisible() && existingWindow.isFocused()) {
+      this.hideQuickCaptureWindow();
+      return null;
+    }
+
+    return this.showQuickCaptureWindow();
+  }
+
+  getQuickCaptureState(): QuickCaptureState {
+    return { pinned: this.quickCapturePinned, pinShortcut: this.quickCapturePinShortcut };
+  }
+
+  private sendQuickCaptureState() {
+    const contents = this.getQuickCaptureWindow()?.webContents;
+    if (contents && !contents.isDestroyed()) {
+      contents.send(ELECTRON_CHANNELS.appQuickCaptureStateChanged, this.getQuickCaptureState());
+    }
+  }
+
+  setQuickCapturePinned(pinned: boolean): QuickCaptureState {
+    if (this.quickCapturePinned !== pinned) {
+      this.quickCapturePinned = pinned;
+      this.sendQuickCaptureState();
+    }
+    return this.getQuickCaptureState();
+  }
+
+  /** Applies the Pin Quick Hack shortcut from Settings, also to a popup that is open now. */
+  setQuickCapturePinShortcut(pinShortcut: string) {
+    if (this.quickCapturePinShortcut === pinShortcut) return;
+    this.quickCapturePinShortcut = pinShortcut;
+    this.sendQuickCaptureState();
+  }
+
+  /** Applies the Keep open setting; a change also re-pins or unpins a popup that is open now. */
+  setQuickCaptureKeepOpen(keepOpen: boolean) {
+    if (this.quickCaptureKeepOpen === keepOpen) return;
+    this.quickCaptureKeepOpen = keepOpen;
+    this.setQuickCapturePinned(keepOpen);
+  }
+
   hideQuickCaptureWindow() {
     this.completeQuickCapturePresentation();
     this.getQuickCaptureWindow()?.hide();
+    // The pin covers one opening; the next one starts from the setting again.
+    this.setQuickCapturePinned(this.quickCaptureKeepOpen);
 
     if (process.platform !== 'darwin') {
       return;
@@ -594,7 +703,10 @@ export class WindowManager {
     }
 
     this.getMainWindow()?.webContents.session.flushStorageData();
-    this.hideQuickCaptureWindow();
+    // Pinned, the popup stays for the next capture; the renderer clears the accepted text.
+    if (!this.quickCapturePinned) {
+      this.hideQuickCaptureWindow();
+    }
     pending.resolve({ accepted: true });
   }
 
@@ -623,6 +735,7 @@ export class WindowManager {
       ...bounds,
       show: false,
       title: deck.title || 'Presentation',
+      autoHideMenuBar: true,
       backgroundColor: PRESENTATION_BACKGROUND_COLOR,
       icon: getAppIconPath(),
       webPreferences: {
@@ -717,7 +830,9 @@ export class WindowManager {
       minHeight: 620,
       show: false,
       title: 'HackDesk',
-      titleBarStyle: isMac ? 'hiddenInset' : 'default',
+      // Linux and Windows get no system frame: the renderer draws the window controls and opens the
+      // menu from its own title bar.
+      titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
       trafficLightPosition: isMac ? { x: 16, y: 12 } : undefined,
       backgroundColor: WINDOW_BACKGROUND_COLOR,
       vibrancy: isMac ? 'sidebar' : undefined,
@@ -752,11 +867,19 @@ export class WindowManager {
     });
 
     window.on('enter-full-screen', () => {
-      this.sendWindowPresentationState(window, true);
+      this.sendWindowPresentationState(window, { fullScreen: true });
     });
 
     window.on('leave-full-screen', () => {
-      this.sendWindowPresentationState(window, false);
+      this.sendWindowPresentationState(window, { fullScreen: false });
+    });
+
+    window.on('maximize', () => {
+      this.sendWindowPresentationState(window, { maximized: true });
+    });
+
+    window.on('unmaximize', () => {
+      this.sendWindowPresentationState(window, { maximized: false });
     });
 
     window.on('focus', () => {
@@ -838,9 +961,13 @@ export class WindowManager {
     }
   }
 
-  private sendWindowPresentationState(window: BrowserWindow, fullScreen: boolean) {
+  private sendWindowPresentationState(window: BrowserWindow, change: Partial<WindowPresentationState>) {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
-      window.webContents.send(ELECTRON_CHANNELS.appWindowPresentationStateChanged, { fullScreen });
+      // The event's own value wins: the window may not report the new state yet while it fires.
+      window.webContents.send(ELECTRON_CHANNELS.appWindowPresentationStateChanged, {
+        ...presentationStateOf(window),
+        ...change,
+      });
     }
   }
 

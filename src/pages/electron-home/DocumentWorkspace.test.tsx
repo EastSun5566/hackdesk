@@ -150,7 +150,6 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     isInspectorCollapsed: false,
     onFocusPane: vi.fn(),
     onResizeSplit: vi.fn(),
-    onTogglePaneZoom: vi.fn(),
     canCreateNote: true,
     onCreateNote: vi.fn(),
     onQuickOpen: vi.fn(),
@@ -327,6 +326,15 @@ describe('DocumentWorkspace', () => {
     expect(activeDetail).toHaveAttribute('data-inspector-collapsed', 'false');
   });
 
+  it('passes per-pane inspector collapsed state independently when provided', () => {
+    renderWorkspace({
+      isPaneInspectorCollapsed: (paneId) => paneId !== 'pane-a',
+    });
+
+    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-inspector-collapsed', 'false');
+    expect(screen.getByTestId('document-detail-Right note')).toHaveAttribute('data-inspector-collapsed', 'true');
+  });
+
   it('does not route a request to another workspace or document inside the same pane', () => {
     const props = createWorkspaceProps();
     const { rerender } = render(<DocumentWorkspace {...props} />);
@@ -412,7 +420,7 @@ describe('DocumentWorkspace', () => {
     const separator = screen.getByLabelText('Resize document panes side by side, between pane 1 and pane 2');
 
     expect(separator).toHaveAttribute('id', 'document-pane-separator-pane-b');
-    expect(separator).toHaveClass('focus-visible:after:bg-primary-default');
+    expect(separator).toHaveClass('pane-gap-sash');
   });
 
   it('shows a retained draft with copy, export and new-draft actions when the original is missing', () => {
@@ -463,5 +471,71 @@ describe('DocumentWorkspace', () => {
     expect(screen.queryByRole('button', { name: 'Copy draft' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(props.onRetryLoad).toHaveBeenCalledWith(expect.objectContaining({ tabId: 'tab-a' }));
+  });
+
+  it('calls onEqualizeSplit when a pane separator is double-clicked', () => {
+    const onEqualizeSplit = vi.fn();
+    const props = renderWorkspace({ onEqualizeSplit });
+    if (props.layout.type !== 'split') throw new Error('Expected a split');
+
+    fireEvent.doubleClick(screen.getByRole('separator'));
+
+    expect(onEqualizeSplit).toHaveBeenCalledWith(props.layout.id);
+  });
+
+  it('puts each pane\'s header directly above its card, telling it where the pane sits', () => {
+    const panes = [pane('pane-a', ['tab-a']), pane('pane-b', ['tab-b']), pane('pane-c', ['tab-c'])];
+    // pane-a | (pane-b over pane-c)
+    const layout = splitLayoutPane(reconcileLayout(null, ['pane-a', 'pane-b']), 'pane-b', 'pane-c', 'down');
+    const renderPaneHeader = vi.fn((candidate: NotePane, placement: { topRow: boolean; leading: boolean; trailing: boolean }) => (
+      <div
+        data-testid={`header-${candidate.paneId}`}
+        data-top-row={String(placement.topRow)}
+        data-leading={String(placement.leading)}
+        data-trailing={String(placement.trailing)}
+      />
+    ));
+    renderWorkspace({ panes, layout, renderPaneHeader });
+
+    for (const id of ['pane-a', 'pane-b', 'pane-c']) {
+      const header = screen.getByTestId(`header-${id}`);
+      expect(header.nextElementSibling).toHaveAttribute('data-document-pane-id', id);
+    }
+    expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-top-row', 'true');
+    expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-leading', 'true');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-top-row', 'true');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-leading', 'false');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-trailing', 'true');
+    expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-trailing', 'false');
+    expect(screen.getByTestId('header-pane-c')).toHaveAttribute('data-top-row', 'false');
+    expect(screen.getByTestId('header-pane-c')).toHaveAttribute('data-trailing', 'false');
+  });
+
+  it('treats a zoomed pane as the top-left one', () => {
+    const panes = [pane('pane-a', ['tab-a']), pane('pane-b', ['tab-b'])];
+    const renderPaneHeader = vi.fn((candidate: NotePane, placement: { topRow: boolean; leading: boolean; trailing: boolean }) => (
+      <div
+        data-testid={`header-${candidate.paneId}`}
+        data-top-row={String(placement.topRow)}
+        data-leading={String(placement.leading)}
+        data-trailing={String(placement.trailing)}
+      />
+    ));
+    renderWorkspace({ panes, zoomedPaneId: 'pane-b', renderPaneHeader });
+
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-leading', 'true');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-trailing', 'true');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-top-row', 'true');
+    expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-leading', 'false');
+  });
+
+  it('shows the empty header above the blank state', () => {
+    renderWorkspace({
+      panes: [pane('pane-a', [], undefined)],
+      emptyHeader: <div data-testid="empty-header" />,
+    });
+
+    expect(screen.getByTestId('empty-header')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No note selected' })).toBeInTheDocument();
   });
 });

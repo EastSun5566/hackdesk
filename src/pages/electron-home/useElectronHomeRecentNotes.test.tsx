@@ -37,6 +37,21 @@ describe('useElectronHomeRecentNotes', () => {
     window.localStorage.clear();
   });
 
+  it('shows each HackMD account only the notes it opened', () => {
+    const { result, rerender } = renderHook(({ accountId }: { accountId: string | null }) => (
+      useElectronHomeRecentNotes(window.localStorage, 'vault-a', accountId)
+    ), { initialProps: { accountId: 'acct-a' } });
+    act(() => result.current.trackRecentNote(note({ id: 'mine', title: 'Mine' })));
+    act(() => result.current.trackRecentNote(note({ id: 'local', title: 'Local', teamPath: LOCAL_VAULT_TEAM_PATH })));
+
+    rerender({ accountId: 'acct-b' });
+    expect(result.current.recentNotes.map((recent) => recent.noteId)).toEqual(['local']);
+
+    rerender({ accountId: 'acct-a' });
+    expect(result.current.recentNotes.map((recent) => recent.noteId)).toEqual(['local', 'mine']);
+    expect(readRecentNotes(window.localStorage).find((recent) => recent.noteId === 'mine')?.accountId).toBe('acct-a');
+  });
+
   it('tracks and persists recent notes', () => {
     const { result } = renderHook(() => useElectronHomeRecentNotes());
 

@@ -24,8 +24,8 @@ export function TemplatePickerDialog({ open, onOpenChange, templates, onChoose }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md" className="gap-0 overflow-hidden p-0">
-        <DialogHeader className="px-4 pb-2 pt-4">
+      <DialogContent size="md" layout="flush" className="overflow-hidden">
+        <DialogHeader className="mx-4 mb-2 mt-4">
           <DialogTitle>New Note from Template</DialogTitle>
           <DialogDescription className="sr-only">
             Choose a note from the {TEMPLATES_FOLDER_NAME} folder.

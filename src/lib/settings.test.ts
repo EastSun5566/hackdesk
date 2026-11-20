@@ -50,6 +50,7 @@ describe('settings helpers', () => {
       ai: defaultSettings.ai,
       dictation: defaultSettings.dictation,
       offline: defaultSettings.offline,
+      quickCapture: defaultSettings.quickCapture,
       appIcon: defaultSettings.appIcon,
     });
   });
@@ -59,6 +60,30 @@ describe('settings helpers', () => {
       .toEqual({ keepHackmdNotes: false });
     expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', offline: { keepHackmdNotes: 'no' } })).offline)
       .toEqual(defaultSettings.offline);
+  });
+
+  it('closes Quick Hack after capture by default and drops a damaged Quick Hack setting alone', () => {
+    expect(defaultSettings.quickCapture).toEqual({ keepOpen: false, pinShortcut: 'mod+shift+p', toggleShortcut: 'control+alt+h' });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: { keepOpen: true } })).quickCapture)
+      .toEqual({ ...defaultSettings.quickCapture, keepOpen: true });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: { keepOpen: 'yes' } })).quickCapture)
+      .toEqual(defaultSettings.quickCapture);
+    expect(parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      quickCapture: { keepOpen: true, pinShortcut: 'Mod+Alt+K' },
+    })).quickCapture).toEqual({ ...defaultSettings.quickCapture, keepOpen: true, pinShortcut: 'mod+alt+k' });
+    // A shortcut Quick Hack already uses (Mod+B is bold) falls back without turning Keep open off.
+    expect(parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      quickCapture: { keepOpen: true, pinShortcut: 'mod+b', toggleShortcut: 'Control+Shift+Space' },
+    })).quickCapture).toEqual({ keepOpen: true, pinShortcut: 'mod+shift+p', toggleShortcut: 'control+shift+space' });
+    // A global hotkey without Command, Control or Alt would take keys from every app.
+    expect(parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      quickCapture: { keepOpen: true, toggleShortcut: 'shift+f5' },
+    })).quickCapture).toEqual({ ...defaultSettings.quickCapture, keepOpen: true });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', quickCapture: 'on' })).quickCapture)
+      .toEqual(defaultSettings.quickCapture);
   });
 
   it('keeps dictation off until turned on and drops a damaged dictation section', () => {
@@ -125,6 +150,7 @@ describe('settings helpers', () => {
       ai: defaultSettings.ai,
       dictation: defaultSettings.dictation,
       offline: defaultSettings.offline,
+      quickCapture: defaultSettings.quickCapture,
       appIcon: defaultSettings.appIcon,
     });
   });
@@ -561,6 +587,11 @@ describe('settings helpers', () => {
   },
   "offline": {
     "keepHackmdNotes": true
+  },
+  "quickCapture": {
+    "keepOpen": false,
+    "pinShortcut": "mod+shift+p",
+    "toggleShortcut": "control+alt+h"
   },
   "appIcon": "system"
 }`);

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   equalizeLayout,
+  equalizeLayoutSplit,
   layoutPaneIds,
+  leadingPaneId,
   normalizeSizes,
   paneInDirection,
   paneLeaf,
@@ -11,8 +13,11 @@ import {
   reconcileLayout,
   removeLayoutPane,
   resizeLayoutSplit,
+  splitLayoutAtEdge,
   splitLayoutPane,
+  topRowPaneIds,
   type PaneLayoutNode,
+  trailingPaneId,
 } from './pane-layout';
 
 function shape(node: PaneLayoutNode): unknown {
@@ -163,5 +168,62 @@ describe('pane layout', () => {
         sizes.forEach((size, index) => expect(size).toBeCloseTo(original[split][index], 10));
       });
     }
+  });
+
+  it('splits along the outer edge of the layout and folds matching orientations cleanly', () => {
+    const row = splitLayoutPane(paneLeaf('a'), 'a', 'b', 'right');
+    expect(shape(splitLayoutAtEdge(row, 'top', 'up'))).toEqual({
+      column: ['top', { row: ['a', 'b'], sizes: [50, 50] }],
+      sizes: [35, 65],
+    });
+    expect(shape(splitLayoutAtEdge(row, 'left', 'left'))).toEqual({
+      row: ['left', 'a', 'b'],
+      sizes: [35, 33, 33],
+    });
+    expect(shape(splitLayoutAtEdge(paneLeaf('only'), 'right', 'right'))).toEqual({
+      row: ['only', 'right'],
+      sizes: [50, 50],
+    });
+  });
+
+  it('equalizes only the targeted split without disturbing nested splits', () => {
+    const layout = lShape();
+    if (layout.type !== 'split') throw new Error('expected a split');
+    const column = layout.children[1];
+    if (column.type !== 'split') throw new Error('expected a column');
+
+    const withResizedRoot = resizeLayoutSplit(layout, layout.id, { a: 25, [column.id]: 75 });
+    const withResizedBoth = resizeLayoutSplit(withResizedRoot, column.id, { b: 70, c: 30 });
+    const equalizedRoot = equalizeLayoutSplit(withResizedBoth, layout.id);
+    expect(shape(equalizedRoot)).toEqual({
+      row: ['a', { column: ['b', 'c'], sizes: [70, 30] }],
+      sizes: [50, 50],
+    });
+  });
+});
+
+describe('pane tab bar placement', () => {
+  it('finds the panes along the top edge and the one in the top-left corner', () => {
+    // a | (b over c), then d below everything.
+    let layout = splitLayoutPane(paneLeaf('a'), 'a', 'b', 'right');
+    layout = splitLayoutPane(layout, 'b', 'c', 'down');
+    expect(topRowPaneIds(layout)).toEqual(['a', 'b']);
+    expect(leadingPaneId(layout)).toBe('a');
+
+    layout = splitLayoutAtEdge(layout, 'd', 'up');
+    expect(topRowPaneIds(layout)).toEqual(['d']);
+    expect(leadingPaneId(layout)).toBe('d');
+  });
+
+  it('finds the pane in the top-right corner, where the window controls go', () => {
+    expect(trailingPaneId(paneLeaf('a'))).toBe('a');
+    // a | (b over c): b is top right.
+    let layout = splitLayoutPane(paneLeaf('a'), 'a', 'b', 'right');
+    layout = splitLayoutPane(layout, 'b', 'c', 'down');
+    expect(trailingPaneId(layout)).toBe('b');
+
+    // (a | (b over c)) under d: d spans the top.
+    layout = splitLayoutAtEdge(layout, 'd', 'up');
+    expect(trailingPaneId(layout)).toBe('d');
   });
 });

@@ -137,6 +137,30 @@ test('canceling Quick Hack returns focus to main and preserves the capture buffe
   }
 });
 
+test('the Quick Hack hotkey dismisses the popup it opened and keeps its text', async () => {
+  const app = await launchQuickHackFixture();
+  try {
+    const { popup } = await openQuickHackFromMain(app);
+    await popup.getByLabel('Quick Hack note').fill('Toggle keeps this');
+    await app.evaluate(() => (globalThis as typeof globalThis & { openQuickHack: () => void }).openQuickHack());
+    await expect.poll(() => app.evaluate(({ BrowserWindow }) => {
+      const windows = BrowserWindow.getAllWindows();
+      return {
+        mainFocused: windows.find(window => window.webContents.getURL().includes('#/electron'))?.isFocused(),
+        popupVisible: windows.find(window => window.webContents.getURL().includes('#/quick-capture'))?.isVisible(),
+      };
+    })).toEqual({ mainFocused: true, popupVisible: false });
+
+    await app.evaluate(() => (globalThis as typeof globalThis & { openQuickHack: () => void }).openQuickHack());
+    await expect.poll(() => app.evaluate(({ BrowserWindow }) => (
+      BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('#/quick-capture'))?.isFocused()
+    ))).toBe(true);
+    await expect(popup.getByLabel('Quick Hack note')).toHaveText('Toggle keeps this');
+  } finally {
+    if (app.process().exitCode === null) app.process().kill('SIGKILL');
+  }
+});
+
 test('Cmd+Q from Quick Hack exits the whole app', async () => {
   const app = await launchQuickHackFixture();
   const appProcess = app.process();

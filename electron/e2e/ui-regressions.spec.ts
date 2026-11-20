@@ -36,6 +36,8 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
     appearance: { ...defaultSettings.appearance, theme },
     localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
     editor: { mode: editorMode },
+    // Teams are pinned by the user only; the layout and reorder checks need pinned rows.
+    workspaceNavigation: { pinnedTeamIds: teamNames.map((_, index) => `fixture-team-${index}`) },
   };
   await writeFile(join(testHome, '.hackdesk', 'settings.json'), JSON.stringify(settings));
   const env = { ...definedEnvironment(process.env) };
@@ -233,10 +235,10 @@ async function ensureKeyboardModality(page: Page) {
   await page.keyboard.press('Tab');
 }
 
-async function expectInsetFocus(locator: Locator, container = false) {
-  await locator.focus();
+async function expectInsetFocus(locator: Locator, container = false, focusTarget: Locator = locator) {
+  await focusTarget.focus();
   await ensureKeyboardModality(locator.page());
-  await locator.focus();
+  await focusTarget.focus();
   await expect.poll(() => locator.evaluate((element) => getComputedStyle(element).boxShadow)).toContain('inset');
   // Verify that the focused field remains fully inside every clipping ancestor.
   await locator.scrollIntoViewIfNeeded();
@@ -742,11 +744,12 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await switchWorkspace(page, 'vault');
     // A sidebar pick opens a preview tab that the next pick replaces; a double-click keeps the tab.
+    const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
     const openNote = async (name: string) => {
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
-      await expect(page.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
+      await expect(activeTabSegment.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
     };
-    const strip = page.getByRole('navigation', { name: 'Open documents' });
+    const strip = activeTabSegment.getByRole('navigation', { name: 'Open documents' });
     const labels = () => strip.locator('[data-tab-title]').allTextContents();
     const dragTab = async (from: string, to: string, cancel = false) => {
       const source = (await strip.getByRole('tab', { name: new RegExp(`^${from}(?:, .+)?$`) }).boundingBox())!;
@@ -1024,6 +1027,77 @@ test('dropping a folder or a note on the workspace row moves it to the top level
   }
 });
 
+test('with translucency on, the pinned workspace row stays clear and the list masks its edges instead of painting fades', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'vault');
+    for (const name of ['Projects', 'Sub', 'Folders only', 'Last']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    await page.setViewportSize({ width: 1100, height: 420 });
+    // The window material itself needs macOS; what the page does over it is the same everywhere.
+    await page.evaluate(() => {
+      document.documentElement.dataset.windowVibrancy = '';
+      document.documentElement.dataset.sidebarTranslucency = 'medium';
+    });
+    const scroller = page.locator('aside .scroll-edges-source');
+    const measure = () => scroller.evaluate((element) => {
+      const pinned = element.querySelector<HTMLElement>('[data-folder-tree-kind="root"]')!;
+      const rows = element.querySelector<HTMLElement>('.sidebar-pinned-rows')!;
+      return {
+        // How far into the rows the mask hides them, and where the pinned row's bottom edge lies.
+        cut: Number.parseFloat(getComputedStyle(rows).getPropertyValue('--pinned-rows-cut')),
+        edge: pinned.getBoundingClientRect().bottom - rows.getBoundingClientRect().top,
+        mask: getComputedStyle(rows).maskImage,
+        pinnedBackground: getComputedStyle(pinned).backgroundColor,
+        topFade: getComputedStyle(element.querySelector('.edge-fade-top')!).display,
+        bottomFade: getComputedStyle(element.querySelector('.edge-fade-bottom')!).display,
+        // The list's own mask: its bottom edge fades while rows lie past it, and the pinned row's
+        // cut, not this mask, fades the top.
+        maskTop: Number.parseFloat(getComputedStyle(element).getPropertyValue('--sidebar-fade-top')),
+        maskBottom: Number.parseFloat(getComputedStyle(element).getPropertyValue('--sidebar-fade-bottom')),
+        scrollerMask: getComputedStyle(element).maskImage,
+      };
+    });
+
+    // At rest the rows start below the pinned row and nothing is masked.
+    let state = await measure();
+    expect(state.edge).toBeLessThanOrEqual(0);
+    expect(state.cut).toBe(0);
+    expect(state.mask).toContain('linear-gradient');
+    // Rows lie past the bottom edge: masked there, with no opaque fade painted over the material.
+    expect(state.bottomFade).toBe('none');
+    expect(state.scrollerMask).toContain('linear-gradient');
+    await expect.poll(async () => (await measure()).maskBottom).toBe(32);
+    expect(state.maskTop).toBe(0);
+
+    // Scrolled, the pinned row paints nothing (the material shows through it, as around it) and the
+    // rows are cut exactly at its bottom edge; no opaque fade is drawn over them either.
+    // The end of the list too: the cut must keep tracking 1:1 far from the range's start.
+    for (const top of [20, 60, Number.MAX_SAFE_INTEGER]) {
+      const scrolled = await scroller.evaluate((element, offset) => {
+        element.scrollTo({ top: offset });
+        return element.scrollTop;
+      }, top);
+      await expect.poll(async () => (await measure()).edge).toBeGreaterThan(scrolled - 10);
+      // The timeline catches up on the next frame.
+      await expect.poll(async () => {
+        const { cut, edge } = await measure();
+        return Math.abs(cut - edge);
+      }).toBeLessThan(1);
+    }
+    state = await measure();
+    expect(state.pinnedBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(state.topFade).toBe('none');
+    expect(state.maskTop).toBe(0);
+    // At the end of the list nothing lies past the bottom edge, so it is not faded.
+    await expect.poll(async () => (await measure()).maskBottom).toBe(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('a folder dropped on the middle of another moves inside it, on its top edge before it', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
@@ -1123,28 +1197,39 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       await switchWorkspace(page, 'My Workspace');
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Remote UI fixture', exact: true }).click();
       await page.getByRole('button', { name: 'Expand note details', exact: true }).click();
-      const tags = page.getByRole('textbox', { name: 'Tags', exact: true });
+      await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('06-note-details.png') });
+      await page.getByRole('button', { name: 'Note settings', exact: true }).click();
+      const noteSettingsDialog = page.getByRole('dialog', { name: 'Note Settings' });
+      await expect(noteSettingsDialog).toBeVisible();
+      const tags = noteSettingsDialog.getByRole('textbox', { name: 'Tags', exact: true });
       await tags.focus();
-      await expectInsetFocus(tags.locator('..'), true);
-      const removeTag = page.getByRole('button', { name: 'Remove playground tag', exact: true });
+      await expectInsetFocus(tags.locator('..'), true, tags);
+      const removeTag = noteSettingsDialog.getByRole('button', { name: 'Remove playground tag', exact: true });
       const removeBounds = (await removeTag.boundingBox())!;
       expect(Math.min(removeBounds.width, removeBounds.height)).toBeGreaterThanOrEqual(24);
-      await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('06-note-details.png') });
-      for (const label of ['Description', 'Permalink']) {
-        const field = page.getByLabel(label, { exact: true });
-        await field.focus();
-        await expectInsetFocus(field);
-      }
-      await page.getByRole('button', { name: /Location/ }).click();
-      const folder = page.getByRole('combobox', { name: 'Folder', exact: true });
+      const description = noteSettingsDialog.getByLabel('Description', { exact: true });
+      await description.focus();
+      await expectInsetFocus(description);
+      const folder = noteSettingsDialog.getByRole('combobox', { name: 'Folder', exact: true });
       await page.keyboard.press('Tab');
       await folder.focus();
       await expectInsetFocus(folder);
-      await page.getByRole('button', { name: /Permissions/ }).click();
-      const read = page.getByRole('group', { name: 'Read', exact: true }).getByRole('radio', { name: 'Owner', exact: true });
+      await noteSettingsDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await expect(noteSettingsDialog).toBeHidden();
+
+      await page.getByRole('button', { name: 'Share note', exact: true }).click();
+      const shareDialog = page.getByRole('dialog', { name: 'Share Note' });
+      await expect(shareDialog).toBeVisible();
+      const permalink = shareDialog.getByLabel('Permalink', { exact: true });
+      await permalink.focus();
+      await expectInsetFocus(permalink.locator('..'), true, permalink);
+      const read = shareDialog.getByRole('radiogroup', { name: 'Read access', exact: true }).getByRole('radio', { name: 'Private', exact: true });
       await page.keyboard.press('Tab');
       await read.focus();
       await expectInsetFocus(read);
+      await shareDialog.locator('form').getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(shareDialog).toBeHidden();
+
       await page.getByRole('button', { name: 'Collapse note details', exact: true }).click();
       await openFixtureNote(page);
       await page.locator('.cm-content').click();
@@ -1333,10 +1418,11 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.getByRole('menuitem', { name: 'Split Right', exact: true }).press('Enter');
       const editors = page.locator('.cm-content');
       await expect(editors).toHaveCount(2);
+      const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
       const tree = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
       await tree.focus();
       await page.keyboard.press('F6');
-      await expect(page.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ })).toBeFocused();
+      await expect(activeTabSegment.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ })).toBeFocused();
       await page.keyboard.press('F6');
       await expect(editors.first()).toBeFocused();
       await expect(editors.first().locator('xpath=ancestor::section[@data-active-pane][1]')).toHaveAttribute('data-active-pane', 'true');
@@ -1350,7 +1436,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       const search = page.getByPlaceholder('Search notes', { exact: true });
       await search.focus();
       await page.keyboard.press('F6');
-      await expect(page.getByRole('tab').first()).toBeFocused();
+      await expect(activeTabSegment.getByRole('tab').first()).toBeFocused();
       await page.keyboard.press('Shift+F6');
       await expect(search).toBeFocused();
       await editors.last().focus();
@@ -1362,7 +1448,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.getByRole('toolbar', { name: 'Application controls', exact: true }).getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
       await editors.last().focus();
       await page.keyboard.press('F6');
-      await expect(page.getByRole('tab').first()).toBeFocused();
+      await expect(activeTabSegment.getByRole('tab').first()).toBeFocused();
       await page.screenshot({ path: test.info().outputPath(`13-f6-${mode}.png`), animations: 'disabled' });
     } finally {
       // Typing ? intentionally dirties Standard mode. Approve only fixture
@@ -1853,7 +1939,8 @@ test('Hack Mode leaves only the active note, centered, until the same key is pre
     const sidebarWidth = (await sidebar.boundingBox())!.width;
     const chrome = [
       page.getByRole('toolbar', { name: 'Application controls' }),
-      page.getByRole('navigation', { name: 'Open documents' }),
+      page.locator('[data-hackdesk-focus="tabs"]').first(),
+      page.locator('[data-hackdesk-focus="tabs"]').last(),
       sidebar,
       page.getByRole('note', { name: 'Keys you can press' }),
       page.locator('[data-active-pane="true"] header').first(),
@@ -1871,8 +1958,9 @@ test('Hack Mode leaves only the active note, centered, until the same key is pre
       const box = (await editor.boundingBox())!;
       return Math.abs(box.x + box.width / 2 - 720);
     }).toBeLessThan(16);
-    // The top bar stays as a blank strip, so the window can still be dragged, and the accent line clears.
-    await expect(page.locator('.app-topbar')).toBeVisible();
+    // The pane's tab bar stays as a blank strip, so the window can still be dragged, and the accent line clears.
+    await expect(page.locator('.pane-tab-bar:visible')).toHaveCount(1);
+    await expect(page.locator('.pane-tab-bar:visible')).toHaveCSS('height', '40px');
     await expect.poll(() => page.locator('[data-active-pane="true"]').evaluate(element => getComputedStyle(element, '::before').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
     // Vim's Escape stays with the editor.
     await page.keyboard.press('Escape');
@@ -2050,8 +2138,9 @@ test('Equalize updates flat and nested pane sizes and keeps the saved layout in 
     await page.setViewportSize({ width: 1600, height: 900 });
     await openFixtureNote(page);
     const panes = page.locator('section[data-document-pane-id]');
+    // The panels, not the cards: a top-row pane's tab bar is a little taller than a lower one's.
     const dimensions = () => panes.evaluateAll(elements => elements.map(element => {
-      const { width, height } = element.getBoundingClientRect();
+      const { width, height } = (element.closest('[data-panel]') ?? element).getBoundingClientRect();
       return { width, height };
     }));
     const equalize = async () => {
@@ -2217,13 +2306,17 @@ test('panes split right and down, move by direction, and zoom without losing edi
     await page.keyboard.press(`${primary}+z`);
     await expect(editor).not.toContainText('zoomed edit');
 
-    // Each pane's header has a zoom button too.
-    const header = page.locator('section[data-active-pane="true"] header');
-    await header.hover();
-    await header.getByRole('button', { name: 'Zoom pane' }).click();
+    // Each pane's tab bar has unified zoom and equalize controls too. A zoomed-away pane keeps its bar mounted, hidden.
+    const tabSegments = page.locator('[data-hackdesk-focus="tabs"]:visible');
+    const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
+    await expect(tabSegments).toHaveCount(3);
+    await expect(activeTabSegment.getByRole('button', { name: 'Equalize pane sizes' })).toBeVisible();
+    await activeTabSegment.getByRole('button', { name: 'Zoom pane' }).click();
     await expect(visiblePanes).toHaveCount(1);
-    await page.locator('section[data-active-pane="true"] header').getByRole('button', { name: 'Restore panes' }).click();
+    await expect(tabSegments).toHaveCount(1);
+    await activeTabSegment.getByRole('button', { name: 'Restore panes' }).click();
     await expect(visiblePanes).toHaveCount(3);
+    await expect(tabSegments).toHaveCount(3);
 
     // Hack Mode leaves only the active pane of the nested split too.
     await page.keyboard.press(`${primary}+.`);
@@ -2351,4 +2444,277 @@ test('the leader menu runs commands from a few letters with Space or the leader 
     await page.keyboard.press('k');
     await expect(page.getByRole('note', { name: 'Keys you can press' })).toHaveCount(0);
   } finally { await stopApp(app); }
+});
+
+test('pane tab bar drag-to-split, separator equalize, and drag-to-pane move', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await switchWorkspace(page, 'vault');
+    const tabSegments = page.locator('[data-hackdesk-focus="tabs"]');
+    const activeTabSegment = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
+    const strip = activeTabSegment.getByRole('navigation', { name: 'Open documents' });
+    await expect(page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Alpha', exact: true })).toBeVisible();
+    for (const name of ['Alpha', 'Beta']) {
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).dblclick();
+      await expect(strip.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
+    }
+
+    // Drag Beta tab from top bar onto the right edge of the pane to split into two panes.
+    const pane = page.locator('section[data-document-pane-id]').first();
+    const paneBox = (await pane.boundingBox())!;
+    const tabBox = (await strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ }).boundingBox())!;
+    await page.mouse.move(tabBox.x + 12, tabBox.y + tabBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(paneBox.x + paneBox.width - 12, paneBox.y + paneBox.height / 2, { steps: 14 });
+    await expect(page.locator('[data-drop-preview-kind="pane-edge"][data-drop-preview-direction="right"]')).toBeVisible();
+    await page.mouse.up();
+
+    const panes = page.locator('section[data-document-pane-id]');
+    await expect(panes).toHaveCount(2);
+    await expect(panes.nth(1)).toHaveAttribute('data-active-pane', 'true');
+    await expect(tabSegments).toHaveCount(2);
+    // Each pane's tab bar sits right above its own card, as wide as it.
+    for (const index of [0, 1]) {
+      const bar = (await page.locator('[data-pane-tab-bar]').nth(index).boundingBox())!;
+      const card = (await panes.nth(index).boundingBox())!;
+      expect(Math.abs(bar.x - card.x)).toBeLessThan(2);
+      expect(Math.abs(bar.width - card.width)).toBeLessThan(2);
+      expect(Math.abs(bar.y + bar.height - card.y)).toBeLessThan(2);
+    }
+    await expect(tabSegments.nth(0).getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toBeVisible();
+    await expect(tabSegments.nth(1).getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toBeVisible();
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('31-two-segment-topbar.png') });
+
+    // Drag the pane separator off-center, then double-click it to equalize panes back to ~50/50.
+    const separator = page.getByRole('separator', { name: /Resize document panes/ });
+    const sepBox = (await separator.boundingBox())!;
+    await page.mouse.move(sepBox.x + sepBox.width / 2, sepBox.y + sepBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(sepBox.x + 140, sepBox.y + sepBox.height / 2, { steps: 8 });
+    await page.mouse.up();
+
+    await expect.poll(async () => {
+      const left = (await panes.nth(0).boundingBox())!;
+      const right = (await panes.nth(1).boundingBox())!;
+      return Math.abs(left.width - right.width);
+    }).toBeGreaterThan(80);
+
+    const movedSepBox = (await separator.boundingBox())!;
+    await page.mouse.dblclick(movedSepBox.x + movedSepBox.width / 2, movedSepBox.y + movedSepBox.height / 2);
+    await expect.poll(async () => {
+      const left = (await panes.nth(0).boundingBox())!;
+      const right = (await panes.nth(1).boundingBox())!;
+      return Math.abs(left.width - right.width);
+    }).toBeLessThan(12);
+
+    // Clicking the unified Equalize button in the active top-bar segment also equalizes panes.
+    const equalSepBox = (await separator.boundingBox())!;
+    await page.mouse.move(equalSepBox.x + equalSepBox.width / 2, equalSepBox.y + equalSepBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(equalSepBox.x - 140, equalSepBox.y + equalSepBox.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => {
+      const left = (await panes.nth(0).boundingBox())!;
+      const right = (await panes.nth(1).boundingBox())!;
+      return Math.abs(left.width - right.width);
+    }).toBeGreaterThan(80);
+
+    await activeTabSegment.getByRole('button', { name: 'Equalize pane sizes' }).click();
+    await expect.poll(async () => {
+      const left = (await panes.nth(0).boundingBox())!;
+      const right = (await panes.nth(1).boundingBox())!;
+      return Math.abs(left.width - right.width);
+    }).toBeLessThan(12);
+
+    // Drag Beta from the right top-bar segment into the center of the left pane to move it back and collapse the 2nd pane.
+    const leftPaneBox = (await panes.nth(0).boundingBox())!;
+    const betaTabBox = (await strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ }).boundingBox())!;
+    await page.mouse.move(betaTabBox.x + 12, betaTabBox.y + betaTabBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(leftPaneBox.x + leftPaneBox.width / 2, leftPaneBox.y + leftPaneBox.height / 2, { steps: 14 });
+    await expect(page.locator('[data-drop-preview-kind="pane-center"]')).toBeVisible();
+    await page.mouse.up();
+
+    await expect(panes).toHaveCount(1);
+    await expect(tabSegments).toHaveCount(1);
+    await expect(strip.getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toBeVisible();
+    await expect(strip.getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('a pane split below gets its own tab bar, and the sidebar title bar keeps the window controls', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openFixtureNote(page);
+    await page.getByRole('button', { name: 'Pane actions', exact: true }).press('Enter');
+    await page.getByRole('menuitem', { name: 'Split Down', exact: true }).press('Enter');
+    const panes = page.locator('section[data-document-pane-id]');
+    await expect(panes).toHaveCount(2);
+
+    const bars = page.locator('[data-pane-tab-bar]');
+    await expect(bars).toHaveCount(2);
+    await expect(bars.nth(0)).toHaveAttribute('data-pane-tab-bar-row', 'top');
+    await expect(bars.nth(1)).toHaveAttribute('data-pane-tab-bar-row', 'inner');
+    // Only the top row is part of the window's title bar.
+    expect(await bars.nth(0).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region'))).toBe('drag');
+    expect(await bars.nth(1).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region'))).not.toBe('drag');
+    const upper = (await panes.nth(0).boundingBox())!;
+    const lowerBar = (await bars.nth(1).boundingBox())!;
+    const lower = (await panes.nth(1).boundingBox())!;
+    expect(lowerBar.y).toBeGreaterThanOrEqual(upper.y + upper.height);
+    expect(Math.abs(lowerBar.y + lowerBar.height - lower.y)).toBeLessThan(2);
+    await expect(bars.nth(1).getByRole('tab')).toHaveCount(1);
+
+    // The sidebar's own title bar holds the window controls, collapsed or not: the toggle stays where it
+    // was and the history buttons settle beside it, over room the top-left pane keeps for them.
+    const sidebarColumn = page.locator('#note-navigator-panel').locator('..');
+    const controls = page.getByRole('toolbar', { name: 'Application controls', exact: true });
+    await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    const toggleBefore = (await controls.getByRole('button', { name: 'Collapse sidebar', exact: true }).boundingBox())!;
+    await controls.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
+    await expect(controls).toHaveCount(1);
+    await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    const toggleAfter = (await controls.getByRole('button', { name: 'Expand sidebar', exact: true }).boundingBox())!;
+    expect(toggleAfter.x).toBe(toggleBefore.x);
+    expect(toggleAfter.y).toBe(toggleBefore.y);
+    const forward = controls.getByRole('button', { name: 'Forward', exact: true });
+    const firstTab = bars.nth(0).getByRole('tab').first();
+    await expect.poll(async () => (await forward.boundingBox())!.x).toBeLessThan((await firstTab.boundingBox())!.x);
+    // A divider sets the history buttons off from the toggle, fading in once they have settled there.
+    const divider = controls.getByRole('separator');
+    await expect(divider).toHaveCSS('opacity', '1');
+    const dividerBox = (await divider.boundingBox())!;
+    // Evenly spaced: as far from the toggle as from Back.
+    const backBox = (await controls.getByRole('button', { name: 'Back', exact: true }).boundingBox())!;
+    expect(dividerBox.x - (toggleAfter.x + toggleAfter.width)).toBe(8);
+    expect(backBox.x - (dividerBox.x + dividerBox.width)).toBe(8);
+    // Drawn on top of the pane's tab bar, so the pointer reaches them there (a disabled button lets
+    // the pointer through to its own toolbar, still above the tab bar).
+    expect(await forward.evaluate((button) => {
+      const box = button.getBoundingClientRect();
+      return button.closest('[role="toolbar"]')!.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    })).toBe(true);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('32-split-down-collapsed.png') });
+    await controls.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+    await expect(sidebarColumn.getByRole('toolbar', { name: 'Application controls', exact: true })).toBeVisible();
+    await expect(controls).toHaveCount(1);
+    await expect(controls.getByRole('separator')).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('a note dragged from the sidebar opens in the pane, tab bar or new split it is dropped on', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await switchWorkspace(page, 'vault');
+    const tree = page.locator('[data-folder-tree-kind="note"]');
+    await tree.getByRole('treeitem', { name: 'Alpha', exact: true }).dblclick();
+    const panes = page.locator('section[data-document-pane-id]');
+    await expect(panes).toHaveCount(1);
+    await expect(page.locator('[data-pane-tab-bar]').getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+
+    const dragRowTo = async (name: string, target: { x: number; y: number }, preview?: string) => {
+      const row = (await tree.getByRole('treeitem', { name, exact: true }).boundingBox())!;
+      await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(target.x, target.y, { steps: 16 });
+      if (preview) await expect(page.locator(preview)).toBeVisible();
+      await page.mouse.up();
+    };
+
+    // Over the middle of the pane, the note's drag preview follows the pointer out of the sidebar.
+    const pane = (await panes.first().boundingBox())!;
+    const row = (await tree.getByRole('treeitem', { name: 'Beta', exact: true }).boundingBox())!;
+    await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2, { steps: 16 });
+    await expect(page.locator('[data-drop-preview-kind="pane-center"]')).toBeVisible();
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('33-sidebar-note-drag-preview.png') });
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('[data-drop-preview-kind]')).toHaveCount(0);
+    await expect(panes).toHaveCount(1);
+    await expect(page.locator('[data-pane-tab-bar]').getByRole('tab')).toHaveCount(1);
+
+    // Held low over a pane, the note doesn't scroll the tree it came from (a short window, so it can scroll).
+    await page.setViewportSize({ width: 1440, height: 480 });
+    const scroller = page.locator('#note-navigator-panel .scroll-edges-source');
+    expect(await scroller.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    const shortPane = (await panes.first().boundingBox())!;
+    const gammaRow = (await tree.getByRole('treeitem', { name: 'Gamma', exact: true }).boundingBox())!;
+    await page.mouse.move(gammaRow.x + gammaRow.width / 2, gammaRow.y + gammaRow.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(shortPane.x + shortPane.width / 2, shortPane.y + shortPane.height - 16, { steps: 16 });
+    await expect(page.locator('[data-drop-preview-kind="pane-edge"][data-drop-preview-direction="down"]')).toBeVisible();
+    await page.waitForTimeout(800);
+    expect(await scroller.evaluate(element => element.scrollTop)).toBe(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    // Onto the right edge of the pane: a new pane beside it, showing the note.
+    await dragRowTo('Beta', { x: pane.x + pane.width - 12, y: pane.y + pane.height / 2 }, '[data-drop-preview-kind="pane-edge"][data-drop-preview-direction="right"]');
+    await expect(panes).toHaveCount(2);
+    await expect(panes.nth(1)).toHaveAttribute('data-active-pane', 'true');
+    const bars = page.locator('[data-pane-tab-bar]');
+    await expect(bars.nth(1).getByRole('tab', { name: /^Beta(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+    // The sidebar note stays where it was.
+    await expect(tree.getByRole('treeitem', { name: 'Beta', exact: true })).toBeVisible();
+
+    // Onto the left pane's tab bar: a tab there, kept rather than a preview.
+    const leftBar = (await bars.nth(0).boundingBox())!;
+    await dragRowTo('Beta', { x: leftBar.x + leftBar.width / 2, y: leftBar.y + leftBar.height / 2 });
+    await expect(panes).toHaveCount(2);
+    const leftTab = bars.nth(0).getByRole('tab', { name: /^Beta(?:, .+)?$/ });
+    await expect(leftTab).toHaveAttribute('aria-selected', 'true');
+    await expect(leftTab.locator('[data-tab-preview]')).toHaveCount(0);
+    await expect(bars.nth(0).getByRole('tab')).toHaveCount(2);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('33-sidebar-note-dropped.png') });
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('three panes each load their own note', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await switchWorkspace(page, 'vault');
+    const tree = page.locator('[data-folder-tree-kind="note"]');
+    const panes = page.locator('section[data-document-pane-id]');
+    const activeBar = page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]');
+    const open = async (name: string) => {
+      await tree.getByRole('treeitem', { name, exact: true }).dblclick();
+      await expect(page.locator('section[data-active-pane="true"]').getByRole('navigation', { name: 'Note location' })).toContainText(name);
+    };
+    const split = async (item: 'Split Right' | 'Split Down') => {
+      await activeBar.getByRole('button', { name: 'Pane actions', exact: true }).click();
+      // The previous menu may still be animating closed.
+      await page.locator('[role="menu"]:not([data-closed])').getByRole('menuitem', { name: item, exact: true }).click();
+    };
+
+    await open('Alpha');
+    await split('Split Right');
+    await expect(panes).toHaveCount(2);
+    await open('Beta');
+    // With two tabs, splitting moves the active one (Beta) into the new pane, leaving Alpha behind.
+    await split('Split Down');
+    await expect(panes).toHaveCount(3);
+    await panes.nth(1).locator('.cm-content').click();
+    await open('Gamma');
+
+    // Every pane shows its own note's editor; none falls back to the empty state.
+    await expect.poll(() => panes.evaluateAll(sections => sections
+      .map(section => section.querySelector('.cm-content')?.textContent?.match(/^# (Alpha|Beta|Gamma)/)?.[1] ?? 'none')
+      .sort())).toEqual(['Alpha', 'Beta', 'Gamma']);
+    await expect(page.getByText('No note selected', { exact: true })).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
 });

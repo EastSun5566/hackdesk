@@ -192,6 +192,27 @@ describe('IPC runtime validation', () => {
     })).toThrow();
   });
 
+  it('validates Quick Hack settings updates', () => {
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { keepOpen: true } }))
+      .toEqual({ quickCapture: { keepOpen: true } });
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { keepOpen: 'yes' } })).toThrow();
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { keepOpen: true, extra: 1 } })).toThrow();
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { pinShortcut: 'mod+alt+k' } }))
+      .toEqual({ quickCapture: { pinShortcut: 'mod+alt+k' } });
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { pinShortcut: 'none' } }))
+      .toEqual({ quickCapture: { pinShortcut: 'none' } });
+    for (const pinShortcut of ['mod+b', 'mod+enter', 'shift+k', 'k', 'mod+c', 7]) {
+      expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { pinShortcut } })).toThrow();
+    }
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { toggleShortcut: 'control+shift+space' } }))
+      .toEqual({ quickCapture: { toggleShortcut: 'control+shift+space' } });
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { toggleShortcut: 'none' } }))
+      .toEqual({ quickCapture: { toggleShortcut: 'none' } });
+    for (const toggleShortcut of ['shift+f5', 'h', 'mod+b', 'control+alt+˙', 'mod+v', null]) {
+      expect(() => validateIpcInput('settings:update', settingsUpdateSchema, { quickCapture: { toggleShortcut } })).toThrow();
+    }
+  });
+
   it('accepts known app icons in settings updates', () => {
     expect(validateIpcInput('settings:update', settingsUpdateSchema, { appIcon: 'nightly' })).toEqual({ appIcon: 'nightly' });
   });

@@ -126,7 +126,6 @@ function ToastList() {
             {toastItem.actionProps ? (
               <ToastPrimitive.Action
                 render={<Button size="sm" variant="primary" className="shrink-0" />}
-                className={toastItem.actionProps.className}
               />
             ) : null}
             <ToastPrimitive.Close

@@ -32,6 +32,27 @@ jobs:
       - run: pnpm run docs:build
       - run: pnpm run audit:prod
 
+  # Whether this push touches what the Windows signing and installer test exercises; see
+  # scripts/signing-changes.ts. It runs beside `static`, so it adds no time to the run.
+  changes:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      signing: ${{ steps.signing.outputs.signing }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - id: signing
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/signing-changes.ts "$BASE" "$GITHUB_SHA"
+
   unit:
     timeout-minutes: 20
     runs-on: ubuntu-latest
@@ -106,7 +127,7 @@ jobs:
   package-smoke:
     timeout-minutes: 45
     # Gated on the fast static checks only, so packaging runs beside the unit and E2E jobs.
-    needs: static
+    needs: [static, changes]
     strategy:
       fail-fast: false
       matrix:
@@ -130,8 +151,9 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           # Fails the build with the reason instead of only the packaged-contents check.
           HACKDESK_REQUIRE_SPEECH_HELPER: ${{ matrix.os == 'macos-latest' && '1' || '' }}
+      # About 2.5 minutes, the longest step of the run, so it only runs for signing-related changes.
       - name: Test Windows signing and installation without SignPath credentials
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && needs.changes.outputs.signing == 'true'
         timeout-minutes: 15
         shell: pwsh
         run: ./scripts/test-signpath-verification.ps1 -UnsignedPath release/electron/win-unpacked/HackDesk.exe -IncludeInstaller
@@ -169,6 +191,12 @@ jobs:
           else
             pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/bundled-updater.spec.ts
           fi
+      # The macOS-only app-lifecycle spec launches the source build that package:check just made.
+      # It runs here rather than in its own job so each CI run asks for one macOS runner, not two:
+      # macOS runners are scarce, and a job no runner picks up fails the whole run.
+      - name: Run app-lifecycle spec
+        if: matrix.os == 'macos-latest'
+        run: pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/app-lifecycle.spec.ts
       - name: Upload packaged-startup Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -179,40 +207,4 @@ jobs:
             test-results
             ${{ runner.temp }}/signpath-installer-fixture-*/builder.*.log
             ${{ runner.temp }}/signpath-installer-fixture-*/**/*verification.json
-          retention-days: 7
-
-  # Run the macOS-only app-lifecycle spec on a macOS runner. The spec itself
-  # self-skips on non-darwin via `test.skip(process.platform !== 'darwin', ...)`,
-  # so the runner is scoped to macos-latest rather than a 3-OS matrix — running
-  # it on ubuntu/windows would just spend runner minutes on a guaranteed skip.
-  macos-lifecycle:
-    timeout-minutes: 20
-    runs-on: macos-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      # Build the source app (the lifecycle spec launches Electron from source,
-      # not the packaged binary, so no electron-builder step here).
-      - run: pnpm run build
-      # Run only the lifecycle spec to keep the job focused and the macOS
-      # runner minutes tight. The spec skips itself on non-darwin.
-      - name: Run app-lifecycle spec
-        run: pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/app-lifecycle.spec.ts
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: macos-lifecycle-report
-          path: |
-            playwright-report
-            test-results
           retention-days: 7

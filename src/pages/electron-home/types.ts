@@ -5,6 +5,7 @@ import type {
   OnboardingSettings,
   ShortcutSettings,
   KeyboardNavigationSettings,
+  QuickCaptureSettings,
   WorkspaceNavigationSettings,
 } from '@/lib/settings';
 
@@ -57,5 +58,7 @@ export type SettingsFormInput = {
   keyboardNavigation?: KeyboardNavigationSettings;
   onboarding?: OnboardingSettings;
   workspaceNavigation?: WorkspaceNavigationSettings;
+  /** Only the settings given change; Keep open and the pin shortcut save from different tabs. */
+  quickCapture?: Partial<QuickCaptureSettings>;
   appIcon?: AppIconId;
 };

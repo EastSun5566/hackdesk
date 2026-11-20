@@ -8,6 +8,9 @@ const toggleVariantClassNames = {
     'border-border-default text-text-subtle hover:border-element-border-hover hover:bg-element-bg-hover hover:text-text-emphasize data-[pressed]:border-border-default data-[pressed]:bg-background-selected data-[pressed]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-65',
   ghost:
     'text-text-subtle hover:bg-element-bg-hover hover:text-text-emphasize data-[pressed]:bg-background-selected data-[pressed]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-65',
+  /** A ghost toggle at the end of a field's box, divided from the field by a line. */
+  'field-end':
+    'rounded-none border-0 border-l border-border-default text-text-subtle hover:bg-element-bg-hover hover:text-text-emphasize data-[pressed]:bg-background-selected data-[pressed]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-65',
 } as const;
 
 const toggleSizeClassNames = {

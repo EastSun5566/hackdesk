@@ -114,7 +114,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     });
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('vault-A-restored.png') });
     // A pane below the right one makes an L, which comes back after the restart too.
-    await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
+    await page.locator('[data-hackdesk-focus="tabs"][data-active-tab-segment="true"]').getByRole('button', { name: 'Pane actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Split Down', exact: true }).click();
     await expect(page.locator('[data-active-pane]')).toHaveCount(3);
     // The workspace saves shortly after a change; wait for the three panes to be written.
@@ -170,7 +170,7 @@ test('Quick Hack rejects capture during the in-app folder picker and keeps popup
     await popup.getByLabel('Quick Hack note').fill('Keep this text during switching');
     await popup.getByRole('button', { name: 'Capture', exact: true }).click();
     await expect(popup.getByText('Local Vault is still loading. Your text is still here.')).toBeVisible();
-    await expect(popup.getByLabel('Quick Hack note')).toHaveValue('Keep this text during switching');
+    await expect(popup.getByLabel('Quick Hack note')).toHaveText('Keep this text during switching');
     await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
   } finally { await stop(app); }
 });

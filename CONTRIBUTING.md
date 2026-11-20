@@ -15,13 +15,40 @@ Review changes to that allowlist instead of approving every dependency's scripts
 
 ## Check changes
 
-Run `pnpm run check` before opening a pull request. This also type-checks tests,
-Electron E2E, and docs.
+While working, run the tests for what you changed (`pnpm exec vitest run <path>`,
+or one Playwright spec after `pnpm run build`). Before every push, run
+`pnpm run check:static`: type checks for the app, tests, Electron E2E and docs,
+lint, and knip. CI runs the full unit and E2E suites on every push.
+
+`pnpm run check` runs `check:static`, the whole unit suite and a build; use it
+when you want the full local check before a large change.
 
 Run `pnpm run test:coverage` once to generate a local report in `.local/coverage/`.
 
 Keep pull requests focused and include how you checked the change. Report
 security vulnerabilities privately using the [security policy](SECURITY.md).
+
+## Track the latest build on macOS
+
+Development only. Betas and `main-<commit>` previews are unsigned, and a
+browser download needs `xattr -dr com.apple.quarantine` after every install.
+`scripts/update-macos.sh` installs the newest build into `/Applications` with
+the GitHub CLI instead, which leaves no quarantine attribute:
+
+```sh
+scripts/update-macos.sh        # newest v2 beta
+scripts/update-macos.sh main   # newest main preview
+```
+
+It does nothing when the installed version is current, and it will not replace
+a HackDesk that is running. To check every hour, add a crontab entry
+(`crontab -e`) with a `PATH` that includes `gh`:
+
+```sh
+0 * * * * PATH=/opt/homebrew/bin:/usr/bin:/bin /path/to/hackdesk/scripts/update-macos.sh >>/tmp/hackdesk-update.log 2>&1
+```
+
+This is not a supported install path; users follow `docs/install.md`.
 
 ## Maintain workflows
 

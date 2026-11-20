@@ -31,6 +31,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { getHackDeskAPI, type NoteSummary } from '@/lib/electron-api';
 import { runHackmdRequest } from '@/lib/hackmd-requests';
+import { removeFromHistory, useHistoryDismissals, withoutDismissedHistory } from '@/lib/history-dismissals';
 import type { LocalVaultSkippedFile, LocalVaultSnapshot } from '@/lib/local-vault';
 import {
   buildFolderDropOperation,
@@ -62,6 +63,7 @@ import { useCollapsedTagGroups, toggleCollapsedTagGroup, useTagGroupingEnabled, 
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
+import { createPortal } from 'react-dom';
 import { useScrollOverflow } from './useScrollOverflow';
 import { RowOverlayHost } from './row-overlays';
 import { FOLDER_EXPANDED_PREFIX } from './ui-preferences';
@@ -69,6 +71,7 @@ import { FOLDER_EXPANDED_PREFIX } from './ui-preferences';
 import { applyTreeGuides } from './tree-guides-preference';
 import { cn } from '@/lib/utils';
 import { HACK_MODE_HIDDEN_CLASS } from './ui';
+import { useWorkspaceNoteDrop } from './WorkspaceTabDnd';
 
 import { EmptyState, PanelHeader, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
@@ -77,7 +80,6 @@ import {
   FolderDragOverlay,
   RowOperationsContext,
   FolderTreeView,
-  KeepMountedOnceOpen,
   NoteDragOverlay,
   NoteListSkeleton,
   NoteRow,
@@ -95,6 +97,7 @@ import {
   WorkspaceRootScopeIcon,
   WorkspaceRootTreeRow,
 } from './FolderNavigatorRows';
+import { LazyTreeChildren, PendingTreeChildrenContext } from './LazyTreeChildren';
 import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
 import { WORKSPACE_ROOT_FOCUS_ID } from './folder-tree-focus';
@@ -104,6 +107,7 @@ import { trashNavigatorRowLabel, workspaceRootLabel } from './workspace-root-lab
 import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
 import { useWorkspaceNavigation } from './WorkspaceNavigationContext';
+import { useActiveHackmdAccountId } from './useElectronSettings';
 import { SidebarFooter, WorkspaceSwitcher } from './WorkspaceSwitcher';
 import type { NoteTextSearch } from './useNoteTextSearch';
 import { TrashNavigatorHeader, TrashNavigatorList, type TrashNavigatorViewProps } from './TrashView';
@@ -481,7 +485,11 @@ function ExpandedNavigator({
     },
     enabled: Boolean(history?.open),
   });
-  const historyTree = useMemo(() => buildHackmdFolderTree(historyQuery.data?.data ?? [], []), [historyQuery.data]);
+  const historyDismissals = useHistoryDismissals(useActiveHackmdAccountId());
+  const historyTree = useMemo(
+    () => buildHackmdFolderTree(withoutDismissedHistory(historyQuery.data?.data ?? [], historyDismissals), []),
+    [historyQuery.data, historyDismissals],
+  );
   const historyEntries = useMemo(() => applyNoteFinder(historyTree, historyFinder, null), [historyTree, historyFinder]);
   const isFinderMode = isNoteFinderActive(finderState);
   const finderOptions = useMemo(() => getNoteFinderOptions(tree.allNotes), [tree.allNotes]);
@@ -641,8 +649,9 @@ function NavigatorFilterBar({
       {scope.type !== 'local' && !status.hasToken ? (
         <Button
           size="sm"
+          variant="secondary-subtle"
           onClick={actions.onOpenSettings}
-          className="w-full justify-start font-normal text-text-subtle hover:text-text-default"
+          className="w-full justify-start"
         >
           <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 truncate">Configure HackMD API Token</span>
@@ -714,7 +723,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0
     || Boolean(workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length));
   const trashActive = Boolean(trash?.open || history?.open);
-  // The pinned workspace row (32px) stays solid; rows fade under it.
+  // The pinned workspace row (36px, 2.25rem) stays on top; rows fade under it.
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const overflow = useScrollOverflow(scroller, 'y');
@@ -724,7 +733,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
     // Around the scroller, not inside it, so the scroller's children stay the rows' real boxes.
     <RowOverlayHost>
       {/* While the workspace row is pinned, rows scrolled into view (keyboard, reveal, hints) stop
-          below it instead of under it: 2rem is its row. */}
+          below it instead of under it: 2.25rem is its row. */}
       <div
         ref={setScroller}
         // One listener for every note row (tree, search results and the other folders of a set): a
@@ -740,11 +749,11 @@ const MemoNavigatorContent = memo(function NavigatorContent({
         } : undefined}
         data-overflow-start={overflow.start || undefined}
         data-overflow-end={overflow.end || undefined}
-        className={cn('scroll-edges-source min-h-0 min-w-0 mt-2 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2', pinnedRootShown && 'scroll-pt-8')}
+        className={cn('scroll-edges-source min-h-0 min-w-0 mt-2 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2', pinnedRootShown && 'scroll-pt-9')}
       >
         {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows.
             Each shows only while rows lie past its edge, so a list that fits shows neither. */}
-        <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : 'top-0')}>
+        <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'sidebar-pinned-fade top-9' : 'top-0')}>
           <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />
         </div>
         {history?.open ? (
@@ -913,6 +922,7 @@ function HistoryList({
   selectedFolderForNoteMove: FolderTreeNode | null;
   selectedNoteId: string | null;
 }) {
+  const accountId = useActiveHackmdAccountId();
   return (
     <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0" aria-label="Recently opened notes">
       {entries.map((entry) => (
@@ -928,6 +938,8 @@ function HistoryList({
             onDuplicate={actions.onDuplicateNote}
             onExportMarkdown={actions.onExportNoteMarkdown}
             onDelete={actions.onDeleteNote}
+            // A History row is the visit, not the note: removing it leaves the note alone (#417).
+            onRemoveFromHistory={(note) => removeFromHistory(accountId, note.id)}
             onRevealFolder={actions.onRevealNoteFolder}
             onRevealInFinder={actions.onNoteRevealInFinder}
             onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
@@ -1060,6 +1072,20 @@ function NavigatorTree({
   // outside React state; the mark is a data attribute, so moving the pointer re-renders nothing.
   const pointerYRef = useRef<number | null>(null);
   const stopPointerTrackingRef = useRef<(() => void) | null>(null);
+  // A note dragged out of the tree onto the panes opens there (see WorkspaceNoteDrop).
+  const noteDrop = useWorkspaceNoteDrop();
+  const notePointerRef = useRef<{ x: number; y: number } | null>(null);
+  const stopNotePointerRef = useRef<(() => void) | null>(null);
+  // dnd-kit scrolls a list by the pointer's height alone, so a note held low over the panes would
+  // keep scrolling the tree. Only scroll a list while the pointer is beside it.
+  const autoScroll = useMemo(() => ({
+    canScroll: (element: Element) => {
+      const point = notePointerRef.current;
+      if (!point) return true;
+      const bounds = element.getBoundingClientRect();
+      return point.x >= bounds.left && point.x <= bounds.right;
+    },
+  }), []);
   const folderDropRef = useRef<FolderDropIndicator | null>(null);
   const visibleFolderItems = useMemo(
     () => flattenFolderTree(tree, layout.collapsedFolderIds),
@@ -1115,8 +1141,13 @@ function NavigatorTree({
       folder.active ? { ...folder, label: vaultFolderName ?? folder.label, tree } : folder
     ));
   }, [showWorkspaceFolders, tree, vaultFolderName, workspaceFolders]);
+  // Walks every folder, so only when the tree or the open folders change, not on every render.
+  const everyFolderOpen = useMemo(
+    () => [...tree.nodesById.values()].every((node) => (!node.children.length && !node.notes.length) || !layout.collapsedFolderIds.has(node.id)),
+    [layout.collapsedFolderIds, tree],
+  );
   const allExpanded = rootSectionExpanded && collapsedWorkspaceFolderIds.size === 0
-    && [...tree.nodesById.values()].every((node) => (!node.children.length && !node.notes.length) || !layout.collapsedFolderIds.has(node.id))
+    && everyFolderOpen
     && (!showWorkspaceFolders || workspaceFolderSections.every((section) => section.active || section.tree.nodesById.size === 0 || expandCommand?.expanded));
   const toggleAll = () => {
     const expanded = !allExpanded;
@@ -1159,7 +1190,7 @@ function NavigatorTree({
         : showRootRow
           ? WORKSPACE_ROOT_FOCUS_ID
           : null;
-  const { focusContext } = useFolderTreeKeyboardNavigation({
+  const { focusContext, pendingChildren, withTreeRow } = useFolderTreeKeyboardNavigation({
     treeId,
     selectedRowId,
     actions,
@@ -1179,26 +1210,24 @@ function NavigatorTree({
       return;
     }
 
-    const row = Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]') ?? [])
-      .find((candidate) => candidate.dataset.folderTreeRowId === `note:${selection.selectedNoteId}`);
-    row?.scrollIntoView?.({ block: 'nearest' });
-  }, [selection.selectedNoteId]);
+    withTreeRow(`note:${selection.selectedNoteId}`, (row) => row.scrollIntoView?.({ block: 'nearest' }));
+  }, [selection.selectedNoteId, withTreeRow]);
 
   useEffect(() => {
     if (treeFocusRequestId === 0) {
       return;
     }
 
-    const row = selectedRowId
-      ? treeRef.current?.querySelector<HTMLElement>(`[data-folder-tree-row-id="${selectedRowId}"]`)
-      : null;
-    const target = row?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
-      ?? row?.querySelector<HTMLElement>('button:not([disabled])')
-      ?? treeRef.current?.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')
-      ?? treeRef.current?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
-      ?? treeRef.current?.querySelector<HTMLElement>('button:not([disabled])');
-    target?.focus();
-  }, [selectedRowId, treeFocusRequestId]);
+    const focusRow = (row: HTMLElement | null) => {
+      const target = row?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+        ?? row?.querySelector<HTMLElement>('button:not([disabled])')
+        ?? treeRef.current?.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')
+        ?? treeRef.current?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+        ?? treeRef.current?.querySelector<HTMLElement>('button:not([disabled])');
+      target?.focus();
+    };
+    if (!selectedRowId || !withTreeRow(selectedRowId, focusRow)) focusRow(null);
+  }, [selectedRowId, treeFocusRequestId, withTreeRow]);
 
   const showFolderDrop = (next: FolderDropIndicator | null) => {
     const current = folderDropRef.current;
@@ -1288,6 +1317,16 @@ function NavigatorTree({
     if (noteId) {
       setActiveNoteId(noteId);
       setActiveFolderId(null);
+      const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
+      if (noteDrop && pointerStart) {
+        notePointerRef.current = { x: pointerStart.clientX, y: pointerStart.clientY };
+        const track = (moveEvent: PointerEvent) => {
+          notePointerRef.current = { x: moveEvent.clientX, y: moveEvent.clientY };
+          noteDrop.preview(notePointerRef.current);
+        };
+        document.addEventListener('pointermove', track, { passive: true });
+        stopNotePointerRef.current = () => document.removeEventListener('pointermove', track);
+      }
       return;
     }
 
@@ -1296,8 +1335,25 @@ function NavigatorTree({
     setKeyboardFolderDrag(!trackPointer(event));
   };
 
+  const endNotePointerDrag = () => {
+    stopNotePointerRef.current?.();
+    stopNotePointerRef.current = null;
+    const point = notePointerRef.current;
+    notePointerRef.current = null;
+    return point;
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id);
+    const notePoint = endNotePointerDrag();
+    const droppedNoteId = parseNoteDragId(activeId);
+    if (droppedNoteId && notePoint && noteDrop) {
+      const entry = tree.allNotes.find((candidate) => candidate.note.id === droppedNoteId);
+      if (entry && noteDrop.drop(notePoint, entry.note)) {
+        setActiveNoteId(null);
+        return;
+      }
+    }
     const overId = event.over ? String(event.over.id) : null;
     const pointerFolderDrop = pointerYRef.current === null ? undefined : folderDropRef.current;
     const sectionDrop = parseWorkspaceFolderDragId(activeId) !== null
@@ -1368,6 +1424,7 @@ function NavigatorTree({
   };
 
   const handleDragCancel = () => {
+    if (endNotePointerDrag()) noteDrop?.preview(null);
     endPointerFolderDrag();
     setActiveFolderId(null);
     setActiveNoteId(null);
@@ -1428,7 +1485,7 @@ function NavigatorTree({
             onToggle={() => tagGrouping.onToggle(group.tag)}
           />
         </div>
-        <KeepMountedOnceOpen open={expanded}>
+        <LazyTreeChildren id={groupId} open={expanded} rowCount={() => group.entries.length}>
           {/* mt-0.5: the same gap a folder leaves between its row and its children. */}
           <ul id={childrenGroupId} role="group" data-tree-children="true" className={cn('relative m-0 mt-0.5 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
           {group.entries.map((entry, noteIndex) => (
@@ -1457,7 +1514,7 @@ function NavigatorTree({
             </li>
           ))}
           </ul>
-        </KeepMountedOnceOpen>
+        </LazyTreeChildren>
       </li>
     );
   }) : tree.unfiled.notes.map((entry, index) => (
@@ -1496,6 +1553,7 @@ function NavigatorTree({
     <DndContext
       sensors={sensors}
       collisionDetection={treeCollisionDetection}
+      autoScroll={autoScroll}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       // The last move can enter a new row before dnd-kit updates event.over.
@@ -1515,6 +1573,7 @@ function NavigatorTree({
           aria-label="Folders and notes"
         >
           <FolderTreeFocusContext.Provider value={focusContext}>
+          <PendingTreeChildrenContext.Provider value={pendingChildren}>
             {showRootRow ? (
               <WorkspaceRootTreeRow
                 scope={scope}
@@ -1545,7 +1604,8 @@ function NavigatorTree({
                 id={workspaceChildrenGroupId}
                 role="group"
                 hidden={showRootRow && !rootSectionExpanded}
-                className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && cn('relative mt-0.5', TREE_CHILDREN_INDENT_CLASS))}
+                // sidebar-pinned-rows: masked out under the pinned root row with translucency on (styles.css).
+                className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && cn('sidebar-pinned-rows relative mt-0.5', TREE_CHILDREN_INDENT_CLASS))}
               >
                 {showWorkspaceFolders ? (
                   workspaceFolderSections.map((section, index) => (
@@ -1597,18 +1657,23 @@ function NavigatorTree({
               onCreateFolder={() => actions.onCreateFolderInside(null)}
               onCreateNote={() => actions.onCreateNoteInside(null)}
             />
+          </PendingTreeChildrenContext.Provider>
           </FolderTreeFocusContext.Provider>
         </div>
       </SortableContext>
       {/* The preview never takes the pointer: after a drop it animates back over the tree, where
-          it would swallow the press that starts the next drag. */}
-      <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS}>
-        {activeNote ? (
-          <NoteDragOverlay entry={activeNote} />
-        ) : (
-          <FolderDragOverlay node={activeFolderId ? tree.nodesById.get(activeFolderId) ?? null : null} />
-        )}
-      </DragOverlay>
+          it would swallow the press that starts the next drag. It renders on the body: the sidebar
+          is a size container, which would clip it at its edge as a note is dragged onto the panes. */}
+      {createPortal(
+        <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS}>
+          {activeNote ? (
+            <NoteDragOverlay entry={activeNote} />
+          ) : (
+            <FolderDragOverlay node={activeFolderId ? tree.nodesById.get(activeFolderId) ?? null : null} />
+          )}
+        </DragOverlay>,
+        document.body,
+      )}
     </DndContext>
   );
 }

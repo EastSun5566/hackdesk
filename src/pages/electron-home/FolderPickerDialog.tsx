@@ -246,7 +246,7 @@ export function FolderPickerDialog({ api, open, initialPath, addedPaths = [], on
             }}
             autoComplete="off"
             spellCheck={false}
-            className="pl-8"
+            variant="leading-icon"
           />
         </div>
         <div

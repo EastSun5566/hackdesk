@@ -2,12 +2,14 @@
 layout: home
 title: HackDesk
 titleTemplate: A hackable HackMD desktop application
+description: "HackDesk is a desktop app for HackMD notes and local Markdown vaults, with tabs, split panes, Quick Hack capture, and keyboard navigation."
 hero:
   name: HackDesk
   text: A hackable HackMD desktop application
   tagline: Work with HackMD notes and local Markdown vaults.
   image:
-    src: ./logo.png
+    light: /logo.png
+    dark: /logo-dark.png
     alt: HackDesk logo
   actions:
     - theme: brand
@@ -25,6 +27,6 @@ Open a [Local Vault or HackMD account](./intro.md), [arrange your notes](./featu
 
 ![HackDesk showing demonstration notes in split panes](/editor.png)
 
-*HackDesk beta.10 with demonstration notes.*
+*HackDesk beta.13 with demonstration notes.*
 
 [Code signing policy](./code-signing-policy.md)

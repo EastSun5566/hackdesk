@@ -10,16 +10,14 @@ import {
 } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Toolbar, ToolbarButton } from '@/components/ui/toolbar';
+import { Toolbar, ToolbarButton, type ToolbarButtonVariant } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
 import { ActionShortcutContext } from './ActionShortcutContext';
 import { getResolvedActionShortcut } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import {
   COLLAPSE_ICON_CLASS,
-  FOCUS_RING_CLASS,
   FOCUS_RING_INSET_CLASS,
-  ICON_BUTTON_CLASS,
   PANEL_MOTION_CLASS,
 } from './ui';
 import { DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -407,12 +405,14 @@ export function ToolbarIconButton({
   shortcut,
   children,
   className,
+  variant = 'icon',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   actionId?: ElectronActionId;
   label: string;
   shortcut?: string;
   tooltip?: ReactNode;
+  variant?: ToolbarButtonVariant;
 }) {
   const context = useContext(ActionShortcutContext);
   const displayShortcut = shortcut ?? (actionId ? getResolvedActionShortcut(actionId, context.shortcuts, context.platform, context.characterShortcutsEnabled) : undefined);
@@ -429,7 +429,8 @@ export function ToolbarIconButton({
       aria-label={label}
       data-navigation-toolbar="true"
       data-navigation-action={actionId}
-      className={cn(ICON_BUTTON_CLASS, className)}
+      variant={variant}
+      className={className}
       {...props}
     >
       {children}
@@ -448,11 +449,13 @@ export function ToolbarDropdownIconTrigger({
   tooltip = label,
   children,
   className,
+  variant = 'icon',
 }: {
   label: string;
   tooltip?: ReactNode;
   children: ReactNode;
   className?: string;
+  variant?: ToolbarButtonVariant;
 }) {
   return (
     <TooltipRoot>
@@ -463,7 +466,8 @@ export function ToolbarDropdownIconTrigger({
               <ToolbarButton
                 aria-label={label}
                 data-navigation-toolbar="true"
-                className={cn(ICON_BUTTON_CLASS, className)}
+                variant={variant}
+                className={className}
               />
             )}
           >
@@ -508,11 +512,9 @@ function SectionHeader({
       <CollapsibleTrigger
         type="button"
         aria-label={typeof title === 'string' ? [title, dirty && 'Unsaved changes', typeof subtitle === 'string' && subtitle].filter(Boolean).join(', ') : undefined}
-        className={cn(
-          // The row itself is the target: sections are told apart by spacing, not lines.
-          '-mx-2 flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-          FOCUS_RING_CLASS,
-        )}
+        variant="section"
+        // The row itself is the target: sections are told apart by spacing, not lines.
+        className="-mx-2 flex min-h-8 min-w-0 flex-1 items-center"
       >
         <ChevronDown
           aria-hidden="true"
@@ -553,7 +555,8 @@ export function CollapsibleSection({
       defaultOpen={defaultOpen}
       onOpenChange={onOpenChange}
       render={<section />}
-      className={cn('py-0.5', className)}
+      variant="section"
+      className={className}
     >
       <SectionHeader
         title={title}

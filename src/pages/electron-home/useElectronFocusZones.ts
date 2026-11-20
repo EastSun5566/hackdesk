@@ -15,7 +15,20 @@ function isAvailable(element: HTMLElement) {
 
 function getRegions() {
   const regions = Array.from(document.querySelectorAll<HTMLElement>('[data-hackdesk-focus]')).filter(isAvailable);
-  return ZONE_ORDER.flatMap(zone => regions.filter(region => region.dataset.hackdeskFocus === zone));
+  const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const currentTabs = activeElement?.closest<HTMLElement>('[data-hackdesk-focus="tabs"]') ?? null;
+  return ZONE_ORDER.flatMap((zone) => {
+    const matching = regions.filter((region) => region.dataset.hackdeskFocus === zone);
+    if (zone === 'tabs' && matching.length > 1) {
+      const preferred = (currentTabs && matching.includes(currentTabs) ? currentTabs : null)
+        ?? matching.find((region) => region.dataset.activeTabSegment === 'true'
+          || region.dataset.activePane === 'true'
+          || Boolean(region.closest('[data-active-pane="true"]')))
+        ?? matching[0];
+      return preferred ? [preferred] : [];
+    }
+    return matching;
+  });
 }
 
 function regionKey(region: HTMLElement) {
@@ -93,7 +106,9 @@ export function useElectronFocusZones() {
       }
       const candidates = getRegions().filter(region => region.dataset.hackdeskFocus === zone);
       const activePane = document.querySelector('[data-active-pane="true"]');
-      const region = candidates.find(candidate => candidate.closest('[data-active-pane="true"]'))
+      const region = candidates.find(candidate => candidate.dataset.activeTabSegment === 'true'
+        || candidate.dataset.activePane === 'true'
+        || Boolean(candidate.closest('[data-active-pane="true"]')))
         ?? (zone === 'editor' && activePane ? undefined : candidates[0]);
       if (region) focusRegion(regionKey(region), zone === 'editor', request);
       else if (attempts++ < 8) pendingFrameRef.current = window.requestAnimationFrame(resolve);

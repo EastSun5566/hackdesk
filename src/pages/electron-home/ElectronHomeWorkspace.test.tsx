@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
@@ -11,30 +12,63 @@ import type { NotePane, OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
 import { reconcileLayout } from './pane-layout';
 import { createOverlayWrapper } from './test-overlays';
 
-vi.mock('./AppTopBar', () => ({
-  AppTopBar: (props: {
-    activeTab: OpenNoteTab | null;
+vi.mock('./AppTopBar', () => {
+  type Controls = {
     navigation: { onBack: () => void; onForward: () => void };
-    onCloseOtherTabs: (tabId: string) => void;
-    onCloseTab: (tabId: string) => void;
-    onCloseTabsToRight: (tabId: string) => void;
-    onSelectTab: (tabId: string) => void;
+    navigatorCollapsed: boolean;
     onToggleNavigator: () => void;
-    tabs: OpenNoteTab[];
-  }) => (
-    <header data-testid="app-topbar">
-      <span data-testid="active-tab">{props.activeTab?.title ?? 'none'}</span>
-      <span data-testid="tab-count">{props.tabs.length}</span>
-      <button type="button" onClick={() => props.onSelectTab('tab-b')}>select tab</button>
-      <button type="button" onClick={() => props.onCloseTab('tab-b')}>close tab</button>
-      <button type="button" onClick={() => props.onCloseOtherTabs('tab-b')}>close others</button>
-      <button type="button" onClick={() => props.onCloseTabsToRight('tab-b')}>close right</button>
+  };
+  const ApplicationControls = (props: Controls) => (
+    <div data-testid="application-controls">
       <button type="button" onClick={props.onToggleNavigator}>toggle navigator</button>
       <button type="button" onClick={props.navigation.onBack}>back</button>
       <button type="button" onClick={props.navigation.onForward}>forward</button>
-    </header>
-  ),
-}));
+    </div>
+  );
+  return {
+    useTrafficLightInset: () => true,
+    ApplicationControls,
+    TitleBarLeadingSlot: (props: { open: boolean }) => <div data-testid="leading-slot" data-open={String(props.open)} />,
+    AppTopBar: (props: Controls) => (
+      <header data-testid="app-topbar">
+        <ApplicationControls {...props} />
+      </header>
+    ),
+    PaneTabBar: (props: {
+      segment: {
+        paneId: string;
+        isActivePane: boolean;
+        tabs: OpenNoteTab[];
+        activeTab: OpenNoteTab | null;
+        onCloseOtherTabs: (tabId: string) => void;
+        onCloseTab: (tabId: string) => void;
+        onCloseTabsToRight: (tabId: string) => void;
+        onSelectTab: (tabId: string) => void;
+      };
+      isSegmented: boolean;
+      topRow: boolean;
+      leadingSpace?: boolean;
+      leadingOpen?: boolean;
+      windowControls?: boolean;
+    }) => (
+      <div
+        data-testid={`pane-tab-bar-${props.segment.paneId}`}
+        data-active={String(props.segment.isActivePane)}
+        data-window-controls={String(Boolean(props.windowControls))}
+        data-segmented={String(props.isSegmented)}
+        data-top-row={String(props.topRow)}
+      >
+        {props.leadingSpace ? <div data-testid="leading-slot" data-open={String(props.leadingOpen)} /> : null}
+        <span data-testid={`active-tab-${props.segment.paneId}`}>{props.segment.activeTab?.title ?? 'none'}</span>
+        <span data-testid={`tab-count-${props.segment.paneId}`}>{props.segment.tabs.length}</span>
+        <button type="button" onClick={() => props.segment.onSelectTab('tab-b')}>{`select tab ${props.segment.paneId}`}</button>
+        <button type="button" onClick={() => props.segment.onCloseTab('tab-b')}>{`close tab ${props.segment.paneId}`}</button>
+        <button type="button" onClick={() => props.segment.onCloseOtherTabs('tab-b')}>{`close others ${props.segment.paneId}`}</button>
+        <button type="button" onClick={() => props.segment.onCloseTabsToRight('tab-b')}>{`close right ${props.segment.paneId}`}</button>
+      </div>
+    ),
+  };
+});
 
 vi.mock('./FolderNavigator', () => ({
   FolderNavigator: (props: {
@@ -73,11 +107,20 @@ vi.mock('./DocumentWorkspace', () => ({
   DocumentWorkspace: (props: {
     activePaneId: string;
     panes: NotePane[];
-  }) => (
-    <section data-testid="document-workspace" data-active-pane={props.activePaneId}>
-      {props.panes.length} panes
-    </section>
-  ),
+    zoomedPaneId: string | null;
+    renderPaneHeader?: (pane: NotePane, placement: { topRow: boolean; leading: boolean; trailing: boolean }) => ReactNode;
+    emptyHeader?: ReactNode;
+  }) => {
+    const shown = props.zoomedPaneId ? props.panes.filter(pane => pane.paneId === props.zoomedPaneId) : props.panes;
+    return (
+      <section data-testid="document-workspace" data-active-pane={props.activePaneId}>
+        {props.panes.length} panes
+        {shown.length === 0 ? props.emptyHeader : shown.map((pane, index) => (
+          <div key={pane.paneId}>{props.renderPaneHeader?.(pane, { topRow: true, leading: index === 0, trailing: index === props.panes.length - 1 })}</div>
+        ))}
+      </section>
+    );
+  },
 }));
 
 function tab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
@@ -261,7 +304,6 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       editorRequests: [],
       onEditorRequestHandled: noop,
       onResizeSplit: noop,
-      onTogglePaneZoom: noop,
       onFocusPane: noop,
       onCreateNote: noop,
       canCreateNote: true,
@@ -299,31 +341,88 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
 }
 
 describe('ElectronHomeWorkspace', () => {
-  it('renders the shell composition and derives titlebar tabs from the active pane', () => {
+  it('gives the sidebar its own title bar and each pane its own tab bar', () => {
     const props = createProps();
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
-    expect(screen.getByTestId('app-topbar')).toBeInTheDocument();
+    expect(within(screen.getByTestId('app-topbar')).getByTestId('application-controls')).toBeInTheDocument();
     expect(screen.getByTestId('folder-navigator')).toHaveAttribute('id', 'note-navigator-panel');
     expect(screen.getByTestId('document-workspace')).toHaveAttribute('data-active-pane', 'pane-b');
-    expect(screen.getByTestId('active-tab')).toHaveTextContent('Markdown Playground');
-    expect(screen.getByTestId('tab-count')).toHaveTextContent('2');
+    expect(screen.getByTestId('pane-tab-bar-pane-a')).toHaveAttribute('data-active', 'false');
+    expect(screen.getByTestId('pane-tab-bar-pane-b')).toHaveAttribute('data-active', 'true');
+    expect(screen.getByTestId('pane-tab-bar-pane-b')).toHaveAttribute('data-segmented', 'true');
+    expect(screen.getByTestId('active-tab-pane-a')).toHaveTextContent('Features');
+    expect(screen.getByTestId('active-tab-pane-b')).toHaveTextContent('Markdown Playground');
+    expect(screen.getByTestId('tab-count-pane-b')).toHaveTextContent('2');
+    // The sidebar holds the controls, so no pane repeats them; the top-left pane only keeps a closed slot.
+    expect(screen.getAllByTestId('application-controls')).toHaveLength(1);
+    expect(within(screen.getByTestId('pane-tab-bar-pane-a')).getByTestId('leading-slot')).toHaveAttribute('data-open', 'false');
+    expect(within(screen.getByTestId('pane-tab-bar-pane-b')).queryByTestId('leading-slot')).not.toBeInTheDocument();
   });
 
-  it('passes active-pane titlebar tab actions through with the active pane id', () => {
+  it('keeps the controls in the sidebar title bar while collapsed, with room for them in the top-left pane', () => {
+    const props = createProps();
+    props.titlebar.layout.navigatorCollapsed = true;
+
+    render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
+
+    expect(within(screen.getByTestId('app-topbar')).getByTestId('application-controls')).toBeInTheDocument();
+    expect(screen.getAllByTestId('application-controls')).toHaveLength(1);
+    expect(within(screen.getByTestId('pane-tab-bar-pane-a')).getByTestId('leading-slot')).toHaveAttribute('data-open', 'true');
+    expect(within(screen.getByTestId('pane-tab-bar-pane-b')).queryByTestId('leading-slot')).not.toBeInTheDocument();
+  });
+
+  it('keeps room for the controls above the empty state while the sidebar is collapsed', () => {
+    const props = createProps();
+    props.titlebar.layout.navigatorCollapsed = true;
+    props.documentWorkspace = { ...props.documentWorkspace, panes: [] };
+
+    render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
+
+    expect(within(screen.getByTestId('document-workspace')).getByTestId('leading-slot')).toHaveAttribute('data-open', 'true');
+  });
+
+  it('draws window controls in the top-right tab bar on Linux and Windows only', () => {
+    window.hackdeskAPI = { platform: 'linux', app: {} } as unknown as NonNullable<typeof window.hackdeskAPI>;
+    try {
+      const { unmount } = render(<ElectronHomeWorkspace {...createProps()} />, { wrapper: createOverlayWrapper().wrapper });
+      expect(screen.getByTestId('pane-tab-bar-pane-a')).toHaveAttribute('data-window-controls', 'false');
+      expect(screen.getByTestId('pane-tab-bar-pane-b')).toHaveAttribute('data-window-controls', 'true');
+      unmount();
+
+      window.hackdeskAPI = { platform: 'darwin', app: {} } as unknown as NonNullable<typeof window.hackdeskAPI>;
+      render(<ElectronHomeWorkspace {...createProps()} />, { wrapper: createOverlayWrapper().wrapper });
+      expect(screen.getByTestId('pane-tab-bar-pane-b')).toHaveAttribute('data-window-controls', 'false');
+    } finally {
+      delete window.hackdeskAPI;
+    }
+  });
+
+  it('shows a single unsegmented tab bar when a pane is zoomed', () => {
+    const props = createProps();
+    props.titlebar.state.zoomedPaneId = 'pane-a';
+    props.documentWorkspace = { ...props.documentWorkspace, zoomedPaneId: 'pane-a' };
+
+    render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
+
+    expect(screen.getByTestId('pane-tab-bar-pane-a')).toHaveAttribute('data-segmented', 'false');
+    expect(screen.queryByTestId('pane-tab-bar-pane-b')).not.toBeInTheDocument();
+  });
+
+  it('runs each tab bar\'s actions against its own pane', () => {
     const props = createProps();
 
     render(<ElectronHomeWorkspace {...props} />, { wrapper: createOverlayWrapper().wrapper });
 
-    fireEvent.click(screen.getByRole('button', { name: 'select tab' }));
-    fireEvent.click(screen.getByRole('button', { name: 'close others' }));
-    fireEvent.click(screen.getByRole('button', { name: 'close right' }));
-    fireEvent.click(screen.getByRole('button', { name: 'close tab' }));
+    fireEvent.click(screen.getByRole('button', { name: 'select tab pane-b' }));
+    fireEvent.click(screen.getByRole('button', { name: 'close others pane-b' }));
+    fireEvent.click(screen.getByRole('button', { name: 'close right pane-a' }));
+    fireEvent.click(screen.getByRole('button', { name: 'close tab pane-b' }));
 
     expect(props.titlebar.actions.selectTab).toHaveBeenCalledWith('pane-b', 'tab-b');
     expect(props.titlebar.actions.requestCloseOtherTabs).toHaveBeenCalledWith('pane-b', 'tab-b');
-    expect(props.titlebar.actions.requestCloseTabsToRight).toHaveBeenCalledWith('pane-b', 'tab-b');
+    expect(props.titlebar.actions.requestCloseTabsToRight).toHaveBeenCalledWith('pane-a', 'tab-b');
     expect(props.titlebar.actions.requestCloseTab).toHaveBeenCalledWith('tab-b');
   });
 

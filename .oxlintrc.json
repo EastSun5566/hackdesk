@@ -119,12 +119,25 @@
         ]
       }
     ],
-    "shadcn/require-static-classes": "warn",
+    "shadcn/require-static-classes": "error",
     "shadcn/no-restyle": [
-      "warn",
+      "error",
       {
         "allow": [
           "layout"
+        ],
+        "contracts": [
+          {
+            "pattern": ".*",
+            "allow": [
+              "layout",
+              "app-region-*",
+              "app-topbar-button",
+              "scroll-edges",
+              "scroll-edges-source",
+              "scroll-edge-*"
+            ]
+          }
         ]
       }
     ]

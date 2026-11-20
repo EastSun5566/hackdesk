@@ -1,4 +1,5 @@
 ---
+description: "Run HackDesk commands with shortcuts, the leader menu, and on-screen navigation hints, and change key bindings in Settings."
 outline: deep
 ---
 
@@ -12,7 +13,7 @@ Press **Space** outside text editing, or **Cmd+J** / **Ctrl+J** anywhere, to ope
 
 ![Leader menu showing command groups and their keys](/leader-menu.png)
 
-*HackDesk beta.10 with demonstration notes.*
+*HackDesk beta.13 with demonstration notes.*
 
 | Key | Group | Examples |
 | --- | --- | --- |
@@ -35,6 +36,8 @@ Press **Cmd+K** / **Ctrl+K** for the Command Palette. Search for actions, Settin
 With text selected and AI enabled, this shortcut opens AI actions. **Cmd+Shift+P** / **Ctrl+Shift+P** always opens the Command Palette.
 
 Open **Help → Keyboard Shortcuts**, or press `?` outside text editing, to search bindings by region or across all actions.
+
+On Windows and Linux the menu bar is hidden. Press and release **Alt** to show it, then use the arrow keys and Enter, or click the menu button at the top left.
 
 | Action | macOS | Windows / Linux |
 | --- | --- | --- |
@@ -74,7 +77,7 @@ Hold **Cmd** on macOS or **Ctrl** on Windows/Linux to show shortcuts and codes f
 
 ![Keyboard hints over the sidebar, note tabs, and editor controls](/keyboard-navigation.png)
 
-*HackDesk beta.10. Codes depend on visible targets and available keys.*
+*HackDesk beta.13. Codes depend on visible targets and available keys.*
 
 Notes, folders, tabs, and workspaces navigate directly. Other buttons receive focus; press Enter to act. Backspace removes a prefix, Escape cancels, and releasing the modifier clears hints.
 

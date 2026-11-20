@@ -229,6 +229,25 @@ describe('useWorkbenchActionHandlers', () => {
     expect(bumpRenameRequest).toHaveBeenCalledOnce();
   });
 
+  it('opens Note Settings only for non-local notes', () => {
+    const set = vi.fn();
+    const { result, rerender } = renderHook(
+      (props: WorkbenchActionHandlersOptions) => useWorkbenchActionHandlers(props),
+      { initialProps: createOptions({ overlayControls: { set, close: vi.fn(), openSettings: vi.fn() } }) },
+    );
+
+    result.current.noteSettings();
+    expect(set).toHaveBeenCalledWith('noteMetadata', true);
+
+    set.mockClear();
+    rerender(createOptions({
+      overlayControls: { set, close: vi.fn(), openSettings: vi.fn() },
+      selectedDocument: createDocument({ teamPath: '__hackdesk_local_vault__' }),
+    }));
+    result.current.noteSettings();
+    expect(set).not.toHaveBeenCalled();
+  });
+
   it('saves a draft tab through create instead of update', () => {
     const saveNote = vi.fn();
     const saveDraftNote = vi.fn();

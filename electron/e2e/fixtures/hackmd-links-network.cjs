@@ -27,6 +27,9 @@ globalThis.fetch = async (url, init = {}) => {
   if (path === '/v1/teams' || path === '/v1/folders' || path === '/v1/history') return json([]);
   if (path === '/v1/folders/folder-order') return json({});
   if (path === '/v1/notes' && method === 'GET') return json(listed.map(({ content: _content, ...summary }) => summary));
+  if (path.startsWith('/v1/notes/') && path.endsWith('/comments') && method === 'GET') {
+    return json({ comments: [], page: 1, hasNext: false });
+  }
   if (path.startsWith('/v1/notes/') && method === 'GET') {
     const ref = decodeURIComponent(path.slice('/v1/notes/'.length));
     const note = [alpha, beta, gamma].find(item => item.id === ref);

@@ -19,6 +19,7 @@ import {
   Lock,
   Plus,
   Tag,
+  ListX,
   Trash2,
   Upload,
   Users,
@@ -49,6 +50,7 @@ import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatD
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { countVisibleTreeRows, LazyTreeChildren } from './LazyTreeChildren';
 import { useRowOverlays } from './row-overlays';
 import { readStringArrayStorage, writeStringArrayStorage } from './ui-preferences';
 import { NoteKindIcon, useNoteKind, type NoteKind } from './note-kind';
@@ -277,6 +279,7 @@ function NoteRowView({
   onDuplicate,
   onExportMarkdown,
   onDelete,
+  onRemoveFromHistory,
   onRevealFolder,
   onRevealInFinder,
   showInFolderAction = false,
@@ -297,6 +300,8 @@ function NoteRowView({
   onDuplicate: (note: NoteSummary) => void;
   onExportMarkdown: (note: NoteSummary) => void;
   onDelete: (note: NoteSummary) => void;
+  /** Given for a History row: its menu removes the row from History instead of deleting the note. */
+  onRemoveFromHistory?: (note: NoteSummary) => void;
   onRevealFolder: (entry: FolderTreeNote) => void;
   onRevealInFinder?: (note: NoteSummary) => void;
   onMoveToSelectedFolder?: (entry: FolderTreeNote) => void;
@@ -379,10 +384,17 @@ function NoteRowView({
           Move to…
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDelete(entry.note))}>
-          <Trash2 aria-hidden="true" className="h-4 w-4" />
-          {isLocalNote ? 'Move to Trash' : 'Delete'}
-        </ContextMenuItem>
+        {onRemoveFromHistory ? (
+          <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRemoveFromHistory(entry.note))}>
+            <ListX aria-hidden="true" className="h-4 w-4" />
+            Remove from History
+          </ContextMenuItem>
+        ) : (
+          <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDelete(entry.note))}>
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
+            {isLocalNote ? 'Move to Trash' : 'Delete'}
+          </ContextMenuItem>
+        )}
       </>
     ),
     () => <NoteSummaryCard entry={entry} />,
@@ -1025,7 +1037,7 @@ export function WorkspaceRootTreeRow({
           data-folder-tree-kind="root"
           // Sticks to the scroll area's very top. The gap above it is the scroller's margin, not
           // padding (see FolderNavigator), so the scrollbar starts level with this row.
-          className="sidebar-sticky sticky top-0 z-10 min-w-0 bg-(--background-sidebar)"
+          className="sticky top-0 z-10 min-w-0 bg-(--background-sidebar)"
         >
           <EntityRow
             selected={selected}
@@ -1326,18 +1338,6 @@ export function TagGroupRow({
   );
 }
 
-/**
- * A folder's contents mount the first time it opens, then stay mounted (hidden) when it closes:
- * reopening is a style change rather than rebuilding every row. Folders never opened cost nothing.
- */
-function KeepMountedOnceOpen({ open, children }: { open: boolean; children: ReactNode }) {
-  const [opened, setOpened] = useState(open);
-  if (open && !opened) setOpened(true);
-  return opened ? <div hidden={!open} className="contents">{children}</div> : null;
-}
-
-export { KeepMountedOnceOpen };
-
 export function FolderTreeView({
   nodes,
   notes = [],
@@ -1437,7 +1437,7 @@ export function FolderTreeView({
           onRevealInFinder={onFolderRevealInFinder}
         />
         </div>
-        <KeepMountedOnceOpen open={!collapsed && !isActiveFolder}><div className="grid overflow-hidden">
+        <LazyTreeChildren id={node.id} open={!collapsed && !isActiveFolder} rowCount={() => countVisibleTreeRows(node, collapsedFolderIds)}><div className="grid overflow-hidden">
           <div className="min-h-0 overflow-hidden">
             <div className="mt-0.5 min-w-0">
               <FolderTreeView
@@ -1473,7 +1473,7 @@ export function FolderTreeView({
               />
             </div>
           </div>
-        </div></KeepMountedOnceOpen>
+        </div></LazyTreeChildren>
       </li>
     );
   });

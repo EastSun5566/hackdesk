@@ -9,14 +9,21 @@ const Dialog = DialogPrimitive.Root;
 
 const DialogPortal = DialogPrimitive.Portal;
 
+const dialogCloseSizeClassNames = {
+  default: 'p-1',
+  /** As tall as a field, for a close button at the end of a search input. */
+  field: 'inline-flex size-8 items-center justify-center p-0',
+} as const;
+
 const DialogClose = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Close>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Close>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Close> & { size?: keyof typeof dialogCloseSizeClassNames }
+>(({ className, children, size = 'default', ...props }, ref) => (
   <DialogPrimitive.Close
     ref={ref}
     className={cn(
-      'rounded p-1 text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-emphasize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none',
+      'rounded text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-emphasize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none',
+      dialogCloseSizeClassNames[size],
       className,
     )}
     {...props}
@@ -57,8 +64,18 @@ const dialogSizeClassNames = {
   lg: 'flex h-[min(760px,calc(100dvh-4rem))] w-[min(820px,calc(100dvw-3rem))] max-w-205 flex-col',
   // A landscape window with a sidebar beside its pages, such as Settings: 3:2, like a desktop window.
   wide: 'flex h-[min(640px,calc(100dvh-4rem))] w-[min(960px,calc(100dvw-3rem))] max-w-240 flex-col',
-  // Wide, scrolling content such as side-by-side comparisons.
+  // Wide, scrolling content.
   xl: 'max-h-[calc(100dvh-4rem)] max-w-4xl overflow-y-auto',
+  // Side-by-side comparisons: as wide as the window allows, up to 75rem.
+  comparison: 'flex max-h-[calc(100dvh-4rem)] w-[min(75rem,calc(100dvw-3rem))] max-w-300 flex-col overflow-hidden',
+  // A comparison with a fixed height, for layouts with their own scroll regions.
+  'comparison-tall': 'flex h-[min(760px,calc(100dvh-4rem))] max-h-[calc(100dvh-4rem)] w-[min(75rem,calc(100dvw-3rem))] max-w-300 flex-col overflow-hidden',
+} as const;
+
+const dialogLayoutClassNames = {
+  default: '',
+  // Edge to edge: the dialog's sections bring their own padding and dividers.
+  flush: 'gap-0 p-0',
 } as const;
 
 const dialogPlacementClassNames = {
@@ -98,8 +115,9 @@ const DialogContent = React.forwardRef<
     showCloseButton?: boolean;
     size?: keyof typeof dialogSizeClassNames;
     placement?: keyof typeof dialogPlacementClassNames;
+    layout?: keyof typeof dialogLayoutClassNames;
   }
->(({ className, children, showCloseButton = true, size = 'default', placement = 'center', finalFocus, ...props }, ref) => {
+>(({ className, children, showCloseButton = true, size = 'default', placement = 'center', layout = 'default', finalFocus, ...props }, ref) => {
   const popupRef = React.useRef<HTMLDivElement | null>(null);
   const setPopupRef = React.useCallback((element: HTMLDivElement | null) => {
     popupRef.current = element;
@@ -119,6 +137,7 @@ const DialogContent = React.forwardRef<
             ELEVATED_SURFACE_CLASS,
             dialogSizeClassNames[size],
             dialogPlacementClassNames[placement],
+            dialogLayoutClassNames[layout],
             className,
           )}
           {...props}
@@ -132,13 +151,23 @@ const DialogContent = React.forwardRef<
 });
 DialogContent.displayName = 'DialogContent';
 
+const dialogHeaderVariantClassNames = {
+  default: '',
+  /** Keeps a long title clear of the close button in the corner. */
+  'beside-close': 'pr-8',
+  /** The top bar of a `flush` dialog. */
+  bar: 'px-5 pb-3 pt-4',
+} as const;
+
 const DialogHeader = ({
   className,
+  variant = 'default',
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
+}: React.HTMLAttributes<HTMLDivElement> & { variant?: keyof typeof dialogHeaderVariantClassNames }) => (
   <div
     className={cn(
       'flex flex-col gap-1.5',
+      dialogHeaderVariantClassNames[variant],
       className,
     )}
     {...props}
@@ -146,13 +175,23 @@ const DialogHeader = ({
 );
 DialogHeader.displayName = 'DialogHeader';
 
+const dialogFooterVariantClassNames = {
+  default: '',
+  /** A status message on the left, the actions on the right. */
+  status: 'items-center justify-between pt-1 sm:justify-between',
+  /** The bottom bar of a `flush` dialog. */
+  bar: 'border-t border-border-default px-5 py-3',
+} as const;
+
 const DialogFooter = ({
   className,
+  variant = 'default',
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
+}: React.HTMLAttributes<HTMLDivElement> & { variant?: keyof typeof dialogFooterVariantClassNames }) => (
   <div
     className={cn(
-      'flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-2',
+      'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
+      dialogFooterVariantClassNames[variant],
       className,
     )}
     {...props}
@@ -160,14 +199,21 @@ const DialogFooter = ({
 );
 DialogFooter.displayName = 'DialogFooter';
 
+const dialogTitleVariantClassNames = {
+  default: '',
+  /** An icon before the title text. */
+  'with-icon': 'flex items-center gap-2',
+} as const;
+
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title> & { variant?: keyof typeof dialogTitleVariantClassNames }
+>(({ className, variant = 'default', ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
       'text-lg font-bold leading-6 text-text-emphasize text-balance',
+      dialogTitleVariantClassNames[variant],
       className,
     )}
     {...props}
@@ -175,13 +221,21 @@ const DialogTitle = React.forwardRef<
 ));
 DialogTitle.displayName = 'DialogTitle';
 
+const dialogDescriptionVariantClassNames = {
+  default: '',
+  /** One line, cut off with an ellipsis, such as the name of the note a dialog acts on. */
+  truncate: 'truncate',
+  /** One small line under the title, such as a note name and its status. */
+  meta: 'truncate text-xs',
+} as const;
+
 const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description> & { variant?: keyof typeof dialogDescriptionVariantClassNames }
+>(({ className, variant = 'default', ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-text-subtle', className)}
+    className={cn('text-sm text-text-subtle', dialogDescriptionVariantClassNames[variant], className)}
     {...props}
   />
 ));

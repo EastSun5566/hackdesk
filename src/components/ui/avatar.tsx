@@ -3,14 +3,23 @@ import { Avatar as AvatarPrimitive } from '@base-ui/react/avatar';
 
 import { cn } from '@/lib/utils';
 
+const avatarVariantClassNames = {
+  default: '',
+  /** A person's picture or initials. */
+  person: 'rounded-full text-2xs font-semibold uppercase',
+  /** A team's logo or initial, quieter than a person's. */
+  team: 'rounded-full text-2xs font-semibold uppercase text-text-subtle',
+} as const;
+
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root> & { variant?: keyof typeof avatarVariantClassNames }
+>(({ className, variant = 'default', ...props }, ref) => (
   <AvatarPrimitive.Root
     ref={ref}
     className={cn(
       'inline-flex shrink-0 items-center justify-center overflow-hidden bg-background-selected text-text-default outline outline-1 -outline-offset-1 outline-white/10',
+      avatarVariantClassNames[variant],
       className,
     )}
     {...props}

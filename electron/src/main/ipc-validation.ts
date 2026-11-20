@@ -4,6 +4,7 @@ import { MAX_ASK_NOTES_HISTORY, MAX_ASK_NOTES_SOURCE_CHARACTERS, MAX_ASK_NOTES_S
 import { APP_ICON_IDS } from '../../../src/lib/app-icons';
 import { WINDOW_TRANSLUCENCY_LEVELS } from '../../../src/lib/window-translucency';
 import { MAX_NOTE_QUESTION_LENGTH, MAX_NOTE_SEARCH_QUERY_LENGTH } from '../../../src/lib/note-index';
+import { isValidQuickCapturePinShortcut, isValidQuickCaptureToggleShortcut } from '../../../src/lib/quick-capture-shortcuts';
 
 import { writeLog } from './logging';
 
@@ -106,6 +107,7 @@ const electronActionIdSchema = z.enum([
   'copy-note-link',
   'copy-markdown-link',
   'copy-note-content',
+  'note-settings',
   'share-note',
   'move-tab-left',
   'move-tab-right',
@@ -226,6 +228,12 @@ export const settingsUpdateSchema = z.strictObject({
   }).optional(),
   offline: z.strictObject({
     keepHackmdNotes: z.boolean(),
+  }).optional(),
+  // Each Quick Hack setting saves on its own, from different Settings tabs.
+  quickCapture: z.strictObject({
+    keepOpen: z.boolean().optional(),
+    pinShortcut: z.string().max(100).refine(isValidQuickCapturePinShortcut).optional(),
+    toggleShortcut: z.string().max(100).refine(isValidQuickCaptureToggleShortcut).optional(),
   }).optional(),
   hackmdAccountLabel: z.string().trim().min(1).max(200).optional(),
   hackmdAddAccount: z.boolean().optional(),
@@ -510,6 +518,15 @@ export const themeSurfaceInputSchema = z.strictObject({
 
 export const windowTranslucencySchema = z.enum(WINDOW_TRANSLUCENCY_LEVELS);
 
+export const windowControlSchema = z.enum(['minimize', 'toggle-maximize', 'close']);
+
+/** A menu bar entry (or, with `section: null`, the whole menu) to open at a point in the window. */
+export const popupMenuInputSchema = z.strictObject({
+  section: z.number().int().min(0).max(32).nullable(),
+  x: z.number().int().min(0).max(100_000),
+  y: z.number().int().min(0).max(100_000),
+});
+
 export const quickCaptureSubmissionAckSchema = z.discriminatedUnion('accepted', [
   z.strictObject({
     requestId: nonEmptyStringSchema,
@@ -521,6 +538,8 @@ export const quickCaptureSubmissionAckSchema = z.discriminatedUnion('accepted', 
     error: nonEmptyStringSchema,
   }),
 ]);
+
+export const quickCapturePinnedSchema = z.boolean();
 
 export const quickCaptureContentSchema = z.string().refine((value) => value.trim().length > 0, {
   message: 'Content must not be blank',

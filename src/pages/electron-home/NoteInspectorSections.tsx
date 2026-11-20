@@ -1,186 +1,17 @@
-import { Loader2, X } from 'lucide-react';
-import { useState, type Dispatch, type ReactNode } from 'react';
+import { X } from 'lucide-react';
+import type { Dispatch } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Field, FieldLabel, Input, Textarea } from '@/components/ui/field';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectLabelValue,
-  SelectTrigger,
-} from '@/components/ui/select';
-import type { NotePermissionRole } from '@/lib/electron-api';
-import { cn } from '@/lib/utils';
+import type { InspectorFormAction } from './useNoteInspectorForm';
 
-import { CollapsibleSection } from './interaction-primitives';
-import { getVersionByline, getVersionKind, getVersionTitle, VersionDot } from './NoteVersionList';
-import { getVersionErrorMessage, useNoteVersionPreview } from './useNoteVersions';
-import type {
-  FolderOption,
-  InspectorDirtyState,
-  InspectorFormAction,
-  InspectorFormState,
-} from './useNoteInspectorForm';
-
-export type MetadataSectionIds = {
-  descriptionId: string;
-  permalinkId: string;
-  tagsId: string;
-};
-
-export type LocationSectionIds = {
-  folderId: string;
-};
-
-export type PermissionsSectionIds = {
-  readPermissionId: string;
-  writePermissionId: string;
-};
-
-const INSPECTOR_INPUT_CLASS = 'h-9 bg-background-default px-2.5 text-text-default focus-visible:ring-inset';
-const INSPECTOR_TEXTAREA_CLASS = 'min-h-16 bg-background-default px-2.5 py-2 text-text-default focus-visible:ring-inset';
-const INSPECTOR_SECTION_CONTENT_CLASS = 'space-y-4 pb-3 pt-1.5';
-const INSPECTOR_LABEL_CLASS = 'text-xs font-medium text-text-subtle';
-
-function InspectorField({
-  children,
-  htmlFor,
-  label,
-}: {
-  children: ReactNode;
-  htmlFor: string;
-  label: string;
-}) {
-  return (
-    <Field className="space-y-1.5">
-      <FieldLabel className={INSPECTOR_LABEL_CLASS} htmlFor={htmlFor}>{label}</FieldLabel>
-      {children}
-    </Field>
-  );
-}
-
-function InspectorSelectField({
-  className,
-  id,
-  label,
-  name,
-  onValueChange,
-  options,
-  value,
-}: {
-  id: string;
-  label: string;
-  name: string;
-  onValueChange: (value: string) => void;
-  options: Array<{ label: string; value: string }>;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <InspectorField htmlFor={id} label={label}>
-      <Select
-        name={name}
-        value={value}
-        onValueChange={(nextValue) => {
-          if (typeof nextValue === 'string') {
-            onValueChange(nextValue);
-          }
-        }}
-        items={options}
-      >
-        <SelectTrigger
-          id={id}
-          className={cn(INSPECTOR_INPUT_CLASS, 'w-full justify-between pe-2.5', className)}
-        >
-          <SelectLabelValue
-            value={value}
-            labels={Object.fromEntries(options.map((option) => [option.value, option.label]))}
-          />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </InspectorField>
-  );
-}
-
-export function MetadataSection({
-  dirty,
-  dispatch,
-  ids,
-  onAddTag,
-  onRemoveTag,
-  state,
-}: {
-  dirty: InspectorDirtyState;
-  dispatch: Dispatch<InspectorFormAction>;
-  ids: MetadataSectionIds;
-  onAddTag: (value: string) => void;
-  onRemoveTag: (tag: string) => void;
-  state: InspectorFormState;
-}) {
-  return (
-    <CollapsibleSection
-      title="Metadata"
-      dirty={dirty.description || dirty.tags || dirty.permalink}
-      contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
-    >
-      <fieldset className="space-y-4">
-        <legend className="sr-only">Metadata</legend>
-        <InspectorField htmlFor={ids.descriptionId} label="Description">
-          <Textarea
-            id={ids.descriptionId}
-            aria-label="Description"
-            name="description"
-            autoComplete="off"
-            value={state.description}
-            onChange={(event) => dispatch({ type: 'set-description', value: event.target.value })}
-            className={INSPECTOR_TEXTAREA_CLASS}
-            rows={3}
-          />
-        </InspectorField>
-
-        <TagEditor
-          id={ids.tagsId}
-          onAddTag={onAddTag}
-          onRemoveTag={onRemoveTag}
-          dispatch={dispatch}
-          tagDraft={state.tagDraft}
-          tags={state.tags}
-        />
-
-        <InspectorField htmlFor={ids.permalinkId} label="Permalink">
-          <Input
-            id={ids.permalinkId}
-            aria-label="Permalink"
-            name="permalink"
-            autoComplete="off"
-            spellCheck={false}
-            value={state.permalink}
-            onChange={(event) => dispatch({ type: 'set-permalink', value: event.target.value })}
-            className={INSPECTOR_INPUT_CLASS}
-            placeholder="custom-slug"
-          />
-        </InspectorField>
-      </fieldset>
-    </CollapsibleSection>
-  );
-}
-
-function TagEditor({
+export function TagEditor({
   dispatch,
   id,
   onAddTag,
   onRemoveTag,
   tagDraft,
   tags,
+  hideLabel = false,
 }: {
   dispatch: Dispatch<InspectorFormAction>;
   id: string;
@@ -188,22 +19,26 @@ function TagEditor({
   onRemoveTag: (tag: string) => void;
   tagDraft: string;
   tags: string[];
+  hideLabel?: boolean;
 }) {
   return (
     <div className="space-y-1.5">
-      <label className={INSPECTOR_LABEL_CLASS} htmlFor={id}>Tags</label>
+      {hideLabel ? null : (
+        <label className="text-xs font-medium text-text-subtle" htmlFor={id}>Tags</label>
+      )}
       <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1 transition focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring">
         {tags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex h-7 items-center gap-1 rounded-md bg-background-selected px-2 text-xs text-text-default"
+            className="inline-flex h-6 items-center gap-1 rounded-md bg-background-selected px-2 text-xs text-text-default"
           >
             {tag}
             <Button
-              variant="ghost"
+              type="button"
+              variant="chip-remove"
               size="icon-sm"
               onClick={() => onRemoveTag(tag)}
-              className="-mr-1 rounded-sm focus-visible:ring-inset"
+              className="-mr-1"
               aria-label={`Remove ${tag} tag`}
             >
               <X aria-hidden="true" className="h-3 w-3" />
@@ -231,214 +66,10 @@ function TagEditor({
             }
           }}
           onBlur={() => onAddTag(tagDraft)}
-          className="min-w-20 flex-1 bg-transparent text-sm outline-none"
+          className="min-w-20 flex-1 bg-transparent text-sm text-text-default outline-none placeholder:text-text-subtle/70"
           placeholder={tags.length === 0 ? 'Add tag…' : ''}
         />
       </div>
     </div>
-  );
-}
-
-export function LocationSection({
-  dirty,
-  dispatch,
-  folderOptions,
-  ids,
-  parentFolderId,
-}: {
-  dirty: boolean;
-  dispatch: Dispatch<InspectorFormAction>;
-  folderOptions: FolderOption[];
-  ids: LocationSectionIds;
-  parentFolderId: string;
-}) {
-  return (
-    <CollapsibleSection
-      title="Location"
-      dirty={dirty}
-      defaultOpen={false}
-      contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
-    >
-      <fieldset>
-        <legend className="sr-only">Location</legend>
-        <InspectorSelectField
-          id={ids.folderId}
-          label="Folder"
-          name="parentFolderId"
-          value={parentFolderId}
-          onValueChange={(value) => dispatch({ type: 'set-parent-folder-id', value })}
-          options={[
-            { value: '', label: 'Root' },
-            ...folderOptions.map((option) => ({ value: option.id, label: option.label })),
-          ]}
-        />
-      </fieldset>
-    </CollapsibleSection>
-  );
-}
-
-export function PermissionsSection({
-  dirty,
-  dispatch,
-  ids,
-  readPermission,
-  writePermission,
-}: {
-  dirty: boolean;
-  dispatch: Dispatch<InspectorFormAction>;
-  ids: PermissionsSectionIds;
-  readPermission: NotePermissionRole;
-  writePermission: NotePermissionRole;
-}) {
-  return (
-    <CollapsibleSection
-      title="Permissions"
-      dirty={dirty}
-      defaultOpen={false}
-      contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
-    >
-      <div className="space-y-4">
-        <PermissionSegmentedField
-          legend="Read"
-          name={ids.readPermissionId}
-          value={readPermission}
-          onChange={(value) => dispatch({ type: 'set-read-permission', value })}
-        />
-        <PermissionSegmentedField
-          legend="Write"
-          name={ids.writePermissionId}
-          value={writePermission}
-          onChange={(value) => dispatch({ type: 'set-write-permission', value })}
-        />
-      </div>
-    </CollapsibleSection>
-  );
-}
-
-const PERMISSION_OPTIONS: Array<{ label: string; value: NotePermissionRole }> = [
-  { label: 'Owner', value: 'owner' },
-  { label: 'Signed in', value: 'signed_in' },
-  { label: 'Guest', value: 'guest' },
-];
-
-function PermissionSegmentedField({
-  legend,
-  name,
-  onChange,
-  value,
-}: {
-  legend: string;
-  name: string;
-  onChange: (value: NotePermissionRole) => void;
-  value: NotePermissionRole;
-}) {
-  return (
-    <fieldset className="space-y-1.5">
-      <legend className={INSPECTOR_LABEL_CLASS}>{legend}</legend>
-      <RadioGroup
-        name={name}
-        value={value}
-        onValueChange={(nextValue) => onChange(nextValue as NotePermissionRole)}
-        className="grid grid-cols-3 gap-0.5 rounded-md border border-border-default bg-background-muted p-0.5"
-      >
-        {PERMISSION_OPTIONS.map((option) => (
-          <RadioGroupItem
-            key={option.value}
-            value={option.value}
-            aria-label={option.label}
-            className="flex h-8 w-full min-w-0 cursor-pointer items-center justify-center overflow-hidden rounded-sm border-0 bg-transparent px-1.5 focus-visible:ring-inset focus-visible:ring-offset-0 text-center text-xs text-text-subtle data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default"
-          >
-            <span className="min-w-0 truncate whitespace-nowrap">
-              {option.label}
-            </span>
-          </RadioGroupItem>
-        ))}
-      </RadioGroup>
-    </fieldset>
-  );
-}
-
-export function InspectorSaveFooter({
-  dirty,
-  saving,
-}: {
-  dirty: boolean;
-  saving: boolean;
-}) {
-  const status = saving
-    ? 'Saving…'
-    : dirty
-      ? 'Unsaved changes'
-      : 'Saved';
-
-  return (
-    <footer
-      data-inspector-save-footer="true"
-      className="scroll-edge-bottom relative flex shrink-0 items-center justify-between gap-3 bg-background-muted px-4 py-3"
-    >
-      <span className="min-w-0 truncate text-xs text-text-subtle" aria-live="polite">
-        {status}
-      </span>
-      <Button
-        variant="primary"
-        type="submit"
-        disabled={!dirty || saving}
-        className="shrink-0"
-      >
-        {saving ? <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : null}
-        <span>{saving ? 'Saving…' : 'Save changes'}</span>
-      </Button>
-    </footer>
-  );
-}
-
-function VersionsPreview({ noteId, onShowAll }: { noteId: string; onShowAll: () => void }) {
-  const preview = useNoteVersionPreview(noteId);
-  const versions = preview.data?.versions ?? [];
-
-  return (
-    <div className="space-y-2">
-      {preview.isPending ? (
-        <p role="status" aria-busy="true" className="text-xs text-text-subtle">Loading versions…</p>
-      ) : preview.isError ? (
-        <p className="text-xs text-text-subtle">{getVersionErrorMessage(preview.error)}</p>
-      ) : versions.length === 0 ? (
-        <p className="text-xs text-text-subtle">No saved versions yet.</p>
-      ) : (
-        <ul className="space-y-1.5">
-          {versions.map((version) => (
-            <li key={version.id} className="min-w-0">
-              <p className="flex items-center gap-1.5 truncate text-sm text-text-default">
-                <VersionDot kind={getVersionKind(version)} />
-                <span className="truncate">{getVersionTitle(version)}</span>
-              </p>
-              <p className="truncate pl-4 text-xs text-text-subtle">{getVersionByline(version)}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-      {/* Inside the metadata form, so it must not submit. */}
-      <Button type="button" size="xs" variant="secondary" onClick={onShowAll}>
-        View all versions
-      </Button>
-    </div>
-  );
-}
-
-export function VersionsSection({ noteId, onShowAll }: { noteId: string; onShowAll: () => void }) {
-  // Fetch only after the section is first opened.
-  const [opened, setOpened] = useState(false);
-
-  return (
-    <CollapsibleSection
-      title="Versions"
-      defaultOpen={false}
-      onOpenChange={(open) => {
-        if (open) setOpened(true);
-      }}
-      contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
-    >
-      {opened ? <VersionsPreview noteId={noteId} onShowAll={onShowAll} /> : null}
-    </CollapsibleSection>
   );
 }

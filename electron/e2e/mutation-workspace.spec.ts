@@ -76,7 +76,11 @@ for (const origin of ['personal', 'team-a']) {
         replace(channels.hackmdCreateTeamNote, (_event, teamPath, input) => hold(input, teamPath));
         replace(channels.hackmdUpdateNote, (_event, _id, input) => hold(input, null));
         replace(channels.hackmdUpdateTeamNote, (_event, teamPath, _id, input) => hold(input, teamPath));
-      }, { channels: ELECTRON_CHANNELS, settings: defaultSettings });
+      }, {
+        channels: ELECTRON_CHANNELS,
+        // Teams are pinned by the user only; these switch by clicking pinned rows.
+        settings: { ...defaultSettings, workspaceNavigation: { pinnedTeamIds: ['team-a', 'team-b'] } },
+      });
       await page.reload();
       await page.getByRole('button', { name: /^Switch workspace, current: / }).click();
       await expect(page.getByRole('dialog', { name: 'Workspaces' }).getByRole('button', { name: 'Team B, private', exact: true })).toBeVisible();

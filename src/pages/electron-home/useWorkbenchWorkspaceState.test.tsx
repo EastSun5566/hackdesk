@@ -9,6 +9,7 @@ import {
   LAST_WORKSPACE_SCOPE_KEY,
   writeStringArrayStorage,
 } from './ui-preferences';
+import { getLastWorkspaceScopeKey } from './account-workspace-storage';
 import {
   getInitialWorkspaceScope,
   useWorkbenchWorkspaceState,
@@ -57,6 +58,39 @@ describe('useWorkbenchWorkspaceState', () => {
     expect(result.current.scope.type).toBe('local');
     expect(result.current.scopeStorageKey).toBeNull();
     rerender({ ready: true, vaultId: 'vault-a' });
+    expect(result.current.scopeStorageKey).toBe('local:vault-a');
+  });
+
+  it('keeps HackMD workspaces per account and reopens each account\'s last workspace', () => {
+    const teamScope: WorkspaceScope = { type: 'team', label: 'Design', teamPath: 'design' };
+    window.localStorage.setItem(getLastWorkspaceScopeKey('acct-b'), JSON.stringify(teamScope));
+    const { result, rerender } = renderHook(({ accountId }: { accountId: string | null }) => useWorkbenchWorkspaceState({
+      initialWorkspaceScope: { type: 'personal', label: 'My Workspace' },
+      hackmdAccountId: accountId,
+      manualEmptyWorkspaceRef: { current: false },
+    }), { initialProps: { accountId: 'acct-a' } });
+    expect(result.current.scopeStorageKey).toBe('personal@acct-a');
+
+    act(() => result.current.setWorkspaceScope({ type: 'history', label: 'History' }));
+    expect(result.current.scopeStorageKey).toBe('history@acct-a');
+
+    rerender({ accountId: 'acct-b' });
+    expect(result.current.scope).toEqual(teamScope);
+    expect(result.current.scopeStorageKey).toBe('team:design@acct-b');
+
+    rerender({ accountId: 'acct-a' });
+    expect(result.current.scopeStorageKey).toBe('history@acct-a');
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY)!)).toEqual({ type: 'history', label: 'History' });
+  });
+
+  it('leaves a local folder open when the HackMD account changes', () => {
+    const { result, rerender } = renderHook(({ accountId }: { accountId: string | null }) => useWorkbenchWorkspaceState({
+      initialWorkspaceScope: { type: 'local', label: 'Local Vault' },
+      localVaultId: 'vault-a',
+      hackmdAccountId: accountId,
+      manualEmptyWorkspaceRef: { current: false },
+    }), { initialProps: { accountId: 'acct-a' } });
+    rerender({ accountId: 'acct-b' });
     expect(result.current.scopeStorageKey).toBe('local:vault-a');
   });
 
