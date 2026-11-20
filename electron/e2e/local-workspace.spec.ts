@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
@@ -166,6 +166,69 @@ test('a named local workspace groups folders under one root and survives a resta
     await expect(page.getByRole('button', { name: /^Switch workspace, current: B/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Collapse Files', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Open A', exact: true })).toHaveCount(0);
+  } finally {
+    await stop(app);
+  }
+});
+
+test('a row in another folder of the set opens that folder first, then does what was asked', async () => {
+  test.setTimeout(120_000);
+  const home = await mkdtemp(join(tmpdir(), 'hackdesk-local-workspace-switch-'));
+  await mkdir(join(home, '.hackdesk'), { recursive: true });
+  await mkdir(join(home, 'A'));
+  await mkdir(join(home, 'B', 'Plans'), { recursive: true });
+  const vaultA = await realpath(join(home, 'A'));
+  const vaultB = await realpath(join(home, 'B'));
+  await writeFile(join(vaultA, 'A note.md'), '# A note\n\nOnly in A.');
+  await writeFile(join(vaultB, 'Plans', 'Plan.md'), '# Plan\n\nIn B, under Plans.');
+  await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
+    ...defaultSettings,
+    localVault: {
+      vaults: [{ id: 'vault-a', path: vaultA }, { id: 'vault-b', path: vaultB }],
+      activeVaultId: 'vault-a',
+      workspaces: [{ id: 'work', name: 'Work', vaultIds: ['vault-a', 'vault-b'] }],
+      activeWorkspaceId: 'work',
+    },
+    onboarding: { hackmdTokenSetupDeferred: true },
+  }));
+
+  const { app, page } = await launch(home);
+  try {
+    await expect(page.getByRole('button', { name: /^Switch workspace, current: Work/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Hide A notes', exact: true })).toBeVisible();
+
+    // A sub-folder of B opens B, then shows that folder open in B's tree.
+    await page.getByRole('button', { name: 'Open Plans in B', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Hide B notes', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Collapse Plans', exact: true })).toBeVisible();
+    await expect(page.getByRole('treeitem', { name: 'Plan', exact: true })).toBeVisible();
+    await expect(page.locator('.cm-content')).toContainText('Only in A.');
+
+    // A new note asked for in a folder of B, while A is open, opens B and is written there.
+    await page.getByRole('button', { name: 'Open A', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Hide A notes', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'New note in Plans', exact: true }).click();
+    const newNote = page.getByRole('dialog', { name: 'New Note' });
+    await expect(newNote.getByRole('button', { name: 'Change location, current: Work / Plans' })).toBeVisible();
+    await newNote.getByRole('textbox', { name: 'Title' }).fill('Next steps');
+    await newNote.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect.poll(() => readdir(join(vaultB, 'Plans')).then((names) => names.sort())).toEqual(['Next steps.md', 'Plan.md']);
+    await expect(page.getByRole('button', { name: 'Hide B notes', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Next steps/ })).toHaveCount(1);
+
+    // From the switcher: A opened on its own leaves the set; then B of the set opens the set first,
+    // and B in it once the set is open.
+    await page.getByRole('button', { name: /^Switch workspace, current: Work/ }).click();
+    let switcher = page.getByRole('dialog', { name: 'Workspaces' });
+    await switcher.getByRole('button', { name: 'A', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Switch workspace, current: A/ })).toBeVisible();
+    await page.getByRole('button', { name: /^Switch workspace, current: A/ }).click();
+    switcher = page.getByRole('dialog', { name: 'Workspaces' });
+    await switcher.getByRole('button', { name: 'Show folders in Work', exact: true }).click();
+    await switcher.getByRole('button', { name: 'Open B in Work', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Switch workspace, current: Work/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Hide B notes', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open A', exact: true })).toBeVisible();
   } finally {
     await stop(app);
   }
