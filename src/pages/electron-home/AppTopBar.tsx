@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import type { DocumentSyncState } from './DocumentDetail';
 import type { ElectronActionId } from '@/lib/electron-api';
 import type { OpenNoteTab } from './note-workspace';
 import { HACK_MODE_DRAG_STRIP_CLASS, PANEL_MOTION_CLASS } from './ui';
+import { ALT_MENU_BAR_COVERED_CLASS, AppMenuButton, useWindowPresentationState, WindowControls } from './WindowChrome';
 
 /** One pane's tabs and the actions its tab bar runs. */
 export type PaneTabBarSegment = {
@@ -44,6 +45,8 @@ export type ApplicationControlsProps = {
   navigatorCollapsed: boolean;
   navigatorPanelId: string;
   onToggleNavigator: () => void;
+  /** Linux and Windows: the app menu button leads the row, where macOS has its traffic lights. */
+  appMenu?: boolean;
 };
 
 /**
@@ -51,34 +54,7 @@ export type ApplicationControlsProps = {
  * must leave room for. A fullscreen window has none.
  */
 export function useTrafficLightInset(platform: string) {
-  const [fullScreen, setFullScreen] = useState(false);
-
-  useEffect(() => {
-    const appApi = window.hackdeskAPI?.app;
-    if (platform !== 'darwin'
-      || !appApi?.getWindowPresentationState
-      || !appApi.onWindowPresentationStateChange) {
-      return;
-    }
-
-    let active = true;
-    let receivedPresentationEvent = false;
-    void appApi.getWindowPresentationState().then((state) => {
-      if (active && !receivedPresentationEvent) {
-        setFullScreen(state.fullScreen);
-      }
-    });
-    const unsubscribe = appApi.onWindowPresentationStateChange((state) => {
-      receivedPresentationEvent = true;
-      setFullScreen(state.fullScreen);
-    });
-
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [platform]);
-
+  const { fullScreen } = useWindowPresentationState(platform === 'darwin');
   return platform === 'darwin' && !fullScreen;
 }
 
@@ -157,22 +133,27 @@ export function ApplicationControls({
   navigatorCollapsed,
   navigatorPanelId,
   onToggleNavigator,
+  appMenu = false,
 }: ApplicationControlsProps) {
   return (
     <Toolbar aria-label="Application controls" className="min-w-fit flex-1">
-      <TopBarIconButton
-        actionId="toggle-navigator"
-        controls={navigatorPanelId}
-        expanded={!navigatorCollapsed}
-        label={navigatorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        onClick={onToggleNavigator}
-      >
-        {navigatorCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
-      </TopBarIconButton>
+      {appMenu ? <AppMenuButton /> : null}
+      {/* Hidden, with the history buttons, while the Alt menu bar lies over them. */}
+      <span className={cn('flex', ALT_MENU_BAR_COVERED_CLASS)}>
+        <TopBarIconButton
+          actionId="toggle-navigator"
+          controls={navigatorPanelId}
+          expanded={!navigatorCollapsed}
+          label={navigatorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={onToggleNavigator}
+        >
+          {navigatorCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
+        </TopBarIconButton>
+      </span>
       {/* Takes the rest of the row and pushes the divider and history buttons to its end, but never
           less than their width, so a narrower row leaves them beside the toggle. gap-1 matches the
           toolbar's own gap, so the divider sits 8px from the toggle and from Back. */}
-      <div className="flex min-w-fit flex-1 items-center justify-end gap-1">
+      <div className={cn('flex min-w-fit flex-1 items-center justify-end gap-1', ALT_MENU_BAR_COVERED_CLASS)}>
         {/* Shown only while collapsed: it fades in once the history buttons have settled beside the
             toggle, and is gone before they move away again. */}
         <ToolbarSeparator shown={navigatorCollapsed} />
@@ -212,7 +193,15 @@ export function AppTopBar({
  * jumping when the sidebar starts to move. Its left padding puts the space exactly under the
  * controls; the middle wrapper carries no padding, so `0fr` really closes it to nothing.
  */
-export function TitleBarLeadingSlot({ open, trafficLightInset }: { open: boolean; trafficLightInset: boolean }) {
+export function TitleBarLeadingSlot({
+  open,
+  trafficLightInset,
+  appMenu = false,
+}: {
+  open: boolean;
+  trafficLightInset: boolean;
+  appMenu?: boolean;
+}) {
   return (
     <div
       aria-hidden="true"
@@ -223,9 +212,9 @@ export function TitleBarLeadingSlot({ open, trafficLightInset }: { open: boolean
       <div className="min-w-0 overflow-hidden">
         <div className={cn('flex w-max pr-2', trafficLightInset ? 'pl-20' : 'pl-0.5')}>
           {/* The toggle, a gap, the divider with its margins, a gap and two history buttons
-              (28 + 4 + 9 + 4 + 28 + 4 + 28 = 105px). No-drag, so the window does not drag from under
-              the controls. */}
-          <span className="app-region-no-drag h-7 w-26.25" />
+              (28 + 4 + 9 + 4 + 28 + 4 + 28 = 105px), after the app menu button and a gap (32px) on
+              Linux and Windows. No-drag, so the window does not drag from under the controls. */}
+          <span className={cn('app-region-no-drag h-7', appMenu ? 'w-34.25' : 'w-26.25')} />
         </div>
       </div>
     </div>
@@ -245,6 +234,8 @@ export function PaneTabBar({
   leadingSpace = false,
   leadingOpen = false,
   trafficLightInset = false,
+  appMenu = false,
+  windowControls = false,
 }: {
   segment: PaneTabBarSegment;
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
@@ -256,6 +247,10 @@ export function PaneTabBar({
   leadingSpace?: boolean;
   leadingOpen?: boolean;
   trafficLightInset?: boolean;
+  /** Linux and Windows: the app menu button leads the sidebar's title bar, so the leading space is wider. */
+  appMenu?: boolean;
+  /** Linux and Windows: the top-right pane's bar ends with the window controls. */
+  windowControls?: boolean;
 }) {
   return (
     <div
@@ -268,7 +263,7 @@ export function PaneTabBar({
         HACK_MODE_DRAG_STRIP_CLASS,
       )}
     >
-      {leadingSpace ? <TitleBarLeadingSlot open={leadingOpen} trafficLightInset={trafficLightInset} /> : null}
+      {leadingSpace ? <TitleBarLeadingSlot open={leadingOpen} trafficLightInset={trafficLightInset} appMenu={appMenu} /> : null}
       <DocumentTabs
         paneId={segment.paneId}
         isActivePane={segment.isActivePane}
@@ -293,6 +288,7 @@ export function PaneTabBar({
         onNewTab={segment.onNewTab}
         tabs={segment.tabs}
       />
+      {windowControls ? <WindowControls /> : null}
     </div>
   );
 }

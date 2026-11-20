@@ -16,7 +16,14 @@ vi.mock('./url-policy', () => ({
   openExternalUrl: vi.fn(),
 }));
 
-import { attachWindowMenu, buildMenuTemplate, createApplicationMenu, type ApplicationMenuOptions } from './app-menu';
+import {
+  attachWindowMenu,
+  buildMenuTemplate,
+  createApplicationMenu,
+  getWindowMenuBar,
+  popupWindowMenu,
+  type ApplicationMenuOptions,
+} from './app-menu';
 
 function defaultOptions(overrides: Partial<ApplicationMenuOptions> = {}): ApplicationMenuOptions {
   return {
@@ -194,5 +201,41 @@ describe('createApplicationMenu', () => {
     expect(attached.map((section) => section.label)).toEqual(
       buildMenuTemplate(defaultOptions()).map((section) => section.label),
     );
+  });
+});
+
+describe('the title bar menu on Linux and Windows', () => {
+  function attachFakeMenu() {
+    const submenu = (label: string) => ({ label, popup: vi.fn((options: { callback?: () => void }) => options.callback?.()) });
+    const sections = [
+      { label: '&File', visible: true, submenu: submenu('File') },
+      { label: 'Hidden', visible: false, submenu: submenu('Hidden') },
+      { label: 'Separator', visible: true, submenu: null },
+      { label: 'Edit', visible: true, submenu: submenu('Edit') },
+    ];
+    const menu = { items: sections, popup: vi.fn((options: { callback?: () => void }) => options.callback?.()) };
+    menuMock.buildFromTemplate.mockReturnValueOnce(menu);
+    const window = { setMenu: vi.fn() };
+    attachWindowMenu(window as never, defaultOptions());
+    return { window: window as never, menu, sections };
+  }
+
+  it('lists the visible top-level entries without their mnemonics', () => {
+    const { window } = attachFakeMenu();
+
+    expect(getWindowMenuBar(window)).toEqual(['File', 'Edit']);
+    expect(getWindowMenuBar({} as never)).toEqual([]);
+  });
+
+  it('opens one entry, or the whole menu, at a point in the window', async () => {
+    const { window, menu, sections } = attachFakeMenu();
+
+    await expect(popupWindowMenu(window, { section: 1, x: 40, y: 32 })).resolves.toBe(true);
+    expect(sections[3].submenu?.popup).toHaveBeenCalledWith(expect.objectContaining({ window, x: 40, y: 32 }));
+
+    await expect(popupWindowMenu(window, { section: null, x: 8, y: 36 })).resolves.toBe(true);
+    expect(menu.popup).toHaveBeenCalledWith(expect.objectContaining({ window, x: 8, y: 36 }));
+
+    await expect(popupWindowMenu(window, { section: 9, x: 0, y: 0 })).resolves.toBe(false);
   });
 });

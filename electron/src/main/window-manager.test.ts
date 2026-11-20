@@ -80,7 +80,11 @@ const mockState = vi.hoisted(() => {
     loadURL = vi.fn(async () => {
       if (state.loadError) throw state.loadError;
     });
-    maximize = vi.fn();
+    isMaximizedValue = false;
+    isMaximized = vi.fn(() => this.isMaximizedValue);
+    maximize = vi.fn(() => { this.isMaximizedValue = true; });
+    unmaximize = vi.fn(() => { this.isMaximizedValue = false; });
+    minimize = vi.fn();
     setBackgroundColor = vi.fn();
     setVibrancy = vi.fn();
     getBounds = vi.fn(() => ({ x: 0, y: 0, width: 1180, height: 760 }));
@@ -370,22 +374,57 @@ describe('WindowManager close intent', () => {
   it('reports and broadcasts main window fullscreen state', () => {
     const { manager, window } = createManagerWithWindow();
 
-    expect(manager.getWindowPresentationState()).toEqual({ fullScreen: false });
+    expect(manager.getWindowPresentationState()).toEqual({ fullScreen: false, maximized: false });
 
     window.isFullScreenValue = true;
     window.emit('enter-full-screen');
-    expect(manager.getWindowPresentationState()).toEqual({ fullScreen: true });
+    expect(manager.getWindowPresentationState()).toEqual({ fullScreen: true, maximized: false });
     expect(window.webContents.send).toHaveBeenLastCalledWith(
       ELECTRON_CHANNELS.appWindowPresentationStateChanged,
-      { fullScreen: true },
+      { fullScreen: true, maximized: false },
     );
 
     window.isFullScreenValue = false;
     window.emit('leave-full-screen');
     expect(window.webContents.send).toHaveBeenLastCalledWith(
       ELECTRON_CHANNELS.appWindowPresentationStateChanged,
-      { fullScreen: false },
+      { fullScreen: false, maximized: false },
     );
+  });
+
+  it('reports maximize changes, trusting the event over a window that has not caught up', () => {
+    const { manager, window } = createManagerWithWindow();
+
+    window.emit('maximize');
+    expect(window.webContents.send).toHaveBeenLastCalledWith(
+      ELECTRON_CHANNELS.appWindowPresentationStateChanged,
+      { fullScreen: false, maximized: true },
+    );
+
+    window.isMaximizedValue = true;
+    expect(manager.getWindowPresentationState()).toEqual({ fullScreen: false, maximized: true });
+    window.emit('unmaximize');
+    expect(window.webContents.send).toHaveBeenLastCalledWith(
+      ELECTRON_CHANNELS.appWindowPresentationStateChanged,
+      { fullScreen: false, maximized: false },
+    );
+  });
+
+  it('runs the title bar window controls on the requesting window', () => {
+    const { manager, window } = createManagerWithWindow();
+    const sender = window.webContents as never;
+
+    manager.controlWindowForSender(sender, 'minimize');
+    expect(window.minimize).toHaveBeenCalledOnce();
+
+    manager.controlWindowForSender(sender, 'toggle-maximize');
+    expect(window.maximize).toHaveBeenCalledOnce();
+    manager.controlWindowForSender(sender, 'toggle-maximize');
+    expect(window.unmaximize).toHaveBeenCalledOnce();
+
+    // Close goes through the usual close request, so unsaved notes are asked about first.
+    manager.controlWindowForSender(sender, 'close');
+    expect(window.close).toHaveBeenCalledOnce();
   });
 
   it('sends a close request instead of closing immediately', () => {
@@ -1124,8 +1163,10 @@ describe('WindowManager multi-window', () => {
     const second = getMockWindow(manager.createMainWindow());
     second.isFullScreenValue = true;
 
-    expect(manager.getWindowPresentationStateForSender(first.webContents as never)).toEqual({ fullScreen: false });
-    expect(manager.getWindowPresentationStateForSender(second.webContents as never)).toEqual({ fullScreen: true });
+    second.isMaximizedValue = true;
+
+    expect(manager.getWindowPresentationStateForSender(first.webContents as never)).toEqual({ fullScreen: false, maximized: false });
+    expect(manager.getWindowPresentationStateForSender(second.webContents as never)).toEqual({ fullScreen: true, maximized: true });
   });
 
   it('resolves close-targeted IPC against the sending window', () => {

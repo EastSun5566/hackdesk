@@ -26,6 +26,8 @@ import type {
   NoteVersionsQuery,
   CreateNoteVersionInput,
   UpdateNoteVersionInput,
+  PopupMenuInput,
+  WindowControlAction,
   WindowPresentationState,
 } from '../../../src/lib/electron-api';
 import type {
@@ -294,6 +296,9 @@ const api: HackDeskElectronAPI = {
         ipcRenderer.removeListener(ELECTRON_CHANNELS.appWindowPresentationStateChanged, listener);
       };
     },
+    controlWindow: (action: WindowControlAction) => ipcRenderer.invoke(ELECTRON_CHANNELS.appWindowControl, action),
+    getMenuBar: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appGetMenuBar),
+    popupMenu: (input: PopupMenuInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appPopupMenu, input),
     getQuickCaptureShortcutStatus: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus),
     submitQuickCapture: (content: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSubmitQuickCapture, content),
     hideQuickCapture: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appHideQuickCapture),

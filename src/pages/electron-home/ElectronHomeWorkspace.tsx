@@ -13,6 +13,7 @@ import {
   type ApplicationControlsProps,
   type PaneTabBarSegment,
 } from './AppTopBar';
+import { AltMenuBar, hasCustomWindowChrome, WindowControls } from './WindowChrome';
 import { DocumentWorkspace, type DocumentPaneView, type PaneHeaderPlacement } from './DocumentWorkspace';
 import { FolderNavigator } from './FolderNavigator';
 import type { NoteSummary } from '@/lib/electron-api';
@@ -93,6 +94,7 @@ export function ElectronHomeWorkspace({
   const visiblePaneCount = titlebar.state.zoomedPaneId ? 1 : orderedPaneIds.length;
   const platform = window.hackdeskAPI?.platform ?? 'unknown';
   const trafficLightInset = useTrafficLightInset(platform);
+  const customChrome = hasCustomWindowChrome(platform);
   const { navigatorCollapsed } = titlebar.layout;
   const applicationControls: ApplicationControlsProps = {
     navigation: {
@@ -104,6 +106,7 @@ export function ElectronHomeWorkspace({
     navigatorCollapsed,
     navigatorPanelId: NOTE_NAVIGATOR_PANEL_ID,
     onToggleNavigator: titlebar.actions.toggleNavigator,
+    appMenu: customChrome,
   };
 
   const paneSegment = (pane: NotePane): PaneTabBarSegment => {
@@ -160,6 +163,8 @@ export function ElectronHomeWorkspace({
       leadingSpace={placement.leading}
       leadingOpen={navigatorCollapsed}
       trafficLightInset={trafficLightInset}
+      appMenu={customChrome}
+      windowControls={customChrome && placement.topRow && placement.trailing}
     />
   );
   // No pane is left to carry a tab bar, but the title bar row stays: it drags the window and keeps room
@@ -169,7 +174,8 @@ export function ElectronHomeWorkspace({
       'pane-tab-bar app-topbar flex h-10 shrink-0 items-center',
       HACK_MODE_DRAG_STRIP_CLASS,
     )}>
-      <TitleBarLeadingSlot open={navigatorCollapsed} trafficLightInset={trafficLightInset} />
+      <TitleBarLeadingSlot open={navigatorCollapsed} trafficLightInset={trafficLightInset} appMenu={customChrome} />
+      {customChrome ? <WindowControls className="mr-1 ml-auto" /> : null}
     </div>
   );
 
@@ -195,6 +201,7 @@ export function ElectronHomeWorkspace({
       {/* Notes sit on cards a gap in from the window; the sidebar's resize handle is the gap beside it. */}
       {/* The gap left of the card while the sidebar is collapsed is the sidebar's own margin, so it
           grows as the sidebar narrows instead of shoving the sidebar aside the moment it starts. */}
+      {customChrome ? <AltMenuBar /> : null}
       <main className="flex min-h-0 min-w-0 flex-1 pr-1.5 pb-1.5 [[data-hack-mode]_&]:p-0">
         {/* The sidebar's column: its own title bar row, then the sidebar. The row takes the sidebar's
             width (also while it animates or is dragged), never setting it. */}
@@ -224,7 +231,7 @@ export function ElectronHomeWorkspace({
           {backupNotice ? (
             <WorkspaceBackupNotice
               {...backupNotice}
-              className={cn('my-1.5 rounded-lg border', navigatorCollapsed && (trafficLightInset ? 'ml-45' : 'ml-24'))}
+              className={cn('my-1.5 rounded-lg border', navigatorCollapsed && (trafficLightInset ? 'ml-45' : customChrome ? 'ml-32' : 'ml-24'))}
             />
           ) : null}
           <WorkbenchDocumentActionsProvider value={documentActions}>

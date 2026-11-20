@@ -518,6 +518,15 @@ export const themeSurfaceInputSchema = z.strictObject({
 
 export const windowTranslucencySchema = z.enum(WINDOW_TRANSLUCENCY_LEVELS);
 
+export const windowControlSchema = z.enum(['minimize', 'toggle-maximize', 'close']);
+
+/** A menu bar entry (or, with `section: null`, the whole menu) to open at a point in the window. */
+export const popupMenuInputSchema = z.strictObject({
+  section: z.number().int().min(0).max(32).nullable(),
+  x: z.number().int().min(0).max(100_000),
+  y: z.number().int().min(0).max(100_000),
+});
+
 export const quickCaptureSubmissionAckSchema = z.discriminatedUnion('accepted', [
   z.strictObject({
     requestId: nonEmptyStringSchema,

@@ -120,6 +120,7 @@ import {
 } from './local-vault-service';
 import { openExternalUrl, openHackmdEditor } from './url-policy';
 import { createHackmdRequests } from './hackmd-requests';
+import { getWindowMenuBar, popupWindowMenu } from './app-menu';
 import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
 import { checkForElectronUpdates } from './app-updater';
@@ -161,6 +162,7 @@ import {
   localVaultCreateDirectoryInputSchema,
   openHackmdEditorInputSchema,
   openTextFileInputSchema,
+  popupMenuInputSchema,
   presentationDeckSchema,
   quickCaptureContentSchema,
   quickCapturePinnedSchema,
@@ -168,6 +170,7 @@ import {
   saveTextFileInputSchema,
   settingsUpdateSchema,
   themeSurfaceInputSchema,
+  windowControlSchema,
   windowTranslucencySchema,
   updateFolderInputSchema,
   updateNoteInputSchema,
@@ -194,7 +197,7 @@ export function registerIpcHandlers(
   windowManager: Pick<WindowManager,
     | 'cancelClose' | 'cancelCloseForSender' | 'confirmClose' | 'confirmCloseForSender' | 'holdClose' | 'holdCloseForSender'
     | 'getMainWindow' | 'getMainWindows' | 'getMainWindowForWebContents' | 'getTargetWindow' | 'sendToAllMainWindows'
-    | 'getWindowPresentationState' | 'getWindowPresentationStateForSender' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
+    | 'getWindowPresentationState' | 'getWindowPresentationStateForSender' | 'controlWindowForSender' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
     | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface' | 'setWindowTranslucency' | 'newMainWindow'
     | 'submitQuickCapture' | 'getQuickCaptureState' | 'setQuickCapturePinned' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
   >,
@@ -850,6 +853,18 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appGetWindowPresentationState, (event) => (
     windowManager.getWindowPresentationStateForSender(event.sender)
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.appWindowControl, (event, action: unknown) => {
+    windowManager.controlWindowForSender(event.sender, validateIpcInput(ELECTRON_CHANNELS.appWindowControl, windowControlSchema, action));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appGetMenuBar, (event) => {
+    const window = windowManager.getMainWindowForWebContents(event.sender);
+    return window ? getWindowMenuBar(window) : [];
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appPopupMenu, (event, input: unknown) => {
+    const popup = validateIpcInput(ELECTRON_CHANNELS.appPopupMenu, popupMenuInputSchema, input);
+    const window = windowManager.getMainWindowForWebContents(event.sender);
+    return window ? popupWindowMenu(window, popup) : false;
+  });
   ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus, () => getQuickCaptureShortcutStatus());
   ipcMain.handle(ELECTRON_CHANNELS.appSubmitQuickCapture, (_event, content: string) => (
     windowManager.submitQuickCapture(validateIpcInput(

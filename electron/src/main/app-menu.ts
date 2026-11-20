@@ -1,7 +1,7 @@
 import { app, Menu, type BrowserWindow } from 'electron';
 
 import { getElectronAction, resolveWorkbenchShortcut } from '../../../src/lib/electron-actions';
-import type { ElectronActionId, HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
+import type { ElectronActionId, HackDeskCommandPaletteCommand, PopupMenuInput } from '../../../src/lib/electron-api';
 import { ELECTRON_MENU_SCHEMA, type ElectronMenuSchemaItem } from '../../../src/lib/electron-menu-schema';
 import { displayShortcutConfig, toMenuAccelerator, type ShortcutOverrides } from '../../../src/lib/keyboard-shortcuts';
 import { openExternalUrl } from './url-policy';
@@ -178,7 +178,36 @@ export function createApplicationMenu(options: ApplicationMenuOptions) {
   Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(options)));
 }
 
-/** Linux and Windows draw the menu bar inside each window, so each window owns its copy. */
+const windowMenus = new WeakMap<BrowserWindow, Menu>();
+
+/**
+ * Linux and Windows keep a menu in each window, so each window owns its copy. The window is frameless
+ * there, so Electron draws no menu bar: the menu serves its accelerators, and the renderer's own title
+ * bar opens it (getWindowMenuBar, popupWindowMenu).
+ */
 export function attachWindowMenu(window: BrowserWindow, options: ApplicationMenuOptions) {
-  window.setMenu(Menu.buildFromTemplate(buildMenuTemplate(options)));
+  const menu = Menu.buildFromTemplate(buildMenuTemplate(options));
+  windowMenus.set(window, menu);
+  window.setMenu(menu);
+}
+
+/** The top-level entries of a window's menu, as the renderer's menu bar shows them. */
+export function getWindowMenuBar(window: BrowserWindow): string[] {
+  return (windowMenus.get(window)?.items ?? [])
+    .filter((item) => item.submenu && item.visible)
+    .map((item) => item.label.replace(/&(.)/g, '$1'));
+}
+
+/**
+ * Opens one entry of the window's menu, or the whole menu when `section` is null, as a native menu at
+ * a point in the window. Resolves once it closes, so the renderer can put its menu bar away.
+ */
+export function popupWindowMenu(window: BrowserWindow, input: PopupMenuInput) {
+  const menu = windowMenus.get(window);
+  const sections = menu?.items.filter((item) => item.submenu && item.visible) ?? [];
+  const target = input.section === null ? menu : sections[input.section]?.submenu;
+  if (!target) return Promise.resolve(false);
+  return new Promise<boolean>((resolve) => {
+    target.popup({ window, x: input.x, y: input.y, callback: () => resolve(true) });
+  });
 }

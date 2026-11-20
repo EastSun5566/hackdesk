@@ -487,8 +487,13 @@ describe('DocumentWorkspace', () => {
     const panes = [pane('pane-a', ['tab-a']), pane('pane-b', ['tab-b']), pane('pane-c', ['tab-c'])];
     // pane-a | (pane-b over pane-c)
     const layout = splitLayoutPane(reconcileLayout(null, ['pane-a', 'pane-b']), 'pane-b', 'pane-c', 'down');
-    const renderPaneHeader = vi.fn((candidate: NotePane, placement: { topRow: boolean; leading: boolean }) => (
-      <div data-testid={`header-${candidate.paneId}`} data-top-row={String(placement.topRow)} data-leading={String(placement.leading)} />
+    const renderPaneHeader = vi.fn((candidate: NotePane, placement: { topRow: boolean; leading: boolean; trailing: boolean }) => (
+      <div
+        data-testid={`header-${candidate.paneId}`}
+        data-top-row={String(placement.topRow)}
+        data-leading={String(placement.leading)}
+        data-trailing={String(placement.trailing)}
+      />
     ));
     renderWorkspace({ panes, layout, renderPaneHeader });
 
@@ -500,17 +505,26 @@ describe('DocumentWorkspace', () => {
     expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-leading', 'true');
     expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-top-row', 'true');
     expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-leading', 'false');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-trailing', 'true');
+    expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-trailing', 'false');
     expect(screen.getByTestId('header-pane-c')).toHaveAttribute('data-top-row', 'false');
+    expect(screen.getByTestId('header-pane-c')).toHaveAttribute('data-trailing', 'false');
   });
 
   it('treats a zoomed pane as the top-left one', () => {
     const panes = [pane('pane-a', ['tab-a']), pane('pane-b', ['tab-b'])];
-    const renderPaneHeader = vi.fn((candidate: NotePane, placement: { topRow: boolean; leading: boolean }) => (
-      <div data-testid={`header-${candidate.paneId}`} data-top-row={String(placement.topRow)} data-leading={String(placement.leading)} />
+    const renderPaneHeader = vi.fn((candidate: NotePane, placement: { topRow: boolean; leading: boolean; trailing: boolean }) => (
+      <div
+        data-testid={`header-${candidate.paneId}`}
+        data-top-row={String(placement.topRow)}
+        data-leading={String(placement.leading)}
+        data-trailing={String(placement.trailing)}
+      />
     ));
     renderWorkspace({ panes, zoomedPaneId: 'pane-b', renderPaneHeader });
 
     expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-leading', 'true');
+    expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-trailing', 'true');
     expect(screen.getByTestId('header-pane-b')).toHaveAttribute('data-top-row', 'true');
     expect(screen.getByTestId('header-pane-a')).toHaveAttribute('data-leading', 'false');
   });
