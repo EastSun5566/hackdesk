@@ -303,7 +303,8 @@ export function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}
     localVault: defaultSettings.localVault,
     onboarding: defaultSettings.onboarding,
     shortcuts: defaultSettings.shortcuts,
-    workspaceNavigation: defaultSettings.workspaceNavigation,
+    // The shared test team is pinned, as a user would have it, so its row shows in the switcher.
+    workspaceNavigation: { pinnedTeamIds: [team.id] },
     shouldShowHackmdOnboarding: false,
     ...overrides,
   };

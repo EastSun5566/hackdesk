@@ -26,12 +26,13 @@ function team(id: string): TeamSummary {
 describe('workspace navigation', () => {
   const teams = [team('a'), team('b'), team('c')];
 
-  it('treats every current team as pinned before the first customization', () => {
+  it('pins no team until the user pins one', () => {
     expect(getWorkspaceNavigationTeams(teams, null)).toMatchObject({
-      pinnedTeamIds: ['a', 'b', 'c'],
-      pinnedTeams: teams,
-      unpinnedTeams: [],
+      pinnedTeamIds: [],
+      pinnedTeams: [],
+      unpinnedTeams: teams,
     });
+    expect(pinWorkspaceTeam(null, 'b')).toEqual(['b']);
   });
 
   it('keeps new teams in More after an explicit order exists', () => {
@@ -43,8 +44,8 @@ describe('workspace navigation', () => {
   });
 
   it('preserves unavailable IDs while pinning, unpinning, and reordering', () => {
-    expect(pinWorkspaceTeam(teams, ['missing', 'a'], 'b')).toEqual(['missing', 'a', 'b']);
-    expect(unpinWorkspaceTeam(teams, ['missing', 'a', 'b'], 'a')).toEqual(['missing', 'b']);
+    expect(pinWorkspaceTeam(['missing', 'a'], 'b')).toEqual(['missing', 'a', 'b']);
+    expect(unpinWorkspaceTeam(['missing', 'a', 'b'], 'a')).toEqual(['missing', 'b']);
     expect(reorderPinnedWorkspaceTeams(['missing', 'a', 'b'], ['b', 'a'])).toEqual(['missing', 'b', 'a']);
   });
 });

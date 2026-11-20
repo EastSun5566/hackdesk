@@ -12,6 +12,7 @@ import {
 } from './ui-preferences';
 import { getFolderStateStorageKey, getScopeStorageKey } from './repository';
 import { seedLocalWorkspaceStorage } from './local-workspace-storage';
+import { getLastWorkspaceScopeKey, migrateAccountWorkspaceStorage } from './account-workspace-storage';
 import { INITIAL_DRAFT_SCOPE_KEY } from './initial-draft-workspace';
 
 export const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
@@ -21,6 +22,8 @@ export type WorkbenchWorkspaceStateOptions = {
   /** The named set the open folder belongs to; its folders then share one scope. */
   localWorkspaceId?: string | null;
   initialWorkspaceScope: WorkspaceScope;
+  /** The active HackMD account: HackMD workspaces keep their tabs and drafts per account. */
+  hackmdAccountId?: string | null;
   initialDrafts?: boolean;
   settingsReady?: boolean;
   manualEmptyWorkspaceRef: MutableRefObject<boolean>;
@@ -59,8 +62,13 @@ export function getInitialWorkspaceScope(): WorkspaceScope {
   return readWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, DEFAULT_WORKSPACE_SCOPE);
 }
 
+function sameScope(left: WorkspaceScope, right: WorkspaceScope) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export function useWorkbenchWorkspaceState({
   initialWorkspaceScope,
+  hackmdAccountId = null,
   localVaultId,
   localWorkspaceId,
   initialDrafts = false,
@@ -68,6 +76,28 @@ export function useWorkbenchWorkspaceState({
   manualEmptyWorkspaceRef,
 }: WorkbenchWorkspaceStateOptions): WorkbenchWorkspaceState {
   const [storedScope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
+  // Each account reopens the HackMD workspace it last showed. `undefined` until settings load; the
+  // scope this window opened on (from its URL or the last session) stands unless the account
+  // remembers another one.
+  const [scopeAccountId, setScopeAccountId] = useState<string | null | undefined>(undefined);
+  if (settingsReady && scopeAccountId !== hackmdAccountId) {
+    setScopeAccountId(hackmdAccountId);
+    if (hackmdAccountId && typeof window !== 'undefined') {
+      migrateAccountWorkspaceStorage(window.localStorage, hackmdAccountId);
+      const keepWindowScope = scopeAccountId === undefined && hasWindowWorkspaceScope();
+      if (storedScope.type !== 'local' && !keepWindowScope) {
+        const remembered = readWorkspaceScopeStorage(
+          getLastWorkspaceScopeKey(hackmdAccountId),
+          scopeAccountId === undefined ? storedScope : DEFAULT_WORKSPACE_SCOPE,
+        );
+        const next = remembered.type === 'local' ? DEFAULT_WORKSPACE_SCOPE : remembered;
+        if (!sameScope(next, storedScope)) {
+          setScopeState(next);
+          writeWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, next);
+        }
+      }
+    }
+  }
   const scope = useMemo<WorkspaceScope>(() => initialDrafts ? DEFAULT_WORKSPACE_SCOPE : storedScope.type === 'local'
     ? {
       type: 'local',
@@ -76,8 +106,8 @@ export function useWorkbenchWorkspaceState({
       ...(localWorkspaceId && localVaultId ? { workspaceId: localWorkspaceId } : {}),
     }
     : storedScope, [storedScope, localVaultId, localWorkspaceId, initialDrafts]);
-  const scopeStorageKey = !settingsReady ? null : initialDrafts ? INITIAL_DRAFT_SCOPE_KEY : getScopeStorageKey(scope);
-  const folderStateKey = !settingsReady ? null : initialDrafts ? INITIAL_DRAFT_SCOPE_KEY : getFolderStateStorageKey(scope);
+  const scopeStorageKey = !settingsReady ? null : initialDrafts ? INITIAL_DRAFT_SCOPE_KEY : getScopeStorageKey(scope, hackmdAccountId);
+  const folderStateKey = !settingsReady ? null : initialDrafts ? INITIAL_DRAFT_SCOPE_KEY : getFolderStateStorageKey(scope, hackmdAccountId);
   // Seeded before the tabs read their scope, in the same render.
   if (scopeStorageKey && folderStateKey && scopeStorageKey !== folderStateKey && typeof window !== 'undefined') {
     seedLocalWorkspaceStorage(window.localStorage, scopeStorageKey, folderStateKey);
@@ -100,8 +130,9 @@ export function useWorkbenchWorkspaceState({
     manualEmptyWorkspaceRef.current = false;
     setScopeState(nextScope);
     writeWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, nextScope);
+    if (hackmdAccountId) writeWorkspaceScopeStorage(getLastWorkspaceScopeKey(hackmdAccountId), nextScope);
     setSelectedFolderId(null);
-  }, [manualEmptyWorkspaceRef]);
+  }, [hackmdAccountId, manualEmptyWorkspaceRef]);
 
   return {
     expandedFolderIds,

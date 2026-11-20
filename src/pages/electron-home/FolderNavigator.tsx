@@ -31,6 +31,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { getHackDeskAPI, type NoteSummary } from '@/lib/electron-api';
 import { runHackmdRequest } from '@/lib/hackmd-requests';
+import { removeFromHistory, useHistoryDismissals, withoutDismissedHistory } from '@/lib/history-dismissals';
 import type { LocalVaultSkippedFile, LocalVaultSnapshot } from '@/lib/local-vault';
 import {
   buildFolderDropOperation,
@@ -106,6 +107,7 @@ import { trashNavigatorRowLabel, workspaceRootLabel } from './workspace-root-lab
 import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
 import { useWorkspaceNavigation } from './WorkspaceNavigationContext';
+import { useActiveHackmdAccountId } from './useElectronSettings';
 import { SidebarFooter, WorkspaceSwitcher } from './WorkspaceSwitcher';
 import type { NoteTextSearch } from './useNoteTextSearch';
 import { TrashNavigatorHeader, TrashNavigatorList, type TrashNavigatorViewProps } from './TrashView';
@@ -483,7 +485,11 @@ function ExpandedNavigator({
     },
     enabled: Boolean(history?.open),
   });
-  const historyTree = useMemo(() => buildHackmdFolderTree(historyQuery.data?.data ?? [], []), [historyQuery.data]);
+  const historyDismissals = useHistoryDismissals(useActiveHackmdAccountId());
+  const historyTree = useMemo(
+    () => buildHackmdFolderTree(withoutDismissedHistory(historyQuery.data?.data ?? [], historyDismissals), []),
+    [historyQuery.data, historyDismissals],
+  );
   const historyEntries = useMemo(() => applyNoteFinder(historyTree, historyFinder, null), [historyTree, historyFinder]);
   const isFinderMode = isNoteFinderActive(finderState);
   const finderOptions = useMemo(() => getNoteFinderOptions(tree.allNotes), [tree.allNotes]);
@@ -916,6 +922,7 @@ function HistoryList({
   selectedFolderForNoteMove: FolderTreeNode | null;
   selectedNoteId: string | null;
 }) {
+  const accountId = useActiveHackmdAccountId();
   return (
     <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0" aria-label="Recently opened notes">
       {entries.map((entry) => (
@@ -931,6 +938,8 @@ function HistoryList({
             onDuplicate={actions.onDuplicateNote}
             onExportMarkdown={actions.onExportNoteMarkdown}
             onDelete={actions.onDeleteNote}
+            // A History row is the visit, not the note: removing it leaves the note alone (#417).
+            onRemoveFromHistory={(note) => removeFromHistory(accountId, note.id)}
             onRevealFolder={actions.onRevealNoteFolder}
             onRevealInFinder={actions.onNoteRevealInFinder}
             onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}

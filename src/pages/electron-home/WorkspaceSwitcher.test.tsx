@@ -47,7 +47,8 @@ function renderSwitcher(overrides: Partial<SwitcherProps> = {}, initiallyOpen = 
     localVaults: [],
     activeLocalVaultId: null,
     platform: 'darwin',
-    pinnedTeamIds: null,
+    // Most cases are about pinned rows; nothing is pinned until the user pins it.
+    pinnedTeamIds: (overrides.teams ?? []).map((candidate) => candidate.id),
     onChooseLocalVault: vi.fn(),
     onSwitchLocalVault: vi.fn(),
     onScopeChange: vi.fn(),
@@ -276,6 +277,24 @@ describe('WorkspaceSwitcher', () => {
     expect(within(second).getByRole('button', { name: 'Harbor Team' })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('pins no team until the user pins one', async () => {
+    renderSwitcher({ teams: [team()], pinnedTeamIds: null });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+    expect(within(dialog).queryByRole('heading', { name: 'Pinned' })).toBeNull();
+    expect(within(dialog).getByRole('button', { name: 'More' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('collapses More even while the open workspace is one of its teams', async () => {
+    const more = team({ id: 'team-2', name: 'Harbor Team', path: 'harbor' });
+    renderSwitcher({ scope: { type: 'team', label: more.name, teamPath: more.path }, teams: [more], pinnedTeamIds: [] });
+    const toggle = within(await screen.findByRole('dialog', { name: 'Workspaces' })).getByRole('button', { name: 'More' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('unpins teams and offers a keyboard reorder handle', async () => {
     const props = renderSwitcher({ teams: [team(), team({ id: 'team-2', name: 'Harbor Team', path: 'harbor' })] });
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
@@ -396,7 +415,7 @@ describe('WorkspaceSwitcher while the primary key is held', () => {
             teams,
             localVaults: [],
             platform: 'darwin',
-            pinnedTeamIds: null,
+            pinnedTeamIds: teams.map((candidate) => candidate.id),
             onScopeChange: vi.fn(),
             onSwitchLocalVault: vi.fn(),
             onChooseLocalVault: vi.fn(),

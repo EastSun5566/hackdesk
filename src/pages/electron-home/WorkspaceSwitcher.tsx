@@ -296,7 +296,6 @@ function PinnedTeams({
   pinnedTeamIds,
   platform,
   scope,
-  teams,
 }: {
   navigation: ReturnType<typeof getWorkspaceNavigationTeams>;
   onPinnedTeamIdsChange: (pinnedTeamIds: string[]) => void;
@@ -306,7 +305,6 @@ function PinnedTeams({
   pinnedTeamIds: string[] | null;
   platform: string;
   scope: WorkspaceScope;
-  teams: TeamSummary[];
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -333,7 +331,7 @@ function PinnedTeams({
               <SortablePinnedTeamRow
                 key={team.id}
                 active={scope.type === 'team' && scope.teamPath === team.path}
-                onPinChange={() => onPinnedTeamIdsChange(unpinWorkspaceTeam(teams, pinnedTeamIds, team.id))}
+                onPinChange={() => onPinnedTeamIdsChange(unpinWorkspaceTeam(pinnedTeamIds, team.id))}
                 onScopeChange={() => onScopeChange({ type: 'team', label: team.name, teamPath: team.path })}
                 onOpenInNewWindow={onOpenInNewWindow}
                 openModifierHint={openModifierHint}
@@ -358,7 +356,6 @@ function MoreTeams({
   pinnedTeamIds,
   platform,
   scope,
-  teams,
 }: {
   navigation: ReturnType<typeof getWorkspaceNavigationTeams>;
   onPinnedTeamIdsChange: (pinnedTeamIds: string[]) => void;
@@ -368,11 +365,12 @@ function MoreTeams({
   pinnedTeamIds: string[] | null;
   platform: string;
   scope: WorkspaceScope;
-  teams: TeamSummary[];
 }) {
   const selectedUnpinned = navigation.unpinnedTeams.some((team) => scope.type === 'team' && scope.teamPath === team.path);
-  const [open, setOpen] = useState(false);
-  const isOpen = open || selectedUnpinned;
+  // More starts open when it holds the open workspace, and the toggle always wins after that: it
+  // used to stay open for good while the open workspace was one of its teams (#421).
+  const [open, setOpen] = useState<boolean | null>(null);
+  const isOpen = open ?? selectedUnpinned;
   if (navigation.unpinnedTeams.length === 0) return null;
   return (
     <div className="mt-1">
@@ -393,7 +391,7 @@ function MoreTeams({
             <li key={team.id}>
               <TeamRow
                 active={scope.type === 'team' && scope.teamPath === team.path}
-                onPinChange={() => onPinnedTeamIdsChange(pinWorkspaceTeam(teams, pinnedTeamIds, team.id))}
+                onPinChange={() => onPinnedTeamIdsChange(pinWorkspaceTeam(pinnedTeamIds, team.id))}
                 onScopeChange={() => onScopeChange({ type: 'team', label: team.name, teamPath: team.path })}
                 onOpenInNewWindow={onOpenInNewWindow}
                 openModifierHint={openModifierHint}
@@ -740,8 +738,8 @@ export function WorkspaceSwitcher() {
                             <TeamRow
                               active={scope.type === 'team' && scope.teamPath === team.path}
                               onPinChange={() => onPinnedTeamIdsChange(pinned
-                                ? unpinWorkspaceTeam(teams, pinnedTeamIds, team.id)
-                                : pinWorkspaceTeam(teams, pinnedTeamIds, team.id))}
+                                ? unpinWorkspaceTeam(pinnedTeamIds, team.id)
+                                : pinWorkspaceTeam(pinnedTeamIds, team.id))}
                               onScopeChange={() => choose({ type: 'team', label: team.name, teamPath: team.path })}
                               onOpenInNewWindow={openOut}
                               openModifierHint={openModifierHint}
@@ -756,8 +754,8 @@ export function WorkspaceSwitcher() {
                   ) : <p role="status" className="px-2 py-3 text-xs text-text-subtle">No teams match.</p>
                 ) : (
                   <>
-                    <PinnedTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} onOpenInNewWindow={openOut} openModifierHint={openModifierHint} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
-                    <MoreTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} onOpenInNewWindow={openOut} openModifierHint={openModifierHint} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
+                    <PinnedTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} onOpenInNewWindow={openOut} openModifierHint={openModifierHint} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} />
+                    <MoreTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} onOpenInNewWindow={openOut} openModifierHint={openModifierHint} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} />
                   </>
                 )}
               </div>

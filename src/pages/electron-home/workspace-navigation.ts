@@ -1,11 +1,12 @@
 import type { TeamSummary } from '@/lib/electron-api';
 
-export function getPinnedTeamIds(teams: TeamSummary[], configuredIds: string[] | null) {
-  return configuredIds ?? teams.map((team) => team.id);
+/** Teams are pinned only by the user: with nothing set, every team starts under More (#421). */
+function getPinnedTeamIds(configuredIds: string[] | null) {
+  return configuredIds ?? [];
 }
 
 export function getWorkspaceNavigationTeams(teams: TeamSummary[], configuredIds: string[] | null) {
-  const pinnedTeamIds = getPinnedTeamIds(teams, configuredIds);
+  const pinnedTeamIds = getPinnedTeamIds(configuredIds);
   const teamsById = new Map(teams.map((team) => [team.id, team]));
   const pinnedIdSet = new Set(pinnedTeamIds);
 
@@ -19,13 +20,13 @@ export function getWorkspaceNavigationTeams(teams: TeamSummary[], configuredIds:
   };
 }
 
-export function pinWorkspaceTeam(teams: TeamSummary[], configuredIds: string[] | null, teamId: string) {
-  const pinnedTeamIds = getPinnedTeamIds(teams, configuredIds);
+export function pinWorkspaceTeam(configuredIds: string[] | null, teamId: string) {
+  const pinnedTeamIds = getPinnedTeamIds(configuredIds);
   return pinnedTeamIds.includes(teamId) ? pinnedTeamIds : [...pinnedTeamIds, teamId];
 }
 
-export function unpinWorkspaceTeam(teams: TeamSummary[], configuredIds: string[] | null, teamId: string) {
-  return getPinnedTeamIds(teams, configuredIds).filter((candidate) => candidate !== teamId);
+export function unpinWorkspaceTeam(configuredIds: string[] | null, teamId: string) {
+  return getPinnedTeamIds(configuredIds).filter((candidate) => candidate !== teamId);
 }
 
 export function reorderPinnedWorkspaceTeams(

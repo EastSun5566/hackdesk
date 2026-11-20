@@ -19,6 +19,7 @@ import {
   Lock,
   Plus,
   Tag,
+  ListX,
   Trash2,
   Upload,
   Users,
@@ -278,6 +279,7 @@ function NoteRowView({
   onDuplicate,
   onExportMarkdown,
   onDelete,
+  onRemoveFromHistory,
   onRevealFolder,
   onRevealInFinder,
   showInFolderAction = false,
@@ -298,6 +300,8 @@ function NoteRowView({
   onDuplicate: (note: NoteSummary) => void;
   onExportMarkdown: (note: NoteSummary) => void;
   onDelete: (note: NoteSummary) => void;
+  /** Given for a History row: its menu removes the row from History instead of deleting the note. */
+  onRemoveFromHistory?: (note: NoteSummary) => void;
   onRevealFolder: (entry: FolderTreeNote) => void;
   onRevealInFinder?: (note: NoteSummary) => void;
   onMoveToSelectedFolder?: (entry: FolderTreeNote) => void;
@@ -380,10 +384,17 @@ function NoteRowView({
           Move to…
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDelete(entry.note))}>
-          <Trash2 aria-hidden="true" className="h-4 w-4" />
-          {isLocalNote ? 'Move to Trash' : 'Delete'}
-        </ContextMenuItem>
+        {onRemoveFromHistory ? (
+          <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRemoveFromHistory(entry.note))}>
+            <ListX aria-hidden="true" className="h-4 w-4" />
+            Remove from History
+          </ContextMenuItem>
+        ) : (
+          <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDelete(entry.note))}>
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
+            {isLocalNote ? 'Move to Trash' : 'Delete'}
+          </ContextMenuItem>
+        )}
       </>
     ),
     () => <NoteSummaryCard entry={entry} />,
