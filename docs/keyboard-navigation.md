@@ -12,7 +12,7 @@ Press **Space** outside text editing, or **Cmd+J** / **Ctrl+J** anywhere, to ope
 
 ![Leader menu showing command groups and their keys](/leader-menu.png)
 
-*HackDesk beta.10 with demonstration notes.*
+*HackDesk beta.13 with demonstration notes.*
 
 | Key | Group | Examples |
 | --- | --- | --- |
@@ -74,7 +74,7 @@ Hold **Cmd** on macOS or **Ctrl** on Windows/Linux to show shortcuts and codes f
 
 ![Keyboard hints over the sidebar, note tabs, and editor controls](/keyboard-navigation.png)
 
-*HackDesk beta.10. Codes depend on visible targets and available keys.*
+*HackDesk beta.13. Codes depend on visible targets and available keys.*
 
 Notes, folders, tabs, and workspaces navigate directly. Other buttons receive focus; press Enter to act. Backspace removes a prefix, Escape cancels, and releasing the modifier clears hints.
 

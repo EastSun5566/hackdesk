@@ -20,7 +20,7 @@ Your other initial drafts move into the same workspace but remain unsaved. Cance
 
 A Local Vault is a folder of Markdown files. No account is required.
 
-1. Choose **Local Vault** when saving your first draft, or **Settings → Vault → Change Vault**.
+1. Choose **Local Vault** when saving your first draft, or **Add local folder** in the workspace switcher.
 2. Select a Markdown folder or an empty folder.
 3. Select a note in the sidebar to open it.
 
@@ -30,14 +30,14 @@ Each vault keeps its own tabs and recoverable drafts. Opening a vault does not u
 
 1. Create an API token in [HackMD settings](https://hackmd.io/settings#api).
 2. Open **Settings → HackMD**.
-3. Paste the token into **API Token** and choose **Save**.
+3. Paste the token into **API Token** and choose **Connect HackMD**.
 4. Open the workspace switcher at the top of the sidebar. Choose **My Workspace** or a team.
 
 HackDesk validates the token and encrypts it with the operating system. Do not include it in shared screenshots or configuration files.
 
 ![HackMD settings with an empty API Token field](/api-integration.png)
 
-*HackDesk beta.10. Demonstration data; no token is shown.*
+*HackDesk beta.13. Demonstration data; no token is shown.*
 
 ## Create and save a note
 

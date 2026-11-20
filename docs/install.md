@@ -25,7 +25,7 @@ Download the v2 beta for your platform. Betas are unsigned and use manual update
 </template>
 <p v-else>No beta download is available in this listing. Check <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
 
-These guides cover beta.12. Screenshots use beta.10 demonstration data. Main previews may differ.
+These guides cover beta.13. Screenshots identify the build used for each demonstration. Main previews may differ.
 
 ### macOS
 
@@ -38,6 +38,20 @@ xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 ```
 
 If macOS still blocks launch, try opening HackDesk once. Then open **System Settings → Privacy & Security → Open Anyway**, authenticate, and confirm **Open**.
+
+#### Download with GitHub CLI
+
+Install [GitHub CLI](https://cli.github.com/) and sign in with `gh auth login`, then download and extract the Apple silicon ZIP:
+
+```sh
+gh release download v2.0.0-beta.13 --repo EastSun5566/hackdesk \
+  --pattern 'HackDesk-2.0.0-beta.13-arm64.zip' --dir ./hackdesk-beta13
+ditto -x -k ./hackdesk-beta13/HackDesk-2.0.0-beta.13-arm64.zip ./hackdesk-beta13
+```
+
+For Intel Macs, replace `arm64` with `x64` in both commands. Quit HackDesk, then move the extracted `HackDesk.app` to Applications.
+
+Pass the beta tag explicitly. Downloads made by `gh` normally do not have the browser's quarantine attribute; the app is still unsigned. If macOS blocks launch, use the steps above.
 
 ### Windows
 
@@ -59,6 +73,8 @@ Save open notes, quit HackDesk, and download the next beta manually. V2 reuses t
 If upgrading from beta.4 or earlier, save all edits before closing the old version. Beta.4 cannot restore unsaved edits to existing notes after restart.
 
 Beta.10 uses a newer workspace layout. Older betas cannot restore its tabs, panes, or unsaved drafts. Save your work and back up your settings before downgrading.
+
+Beta.13 migrates local-folder settings to support multiple folders and workspaces. Beta.12 cannot read those settings. Back up app data before downgrading.
 
 V0.1.x does not update to v2 automatically. Install the v2 beta separately, following the platform steps above.
 

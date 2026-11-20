@@ -19,7 +19,8 @@ export default defineConfig({
   description: DESCRIPTION,
 
   head: [
-    ['link', { rel: 'icon', type: 'image/png', href: '/logo.png' }],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon.png' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     ['meta', { name: 'color-scheme', content: 'light dark' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: TITLE }],

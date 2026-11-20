@@ -25,6 +25,6 @@ Open a [Local Vault or HackMD account](./intro.md), [arrange your notes](./featu
 
 ![HackDesk showing demonstration notes in split panes](/editor.png)
 
-*HackDesk beta.10 with demonstration notes.*
+*HackDesk beta.13 with demonstration notes.*
 
 [Code signing policy](./code-signing-policy.md)

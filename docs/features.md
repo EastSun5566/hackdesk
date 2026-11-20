@@ -6,9 +6,9 @@ outline: deep
 
 Open notes in tabs, arrange them in panes, and save them to a Local Vault or HackMD. To connect a workspace, [get started](./intro.md).
 
-![Reading notes and a project plan open side by side in HackDesk](/editor.png)
+![Project plan and release checklist open in separate panes, beside two demonstration folders](/editor.png)
 
-*HackDesk beta.10 with demonstration notes.*
+*HackDesk beta.13 with demonstration notes.*
 
 ## Choose a workspace
 
@@ -40,13 +40,13 @@ Press **Cmd+P** / **Ctrl+P** for **Quick Open** to find notes, folders, and work
 
 Press **Cmd+T** / **Ctrl+T**, or choose **New Tab**, for an empty page with search and recent notes. In **Settings → Editor → New tab opens**, choose **Duplicate current note** to reuse the current note instead. Empty pages are not restored after restart.
 
-Drag a tab's icon or title to reorder it within its pane.
+Drag a tab's icon or title to reorder it, move it to another pane, or split at a pane's edge.
 
 1. Choose **Pane actions → Split Right** (**Cmd+\\** / **Ctrl+\\**) or **Split Down** (**Cmd+Shift+\\** / **Ctrl+Shift+\\**).
 2. Open a note in the new pane.
 3. Drag the divider to resize, or choose **Equalize Pane Sizes**.
 
-Split any pane again, up to six panes. The tab strip follows the active pane. Closing a pane's last tab removes that pane; closing the last tab in the workbench leaves it open.
+Split any pane again, up to six panes. Each pane has its own tab strip. Closing a pane's last tab removes that pane; closing the last tab in the workbench leaves it open.
 
 Choose **Zoom pane**, or press **Cmd+Shift+Enter** / **Ctrl+Shift+Enter**, to fill the editor area with one pane. Repeat to restore the layout. Use **Move Tab to Next Pane** to move a tab between panes.
 
@@ -81,7 +81,7 @@ In a Local Vault, link by relative path: `[Plan](./plan.md)`. In HackMD, use the
 
 Type `[text](` to pick a note, or `{%hackmd ` to pick an embed. When pasting a URL, choose **URL**, **Reference**, or **Preview**. Standalone embeds and previews appear as cards with an **Open** button.
 
-Known notes open in tabs; other links open in your browser. Resolving an unknown HackMD note makes an API request. **Note Details → Linked from** lists backlinks across the Local Vault or the HackMD notes you have opened.
+Known notes open in tabs; other links open in your browser. Resolving an unknown HackMD note makes an API request. **Note Details → Backlinks** lists backlinks across the Local Vault or the HackMD notes you have opened.
 
 For local images, use a path relative to the note, such as `![Diagram](./images/diagram.png)`. Paths must stay inside the vault. New drafts need to be saved before relative images can resolve.
 
@@ -103,20 +103,20 @@ HackMD tag fields also suggest existing tags. New code blocks and containers inc
 
 ## Read books
 
-A book note uses headings and bulleted links as its table of contents. HackMD books open with **Book contents** beside the editor. For another note, choose **Open as Book** from **More actions** or the Command Palette.
+A book note uses headings and bulleted links as its table of contents. Each open book has its own tab, with **Book contents** beside the editor. For another note, choose **Open as Book** from **More actions** or the Command Palette.
 
 Choose a chapter, or use **Previous Chapter** and **Next Chapter**. Chapters follow the same link rules as other notes. Edit the table of contents and save to update it. **Close book** hides the contents.
 
 ## Present slides
 
-Choose **Present** from **More actions**, the View menu, or the Command Palette. The presentation includes unsaved edits. Notes with `type: slide` also show Present in the toolbar.
+Choose **Present** from **More actions**, the View menu, or the Command Palette. Slides open in a separate window and include unsaved edits. Notes with `type: slide` also show Present in the toolbar.
 
 - Use `---` on its own line, with blank lines above and below, for a new slide; use `----` for a slide below. These separators also apply inside code blocks.
 - Start a line with `note:` for hidden speaker notes.
 - Use `<!-- .slide: ... -->` and `<!-- .element: ... -->` for slide and element attributes.
 - Set the theme, transition, and controls through `slideOptions` in front matter. Script-loading options are ignored.
 
-Arrow keys or Space advance, **O** opens the overview, and **Escape** exits. Math is supported; embeds and diagrams remain text. Themes use system fonts instead of remote web fonts.
+Arrow keys or Space advance, and **O** opens the overview. Press **F** for full screen. **Escape** leaves full screen, then closes the presentation window. Math is supported; embeds and diagrams remain text. Themes use system fonts instead of remote web fonts.
 
 ## Write with AI
 
@@ -145,6 +145,6 @@ A recording stops after five minutes. Speech recognition runs on your Mac; HackD
 
 Choose **Rename Note** from **More actions** or the Command Palette to change a saved note's title. In a Local Vault, this also renames the file.
 
-Open **Note Details** to view metadata and backlinks. HackMD notes also offer tags, permissions, and sharing controls. Press **Escape** to close the panel and return to the note.
+Open **Note Details** for comments and backlinks. For HackMD notes, choose **More actions → Note Settings…** for metadata, or **Share Note…** for permissions and links. Press **Escape** to close a dialog or the details panel and return to the note.
 
 For capture outside the main window, use [Quick Hack](./quick-hack.md). For themes, app icons, and editor modes, [customize HackDesk](./config.md).
