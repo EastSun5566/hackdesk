@@ -1,4 +1,5 @@
 ---
+description: "Capture an idea from any app with a global shortcut. Quick Hack keeps a recoverable draft in your selected workspace."
 outline: deep
 ---
 

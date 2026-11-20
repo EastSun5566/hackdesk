@@ -1,4 +1,7 @@
-<img src="./docs/public/logo.png" alt="HackDesk Logo" width="180">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/public/logo-dark.png">
+  <img src="./docs/public/logo.png" alt="HackDesk Logo" width="180">
+</picture>
 
 <sub>The logo credit goes to [@Yukaii](https://github.com/Yukaii)</sub>
 

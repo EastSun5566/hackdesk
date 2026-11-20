@@ -1,4 +1,5 @@
 ---
+description: "Change HackDesk's appearance, editor mode, shortcuts, HackMD and Local Vault settings, or edit settings.json directly."
 outline: deep
 ---
 

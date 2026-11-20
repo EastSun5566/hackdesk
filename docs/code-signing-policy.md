@@ -1,3 +1,7 @@
+---
+description: "How HackDesk releases are signed and approved, the current unsigned beta status, and what the app sends over the network."
+---
+
 # Code signing policy
 
 ## Current status
