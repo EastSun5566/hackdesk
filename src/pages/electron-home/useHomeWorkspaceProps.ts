@@ -229,7 +229,7 @@ export function useHomeWorkspaceProps({
     for (const command of commands) {
       if (command.type === 'switch_vault') {
         localVaultActions.switchLocalVault(command.vaultId).then(
-          () => folderSwitch.dispatch({ type: 'switch_finished', vaultId: command.vaultId }),
+          () => folderSwitch.dispatch({ type: 'switch_finished' }),
           (error: unknown) => {
             folderSwitch.dispatch({ type: 'switch_failed' });
             toast.error(error instanceof Error ? error.message : 'Failed to open that folder.');
@@ -258,7 +258,7 @@ export function useHomeWorkspaceProps({
   const abandonFolderSwitch = () => folderSwitch.dispatch({ type: 'abandoned' });
 
   const requestWorkspaceFolder = (target: FolderSwitchTarget) => {
-    folderSwitch.dispatch({ type: 'requested', target, snapshotId: localVaultId ?? null });
+    folderSwitch.dispatch({ type: 'requested', target, origin: { snapshotId: localVaultId ?? null, vaultId: activeVaultId, setId: activeSetId } });
   };
 
   const openWorkspaceFolder = (vaultId: string, folderIds: string[]) => {
