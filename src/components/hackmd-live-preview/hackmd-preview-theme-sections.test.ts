@@ -108,7 +108,7 @@ describe('HackMD preview widget theme', () => {
       backgroundColor: 'var(--background-default)',
     });
     expect(searchPanelTheme['.cm-panel.cm-vim-panel input']).toMatchObject({
-      height: '32px',
+      height: '26px',
       fontFamily: 'var(--font-mono)',
       backgroundColor: 'var(--background-default)',
     });
@@ -133,6 +133,11 @@ describe('HackMD preview widget theme', () => {
       .toHaveProperty('position', 'static !important');
     // The prompt row has room around its input.
     expect(searchPanelTheme['.cm-hx-command-panel-flex']).toMatchObject({ alignItems: 'center', padding: '4px 16px 6px' });
+  });
+
+  it('gives the Vim prompt room around its input', () => {
+    expect(searchPanelTheme['.cm-panel.cm-vim-panel:has(input)']).toHaveProperty('padding', '4px 16px 6px');
+    expect(searchPanelTheme['.cm-panel.cm-vim-panel span:has(> input)']).toHaveProperty('alignItems', 'center');
   });
 
   it('keeps Helix pending keys out of the command panel (#423)', () => {

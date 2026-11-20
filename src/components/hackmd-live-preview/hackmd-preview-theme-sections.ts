@@ -220,10 +220,19 @@ export const searchPanelTheme = {
     padding: '0 9px',
     transition: 'border-color 120ms ease, box-shadow 120ms ease',
   },
+  // Vim's prompt (`:`, `/`) sits in the status row: give its input room above and below, like
+  // Helix's prompt, and centre the label on it.
+  '.cm-panel.cm-vim-panel:has(input)': {
+    padding: '4px 16px 6px',
+  },
+  '.cm-panel.cm-vim-panel span:has(> input)': {
+    alignItems: 'center',
+    gap: '8px',
+  },
   '.cm-panel.cm-vim-panel input': {
     boxSizing: 'border-box',
     minWidth: '0',
-    height: EDITOR_CONTROL_HEIGHT,
+    height: SEARCH_CONTROL_HEIGHT,
     border: '1px solid var(--border-default)',
     borderRadius: EDITOR_CONTROL_RADIUS,
     backgroundColor: 'var(--background-default)',
