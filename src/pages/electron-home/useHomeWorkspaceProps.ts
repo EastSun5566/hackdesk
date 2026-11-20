@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { readComparisonSource } from './read-comparison-source';
@@ -37,15 +37,10 @@ import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import type { OpenNoteTarget } from './useNoteLinkOpener';
 import type { WorkspaceFolderTree } from './FolderNavigator';
 import type { OverlayControls } from './workbench-overlays';
+import { createFolderSwitchStore, type FolderSwitchTarget } from './workspace-folder-switch';
 
 const EMPTY_WORKSPACE_FOLDERS: WorkspaceFolderTree[] = [];
 const NO_LOCAL_VAULTS: ElectronHomeWorkspaceProps['workspaceNavigation']['localVaults'] = [];
-
-type WorkspaceNavigationTarget =
-  | { kind: 'root'; vaultId: string; action?: 'create-note' | 'create-folder' }
-  | { kind: 'folder'; vaultId: string; folderIds: string[]; action?: 'create-note' | 'create-folder' | 'rename' | 'move' | 'edit' | 'delete' | 'reveal'; name?: string }
-  | { kind: 'note'; vaultId: string; noteId: string };
-type PendingWorkspaceNavigation = WorkspaceNavigationTarget & { originSnapshotId: string | null };
 
 type HomeStatus = ReturnType<typeof useElectronHomeStatus>;
 type NoteMutations = ReturnType<typeof useElectronNoteMutations>;
@@ -211,71 +206,59 @@ export function useHomeWorkspaceProps({
     : null;
   const activeVaultId = settings?.localVault.activeVaultId ?? null;
   // Opening a row in another folder's tree opens that folder of the set (a focus change: tabs and
-  // search stay), then moves the tree selection once its snapshot is on screen. The snapshot id
-  // proves the tree now belongs to the folder.
-  const pendingWorkspaceNavigation = useRef<PendingWorkspaceNavigation | null>(null);
-  const pendingSwitcherFolder = useRef<{ workspaceId: string; vaultId: string } | null>(null);
-  const switchingWorkspaceFolder = useRef(false);
+  // search stay), then shows it once its snapshot is on screen (workspace-folder-switch). The steps
+  // live in a store that records them as they are taken, as startup's do in Home: the rename
+  // command's own render can run the driver again before a step reaches React.
+  const [folderSwitch] = useState(createFolderSwitchStore);
+  const [folderSwitchState, setFolderSwitchState] = useState(folderSwitch.getState);
   useEffect(() => {
-    const pending = pendingWorkspaceNavigation.current;
-    if (!pending) return;
-    if (activeVaultId !== pending.vaultId) return;
-    if (!localVaultId || localVaultId === pending.originSnapshotId) return;
-    if (pending.kind === 'root') {
-      pendingWorkspaceNavigation.current = null;
-      if (pending.action === 'create-note') actions.chooseNewNoteLocation(null);
-      else if (pending.action === 'create-folder') folderCommands.handleCreateFolderInside(null);
-      return;
-    }
-    if (pending.kind === 'note') {
-      const entry = folderTree.allNotes.find((candidate) => candidate.note.id === pending.noteId);
-      if (!entry) return;
-      pendingWorkspaceNavigation.current = null;
-      // The note is already open; only show where it lives.
-      const folderIds = entry.folderPath.map((folder) => folder.id);
-      navigator.revealFolderIds(folderIds);
-      navigator.handleFolderSelect(folderIds.at(-1) ?? UNFILED_FOLDER_ID);
-      return;
-    }
-    const leafFolderId = pending.folderIds.at(-1);
-    if (!leafFolderId || !folderTree.nodesById.has(leafFolderId)) return;
-    pendingWorkspaceNavigation.current = null;
-    navigator.revealFolderIds(pending.folderIds);
-    navigator.handleFolderSelect(leafFolderId);
-    if (pending.action === 'create-note') actions.chooseNewNoteLocation(leafFolderId);
-    else if (pending.action === 'create-folder') folderCommands.handleCreateFolderInside(leafFolderId);
-    else if (pending.action === 'rename' && pending.name) mutations.renameFolderMutation.mutate({ folderId: leafFolderId, input: { name: pending.name } });
-    else if (pending.action === 'move') actions.moveFolderRequest(leafFolderId);
-    else if (pending.action === 'edit') folderCommands.handleRenameFolder(leafFolderId);
-    else if (pending.action === 'delete') folderCommands.handleDeleteFolderRequest(leafFolderId);
-    else if (pending.action === 'reveal') localVaultActions.revealLocalFolder(leafFolderId);
-  }, [activeVaultId, folderTree, localVaultId, navigator, actions, folderCommands, mutations.renameFolderMutation, localVaultActions]);
-
-  // Clicks in other folders while one is opening only replace the target: the last click wins,
-  // instead of a second switch failing because the first is still running.
-  const requestWorkspaceFolder = (target: WorkspaceNavigationTarget) => {
-    pendingWorkspaceNavigation.current = { ...target, originSnapshotId: localVaultId ?? null } as PendingWorkspaceNavigation;
-    if (switchingWorkspaceFolder.current) return;
-    switchingWorkspaceFolder.current = true;
-    void (async () => {
-      let current = activeVaultId;
-      try {
-        while (pendingWorkspaceNavigation.current && pendingWorkspaceNavigation.current.vaultId !== current) {
-          const next = pendingWorkspaceNavigation.current.vaultId;
-          await localVaultActions.switchLocalVault(next);
-          current = next;
-        }
-      } catch (error) {
-        pendingWorkspaceNavigation.current = null;
-        toast.error(error instanceof Error ? error.message : 'Failed to open that folder.');
-      } finally {
-        switchingWorkspaceFolder.current = false;
+    const sync = () => setFolderSwitchState(folderSwitch.getState());
+    sync();
+    return folderSwitch.subscribe(sync);
+  }, [folderSwitch]);
+  const activeSetId = displayScope.type === 'local' ? activeLocalWorkspace?.id ?? null : null;
+  useEffect(() => {
+    const commands = folderSwitch.advance({
+      activeVaultId,
+      snapshotId: localVaultId ?? null,
+      activeSetId,
+      noteFolderIds: (noteId) => folderTree.allNotes
+        .find((candidate) => candidate.note.id === noteId)?.folderPath.map((folder) => folder.id),
+      hasFolder: (folderId) => folderTree.nodesById.has(folderId),
+    });
+    for (const command of commands) {
+      if (command.type === 'switch_vault') {
+        localVaultActions.switchLocalVault(command.vaultId).then(
+          () => folderSwitch.dispatch({ type: 'switch_finished', vaultId: command.vaultId }),
+          (error: unknown) => {
+            folderSwitch.dispatch({ type: 'switch_failed' });
+            toast.error(error instanceof Error ? error.message : 'Failed to open that folder.');
+          },
+        );
+      } else if (command.type === 'show_folder') {
+        navigator.revealFolderIds(command.folderIds);
+        navigator.handleFolderSelect(command.folderIds.at(-1) ?? UNFILED_FOLDER_ID);
+      } else {
+        const { action, folderId, name } = command;
+        if (action === 'create-note') actions.chooseNewNoteLocation(folderId);
+        else if (action === 'create-folder') folderCommands.handleCreateFolderInside(folderId);
+        else if (folderId === null) continue;
+        else if (action === 'rename' && name) mutations.renameFolderMutation.mutate({ folderId, input: { name } });
+        else if (action === 'move') actions.moveFolderRequest(folderId);
+        else if (action === 'edit') folderCommands.handleRenameFolder(folderId);
+        else if (action === 'delete') folderCommands.handleDeleteFolderRequest(folderId);
+        else if (action === 'reveal') localVaultActions.revealLocalFolder(folderId);
       }
-    })();
+    }
+  }, [folderSwitchState, folderSwitch, activeVaultId, activeSetId, folderTree, localVaultId, navigator, actions, folderCommands, mutations.renameFolderMutation, localVaultActions]);
+  const switchingFolder = folderSwitchState.switching !== null;
+
+  const requestWorkspaceFolder = (target: FolderSwitchTarget) => {
+    folderSwitch.dispatch({ type: 'requested', target, snapshotId: localVaultId ?? null });
   };
 
   const openWorkspaceFolder = (vaultId: string, folderIds: string[]) => {
-    if (vaultId === activeVaultId && !switchingWorkspaceFolder.current) {
+    if (vaultId === activeVaultId && !switchingFolder) {
       navigator.revealFolderIds(folderIds);
       const leafFolderId = folderIds.at(-1);
       if (leafFolderId) navigator.handleFolderSelect(leafFolderId);
@@ -284,15 +267,8 @@ export function useHomeWorkspaceProps({
     requestWorkspaceFolder(folderIds.length ? { kind: 'folder', vaultId, folderIds } : { kind: 'root', vaultId });
   };
 
-  useEffect(() => {
-    const pending = pendingSwitcherFolder.current;
-    if (!pending || displayScope.type !== 'local' || activeLocalWorkspace?.id !== pending.workspaceId || !localVaultId) return;
-    pendingSwitcherFolder.current = null;
-    if (pending.vaultId !== activeVaultId) requestWorkspaceFolder({ kind: 'root', vaultId: pending.vaultId });
-  });
-
   const openWorkspaceNote = (vaultId: string, note: NoteSummary) => {
-    if (vaultId === activeVaultId && !switchingWorkspaceFolder.current) {
+    if (vaultId === activeVaultId && !switchingFolder) {
       const entry = folderTree.allNotes.find((candidate) => candidate.note.id === note.id);
       if (entry) void navigator.revealNoteEntry(entry);
       return;
@@ -382,9 +358,9 @@ export function useHomeWorkspaceProps({
           openWorkspaceFolder(vaultId, []);
           return;
         }
-        pendingSwitcherFolder.current = { workspaceId, vaultId };
+        folderSwitch.dispatch({ type: 'set_picked', workspaceId, vaultId });
         void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
-          pendingSwitcherFolder.current = null;
+          folderSwitch.dispatch({ type: 'set_pick_failed' });
           toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
         });
       },
