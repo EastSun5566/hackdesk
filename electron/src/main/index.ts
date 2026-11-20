@@ -10,6 +10,7 @@ import { updateDockMenu } from './dock-menu';
 import { keepE2EWindowsInBackground } from './e2e-background-windows';
 import { registerQuickCaptureGlobalShortcut, unregisterQuickCaptureGlobalShortcut } from './global-shortcuts';
 import { registerIpcHandlers } from './ipc-handlers';
+import { preferSecretServiceOnUnrecognizedDesktop } from './linux-password-store';
 import { initCrashReporter, initLogging, writeLog } from './logging';
 import { registerRendererProtocol } from './renderer-protocol';
 import { readStoredSettings } from './settings';
@@ -31,6 +32,7 @@ const homeOverride = app.commandLine.getSwitchValue('hackdesk-home');
 if (homeOverride) {
   app.setPath('home', homeOverride);
 }
+preferSecretServiceOnUnrecognizedDesktop(app.commandLine);
 app.setName('HackDesk');
 app.setAppUserModelId(APP_ID);
 initLogging();
