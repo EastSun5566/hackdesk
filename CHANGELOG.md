@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.13](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.12...v2.0.0-beta.13) (2026-11-20)
+
+### Workspaces and panes
+
+* Open multiple windows and local Markdown folders. Save named workspaces to keep a set of folders together in the sidebar.
+* Use tabs in each pane. Drag tabs between panes or to an edge to split the workbench.
+* Group folder-less HackMD notes by their first tag. Keep folder structure when sorting notes.
+* Use Note Settings for metadata, Share Note for permissions and links, and Note Details for comments and backlinks.
+
+### Writing and appearance
+
+* Pin Quick Hack to capture several ideas, use the shortcut again to close it, and choose custom shortcuts. Write highlighted Markdown with list continuation and formatting keys.
+* Improve code fences, line numbers, inline HTML, math, image sizing and containers. Collapse front matter and search from a floating Find in Note card.
+* Choose code syntax colors, window translucency and more app icon styles in Settings.
+* Reduce startup work, build large folder trees near the visible area, and reuse preview widgets while moving through long notes.
+
+### Fixes and beta notes
+
+* Track each note's save state independently. Keep editor focus after saving or closing a dialog, and cancel pending token checks when Settings closes.
+* Beta installers remain unsigned and use manual updates. Quit HackDesk before replacing it.
+* Local-folder settings migrate on first launch. Save your work and back up app data before downgrading; beta.12 cannot read the new multi-folder settings.
+* Chinese IME behavior in Helix and Kakoune still needs manual verification. Kakoune remains experimental.
+
 ## [2.0.0-beta.12](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.11...v2.0.0-beta.12) (2026-11-09)
 
 ### Workbench

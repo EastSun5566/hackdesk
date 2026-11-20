@@ -20,7 +20,7 @@ Your other initial drafts move into the same workspace but remain unsaved. Cance
 
 A Local Vault is a folder of Markdown files. No account is required.
 
-1. Choose **Local Vault** when saving your first draft, or **Settings → Vault → Change Vault**.
+1. Choose **Local Vault** when saving your first draft, or **Add local folder** in the workspace switcher.
 2. Select a Markdown folder or an empty folder.
 3. Select a note in the sidebar to open it.
 

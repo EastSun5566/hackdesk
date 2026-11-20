@@ -25,7 +25,7 @@ Download the v2 beta for your platform. Betas are unsigned and use manual update
 </template>
 <p v-else>No beta download is available in this listing. Check <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
 
-These guides cover beta.12. Screenshots use beta.10 demonstration data. Main previews may differ.
+These guides cover beta.13. Screenshots identify the build used for each demonstration. Main previews may differ.
 
 ### macOS
 
@@ -59,6 +59,8 @@ Save open notes, quit HackDesk, and download the next beta manually. V2 reuses t
 If upgrading from beta.4 or earlier, save all edits before closing the old version. Beta.4 cannot restore unsaved edits to existing notes after restart.
 
 Beta.10 uses a newer workspace layout. Older betas cannot restore its tabs, panes, or unsaved drafts. Save your work and back up your settings before downgrading.
+
+Beta.13 migrates local-folder settings to support multiple folders and workspaces. Beta.12 cannot read those settings. Back up app data before downgrading.
 
 V0.1.x does not update to v2 automatically. Install the v2 beta separately, following the platform steps above.
 
