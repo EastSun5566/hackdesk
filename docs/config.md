@@ -42,7 +42,7 @@ In **Settings → General → Quick Hack**, turn on **Keep open after capture** 
 
 ## Manage HackMD and Local Vault
 
-Use **Settings → HackMD** to connect an account. Choose **Connect another account** to add more, then switch accounts from the sidebar. Each account has its own saved token. Disconnecting removes the token and local offline copies; it does not delete remote notes.
+Use **Settings → HackMD** to connect an account. Choose **Connect another account** to add more, or **Switch** beside an existing account. Each account has its own saved token. Disconnecting removes the token and local offline copies; it does not delete remote notes.
 
 Use **Settings → Vault** to add or remove local folders and manage named workspaces. Removing a folder from HackDesk does not delete its Markdown files.
 
