@@ -1,6 +1,7 @@
 import { join } from 'path';
 import { writeFile } from 'node:fs/promises';
 import { defineConfig } from 'vitepress';
+import llmstxt from 'vitepress-plugin-llms';
 
 import { getLegacyUpdaterFeed } from './utils.ts';
 import { 
@@ -17,6 +18,16 @@ import {
 export default defineConfig({
   title: TITLE,
   description: DESCRIPTION,
+
+  vite: {
+    plugins: [llmstxt({
+      domain: DOCS_URL,
+      title: TITLE,
+      description: DESCRIPTION,
+      details: `For installation, start with [Install with an agent](${DOCS_URL}/install-agent.md). Use the official GitHub Releases listing for current downloads.`,
+      injectLLMHint: false,
+    })],
+  },
 
   head: [
     ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon.png' }],
@@ -52,6 +63,7 @@ export default defineConfig({
         items: [
           { text: 'Get started', link: '/intro' },
           { text: 'Install HackDesk', link: '/install' },
+          { text: 'Install with an agent', link: '/install-agent' },
           { text: 'Work with notes', link: '/features' },
           { text: 'Quick Hack', link: '/quick-hack' },
           { text: 'Keyboard navigation', link: '/keyboard-navigation' },
