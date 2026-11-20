@@ -88,6 +88,12 @@ describe('HackDesk themes', () => {
     }
   }
 
+  it('draws quiet dividers with more of the border in light mode, where they read fainter', () => {
+    const subtle = (mode: 'light' | 'dark') => resolveHackDeskTheme({ presetId: 'hackmd-neo', mode })['--border-subtle'];
+    expect(subtle('light')).toBe('color-mix(in srgb, var(--border-default) 80%, var(--background-default))');
+    expect(subtle('dark')).toBe('color-mix(in srgb, var(--border-default) 55%, var(--background-default))');
+  });
+
   it('uses HackMD Neo tokens for light and dark modes', () => {
     const light = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' });
     const dark = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark' });

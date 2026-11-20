@@ -252,8 +252,9 @@
     /* Quiet structural lines: card outlines, dividers inside panels, tree guides. Derived rather
        than set per theme so every preset and custom theme gets a solid, consistent colour,
        instead of components painting border-default at different opacities over different
-       surfaces. */
-    --border-subtle: color-mix(in srgb, var(--border-default) 55%, var(--background-default));
+       surfaces. Light mode takes more of the border: the same mix that reads on a dark surface
+       all but disappears on a light one (#418). */
+    --border-subtle: color-mix(in srgb, var(--border-default) 80%, var(--background-default));
     /* Row hover: a tint of the text colour, visible on any surface. */
     --background-hover: color-mix(in srgb, var(--text-default) 7%, transparent);
     --background-raised: var(--background-default);
@@ -301,6 +302,7 @@
   }
 
   :root.dark {
+    --border-subtle: color-mix(in srgb, var(--border-default) 55%, var(--background-default));
     color-scheme: dark;
 
     --hmd-tw-text-default: var(--color-zinc-300);
