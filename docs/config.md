@@ -75,6 +75,8 @@ HackDesk encrypts tokens using the operating system. Existing plaintext tokens m
 
 If the keyring is locked or unavailable, follow the Settings error message. Local Vault remains usable. Linux's plaintext keyring fallback cannot store new tokens.
 
+On Linux desktops other than GNOME, KDE, Cinnamon, XFCE and similar (for example Hyprland, Sway or niri), HackDesk uses the Secret Service keyring, such as gnome-keyring or KeePassXC. Make sure one is running and unlocked. To pick a different store, start HackDesk with `--password-store=<store>`.
+
 ## Recover damaged settings
 
 If HackDesk cannot read its settings, it opens a recovery dialog:
