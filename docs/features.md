@@ -1,4 +1,5 @@
 ---
+description: "Open HackMD and local Markdown notes in tabs and split panes, save and review versions, use templates, books, slides, AI, and dictation."
 outline: deep
 ---
 

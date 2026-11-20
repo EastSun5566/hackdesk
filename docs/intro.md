@@ -1,4 +1,5 @@
 ---
+description: "Install HackDesk, write your first note, and choose whether to save it to a Local Vault folder or your HackMD workspace."
 outline: deep
 ---
 

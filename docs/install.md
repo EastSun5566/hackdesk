@@ -1,4 +1,5 @@
 ---
+description: "Download the HackDesk v2 beta for macOS, Windows, or Linux, open the unsigned build, and update between betas."
 outline: deep
 ---
 

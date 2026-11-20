@@ -1,4 +1,5 @@
 ---
+description: "Run HackDesk commands with shortcuts, the leader menu, and on-screen navigation hints, and change key bindings in Settings."
 outline: deep
 ---
 
