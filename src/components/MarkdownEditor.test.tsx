@@ -461,9 +461,32 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(editor.querySelector('.cm-hx-command-input')).not.toBeNull());
     expect(commandPanel).toBeVisible();
     expect(getComputedStyle(editor.querySelector('.cm-hx-command-input') as Element)).toMatchObject({
-      height: '32px',
+      height: '26px',
       borderRadius: '6px',
     });
+  });
+
+  it('shows Helix pending keys in the status line, not in a second bar (#423)', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    const { rerender } = render(<MarkdownEditor ref={ref} editorMode="helix" value="# Hello" onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content') as Element;
+    await waitFor(() => expect(editor.querySelector('.cm-hx-status-panel')).toHaveTextContent('NOR'));
+    const commandPanel = editor.querySelector('.cm-hx-command-panel');
+
+    act(() => ref.current?.focus());
+    fireEvent.keyDown(content, { key: ' ', code: 'Space' });
+    await waitFor(() => expect(editor.querySelector('.cm-hackdesk-hx-pending')).toHaveTextContent('<space>'));
+    expect(editor.querySelector('.cm-hx-status-panel')).toHaveTextContent(/NOR.*<space>.*1:1/);
+    expect(commandPanel).not.toBeVisible();
+
+    fireEvent.keyDown(content, { key: 'Escape', code: 'Escape' });
+    await waitFor(() => expect(editor.querySelector('.cm-hackdesk-hx-pending')).toBeEmptyDOMElement());
+
+    rerender(<MarkdownEditor ref={ref} editorMode="standard" value="# Hello" onChange={vi.fn()} />);
+    await waitFor(() => expect(editor.querySelector('.cm-hx-status-panel')).toBeNull());
+    expect(editor.querySelector('.cm-hackdesk-hx-pending')).toBeNull();
   });
 
   it.each(['helix', 'kakoune'] as const)('keeps selection and undo history when switching to %s', async editorMode => {

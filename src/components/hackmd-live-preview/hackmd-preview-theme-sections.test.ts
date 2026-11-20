@@ -102,7 +102,7 @@ describe('HackMD preview widget theme', () => {
 
   it('overrides modal editor inputs and popups with semantic surfaces', () => {
     expect(searchPanelTheme['.cm-hx-command-input']).toMatchObject({
-      height: '32px',
+      height: '26px',
       border: '1px solid var(--border-default)',
       borderRadius: '6px',
       backgroundColor: 'var(--background-default)',
@@ -121,6 +121,25 @@ describe('HackMD preview widget theme', () => {
       borderBottom: '1px solid var(--border-default)',
       backgroundColor: 'var(--background-muted)',
     });
+  });
+
+  it('lays out Helix completions above the status line instead of over it (#423)', () => {
+    expect(searchPanelTheme['.cm-panels.cm-panels-bottom']).toMatchObject({ display: 'flex', flexDirection: 'column' });
+    // The command panel dissolves so its prompt row and completions are rows of the panels column.
+    expect(searchPanelTheme['.cm-panel.cm-hx-command-panel']).toHaveProperty('display', 'contents');
+    expect(searchPanelTheme['.cm-hx-command-popup-wrapper']).toHaveProperty('order', '-1');
+    // The package positions the popup absolutely with inline offsets; static flows it instead.
+    expect(searchPanelTheme['.cm-hx-command-popup-wrapper > .cm-hx-command-popup'])
+      .toHaveProperty('position', 'static !important');
+    // The prompt row has room around its input.
+    expect(searchPanelTheme['.cm-hx-command-panel-flex']).toMatchObject({ alignItems: 'center', padding: '4px 16px 6px' });
+  });
+
+  it('keeps Helix pending keys out of the command panel (#423)', () => {
+    expect(searchPanelTheme['.cm-hx-command-panel-flex > span:last-child']).toHaveProperty('display', 'none');
+    expect(searchPanelTheme['.cm-panel.cm-hx-command-panel:has(.cm-hx-command-panel-flex > span:first-child[style*="visibility: hidden"])'])
+      .toHaveProperty('display', 'none');
+    expect(searchPanelTheme['.cm-hackdesk-hx-pending']).toHaveProperty('marginLeft', 'auto');
   });
 
   it('keeps rich block widget spacing inside the measured border box', () => {

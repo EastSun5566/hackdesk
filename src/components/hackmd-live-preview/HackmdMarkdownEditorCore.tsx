@@ -46,6 +46,7 @@ import { resolveCodeLanguage } from './hackmd-code-languages';
 import { hackmdPanelSpacing } from './block-spacing';
 import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
+import { helixPendingKeys } from './helix-pending-keys';
 import { hackmdInlinePreview } from './inline-preview';
 import {
   clearInitialReveal,
@@ -768,7 +769,7 @@ async function loadVimModeExtension(hideBuiltinStatus: boolean): Promise<Extensi
 async function loadHelixModeExtension(): Promise<Extension> {
   helixModulePromise ??= import('codemirror-helix');
   const { helix } = await helixModulePromise;
-  return helix({ drawSelection: false });
+  return [helix({ drawSelection: false }), helixPendingKeys];
 }
 
 async function loadEmacsModeExtension(): Promise<Extension> {
