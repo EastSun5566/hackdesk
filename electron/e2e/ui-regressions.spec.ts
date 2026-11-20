@@ -36,6 +36,8 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
     appearance: { ...defaultSettings.appearance, theme },
     localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
     editor: { mode: editorMode },
+    // Teams are pinned by the user only; the layout and reorder checks need pinned rows.
+    workspaceNavigation: { pinnedTeamIds: teamNames.map((_, index) => `fixture-team-${index}`) },
   };
   await writeFile(join(testHome, '.hackdesk', 'settings.json'), JSON.stringify(settings));
   const env = { ...definedEnvironment(process.env) };
