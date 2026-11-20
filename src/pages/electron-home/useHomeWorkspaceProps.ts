@@ -251,14 +251,19 @@ export function useHomeWorkspaceProps({
       }
     }
   }, [folderSwitchState, folderSwitch, activeVaultId, activeSetId, folderTree, localVaultId, navigator, actions, folderCommands, mutations.renameFolderMutation, localVaultActions]);
-  const switchingFolder = folderSwitchState.switching !== null;
+  // Read the store, not React state: a step recorded by the driver or a settled switch reaches
+  // React a render later, and a click must see the switch as it stands.
+  const isSwitchingFolder = () => folderSwitch.getState().switching !== null;
+  /** Opening something by another path; a folder switch still waiting no longer counts. */
+  const abandonFolderSwitch = () => folderSwitch.dispatch({ type: 'abandoned' });
 
   const requestWorkspaceFolder = (target: FolderSwitchTarget) => {
     folderSwitch.dispatch({ type: 'requested', target, snapshotId: localVaultId ?? null });
   };
 
   const openWorkspaceFolder = (vaultId: string, folderIds: string[]) => {
-    if (vaultId === activeVaultId && !switchingFolder) {
+    if (vaultId === activeVaultId && !isSwitchingFolder()) {
+      abandonFolderSwitch();
       navigator.revealFolderIds(folderIds);
       const leafFolderId = folderIds.at(-1);
       if (leafFolderId) navigator.handleFolderSelect(leafFolderId);
@@ -268,7 +273,8 @@ export function useHomeWorkspaceProps({
   };
 
   const openWorkspaceNote = (vaultId: string, note: NoteSummary) => {
-    if (vaultId === activeVaultId && !switchingFolder) {
+    if (vaultId === activeVaultId && !isSwitchingFolder()) {
+      abandonFolderSwitch();
       const entry = folderTree.allNotes.find((candidate) => candidate.note.id === note.id);
       if (entry) void navigator.revealNoteEntry(entry);
       return;
@@ -334,12 +340,14 @@ export function useHomeWorkspaceProps({
       pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
       accountStatus: homeStatus.accountStatus,
       onChooseLocalVault: () => {
+        abandonFolderSwitch();
         void localVaultActions.chooseLocalVault();
       },
       onManageLocalVaults: actions.openVaultSettings,
       onScopeChange: (next) => {
         overlayControls.close('trash');
         overlayControls.close('history');
+        abandonFolderSwitch();
         actions.switchWorkspaceScope(next);
       },
       localVaults,
@@ -348,6 +356,7 @@ export function useHomeWorkspaceProps({
       activeLocalWorkspaceId: settings?.localVault.activeWorkspaceId ?? null,
       onActivateLocalWorkspace: (workspaceId: string | null) => {
         overlayControls.close('workspaceSwitcher');
+        abandonFolderSwitch();
         void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
           toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
         });
@@ -366,12 +375,14 @@ export function useHomeWorkspaceProps({
       },
       onOpenStandaloneLocalVault: (vaultId) => {
         overlayControls.close('workspaceSwitcher');
+        abandonFolderSwitch();
         void localVaultActions.openStandaloneLocalVault(vaultId).catch((error) => {
           toast.error(error instanceof Error ? error.message : 'Failed to open the local folder.');
         });
       },
       onSwitchLocalVault: (vaultId: string) => {
         overlayControls.close('workspaceSwitcher');
+        abandonFolderSwitch();
         void localVaultActions.switchLocalVault(vaultId).catch((error) => {
           toast.error(error instanceof Error ? error.message : 'Failed to switch local vault.');
         });

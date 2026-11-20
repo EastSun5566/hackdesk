@@ -52,6 +52,41 @@ describe('folderSwitchReducer', () => {
   });
 });
 
+describe('abandoning a folder switch', () => {
+  it('drops the target, the folder switched to and a set pick when something else opens', () => {
+    const waiting = state({ target: target(), switchedTo: 'vault-b', setPick: { workspaceId: 'other', vaultId: 'vault-x' } });
+    expect(folderSwitchReducer(waiting, { type: 'abandoned' })).toEqual(initialFolderSwitchState);
+    expect(folderSwitchReducer(initialFolderSwitchState, { type: 'abandoned' })).toBe(initialFolderSwitchState);
+  });
+
+  it('records nothing from a switch that something else superseded (#432 review)', () => {
+    // Named set {A, B, C}, A open. A row of B starts a switch to B; while it runs, C is opened from
+    // the folder list, and B's switch then settles without the settings ever showing B.
+    const store = createFolderSwitchStore();
+    store.dispatch({ type: 'requested', target: { kind: 'folder', vaultId: 'vault-b', folderIds: ['plans'] }, snapshotId: 'a-1' });
+    expect(store.advance(world())).toEqual([{ type: 'switch_vault', vaultId: 'vault-b' }]);
+    store.dispatch({ type: 'abandoned' });
+    // Clicking B's row again before the superseded switch settles waits for it, then switches again.
+    store.dispatch({ type: 'requested', target: { kind: 'folder', vaultId: 'vault-b', folderIds: ['plans'] }, snapshotId: 'c-1' });
+    expect(store.advance(world({ activeVaultId: 'vault-c', snapshotId: 'c-1' }))).toEqual([]);
+    store.dispatch({ type: 'switch_finished', vaultId: 'vault-b' });
+    expect(store.getState().switchedTo).toBeNull();
+    expect(store.advance(world({ activeVaultId: 'vault-c', snapshotId: 'c-1' }))).toEqual([{ type: 'switch_vault', vaultId: 'vault-b' }]);
+  });
+
+  it('does not let a superseded switch with no target left pin a folder for later clicks', () => {
+    const superseded = folderSwitchReducer(state({ target: target(), switching: 'vault-b' }), { type: 'abandoned' });
+    expect(superseded).toMatchObject({ target: null, switching: 'vault-b', switchSuperseded: true });
+    const settled = folderSwitchReducer(superseded, { type: 'switch_finished', vaultId: 'vault-b' });
+    expect(settled).toEqual(initialFolderSwitchState);
+  });
+
+  it('starts a set pick afresh: a folder target from before it no longer counts', () => {
+    const picked = folderSwitchReducer(state({ target: target() }), { type: 'set_picked', workspaceId: 'work', vaultId: 'vault-b' });
+    expect(picked).toMatchObject({ target: null, setPick: { workspaceId: 'work', vaultId: 'vault-b' } });
+  });
+});
+
 describe('planFolderSwitch', () => {
   it('does nothing without a target', () => {
     expect(planFolderSwitch(initialFolderSwitchState, world())).toEqual({ events: [], commands: [] });

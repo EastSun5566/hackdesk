@@ -7,7 +7,8 @@
  * now belongs to it), then shows the folder or runs the action there. Clicks while a switch runs
  * only replace the target: the last click wins, instead of a second switch failing because the
  * first is still running. A folder picked in the switcher from a set that is not open opens the
- * set first, then that folder in it.
+ * set first, then that folder in it. Opening anything by another path (the folder list, the set
+ * switcher, another workspace) abandons the target: the user moved on.
  */
 export type FolderAction = 'create-note' | 'create-folder' | 'rename' | 'move' | 'edit' | 'delete' | 'reveal';
 
@@ -21,6 +22,11 @@ export type FolderSwitchState = {
   target: (FolderSwitchTarget & { originSnapshotId: string | null }) | null;
   /** The folder a switch is opening; null while none runs. */
   switching: string | null;
+  /**
+   * Something else was opened while the switch ran, so its finish proves nothing: the window's
+   * own switch was superseded and the settings may never show its folder.
+   */
+  switchSuperseded: boolean;
   /** The folder the last switch opened, until the settings show it open. */
   switchedTo: string | null;
   /** A folder picked in the switcher from a named set that is not open yet. */
@@ -30,6 +36,8 @@ export type FolderSwitchState = {
 export type FolderSwitchEvent =
   | { type: 'requested'; target: FolderSwitchTarget; snapshotId: string | null }
   | { type: 'set_picked'; workspaceId: string; vaultId: string }
+  /** Something was opened by another path; the target and any folder switched to no longer count. */
+  | { type: 'abandoned' }
   | { type: 'set_pick_failed' }
   | { type: 'set_opened' }
   | { type: 'switch_started'; vaultId: string }
@@ -58,23 +66,37 @@ export type FolderSwitchCommand =
   /** Run the action in this folder (null: the folder's top level). */
   | { type: 'run_action'; action: FolderAction; folderId: string | null; name?: string };
 
-export const initialFolderSwitchState: FolderSwitchState = { target: null, switching: null, switchedTo: null, setPick: null };
+export const initialFolderSwitchState: FolderSwitchState = {
+  target: null, switching: null, switchSuperseded: false, switchedTo: null, setPick: null,
+};
 
 export function folderSwitchReducer(state: FolderSwitchState, event: FolderSwitchEvent): FolderSwitchState {
   switch (event.type) {
     case 'requested':
       return { ...state, target: { ...event.target, originSnapshotId: event.snapshotId } };
     case 'set_picked':
-      return { ...state, setPick: { workspaceId: event.workspaceId, vaultId: event.vaultId } };
+      return {
+        ...folderSwitchReducer(state, { type: 'abandoned' }),
+        setPick: { workspaceId: event.workspaceId, vaultId: event.vaultId },
+      };
+    case 'abandoned':
+      if (state.target === null && state.switchedTo === null && state.setPick === null && (state.switching === null || state.switchSuperseded)) return state;
+      return { ...state, target: null, switchedTo: null, setPick: null, switchSuperseded: state.switching !== null };
     case 'set_pick_failed':
     case 'set_opened':
       return state.setPick === null ? state : { ...state, setPick: null };
     case 'switch_started':
-      return { ...state, switching: event.vaultId };
+      return { ...state, switching: event.vaultId, switchSuperseded: false };
     case 'switch_finished':
-      return { ...state, switching: null, switchedTo: event.vaultId };
+      // Only a switch nothing superseded, made for a target still wanted, says which folder is open.
+      return {
+        ...state,
+        switching: null,
+        switchSuperseded: false,
+        switchedTo: state.target && !state.switchSuperseded ? event.vaultId : null,
+      };
     case 'switch_failed':
-      return { ...state, target: null, switching: null };
+      return { ...state, target: null, switching: null, switchSuperseded: false };
     case 'switch_seen':
       return state.switchedTo === null ? state : { ...state, switchedTo: null };
     case 'arrived':
