@@ -56,6 +56,9 @@ server, so every run reflects the current source; it never touches your real set
   Add a section there when you add a rendering feature.
 - `--scroll-to "<source text>"` starts the shot where that markdown appears, `--click "<source text>"`
   puts the cursor there (to see that line's source revealed), `--modes dark`, `--note <file.md>`, `--eval "<js>"` to print DOM facts.
+- `--editor-mode <vim|helix|emacs|kakoune>` opens the note in that mode, and `--keys "<k1> <k2>"` presses
+  Playwright keys in the editor before the shot (e.g. `--editor-mode helix --keys ": c"` for the
+  command prompt with completions, `--keys "Space"` for a pending key).
 - Look at both screenshots before calling a visual change done.
 
 Gotcha: the dev server must be reached as `localhost`, not `127.0.0.1` (Vite may listen on `::1` only),

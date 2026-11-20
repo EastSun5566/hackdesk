@@ -11,6 +11,7 @@
  *   pnpm render:preview --eval "document.querySelectorAll('.cm-line').length"
  *   pnpm render:preview --window --translucency clear     # macOS: the whole window as the screen shows it
  *   pnpm render:preview --page                            # the whole page (title bars, sidebar, panes), not just the editor
+ *   pnpm render:preview --editor-mode helix --keys ": c"  # a modal editor mode, then press keys (space-separated)
  *
  * Screenshots land in .local/render-preview/<name>-<mode>.png. The script starts its own Vite dev
  * server, so source edits are picked up on every run; it builds the Electron main bundle first.
@@ -67,6 +68,8 @@ const { values } = parseArgs({
     click: { type: 'string' },
     find: { type: 'string' },
     eval: { type: 'string' },
+    'editor-mode': { type: 'string' },
+    keys: { type: 'string' },
     window: { type: 'boolean', default: false },
     page: { type: 'boolean', default: false },
     translucency: { type: 'string' },
@@ -79,6 +82,10 @@ const translucencyLevels = ['off', 'subtle', 'medium', 'clear'];
 const translucency = values.translucency ?? (values.window ? 'medium' : undefined);
 if (translucency !== undefined && !translucencyLevels.includes(translucency)) {
   throw new Error(`--translucency must be one of ${translucencyLevels.join(', ')}.`);
+}
+const editorModes = ['standard', 'emacs', 'vim', 'helix', 'kakoune'];
+if (values['editor-mode'] !== undefined && !editorModes.includes(values['editor-mode'])) {
+  throw new Error(`--editor-mode must be one of ${editorModes.join(', ')}.`);
 }
 if (values.window && process.platform !== 'darwin') throw new Error('--window needs macOS (it uses screencapture).');
 
@@ -108,6 +115,7 @@ try {
       appearance: { theme: mode, presetId: 'hackmd-neo', customSeed: {} },
       localVault: { vaults: [{ id: 'render-preview', path: vault }], activeVaultId: 'render-preview' },
       onboarding: { hackmdTokenSetupDeferred: true },
+      ...(values['editor-mode'] ? { editor: { mode: values['editor-mode'] } } : {}),
     }));
 
     const env: Record<string, string> = {};
@@ -178,6 +186,12 @@ try {
         await content.click();
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+f' : 'Control+f');
         await page.keyboard.type(values.find);
+        await page.waitForTimeout(300);
+      }
+      // Playwright key names ("Escape", "Space", "Shift+G") or single characters, pressed in order.
+      if (values.keys !== undefined) {
+        if (!values.click) await content.click({ position: { x: 4, y: 4 } });
+        for (const key of values.keys.split(' ').filter(Boolean)) await page.keyboard.press(key);
         await page.waitForTimeout(300);
       }
       if (values.eval) console.log(`[${mode}]`, await page.evaluate(values.eval));

@@ -136,7 +136,10 @@ export const searchPanelTheme = {
   '.cm-panels.cm-panels-top': {
     borderBottom: '0',
   },
+  // A column, so Helix's completions can be ordered above its status line (see below).
   '.cm-panels.cm-panels-bottom': {
+    display: 'flex',
+    flexDirection: 'column',
     borderTop: '0',
   },
   '.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel, .cm-panel.cm-kakoune-status-panel': {
@@ -156,16 +159,57 @@ export const searchPanelTheme = {
     display: 'flex',
     alignItems: 'center',
   },
+  // Helix's command panel holds the prompt row and, after it, the completions popup, which the
+  // package floats up over whatever is above the prompt (the status line). Dissolve the panel so both
+  // become rows of the bottom panels column, and order the completions above the status line, where
+  // Helix opens its menu: the panels grow into the note instead of covering the status line.
   '.cm-panel.cm-hx-command-panel': {
-    borderTop: '0',
+    display: 'contents',
   },
-  '.cm-panel.cm-hx-command-panel:has(.cm-hx-command-panel-flex > span:first-child[style*="visibility: hidden"]):not(:has(.cm-hx-command-panel-flex > span:last-child:not(:empty)))': {
+  // Only a prompt or a message shows the row; pending keys are mirrored into the status line
+  // (helix-pending-keys.ts), so the package's own pending-key span stays hidden.
+  '.cm-panel.cm-hx-command-panel:has(.cm-hx-command-panel-flex > span:first-child[style*="visibility: hidden"])': {
     display: 'none',
+  },
+  '.cm-hx-command-panel-flex': {
+    boxSizing: 'border-box',
+    alignItems: 'center',
+    minHeight: EDITOR_CONTROL_HEIGHT,
+    padding: '4px 16px 6px',
+    backgroundColor: 'var(--background-default)',
+  },
+  '.cm-hx-command-panel-flex > span:first-child': {
+    alignItems: 'center',
+    gap: '8px',
+  },
+  '.cm-hx-command-panel-flex > span:last-child': {
+    display: 'none',
+  },
+  '.cm-hx-command-popup-wrapper': {
+    order: '-1',
+  },
+  '.cm-hx-command-popup-wrapper:has(> .cm-hx-command-popup:not([hidden]))': {
+    boxSizing: 'border-box',
+    padding: '6px 16px',
+    borderTop: '1px solid var(--border-subtle)',
+    backgroundColor: 'var(--background-default)',
+  },
+  // The package sets the popup's bottom and left inline each time it opens; static makes them inert.
+  '.cm-hx-command-popup-wrapper > .cm-hx-command-popup': {
+    position: 'static !important',
+    width: 'auto',
+  },
+  '.cm-panel.cm-hx-status-panel': {
+    gap: '12px',
+  },
+  '.cm-hackdesk-hx-pending': {
+    marginLeft: 'auto',
+    color: 'var(--text-default)',
   },
   '.cm-hx-command-input': {
     boxSizing: 'border-box',
     minWidth: '0',
-    height: EDITOR_CONTROL_HEIGHT,
+    height: SEARCH_CONTROL_HEIGHT,
     border: '1px solid var(--border-default)',
     borderRadius: EDITOR_CONTROL_RADIUS,
     backgroundColor: 'var(--background-default)',
@@ -176,10 +220,19 @@ export const searchPanelTheme = {
     padding: '0 9px',
     transition: 'border-color 120ms ease, box-shadow 120ms ease',
   },
+  // Vim's prompt (`:`, `/`) sits in the status row: give its input room above and below, like
+  // Helix's prompt, and centre the label on it.
+  '.cm-panel.cm-vim-panel:has(input)': {
+    padding: '4px 16px 6px',
+  },
+  '.cm-panel.cm-vim-panel span:has(> input)': {
+    alignItems: 'center',
+    gap: '8px',
+  },
   '.cm-panel.cm-vim-panel input': {
     boxSizing: 'border-box',
     minWidth: '0',
-    height: EDITOR_CONTROL_HEIGHT,
+    height: SEARCH_CONTROL_HEIGHT,
     border: '1px solid var(--border-default)',
     borderRadius: EDITOR_CONTROL_RADIUS,
     backgroundColor: 'var(--background-default)',
