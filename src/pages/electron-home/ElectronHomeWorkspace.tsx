@@ -20,7 +20,7 @@ import type { NoteSummary } from '@/lib/electron-api';
 import type { NoteDropTarget, NotePane, NoteWorkspaceState, OpenNoteTab } from './note-workspace';
 import { PanelResizeSash } from './PanelResizeSash';
 import { layoutPaneIds, type PaneDirection } from './pane-layout';
-import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
+import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_SNAP_KEY } from './ui-preferences';
 import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
 import { WorkspaceNavigationProvider, type WorkspaceNavigation } from './WorkspaceNavigationContext';
 import { WorkbenchDocumentActionsProvider, type WorkbenchDocumentActions } from './DocumentActionsContext';
@@ -215,6 +215,7 @@ export function ElectronHomeWorkspace({
           previewTargetId={NOTE_NAVIGATOR_PANEL_ID}
           edge
           previewProperties={['--panel-width', '--sidebar-content-width']}
+          snapMemoryKey={NAVIGATOR_WIDTH_SNAP_KEY}
         />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
