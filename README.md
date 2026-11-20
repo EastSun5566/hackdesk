@@ -31,6 +31,8 @@ See the [installation guide](https://hackdesk.eastsun.me/install) for platform s
 
 Prefer the terminal? [Download the macOS beta with GitHub CLI](https://hackdesk.eastsun.me/install#download-with-github-cli).
 
+Using an agent? Give it the [agent installation guide](https://hackdesk.eastsun.me/install-agent). Machine-readable guides are available at [llms.txt](https://hackdesk.eastsun.me/llms.txt).
+
 ### Main previews
 
 [Releases](https://github.com/EastSun5566/hackdesk/releases) also lists `main-<commit>` previews after CI passes. These builds include newer changes, are unsigned, and use manual updates.

@@ -10,12 +10,20 @@ import { data } from './release.data.ts'
 
 Download the v2 beta for your platform. Betas are unsigned and use manual updates. For older installations, see [legacy releases](#legacy-releases).
 
+Want help installing? Give your agent the [agent installation guide](./install-agent.md).
+
 <div v-if="data.notice" class="warning custom-block">
   <p class="custom-block-title">Download information</p>
   <p>{{ data.notice }} <a :href="data.releasesUrl" target="_blank" rel="noreferrer">Check GitHub Releases</a> for current downloads.</p>
 </div>
 
 ## Download the v2 beta
+
+<llm-only>
+
+Read the [official release listing](https://api.github.com/repos/EastSun5566/hackdesk/releases) for current assets. Use a published `v2.0.0-beta.<number>` tag, not GitHub's latest stable release. Follow [Install with an agent](./install-agent.md) to select and verify the download.
+
+</llm-only>
 
 <template v-if="data.beta">
 <p>The current published beta is v{{ data.beta.version }}. Choose your platform:</p>
