@@ -518,6 +518,30 @@ describe('Home inspector, folders, tags and filters', () => {
     expect(getNoteRow('History Product')).toBeInTheDocument();
   });
 
+  it('removes a History row from History without deleting the note', async () => {
+    const historyNotes = [
+      { ...note, id: 'history-kept', title: 'History Kept', shortId: 'history-kept', updatedAtMillis: 3000 },
+      { ...note, id: 'history-removed', title: 'History Removed', shortId: 'history-removed', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listHistory: vi.fn(async () => ({ source: 'remote' as const, data: historyNotes })),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.click(await screen.findByRole('button', { name: 'History' }));
+    fireEvent.contextMenu(await findNoteRow('History Removed'));
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove from History' }));
+
+    await waitFor(() => expect(queryNoteRow('History Removed')).not.toBeInTheDocument());
+    expect(getNoteRow('History Kept')).toBeInTheDocument();
+    expect(api.hackmd.deleteNote).not.toHaveBeenCalled();
+  });
+
   it('sorts the tree\'s notes by title without leaving the tree', async () => {
     const notes = [
       { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 3000 },

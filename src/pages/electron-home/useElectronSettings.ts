@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { HackDeskElectronAPI } from '@/lib/electron-api';
+import { getHackDeskAPI, type HackDeskElectronAPI } from '@/lib/electron-api';
 
 export function useElectronSettings(api?: HackDeskElectronAPI) {
   return useQuery({
@@ -8,4 +8,9 @@ export function useElectronSettings(api?: HackDeskElectronAPI) {
     queryFn: () => api?.settings.get(),
     enabled: !!api,
   });
+}
+
+/** The active HackMD account's id, or null without one (or before settings load). */
+export function useActiveHackmdAccountId() {
+  return useElectronSettings(getHackDeskAPI() ?? undefined).data?.hackmdAccounts?.activeAccountId ?? null;
 }

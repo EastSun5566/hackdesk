@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { LOCAL_VAULT_TEAM_PATH, type LocalNoteListSummary } from './local-vault-adapter';
 import type { NoteSummary } from '@/lib/electron-api';
+import { restoreToHistory } from '@/lib/history-dismissals';
 import {
   readRecentNotes,
   removeRecentNote,
@@ -27,6 +28,8 @@ export function useElectronHomeRecentNotes(storage: Storage = window.localStorag
   const trackRecentNote = useCallback((note: NoteSummary) => {
     const noteVaultId = (note as Partial<LocalNoteListSummary>).localVaultId;
     if (note.teamPath === LOCAL_VAULT_TEAM_PATH && (!vaultId || (noteVaultId && noteVaultId !== vaultId))) return;
+    // Opening a note removed from History is a new visit: it shows there again.
+    if (note.teamPath !== LOCAL_VAULT_TEAM_PATH) restoreToHistory(accountId, note.id);
     updateRecentNotes((current) => upsertRecentNote(current, {
       ...note,
       localVaultId: note.teamPath === LOCAL_VAULT_TEAM_PATH ? vaultId ?? undefined : undefined,
