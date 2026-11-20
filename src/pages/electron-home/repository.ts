@@ -66,13 +66,19 @@ export function getFolderOrderQueryKey(scope: WorkspaceScope) {
   return ['electron', 'hackmd', 'folder-order'] as const;
 }
 
-export function getScopeStorageKey(scope: WorkspaceScope) {
+/**
+ * Where a scope keeps its tabs, drafts, search and tree state. HackMD scopes belong to the account
+ * that opened them (`personal@<account>`, `team:<path>@<account>`), so another account never
+ * reopens their tabs or drafts; local folders are the same for every account.
+ */
+export function getScopeStorageKey(scope: WorkspaceScope, hackmdAccountId?: string | null) {
   if (scope.type === 'local') {
     if (!scope.vaultId) return null;
     // Every folder of a named set shares its tabs, search and pending edits.
     return scope.workspaceId ? `local-workspace:${scope.workspaceId}` : `local:${scope.vaultId}`;
   }
-  return scope.type === 'team' ? `team:${scope.teamPath}` : scope.type;
+  const key = scope.type === 'team' ? `team:${scope.teamPath}` : scope.type;
+  return hackmdAccountId ? `${key}@${hackmdAccountId}` : key;
 }
 
 export function isTokenConfigured(settings?: ElectronSafeSettings) {
@@ -83,6 +89,6 @@ export function isTokenConfigured(settings?: ElectronSafeSettings) {
  * Where one folder keeps its own tree state (expanded folders), even inside a named set: folder
  * ids are paths, so two folders of a set would otherwise share them.
  */
-export function getFolderStateStorageKey(scope: WorkspaceScope) {
-  return scope.type === 'local' && scope.vaultId ? `local:${scope.vaultId}` : getScopeStorageKey(scope);
+export function getFolderStateStorageKey(scope: WorkspaceScope, hackmdAccountId?: string | null) {
+  return scope.type === 'local' && scope.vaultId ? `local:${scope.vaultId}` : getScopeStorageKey(scope, hackmdAccountId);
 }

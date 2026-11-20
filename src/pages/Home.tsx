@@ -136,7 +136,8 @@ export function Home() {
   const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange, folderPicker.pickFolder);
   const api = vaultSession.api;
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
-  const { recentNotes, removeRecentNoteEntry, trackRecentNote, syncLocalRecentNotes } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId);
+  const hackmdAccountId = settingsQuery.data?.hackmdAccounts?.activeAccountId ?? null;
+  const { recentNotes, removeRecentNoteEntry, trackRecentNote, syncLocalRecentNotes } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId, hackmdAccountId);
   const selectionRefs = useElectronHomeSelectionRefs();
   const panelState = useWorkbenchPanelState();
   const { store: overlayStore, overlays, controls: overlayControls, closeTopOverlay } = useWorkbenchOverlays();
@@ -156,6 +157,7 @@ export function Home() {
     : null;
   const workspaceState = useWorkbenchWorkspaceState({
     initialWorkspaceScope,
+    hackmdAccountId,
     localVaultId: vaultSession.vaultId,
     localWorkspaceId,
     initialDrafts: usingInitialDrafts,
@@ -266,7 +268,8 @@ export function Home() {
       if (nextScope.type === 'history') return;
       const configured = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
       const next = nextScope.type === 'local' ? { ...nextScope, vaultId: nextScope.vaultId ?? vaultSession.vaultId ?? undefined } : nextScope;
-      const targetKey = next.type === 'local' || configured?.hasHackmdApiToken ? getScopeStorageKey(next) : null;
+      const targetKey = next.type === 'local' || configured?.hasHackmdApiToken
+        ? getScopeStorageKey(next, configured?.hackmdAccounts?.activeAccountId) : null;
       if (!targetKey) return;
       transferInitialDrafts(targetKey, startup.pendingSave);
       startupStore.dispatch({ type: 'drafts_moved' });

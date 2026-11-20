@@ -10,10 +10,11 @@ import {
   type ElectronRecentNote,
 } from '@/lib/electron-recent-notes';
 
-export function useElectronHomeRecentNotes(storage: Storage = window.localStorage, vaultId: string | null = null) {
+export function useElectronHomeRecentNotes(storage: Storage = window.localStorage, vaultId: string | null = null, hackmdAccountId: string | null = null) {
   const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(storage));
+  const accountId = hackmdAccountId ?? undefined;
 
-  useEffect(() => { setRecentNotes(readRecentNotes(storage)); }, [storage, vaultId]);
+  useEffect(() => { setRecentNotes(readRecentNotes(storage)); }, [storage, vaultId, accountId]);
 
   const updateRecentNotes = useCallback((updater: (current: ElectronRecentNote[]) => ElectronRecentNote[]) => {
     setRecentNotes((current) => {
@@ -26,12 +27,16 @@ export function useElectronHomeRecentNotes(storage: Storage = window.localStorag
   const trackRecentNote = useCallback((note: NoteSummary) => {
     const noteVaultId = (note as Partial<LocalNoteListSummary>).localVaultId;
     if (note.teamPath === LOCAL_VAULT_TEAM_PATH && (!vaultId || (noteVaultId && noteVaultId !== vaultId))) return;
-    updateRecentNotes((current) => upsertRecentNote(current, { ...note, localVaultId: note.teamPath === LOCAL_VAULT_TEAM_PATH ? vaultId ?? undefined : undefined }));
-  }, [updateRecentNotes, vaultId]);
+    updateRecentNotes((current) => upsertRecentNote(current, {
+      ...note,
+      localVaultId: note.teamPath === LOCAL_VAULT_TEAM_PATH ? vaultId ?? undefined : undefined,
+      accountId,
+    }));
+  }, [updateRecentNotes, vaultId, accountId]);
 
   const removeRecentNoteEntry = useCallback((noteId: string, teamPath: string | null) => {
-    updateRecentNotes((current) => removeRecentNote(current, noteId, teamPath, vaultId ?? undefined));
-  }, [updateRecentNotes, vaultId]);
+    updateRecentNotes((current) => removeRecentNote(current, noteId, teamPath, vaultId ?? undefined, accountId));
+  }, [updateRecentNotes, vaultId, accountId]);
 
   const syncLocalRecentNotes = useCallback((notes: NoteSummary[]) => {
     if (!vaultId) return;
@@ -50,7 +55,10 @@ export function useElectronHomeRecentNotes(storage: Storage = window.localStorag
   }, [updateRecentNotes, vaultId]);
 
   return {
-    recentNotes: recentNotes.filter((note) => note.teamPath !== LOCAL_VAULT_TEAM_PATH || (!!vaultId && note.vaultId === vaultId)).slice(0, 12),
+    // Local notes show for their folder, HackMD notes for the account that opened them.
+    recentNotes: recentNotes.filter((note) => (note.teamPath === LOCAL_VAULT_TEAM_PATH
+      ? !!vaultId && note.vaultId === vaultId
+      : note.accountId === accountId)).slice(0, 12),
     removeRecentNoteEntry,
     trackRecentNote,
     syncLocalRecentNotes,
