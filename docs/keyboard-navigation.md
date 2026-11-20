@@ -37,6 +37,8 @@ With text selected and AI enabled, this shortcut opens AI actions. **Cmd+Shift+P
 
 Open **Help → Keyboard Shortcuts**, or press `?` outside text editing, to search bindings by region or across all actions.
 
+On Windows and Linux the menu bar is hidden. Press and release **Alt** to show it, then use the arrow keys and Enter, or click the menu button at the top left.
+
 | Action | macOS | Windows / Linux |
 | --- | --- | --- |
 | Quick Open | Cmd+P | Ctrl+P |
