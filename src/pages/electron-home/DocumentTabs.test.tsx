@@ -74,8 +74,10 @@ describe('DocumentTabs', () => {
     });
 
     const preview = screen.getByRole('tab', { name: 'Project Plan, preview' });
-    expect(preview.querySelector('[data-tab-title]')).toHaveClass('italic');
+    // The title clips its overflow, so the italic title keeps end padding for its last glyph's slant.
+    expect(preview.querySelector('[data-tab-title]')).toHaveClass('italic', 'pe-1');
     expect(screen.getByRole('tab', { name: 'Daily Notes' }).querySelector('[data-tab-title]')).not.toHaveClass('italic');
+    expect(screen.getByRole('tab', { name: 'Daily Notes' }).querySelector('[data-tab-title]')).not.toHaveClass('pe-1');
 
     fireEvent.doubleClick(preview);
     expect(onKeepTab).toHaveBeenCalledWith('tab-2');

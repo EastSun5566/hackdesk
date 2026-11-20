@@ -168,7 +168,7 @@ function DocumentTab({
         {book && bookPosition && !bookPosition.isBook ? (
           <span aria-hidden="true" data-tab-book className="max-w-24 shrink truncate text-text-subtle">{book.title} ›</span>
         ) : null}
-        <span data-tab-title data-tab-preview={preview || undefined} className={cn('min-w-0 truncate', preview && 'italic')}>{title}</span>
+        <span data-tab-title data-tab-preview={preview || undefined} className={cn('min-w-0 truncate', preview && 'italic pe-1')}>{title}</span>
         {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>
         </TooltipTrigger>
