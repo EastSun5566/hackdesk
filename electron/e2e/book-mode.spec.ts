@@ -126,6 +126,36 @@ test('a HackMD book shows its contents and walks through its chapters', async ()
   }
 });
 
+test('closing the book\'s tab closes the book, so it opens again as a book', async () => {
+  // Characterization for #385 P2: the open book follows its tab. Left pointing at a closed tab, it
+  // would read as already open, and the book picked again would show as a plain note.
+  const directory = await home('hackdesk-book-close-', { hackmdApiToken: 'synthetic-fixture-token' });
+  const app = await electron.launch({
+    args: [join(repoRoot, 'electron/e2e/fixtures/hackmd-book-network.cjs'), `--hackdesk-home=${directory}`, `--user-data-dir=${join(directory, 'user-data')}`],
+    cwd: repoRoot,
+    env: environment(),
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.getByRole('treeitem', { name: /Handbook/ }).first().click();
+    await expect(contents(page)).toBeVisible();
+    // Keep it, so another note opens in a tab of its own and the book's tab is not the last one.
+    await page.getByRole('treeitem', { name: /Handbook/ }).first().dblclick();
+    await page.getByRole('treeitem', { name: 'Setup', exact: true }).dblclick();
+    await expect(editor(page)).toContainText('Setup body text.');
+
+    await page.getByRole('button', { name: 'Close Handbook' }).click();
+    await expect(page.getByRole('tab', { name: /^Handbook/ })).toHaveCount(0);
+
+    await page.getByRole('treeitem', { name: /Handbook/ }).first().click();
+    await expect(contents(page)).toBeVisible();
+    await expect(contents(page).getByRole('button', { name: 'Table of contents', exact: true })).toHaveAttribute('aria-current', 'page');
+  } finally {
+    await app.close();
+  }
+});
+
 test('any Local Vault note opens as a book', async () => {
   const directory = await home('hackdesk-vault-book-', {});
   const vault = join(directory, 'vault');
