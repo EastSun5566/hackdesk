@@ -1,5 +1,5 @@
-import { keepPreviousData, useQueries, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
+import { keepPreviousData, useQueries } from '@tanstack/react-query';
+import { useMemo, useRef } from 'react';
 
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
 import { buildHackmdFolderTree, type FolderTree } from '@/lib/hackmd-folders';
@@ -21,34 +21,20 @@ const EMPTY_TREE: FolderTree = buildHackmdFolderTree([], []);
 export function useWorkspaceFolderTrees({
   api,
   activeSnapshot,
-  activeSnapshotPath,
   activeVaultId,
   enabled,
   vaultIds,
   vaults,
 }: {
   api: HackDeskElectronAPI | undefined;
-  /** The open folder's snapshot; cached so the folder shows at once when another one opens. */
+  /** The open folder's snapshot (watchLocalVaultSnapshots also keeps it under its stored id). */
   activeSnapshot: LocalVaultSnapshot | null;
-  /** The stored path of the folder the session snapshot belongs to. */
-  activeSnapshotPath: string | null;
   activeVaultId: string | null;
   enabled: boolean;
   vaultIds: string[];
   vaults: { id: string; path: string }[];
 }): WorkspaceFolderTree[] {
-  const queryClient = useQueryClient();
   const showHidden = useShowHiddenFiles();
-  // Folder caches are keyed by stored id; a snapshot carries its manifest id, which differs. While a
-  // folder of the set opens, the session snapshot and the stored active id can name different
-  // folders, so the snapshot is cached under the id only when the session reports it for that
-  // folder's stored path (a snapshot's own root is the resolved path, which can differ).
-  const activePath = activeVaultId ? vaults.find((vault) => vault.id === activeVaultId)?.path ?? null : null;
-  useEffect(() => {
-    if (enabled && activeSnapshot && activeVaultId && activePath && activeSnapshotPath === activePath) {
-      queryClient.setQueryData(getLocalVaultVaultSnapshotQueryKey(activeVaultId), activeSnapshot);
-    }
-  }, [activePath, activeSnapshot, activeSnapshotPath, activeVaultId, enabled, queryClient]);
 
   const folders = useMemo(
     () => vaultIds
