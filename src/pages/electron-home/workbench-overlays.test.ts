@@ -81,6 +81,29 @@ describe('workbench overlays', () => {
     expect(state.createNote.title).toBe('Draft title');
   });
 
+  it('hands New Note\'s location picker back to New Note with its title, however the picker closes', () => {
+    const picking = run([
+      { type: 'set', key: 'createNote', value: { open: false, title: 'Weekly plan' } },
+      { type: 'set', key: 'palette', value: { mode: 'choose-note-folder', open: true, search: '', target: { type: 'create', title: 'Weekly plan' } } },
+    ]);
+    // A folder picked: the palette closes itself.
+    const picked = overlaysReducer(picking, { type: 'set', key: 'palette', value: { mode: 'commands', open: false, search: '' } });
+    expect(picked.createNote).toEqual({ open: true, title: 'Weekly plan' });
+    // Escape on the workbench closes the top overlay.
+    expect(overlaysReducer(picking, { type: 'close', key: 'palette' }).createNote).toEqual({ open: true, title: 'Weekly plan' });
+    // Typing in the picker keeps it, and its target, open.
+    const typed = overlaysReducer(picking, { type: 'set', key: 'palette', value: { ...picking.palette, search: 'pro' } });
+    expect(typed.createNote.open).toBe(false);
+    expect(typed.palette.target).toEqual({ type: 'create', title: 'Weekly plan' });
+  });
+
+  it('opens nothing else when a move picker closes', () => {
+    const moving = run([{ type: 'set', key: 'palette', value: { mode: 'move-folder', open: true, search: '', target: { type: 'folder', id: 'folder-1' } } }]);
+    const closed = overlaysReducer(moving, { type: 'close', key: 'palette' });
+    expect(closed.palette).toEqual(INITIAL_OVERLAYS.palette);
+    expect(closed.createNote).toEqual(INITIAL_OVERLAYS.createNote);
+  });
+
   it('opens Settings on the tab asked for', () => {
     expect(run([{ type: 'open_settings', tab: 'vault' }]).settings).toEqual({ open: true, tab: 'vault' });
   });

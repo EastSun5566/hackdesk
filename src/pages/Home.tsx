@@ -130,7 +130,6 @@ export function Home() {
     hasToken: settingsQuery.data.hasHackmdApiToken,
     hasLocalVault: settingsQuery.data.hasLocalVault,
   });
-  const folderPickerAction = useRef<{ type: 'note'; note: NoteSummary } | { type: 'folder'; id: string } | { type: 'create'; title: string } | null>(null);
   const beforeVaultChange = useRef<() => void>(() => {});
   const folderPicker = useFolderPicker(rawApi);
   const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange, folderPicker.pickFolder);
@@ -142,12 +141,6 @@ export function Home() {
   const panelState = useWorkbenchPanelState();
   const { store: overlayStore, overlays, controls: overlayControls, closeTopOverlay } = useWorkbenchOverlays();
   const { shortcutHelp } = overlays;
-  useEffect(() => {
-    if (overlays.palette.open) return;
-    const action = folderPickerAction.current;
-    folderPickerAction.current = null;
-    if (action?.type === 'create') overlayControls.set('createNote', { open: true, title: action.title });
-  }, [overlays.palette.open, overlayControls]);
   const openLeaderMenu = useCallback(() => overlayControls.set('leaderPath', []), [overlayControls]);
   // The named set the open folder belongs to: its folders share one scope (tabs, search).
   const openLocalWorkspace = getActiveLocalWorkspace(settingsQuery.data);
@@ -878,7 +871,7 @@ export function Home() {
     copyNoteLink: handleCopyNoteLink,
     copyNoteMarkdownLink: handleCopyNoteMarkdownLink,
     duplicateNote: handleDuplicateNote,
-    openMoveNotePicker: () => { folderPickerAction.current = null; overlayControls.set('palette', { mode: 'move-note', open: true, search: '' }); },
+    openMoveNotePicker: () => overlayControls.set('palette', { mode: 'move-note', open: true, search: '' }),
     openShare: () => overlayControls.set('share', true),
     reorderTab: noteWorkspace.reorderTab,
     revealLocalNote: localVaultActions.revealLocalNote,
@@ -1099,10 +1092,10 @@ export function Home() {
   const openSettingsTab = overlayControls.openSettings;
   const { handleNoteMove } = workbenchNavigator;
   const moveSelectedNoteToFolder = useCallback((folder: QuickOpenFolderResult) => {
-    const action = folderPickerAction.current;
+    // What the picker was opened for; closing the palette clears it (and hands back to New Note).
+    const action = overlayStore.getState().palette.target;
     const targetFolderId = folder.id === UNFILED_FOLDER_ID ? null : folder.id;
     if (action?.type === 'create') { setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID); return; }
-    folderPickerAction.current = null;
     if (action?.type === 'folder') {
       const node = folderTree.nodesById.get(action.id);
       const destination = targetFolderId ? folderTree.nodesById.get(targetFolderId) : null;
@@ -1116,7 +1109,7 @@ export function Home() {
       return;
     }
     handleNoteMove({ note: entry, targetFolderId, changed: getNoteCurrentFolderId(entry) !== targetFolderId });
-  }, [folderTree, handleNoteMove, mutations.moveFolderMutation, selectedNote?.id, setSelectedFolderId]);
+  }, [folderTree, handleNoteMove, mutations.moveFolderMutation, overlayStore, selectedNote?.id, setSelectedFolderId]);
 
   const workspaceNavigation = useMemo(() => getWorkspaceNavigationTeams(
     teams,
@@ -1275,8 +1268,8 @@ export function Home() {
           mutations.updateNoteMutation.mutate({ note: result, input: { title: name }, intent: 'metadata' });
         })().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to rename note.'));
       },
-      moveNoteRequest: (note) => { folderPickerAction.current = { type: 'note', note }; overlayControls.set('palette', { mode: 'move-note', open: true, search: '' }); },
-      moveFolderRequest: (id) => { folderPickerAction.current = { type: 'folder', id }; overlayControls.set('palette', { mode: 'move-folder', open: true, search: '' }); },
+      moveNoteRequest: (note) => overlayControls.set('palette', { mode: 'move-note', open: true, search: '', target: { type: 'note', note } }),
+      moveFolderRequest: (id) => overlayControls.set('palette', { mode: 'move-folder', open: true, search: '', target: { type: 'folder', id } }),
       chooseNewNoteLocation: (folderId) => {
         folderCommands.handleCreateNoteInside(folderId);
       },
@@ -1325,14 +1318,7 @@ export function Home() {
     api,
     commandPaletteProps: {
       ...commandPaletteProps,
-      onStateChange: (next) => {
-        if (!next.open && folderPickerAction.current?.type === 'create') {
-          const { title } = folderPickerAction.current;
-          folderPickerAction.current = null;
-          overlayControls.set('createNote', { open: true, title });
-        }
-        overlayControls.set('palette', next);
-      },
+      onStateChange: (next) => overlayControls.set('palette', next),
     },
     commandPaletteTheme: {
       themeMode: theme,
@@ -1357,9 +1343,8 @@ export function Home() {
     mutations,
     onHackmdDisconnected: handleHackmdDisconnected,
     onChooseNoteLocation: () => {
-      folderPickerAction.current = { type: 'create', title: overlays.createNote.title };
       overlayControls.set('createNote', { ...overlays.createNote, open: false });
-      overlayControls.set('palette', { mode: 'choose-note-folder', open: true, search: '' });
+      overlayControls.set('palette', { mode: 'choose-note-folder', open: true, search: '', target: { type: 'create', title: overlays.createNote.title } });
     },
     runAction: runPaletteAction,
     selectedFolderLabel,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useCallback, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import {
   AlertCircle,
   ChevronLeft,
@@ -225,14 +225,6 @@ export function TrashNavigatorList({
     setSelected(new Set());
     setFailures({});
   }, [onOpenChange]);
-
-  useEffect(() => {
-    if (!open) {
-      setSelected(new Set());
-      setFailures({});
-      anchorIndexRef.current = null;
-    }
-  }, [open]);
 
   const handleRowSelect = useCallback((index: number, event: ReactMouseEvent) => {
     const noteId = notes[index]?.id;

@@ -159,6 +159,36 @@ describe('FolderPickerDialog', () => {
     expect(result).toBe('/home/user');
   });
 
+  it('starts each pick afresh: its start folder, an empty filter, the filter focused', async () => {
+    const stableApi = api();
+    let pick!: (startPath?: string | null) => Promise<string | null>;
+    function Harness() {
+      const picker = useFolderPicker(stableApi);
+      pick = picker.pickFolder;
+      return picker.dialog;
+    }
+    render(
+      <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+        <Harness />
+      </TooltipProvider>,
+    );
+
+    // The first pick goes into Notes and types a filter, then cancels.
+    await act(async () => { void pick('/home/user'); });
+    fireEvent.click(await screen.findByRole('option', { name: 'Notes' }));
+    expect(await screen.findByRole('option', { name: 'Parent folder' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter folders' }), { target: { value: 'zzz' } });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); });
+
+    // The next pick lists its start folder again, unfiltered, and the filter takes the keyboard.
+    await act(async () => { void pick('/home/user'); });
+    expect(await screen.findByRole('option', { name: 'Notes' })).toBeInTheDocument();
+    const filter = screen.getByRole('combobox', { name: 'Filter folders' });
+    expect(filter).toHaveValue('');
+    await waitFor(() => expect(filter).toHaveFocus());
+    expect(stableApi.localVault.browse).toHaveBeenLastCalledWith('/home/user');
+  });
+
   it('resolves no folder when the picker is cancelled', async () => {
     let pick!: () => Promise<string | null>;
     function Harness() {
