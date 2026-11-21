@@ -125,7 +125,21 @@ export type OverlayEvent =
 /** Trash and History take the same place in the sidebar, so opening one closes the other. */
 const SIDEBAR_PANELS = { trash: 'history', history: 'trash' } as const;
 
+/**
+ * New Note's location picker hands back to New Note, with the title typed there, however it closes:
+ * a folder picked, Escape or a click outside.
+ */
+function returnFromLocationPicker(state: WorkbenchOverlays, next: WorkbenchOverlays): WorkbenchOverlays {
+  const target = state.palette.target;
+  if (!state.palette.open || next.palette.open || target?.type !== 'create') return next;
+  return { ...next, createNote: { open: true, title: target.title } };
+}
+
 export function overlaysReducer(state: WorkbenchOverlays, event: OverlayEvent): WorkbenchOverlays {
+  return returnFromLocationPicker(state, reduceOverlays(state, event));
+}
+
+function reduceOverlays(state: WorkbenchOverlays, event: OverlayEvent): WorkbenchOverlays {
   switch (event.type) {
     case 'set': {
       if (Object.is(state[event.key], event.value)) return state;
