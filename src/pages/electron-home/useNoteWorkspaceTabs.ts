@@ -108,14 +108,6 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     };
   }, [state, scopeKey, flush]);
 
-  // Pending operations can finish while another workspace is visible. Persist
-  // those results too, so returning or restarting sees the completed operation.
-  useEffect(() => {
-    for (const [key, savedState] of Object.entries(statesByScope)) {
-      if (key !== scopeKey) persist(savedState);
-    }
-  }, [statesByScope, scopeKey, persist]);
-
   const retryBackup = useCallback(() => {
     let saved = flush();
     for (const key of backupFailedScopes) {
@@ -144,17 +136,23 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     }
     stateRef.current = empty;
     setState(empty);
-    setStatesByScope(current => ({ ...current, [targetKey]: next }));
+    statesByScopeRef.current = { ...statesByScopeRef.current, [targetKey]: next };
+    setStatesByScope(statesByScopeRef.current);
   }, [getWorkspaceSnapshot, persist]);
 
   const updateWorkspace = useCallback((key: string | null, update: (current: NoteWorkspaceState) => NoteWorkspaceState) => {
     if (!key) return;
     if (stateRef.current.scopeKey === key) {
       setState(update);
-    } else {
-      setStatesByScope((current) => ({ ...current, [key]: update(current[key] ?? readInitialState(key)) }));
+      return;
     }
-  }, []);
+    // An operation finished while another workspace is visible: keep its result and back it up now,
+    // so returning or restarting sees it. The ref moves at once, so updates in one tick chain.
+    const next = update(statesByScopeRef.current[key] ?? readInitialState(key));
+    statesByScopeRef.current = { ...statesByScopeRef.current, [key]: next };
+    setStatesByScope(statesByScopeRef.current);
+    persist(next);
+  }, [persist]);
 
   const activeTab = useMemo(() => getActiveTab(state), [state]);
   const visibleActiveTabs = useMemo(() => getVisibleActiveTabs(state), [state]);
