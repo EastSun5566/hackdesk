@@ -13,8 +13,8 @@ import {
 vi.setConfig({ testTimeout: 15_000 });
 
 // What the folder picker acts on (the folder being moved, or the New Note dialog's title while its
-// location is chosen) is held while the picker is open. These pin that, before it moves into the
-// overlay state (#385 P5).
+// location is chosen) is held while the picker is open, as the palette state's `target` (#385 P5).
+// These pinned it while it was still a ref in Home, and keep pinning it there.
 describe('Home folder picker payload', () => {
   useHomeTestLifecycle();
 
