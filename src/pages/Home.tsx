@@ -244,6 +244,7 @@ export function Home() {
       const existing = noteWorkspace.getTabsMatching(note)[0];
       return existing ? noteWorkspace.getTabHostPane(existing.tabId)?.paneId : undefined;
     },
+    getTabPaneId: tabId => noteWorkspace.getTabHostPane(tabId)?.paneId,
     requestEditorFocusOn,
     scopeStorageKey,
     openNoteInWorkspace,

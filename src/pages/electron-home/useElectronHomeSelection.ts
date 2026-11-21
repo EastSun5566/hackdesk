@@ -21,6 +21,8 @@ export type ElectronHomeSelectionOptions = {
   scopeStorageKey?: string | null;
   activePaneId: string;
   getNotePaneId?: (note: NoteSummary) => string | undefined;
+  /** The pane holding a tab, for opens in place, which show the note in that tab. */
+  getTabPaneId?: (tabId: string) => string | undefined;
   activeTab: OpenNoteTab | null;
   /** Focuses the picked note's editor once its tab is the active one (useWorkbenchEditorRequests). */
   requestEditorFocusOn: (destination: EditorFocusDestination) => void;
@@ -50,6 +52,7 @@ export function useElectronHomeSelection({
   activeTab,
   activePaneId,
   getNotePaneId,
+  getTabPaneId,
   requestEditorFocusOn,
   scopeStorageKey,
   openNoteInWorkspace,
@@ -78,13 +81,19 @@ export function useElectronHomeSelection({
       trackRecentNote(note);
     }
 
-    // The editor takes focus once the note's tab is active, in the pane that shows it.
+    // The editor takes focus once the note's tab is active, in the pane that shows it: the in-place
+    // target's pane for an open in place (a book turning to a chapter), else, as for any open (also
+    // when that tab closed meanwhile), the pane already holding the note's tab, else the active one.
     if (options.focusEditor && scopeStorageKey) {
-      requestEditorFocusOn({ scopeKey: scopeStorageKey, paneId: getNotePaneId?.(note) ?? activePaneId, documentId: note.id });
+      const inPlace = options.inPlace;
+      const paneId = typeof inPlace === 'object' ? getTabPaneId?.(inPlace.tabId) ?? getNotePaneId?.(note)
+        : inPlace ? activePaneId
+          : getNotePaneId?.(note);
+      requestEditorFocusOn({ scopeKey: scopeStorageKey, paneId: paneId ?? activePaneId, documentId: note.id });
     }
 
     return true;
-  }, [activePaneId, getNotePaneId, autoSelectSuppressionRef, manualEmptyWorkspaceRef, openNoteInWorkspace, requestEditorFocusOn, scopeStorageKey, trackRecentNote]);
+  }, [activePaneId, getNotePaneId, getTabPaneId, autoSelectSuppressionRef, manualEmptyWorkspaceRef, openNoteInWorkspace, requestEditorFocusOn, scopeStorageKey, trackRecentNote]);
 
   // A click in the sidebar previews the note; a double-click keeps its tab.
   const handleNoteSelect = useCallback((note: NoteSummary) => {

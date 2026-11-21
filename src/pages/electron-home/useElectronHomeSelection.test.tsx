@@ -141,6 +141,28 @@ describe('useElectronHomeSelection', () => {
     expect(requestEditorFocusOn).toHaveBeenCalledExactlyOnceWith({ scopeKey: 'personal', paneId: 'pane-b', documentId: 'note-b' });
   });
 
+  it('asks focus where an open in place shows the note, not where its own tab is (#433 review)', async () => {
+    const requestEditorFocusOn = vi.fn();
+    const { result } = renderHook(() => useElectronHomeSelection({
+      activePaneId: 'pane-a', scopeStorageKey: 'personal', activeTab: null, requestEditorFocusOn,
+      // A chapter that also has a tab of its own in pane C; the book's tab is in pane B.
+      getNotePaneId: () => 'pane-c',
+      getTabPaneId: tabId => (tabId === 'book-tab' ? 'pane-b' : undefined),
+      openNoteInWorkspace: vi.fn(), selectionRefs: useElectronHomeSelectionRefs(), trackRecentNote: vi.fn(),
+    }));
+    const chapter = note({ id: 'chapter-1', title: 'Chapter' });
+    await act(async () => { await result.current.requestSelectNote(chapter, { focusEditor: true, inPlace: { tabId: 'book-tab' } }); });
+    expect(requestEditorFocusOn).toHaveBeenLastCalledWith({ scopeKey: 'personal', paneId: 'pane-b', documentId: 'chapter-1' });
+
+    // In place in the active tab: the active pane.
+    await act(async () => { await result.current.requestSelectNote(chapter, { focusEditor: true, inPlace: true }); });
+    expect(requestEditorFocusOn).toHaveBeenLastCalledWith({ scopeKey: 'personal', paneId: 'pane-a', documentId: 'chapter-1' });
+
+    // The book's tab closed meanwhile: the note opens as any other, in the pane of its own tab.
+    await act(async () => { await result.current.requestSelectNote(chapter, { focusEditor: true, inPlace: { tabId: 'gone' } }); });
+    expect(requestEditorFocusOn).toHaveBeenLastCalledWith({ scopeKey: 'personal', paneId: 'pane-c', documentId: 'chapter-1' });
+  });
+
   it('asks no focus before a workspace is open', async () => {
     const requestEditorFocusOn = vi.fn();
     const { result } = renderHook(() => useElectronHomeSelection({
