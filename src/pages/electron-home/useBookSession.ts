@@ -103,14 +103,14 @@ export function useBookSession({ document, activeTabId, tabs, openNoteTarget, op
   /** The active tab: a book opens in it. */
   activeTabId: string | null;
   /** The open tabs, by id. A book is read in its tab, so closing that tab closes the book. */
-  tabs?: Readonly<Record<string, unknown>>;
+  tabs: Readonly<Record<string, unknown>>;
   openNoteTarget: OpenNoteTarget;
   openExternal: (url: string) => void;
 }): BookSession {
   const [opened, setState] = useState<OpenBook | null>(null);
   // Closing the book's tab closes the book. Tab ids are never reused, so a book left behind on a
   // closed tab is simply not open; opening a book replaces it.
-  const state = opened && (!tabs || opened.tabId === null || opened.tabId in tabs) ? opened : null;
+  const state = opened && (opened.tabId === null || opened.tabId in tabs) ? opened : null;
   const activeTab = useRef(activeTabId);
   useEffect(() => {
     activeTab.current = activeTabId;

@@ -38,8 +38,9 @@ function installApi() {
   return { resolveLink, resolveNote };
 }
 
-/** The tab the book opens in. */
+/** The tab the book opens in, and the other tabs open while it is read. */
 const TAB = 'book-tab';
+const TABS = { [TAB]: {}, 'second-tab': {}, 'other-tab': {} };
 
 /** Lets the chapter lookups an opened book starts settle inside `act`. */
 const settle = () => act(async () => {});
@@ -48,7 +49,7 @@ async function setup(document: DocumentSummary | undefined = BOOK) {
   const openNoteTarget = vi.fn();
   const openExternal = vi.fn();
   const hook = renderHook<BookSession, { current: DocumentSummary | undefined }>(
-    ({ current }) => useBookSession({ document: current, activeTabId: TAB, openNoteTarget, openExternal }),
+    ({ current }) => useBookSession({ document: current, activeTabId: TAB, tabs: TABS, openNoteTarget, openExternal }),
     { initialProps: { current: document } },
   );
   await settle();
@@ -106,7 +107,7 @@ describe('useBookSession', () => {
     installApi();
     const openNoteTarget = vi.fn();
     const { result, rerender } = renderHook<BookSession, { tab: string; book: DocumentSummary }>(
-      ({ tab, book }) => useBookSession({ document: book, activeTabId: tab, openNoteTarget, openExternal: vi.fn() }),
+      ({ tab, book }) => useBookSession({ document: book, activeTabId: tab, tabs: TABS, openNoteTarget, openExternal: vi.fn() }),
       { initialProps: { tab: TAB, book: BOOK } },
     );
     await settle();
@@ -142,6 +143,29 @@ describe('useBookSession', () => {
     rerender({ current: { ...BOOK } });
     await settle();
     expect(result.current.book?.title).toBe('Handbook');
+  });
+
+  it('closes the book when its tab closes, and opens it again as a book when turned to', async () => {
+    installApi();
+    const { result, rerender } = renderHook<BookSession, { tabs: Record<string, unknown>; current: DocumentSummary | undefined }>(
+      ({ tabs, current }) => useBookSession({ document: current, activeTabId: TAB, tabs, openNoteTarget: vi.fn(), openExternal: vi.fn() }),
+      { initialProps: { tabs: TABS, current: BOOK } },
+    );
+    await settle();
+    expect(result.current.tabId).toBe(TAB);
+
+    // Another tab stays open and shows another note; the book's tab closes.
+    const remaining = Object.fromEntries(Object.entries(TABS).filter(([id]) => id !== TAB));
+    rerender({ tabs: remaining, current: SETUP });
+    expect(result.current.book).toBeNull();
+    expect(result.current.tabId).toBeNull();
+    expect(result.current.positionOf(BOOK, TAB)).toBeNull();
+
+    // Turned to again (in a new tab), it reads as a book as on the first visit.
+    rerender({ tabs: { ...remaining, [TAB]: {} }, current: { ...BOOK } });
+    await settle();
+    expect(result.current.book?.title).toBe('Handbook');
+    expect(result.current.positionOf(BOOK, TAB)).toEqual({ isBook: true, chapterIndex: null });
   });
 
   it('marks the chapter last opened when a book lists the same note twice', async () => {
