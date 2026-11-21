@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { Query, QueryClient } from '@tanstack/react-query';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 import { getActiveLocalVaultPath } from '@/lib/settings';
@@ -58,6 +58,43 @@ export async function invalidateMovedLocalVaultDocuments(
     await queryClient.cancelQueries({ queryKey: query.queryKey, exact: true });
     await queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true });
   }));
+}
+
+/**
+ * Follows every local folder snapshot that lands in the cache, from wherever it comes (the session's
+ * scan or watcher, a switch, a mutation, another folder's scan), instead of each consumer diffing
+ * the snapshot it renders against the one before:
+ * - the open folder's session snapshot is kept under the stored id it belongs to, so it shows at
+ *   once when another folder of the set opens;
+ * - a note that moved or left a folder is read again, against that folder's last snapshot.
+ * Snapshots already cached are taken in when it starts. Returns the unsubscribe.
+ */
+export function watchLocalVaultSnapshots(queryClient: QueryClient): () => void {
+  const last = new Map<string, LocalVaultSnapshot>();
+  const take = (query: Query) => {
+    const [, , kind, path] = query.queryKey;
+    if (kind !== 'snapshot' && kind !== 'vault-snapshot') return;
+    const snapshot = query.state.data as LocalVaultSnapshot | null | undefined;
+    if (!snapshot) return;
+    if (kind === 'snapshot') {
+      // The session caches the open folder by its stored path; a scan's own root is the resolved
+      // path, which can differ. While another folder opens, the stored active id already names it
+      // but the session still holds the previous scan, so only a matching stored path counts.
+      const localVault = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings'])?.localVault;
+      const active = localVault?.vaults.find((vault) => vault.id === localVault.activeVaultId);
+      if (active && active.path === path) queryClient.setQueryData(getLocalVaultVaultSnapshotQueryKey(active.id), snapshot);
+    }
+    const before = last.get(snapshot.vaultId);
+    if (before === snapshot) return;
+    last.set(snapshot.vaultId, snapshot);
+    void invalidateMovedLocalVaultDocuments(queryClient, snapshot, before);
+  };
+  const cache = queryClient.getQueryCache();
+  const local = (query: Query) => query.queryKey[0] === 'electron' && query.queryKey[1] === 'local-vault';
+  for (const query of cache.getAll()) if (local(query)) take(query);
+  return cache.subscribe((event) => {
+    if (event.type === 'updated' && event.action.type === 'success' && local(event.query)) take(event.query);
+  });
 }
 
 /**

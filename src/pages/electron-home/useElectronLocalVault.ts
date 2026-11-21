@@ -1,12 +1,12 @@
 import { MAX_NOTE_PANES } from '@/lib/electron-actions';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useShowHiddenFiles } from './hidden-files-preference';
 
 import type { DocumentSummary, HackDeskElectronAPI, RepositoryValue } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { stripIpcErrorPrefix } from '@/lib/note-errors';
-import { getLocalVaultDocumentQueryKey, invalidateMovedLocalVaultDocuments } from './local-vault-query';
+import { getLocalVaultDocumentQueryKey, watchLocalVaultSnapshots } from './local-vault-query';
 export { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey, cacheLocalVaultSnapshot } from './local-vault-query';
 import { getNoteIdentityKey, type NoteIdentity } from './note-workspace';
 import { adaptLocalVaultSnapshot, localDocumentRepositoryValue, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
@@ -48,27 +48,8 @@ export function useElectronLocalVault({
 }) {
   const queryClient = useQueryClient();
   const showHidden = useShowHiddenFiles();
-  const previousSnapshot = useRef<LocalVaultSnapshot | null>(null);
-  useEffect(() => {
-    const previous = previousSnapshot.current;
-    previousSnapshot.current = snapshot;
-    if (snapshot && enabled) void invalidateMovedLocalVaultDocuments(queryClient, snapshot, previous);
-  }, [snapshot, enabled, queryClient]);
-  // The other folders refresh on their own; a note that moved or left one is read again, as for
-  // the open folder above.
-  const previousWorkspaceSnapshots = useRef(new Map<string, LocalVaultSnapshot>());
-  useEffect(() => {
-    if (!enabled) return;
-    const previous = previousWorkspaceSnapshots.current;
-    const next = new Map<string, LocalVaultSnapshot>();
-    for (const other of workspaceSnapshots ?? []) {
-      next.set(other.vaultId, other);
-      if (other.vaultId === snapshot?.vaultId) continue;
-      const before = previous.get(other.vaultId);
-      if (before && before !== other) void invalidateMovedLocalVaultDocuments(queryClient, other, before);
-    }
-    previousWorkspaceSnapshots.current = next;
-  }, [workspaceSnapshots, snapshot?.vaultId, enabled, queryClient]);
+  // Notes that moved or left a folder are read again where folder snapshots land, in the cache.
+  useEffect(() => watchLocalVaultSnapshots(queryClient), [queryClient]);
   const snapshotByNoteId = useMemo(
     () => buildLocalNoteOwners(snapshot, workspaceSnapshots),
     [snapshot, workspaceSnapshots],

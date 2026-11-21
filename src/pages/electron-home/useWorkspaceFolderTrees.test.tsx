@@ -41,51 +41,8 @@ function apiWithSnapshot(getVaultSnapshot = vi.fn(async () => snapshot)) {
 }
 
 describe('useWorkspaceFolderTrees', () => {
-  it("caches the open folder's snapshot only under the folder it came from", () => {
-    const client = createClient();
-    // While B opens, the stored active id already names B but the session still holds A's scan.
-    const folderA: LocalVaultSnapshot = { ...snapshot, vaultId: 'snapshot-a', rootPath: '/Users/michael/A' };
-    renderHook(
-      () => useWorkspaceFolderTrees({
-        api: apiWithSnapshot(),
-        activeSnapshot: folderA,
-        activeSnapshotPath: '/Users/michael/A',
-        activeVaultId: 'vault-b',
-        enabled: true,
-        vaultIds: ['vault-a', 'vault-b'],
-        vaults: [
-          { id: 'vault-a', path: '/Users/michael/A' },
-          { id: 'vault-b', path: '/Users/michael/B' },
-        ],
-      }),
-      { wrapper: wrapper(client) },
-    );
-
-    expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'))).toBeUndefined();
-  });
-
-  it('caches the open folder under its stored path even when the scan reports the resolved one', () => {
-    const client = createClient();
-    // macOS resolves /var to /private/var; Windows can resolve short names and letter case.
-    const resolved: LocalVaultSnapshot = { ...snapshot, rootPath: '/private/var/B' };
-    renderHook(
-      () => useWorkspaceFolderTrees({
-        api: apiWithSnapshot(),
-        activeSnapshot: resolved,
-        activeSnapshotPath: '/var/B',
-        activeVaultId: 'vault-b',
-        enabled: true,
-        vaultIds: ['vault-a', 'vault-b'],
-        vaults: [
-          { id: 'vault-a', path: '/var/A' },
-          { id: 'vault-b', path: '/var/B' },
-        ],
-      }),
-      { wrapper: wrapper(client) },
-    );
-
-    expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'))).toEqual(resolved);
-  });
+  // Keeping the open folder's snapshot under its stored id is watchLocalVaultSnapshots' job now
+  // (local-vault-query.test.ts, local-vault-snapshot-arrival.test.tsx).
 
   it('loads every other folder in the set and builds its tree', async () => {
     const getVaultSnapshot = vi.fn(async () => snapshot);
@@ -93,7 +50,6 @@ describe('useWorkspaceFolderTrees', () => {
       () => useWorkspaceFolderTrees({
         api: apiWithSnapshot(getVaultSnapshot),
         activeSnapshot: null,
-        activeSnapshotPath: null,
         activeVaultId: 'vault-a',
         enabled: true,
         vaultIds: ['vault-a', 'vault-b'],
@@ -129,7 +85,6 @@ describe('useWorkspaceFolderTrees', () => {
       ({ activeVaultId, activeSnapshot }: { activeVaultId: string; activeSnapshot: LocalVaultSnapshot | null }) => useWorkspaceFolderTrees({
         api: apiWithSnapshot(getVaultSnapshot),
         activeSnapshot,
-        activeSnapshotPath: activeSnapshot ? vaults.find((vault) => vault.id === activeVaultId)!.path : null,
         activeVaultId,
         enabled: true,
         vaultIds: ['vault-a', 'vault-b'],
@@ -142,6 +97,8 @@ describe('useWorkspaceFolderTrees', () => {
     );
     await waitFor(() => expect(getVaultSnapshot).toHaveBeenCalledWith({ vaultId: 'vault-a' }));
     getVaultSnapshot.mockClear();
+    // watchLocalVaultSnapshots keeps the session's snapshot of B under B's stored id.
+    client.setQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'), snapshot);
 
     // Opening A turns B into a preview, already filled from the session's last snapshot.
     rerender({ activeVaultId: 'vault-a', activeSnapshot: null });
@@ -158,7 +115,6 @@ describe('useWorkspaceFolderTrees', () => {
       () => useWorkspaceFolderTrees({
         api: apiWithSnapshot(getVaultSnapshot),
         activeSnapshot: null,
-        activeSnapshotPath: null,
         activeVaultId: 'vault-a',
         enabled: false,
         vaultIds: ['vault-a', 'vault-b'],

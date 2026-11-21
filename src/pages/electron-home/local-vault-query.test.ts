@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 import type { ElectronSafeSettings } from '@/lib/electron-api';
 import {
@@ -8,6 +8,7 @@ import {
   getLocalVaultSnapshotQueryKey,
   getLocalVaultVaultSnapshotQueryKey,
   invalidateMovedLocalVaultDocuments,
+  watchLocalVaultSnapshots,
 } from './local-vault-query';
 
 const document = (path: string): LocalDocument => ({
@@ -107,5 +108,70 @@ describe('cacheLocalVaultSnapshot', () => {
     const stranger = { vaultId: 'B', rootPath: '/b', notes: [], folders: [] } satisfies LocalVaultSnapshot;
     cacheLocalVaultSnapshot(client, stranger);
     expect(client.getQueryData(getLocalVaultSnapshotQueryKey(null))).toEqual(saved);
+  });
+});
+
+describe('watchLocalVaultSnapshots', () => {
+  const vaultSettings = (vaults: { id: string; path: string }[], activeVaultId: string) => ({
+    localVault: { vaults, activeVaultId, workspaces: [], activeWorkspaceId: null },
+  }) as unknown as ElectronSafeSettings;
+
+  it('keeps the open folder under its stored id even when the scan reports the resolved path', () => {
+    const client = new QueryClient();
+    // macOS resolves /var to /private/var; Windows can resolve short names and letter case.
+    client.setQueryData(['electron', 'settings'], vaultSettings([{ id: 'vault-a', path: '/var/A' }], 'vault-a'));
+    const stop = watchLocalVaultSnapshots(client);
+    const resolved = { ...snapshot('Note.md'), rootPath: '/private/var/A' };
+    client.setQueryData(getLocalVaultSnapshotQueryKey('/var/A'), resolved);
+    expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-a'))).toBe(resolved);
+    stop();
+    client.clear();
+  });
+
+  it('files a session snapshot under no folder while the stored active id names another one', () => {
+    const client = new QueryClient();
+    // B is opening: the stored active id names B, but the session still caches A's scan by A's path.
+    client.setQueryData(['electron', 'settings'], vaultSettings([{ id: 'vault-a', path: '/A' }, { id: 'vault-b', path: '/B' }], 'vault-b'));
+    const stop = watchLocalVaultSnapshots(client);
+    client.setQueryData(getLocalVaultSnapshotQueryKey('/A'), snapshot('Note.md'));
+    expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-a'))).toBeUndefined();
+    expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'))).toBeUndefined();
+    stop();
+    client.clear();
+  });
+
+  it("re-reads a moved note against that folder's last snapshot, from any snapshot key", async () => {
+    const client = new QueryClient();
+    const key = getLocalVaultDocumentQueryKey('note', 'A');
+    client.setQueryData(getLocalVaultVaultSnapshotQueryKey('vault-a'), snapshot('Original.md'));
+    client.setQueryData(key, document('Original.md'));
+    const stop = watchLocalVaultSnapshots(client);
+    expect(client.getQueryState(key)?.isInvalidated).toBe(false);
+
+    // The same snapshot landing again (as when the session's copy is filed by id) changes nothing.
+    client.setQueryData(getLocalVaultSnapshotQueryKey(null), client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-a')));
+    expect(client.getQueryState(key)?.isInvalidated).toBe(false);
+
+    client.setQueryData(getLocalVaultVaultSnapshotQueryKey('vault-a'), snapshot('Moved.md'));
+    await vi.waitFor(() => expect(client.getQueryState(key)?.isInvalidated).toBe(true));
+    stop();
+    client.clear();
+  });
+
+  it('takes in snapshots already cached when it starts, and nothing after it stops', async () => {
+    const client = new QueryClient();
+    const key = getLocalVaultDocumentQueryKey('note', 'A');
+    client.setQueryData(key, document('Original.md'));
+    client.setQueryData(getLocalVaultSnapshotQueryKey(null), snapshot('Moved.md'));
+    const stop = watchLocalVaultSnapshots(client);
+    await vi.waitFor(() => expect(client.getQueryState(key)?.isInvalidated).toBe(true));
+
+    stop();
+    const later = getLocalVaultDocumentQueryKey('later', 'A');
+    client.setQueryData(later, { ...document('Old.md'), id: 'later' });
+    client.setQueryData(getLocalVaultSnapshotQueryKey(null), { ...snapshot('Moved.md'), notes: [{ ...document('New.md'), id: 'later' }] });
+    await Promise.resolve();
+    expect(client.getQueryState(later)?.isInvalidated).toBe(false);
+    client.clear();
   });
 });

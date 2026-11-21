@@ -40,7 +40,6 @@ function Harness({ api, sessionPath }: { api: HackDeskElectronAPI; sessionPath: 
   const folders = useWorkspaceFolderTrees({
     api,
     activeSnapshot: session,
-    activeSnapshotPath: sessionPath,
     activeVaultId: current?.localVault.activeVaultId ?? null,
     enabled: true,
     vaultIds: VAULTS.map((vault) => vault.id),
