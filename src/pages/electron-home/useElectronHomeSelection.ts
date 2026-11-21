@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 
 import type { NoteSummary } from '@/lib/electron-api';
@@ -6,6 +6,7 @@ import type { NoteSummary } from '@/lib/electron-api';
 import { getSavedTabNoteIdentity, type NoteIdentity, type OpenNoteTab } from './note-workspace';
 import { readFocusEditorOnOpen } from './note-focus-preference';
 import type { InPlaceTarget } from './useNoteLinkOpener';
+import type { EditorFocusDestination } from './useWorkbenchEditorRequests';
 
 export type ElectronHomeSelectNoteOptions = {
   focusEditor?: boolean;
@@ -21,7 +22,8 @@ export type ElectronHomeSelectionOptions = {
   activePaneId: string;
   getNotePaneId?: (note: NoteSummary) => string | undefined;
   activeTab: OpenNoteTab | null;
-  requestEditorFocus: () => void;
+  /** Focuses the picked note's editor once its tab is the active one (useWorkbenchEditorRequests). */
+  requestEditorFocusOn: (destination: EditorFocusDestination) => void;
   openNoteInWorkspace: (note: NoteSummary, options?: { inPlace?: InPlaceTarget; preview?: boolean }) => void;
   /** Keeps the tab showing a note, so the next sidebar pick does not replace it. */
   keepNoteInWorkspace?: (note: NoteIdentity) => void;
@@ -48,17 +50,13 @@ export function useElectronHomeSelection({
   activeTab,
   activePaneId,
   getNotePaneId,
-  requestEditorFocus,
+  requestEditorFocusOn,
   scopeStorageKey,
   openNoteInWorkspace,
   keepNoteInWorkspace,
   selectionRefs,
   trackRecentNote,
 }: ElectronHomeSelectionOptions) {
-  const pendingFocusRef = useRef<{
-    scopeKey: string | null | undefined; paneId: string; note: NoteIdentity;
-  } | null>(null);
-  const [selectionRequestId, setSelectionRequestId] = useState(0);
   const { autoSelectSuppressionRef, manualEmptyWorkspaceRef } = selectionRefs;
 
   useEffect(() => {
@@ -68,16 +66,6 @@ export function useElectronHomeSelection({
   const selectedNote = useMemo<NoteIdentity | null>(() => (
     getSavedTabNoteIdentity(activeTab)
   ), [activeTab]);
-
-  useEffect(() => {
-    const pendingFocus = pendingFocusRef.current;
-    if (!pendingFocus) return;
-    pendingFocusRef.current = null;
-    if (pendingFocus.scopeKey === scopeStorageKey && pendingFocus.paneId === activePaneId
-      && selectedNote?.id === pendingFocus.note.id && selectedNote.teamPath === pendingFocus.note.teamPath) {
-      requestEditorFocus();
-    }
-  }, [activePaneId, requestEditorFocus, scopeStorageKey, selectedNote, selectionRequestId]);
 
   const requestSelectNote = useCallback(async (
     note: NoteSummary,
@@ -90,14 +78,13 @@ export function useElectronHomeSelection({
       trackRecentNote(note);
     }
 
-    pendingFocusRef.current = null;
-    if (options.focusEditor) {
-      pendingFocusRef.current = { scopeKey: scopeStorageKey, paneId: getNotePaneId?.(note) ?? activePaneId, note: { id: note.id, teamPath: note.teamPath } };
-      setSelectionRequestId(id => id + 1);
+    // The editor takes focus once the note's tab is active, in the pane that shows it.
+    if (options.focusEditor && scopeStorageKey) {
+      requestEditorFocusOn({ scopeKey: scopeStorageKey, paneId: getNotePaneId?.(note) ?? activePaneId, documentId: note.id });
     }
 
     return true;
-  }, [activePaneId, getNotePaneId, autoSelectSuppressionRef, manualEmptyWorkspaceRef, openNoteInWorkspace, scopeStorageKey, trackRecentNote]);
+  }, [activePaneId, getNotePaneId, autoSelectSuppressionRef, manualEmptyWorkspaceRef, openNoteInWorkspace, requestEditorFocusOn, scopeStorageKey, trackRecentNote]);
 
   // A click in the sidebar previews the note; a double-click keeps its tab.
   const handleNoteSelect = useCallback((note: NoteSummary) => {

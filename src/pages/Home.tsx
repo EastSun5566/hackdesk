@@ -209,7 +209,7 @@ export function Home() {
   const transferInitialDrafts = noteWorkspace.transferInitialDrafts;
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
-  const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest, bumpAiAssistRequest, bumpDictateRequest, bumpRenameRequest } = useWorkbenchEditorRequests(
+  const { editorRequests, consumeEditorRequest, requestEditorFocus, requestEditorFocusOn, bumpEditorSearchRequest, bumpAttachImageRequest, bumpAiAssistRequest, bumpDictateRequest, bumpRenameRequest } = useWorkbenchEditorRequests(
     scopeStorageKey && activeTab ? {
       scopeKey: scopeStorageKey,
       paneId: noteWorkspace.state.activePaneId,
@@ -244,7 +244,7 @@ export function Home() {
       const existing = noteWorkspace.getTabsMatching(note)[0];
       return existing ? noteWorkspace.getTabHostPane(existing.tabId)?.paneId : undefined;
     },
-    requestEditorFocus,
+    requestEditorFocusOn,
     scopeStorageKey,
     openNoteInWorkspace,
     keepNoteInWorkspace: noteWorkspace.keepNote,
