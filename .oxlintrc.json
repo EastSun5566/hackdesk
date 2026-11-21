@@ -89,7 +89,7 @@
     "no-useless-escape": "error",
     "no-with": "error",
     "react-doctor/no-cascading-set-state": "warn",
-    "react-doctor/no-chain-state-updates": "warn",
+    "react-doctor/no-chain-state-updates": "error",
     "react-doctor/no-event-handler": "warn",
     "react-doctor/no-giant-component": "warn",
     "react-doctor/no-many-boolean-props": "warn",
