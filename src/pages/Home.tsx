@@ -826,13 +826,13 @@ export function Home() {
     teams,
     tree: folderTree,
   });
-  const bookSession = useBookSession({ document: selectedDocument, activeTabId: noteWorkspace.activeTab?.tabId ?? null, openNoteTarget, openExternal: handleOpenExternal });
-  // A book is read in its tab; closing that tab closes the book.
-  const bookTabOpen = bookSession.tabId ? Boolean(noteWorkspace.state.tabs[bookSession.tabId]) : true;
-  const closeBook = bookSession.close;
-  useEffect(() => {
-    if (!bookTabOpen) closeBook();
-  }, [bookTabOpen, closeBook]);
+  const bookSession = useBookSession({
+    document: selectedDocument,
+    activeTabId: noteWorkspace.activeTab?.tabId ?? null,
+    tabs: noteWorkspace.state.tabs,
+    openNoteTarget,
+    openExternal: handleOpenExternal,
+  });
   const askNotesScope = getNoteSearchScope(scope);
   const askNotes = useAskNotes(askNotesScope);
 
