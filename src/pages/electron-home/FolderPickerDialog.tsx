@@ -86,14 +86,11 @@ export function FolderPickerDialog({ api, open, initialPath, addedPaths = [], on
     }
   }, [api]);
 
+  // Each pick mounts a fresh dialog (useFolderPicker keys it), so it browses its start folder once.
   useEffect(() => {
-    if (open) {
-      generation.current += 1;
-      setListing(null);
-      void browse(initialPath ?? undefined);
-      window.requestAnimationFrame(() => filterRef.current?.focus());
-    }
-  }, [open, initialPath, browse]);
+    void browse(initialPath ?? undefined);
+    window.requestAnimationFrame(() => filterRef.current?.focus());
+  }, [initialPath, browse]);
 
   const entries = useMemo(() => {
     const query = filter.trim().toLowerCase();
@@ -385,6 +382,8 @@ export function useFolderPicker(api: HackDeskElectronAPI | undefined) {
   const [open, setOpen] = useState(false);
   const [initialPath, setInitialPath] = useState<string | null>(null);
   const [addedPaths, setAddedPaths] = useState<readonly string[]>([]);
+  /** Counts picks: each one mounts a fresh dialog, so no folder, filter or error carries over. */
+  const [session, setSession] = useState(0);
   const resolveRef = useRef<((path: string | null) => void) | null>(null);
 
   const pickFolder = useCallback((startPath?: string | null, added: readonly string[] = []) => new Promise<string | null>((resolve) => {
@@ -393,6 +392,7 @@ export function useFolderPicker(api: HackDeskElectronAPI | undefined) {
     resolveRef.current = resolve;
     setInitialPath(startPath ?? null);
     setAddedPaths(added);
+    setSession((current) => current + 1);
     setOpen(true);
   }), []);
 
@@ -402,8 +402,11 @@ export function useFolderPicker(api: HackDeskElectronAPI | undefined) {
     resolveRef.current = null;
   }, []);
 
-  const dialog = (
+  // Before the first pick there is nothing to show; a later close keeps the same key, so the
+  // dialog animates out with its content.
+  const dialog = session === 0 ? null : (
     <FolderPickerDialog
+      key={session}
       api={api}
       open={open}
       initialPath={initialPath}
