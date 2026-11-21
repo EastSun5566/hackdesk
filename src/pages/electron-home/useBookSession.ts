@@ -71,63 +71,88 @@ export function chapterTarget(book: DocumentSummary, target: string) {
 }
 
 /**
+ * The book state after opening `book`. `keepTab`: the book's text changed, so the open book refreshes
+ * in the tab it already reads in; otherwise it reads in `activeTabId`, the tab the reader asked from.
+ */
+function openedBook(current: OpenBook | null, book: DocumentSummary, keepTab: boolean, activeTabId: string | null): OpenBook {
+  const contents = parseBook(book.content);
+  const previous = current && documentKey(current.document) === documentKey(book) ? current : null;
+  return {
+    document: book,
+    // Reopening the same book (its text changed) keeps its tab; opening it on request reads it
+    // in the tab the reader asked from, even when another tab of the same book had it.
+    tabId: (keepTab ? previous?.tabId : null) ?? activeTabId,
+    contents,
+    // Keep what is known about chapters whose links did not change.
+    chapterNotes: contents.chapters.map((chapter) => {
+      const same = previous?.contents.chapters.findIndex(known => known.target === chapter.target) ?? -1;
+      return same >= 0 ? previous!.chapterNotes[same] ?? null : null;
+    }),
+    lastChapter: previous?.lastChapter == null ? null : sameOccurrence(previous.contents, previous.lastChapter, contents),
+  };
+}
+
+/**
  * The book being read: its contents, and which open note is which chapter. HackMD books open by
  * themselves; any note can be opened as one. Chapters are matched from local data; opening a
  * chapter may ask HackMD once, as any link does.
  */
-export function useBookSession({ document, activeTabId, openNoteTarget, openExternal }: {
+export function useBookSession({ document, activeTabId, tabs, openNoteTarget, openExternal }: {
   /** The active document, which opens as a book when HackMD publishes it as one. */
   document: DocumentSummary | undefined;
   /** The active tab: a book opens in it. */
   activeTabId: string | null;
+  /** The open tabs, by id. A book is read in its tab, so closing that tab closes the book. */
+  tabs: Readonly<Record<string, unknown>>;
   openNoteTarget: OpenNoteTarget;
   openExternal: (url: string) => void;
 }): BookSession {
-  const [state, setState] = useState<OpenBook | null>(null);
+  const [opened, setState] = useState<OpenBook | null>(null);
+  // Closing the book's tab closes the book. Tab ids are never reused, so a book left behind on a
+  // closed tab is simply not open; opening a book replaces it.
+  const state = opened && (opened.tabId === null || opened.tabId in tabs) ? opened : null;
   const activeTab = useRef(activeTabId);
   useEffect(() => {
     activeTab.current = activeTabId;
   }, [activeTabId]);
-  // HackMD books open when the reader turns to them, so a closed book stays closed while it is shown.
-  const shown = useRef<string | null>(null);
+  const open = useCallback((book: DocumentSummary) => {
+    setState(current => openedBook(current, book, false, activeTab.current));
+  }, []);
 
-  /** `keepTab`: the book's text changed, so the open book refreshes in the tab it already reads in. */
-  const openBook = useCallback((book: DocumentSummary, keepTab: boolean) => {
-    const contents = parseBook(book.content);
-    const key = documentKey(book);
-    setState((current) => {
-      const previous = current && documentKey(current.document) === key ? current : null;
-      return {
-        document: book,
-        // Reopening the same book (its text changed) keeps its tab; opening it on request reads it
-        // in the tab the reader asked from, even when another tab of the same book had it.
-        tabId: (keepTab ? previous?.tabId : null) ?? activeTab.current,
-        contents,
-        // Keep what is known about chapters whose links did not change.
-        chapterNotes: contents.chapters.map((chapter) => {
-          const same = previous?.contents.chapters.findIndex(known => known.target === chapter.target) ?? -1;
-          return same >= 0 ? previous!.chapterNotes[same] ?? null : null;
-        }),
-        lastChapter: previous?.lastChapter == null ? null : sameOccurrence(previous.contents, previous.lastChapter, contents),
-      };
-    });
+  // The open book follows saved edits to it, and a HackMD book opens when the reader turns to it,
+  // once: a book the reader closed stays closed while it is shown. Both adjust the state while
+  // rendering the document that calls for it, so the book never shows a render late.
+  const shownKey = document ? documentKey(document) : null;
+  const [lastShownKey, setLastShownKey] = useState<string | null>(null);
+  const isOpenBook = state !== null && shownKey !== null && documentKey(state.document) === shownKey;
+  if (isOpenBook && document && state.document.content !== document.content) {
+    setState(current => openedBook(current, document, true, activeTabId));
+  }
+  if (shownKey !== lastShownKey) {
+    setLastShownKey(shownKey);
+    if (document && !isOpenBook && document.publishType === 'book') setState(current => openedBook(current, document, false, activeTabId));
+  }
 
+  // Each chapter's note is looked up from its link once the contents are known (local data first;
+  // opening a chapter may still ask HackMD, as any link does).
+  const book = state?.document;
+  const contents = state?.contents;
+  useEffect(() => {
     const api = getHackDeskAPI();
-    const from = getNoteLinkSource(book);
-    if (!api?.noteIndex || !from) return;
+    const from = book ? getNoteLinkSource(book) : null;
+    if (!book || !contents || !api?.noteIndex || !from) return;
     for (const chapter of contents.chapters) {
       if (chapter.newTab) continue;
       void api.noteIndex.resolveLink({ target: chapterTarget(book, chapter.target), kind: 'url', from })
         .then((found) => {
           if (!found) return;
-          setState(current => (current && documentKey(current.document) === key && current.contents === contents
+          setState(current => (current?.contents === contents
             ? { ...current, chapterNotes: current.chapterNotes.map((note, index) => (index === chapter.index ? recentNoteKey(toRecentNote(found)) : note)) }
             : current));
         })
         .catch(() => undefined);
     }
-  }, []);
-  const open = useCallback((book: DocumentSummary) => openBook(book, false), [openBook]);
+  }, [book, contents]);
 
   const close = useCallback(() => setState(null), []);
   const [hiddenFor, setHiddenFor] = useState<Book | null>(null);
@@ -187,21 +212,6 @@ export function useBookSession({ document, activeTabId, openNoteTarget, openExte
     const chapterIndex = state.lastChapter !== null && keys[state.lastChapter] === key ? state.lastChapter : keys.indexOf(key);
     return chapterIndex >= 0 ? { isBook: false, chapterIndex } : null;
   }, [state]);
-
-  // The open book follows saved edits to it, and a HackMD book opens when the reader turns to it.
-  useEffect(() => {
-    if (!document) {
-      // Nothing is shown (the book's tab was the last one), so turning back to the book opens it again.
-      shown.current = null;
-      return;
-    }
-    const key = documentKey(document);
-    const isOpenBook = state !== null && documentKey(state.document) === key;
-    if (isOpenBook && state.document.content !== document.content) openBook(document, true);
-    if (shown.current === key) return;
-    shown.current = key;
-    if (!isOpenBook && document.publishType === 'book') openBook(document, false);
-  }, [document, openBook, state]);
 
   return useMemo(() => ({
     book: state ? { title: state.document.title || 'Untitled book', contents: state.contents } : null,
