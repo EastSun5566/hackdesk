@@ -990,10 +990,6 @@ function FinderResultList({
     return () => observer.disconnect();
   }, [shownCount]);
 
-  useEffect(() => {
-    if (highlightedResultId) document.getElementById(highlightedResultId)?.scrollIntoView({ block: 'nearest' });
-  }, [highlightedResultId]);
-
   return (
     <>
       <ul id={NOTE_FINDER_RESULTS_ID} className="m-0 min-w-0 list-none space-y-1 p-0" aria-label="Search results">
@@ -1110,6 +1106,12 @@ function NavigatorTree({
   const [rootSectionExpanded, setRootSectionExpanded] = useState(() => (
     scopeStorageKey ? readRootSectionExpanded(scopeStorageKey) : true
   ));
+  // Each workspace keeps its own: switching to another shows its root section as it was left there.
+  const [rootSectionScope, setRootSectionScope] = useState(scopeStorageKey);
+  if (rootSectionScope !== scopeStorageKey) {
+    setRootSectionScope(scopeStorageKey);
+    if (scopeStorageKey) setRootSectionExpanded(readRootSectionExpanded(scopeStorageKey));
+  }
   // Every folder in the open set has its own section; collapse is per folder, not per workspace.
   const [collapsedWorkspaceFolderIds, setCollapsedWorkspaceFolderIds] = useState<Set<string>>(new Set());
   const [expandCommand, setExpandCommand] = useState<{ sequence: number; expanded: boolean }>();
@@ -1169,11 +1171,6 @@ function NavigatorTree({
     ids.splice(targetIndex, 0, vaultId);
     reorderWorkspaceFolders?.(ids);
   };
-  useEffect(() => {
-    if (scopeStorageKey) {
-      setRootSectionExpanded(readRootSectionExpanded(scopeStorageKey));
-    }
-  }, [scopeStorageKey]);
   const toggleRootSection = () => {
     setRootSectionExpanded((previous) => {
       const next = !previous;
