@@ -400,9 +400,16 @@ function NoteRowView({
     () => <NoteSummaryCard entry={entry} />,
   );
 
+  // The highlighted search result scrolls itself into view, whatever highlighted it: the arrow keys,
+  // or new results starting over at the first. The ref changes with the highlight, so it runs then.
+  const rowRef = useCallback((element: HTMLDivElement | null) => {
+    overlayRef(element);
+    if (element && highlightId) element.scrollIntoView?.({ block: 'nearest' });
+  }, [overlayRef, highlightId]);
+
   return (
     <div
-      ref={overlayRef}
+      ref={rowRef}
       id={highlightId}
       onPointerEnter={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
       onFocus={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
