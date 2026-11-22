@@ -1460,3 +1460,44 @@ describe('FolderNavigator tag groups', () => {
     expect(screen.getByRole('treeitem', { name: 'Work Newest' })).toBeVisible();
   });
 });
+
+// Characterization for #385 (the FolderNavigator audit), before these move out of effects.
+describe('FolderNavigator: what follows a change on screen', () => {
+  // The test setup stubs scrollIntoView on HTMLElement; spy on that stub.
+  let scrollIntoView: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    scrollIntoView = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+  });
+  afterEach(() => {
+    scrollIntoView.mockRestore();
+  });
+
+  it('scrolls the highlighted search result into view as the arrow keys move it', () => {
+    renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, query: 'note' } });
+    const search = screen.getByPlaceholderText('Search notes');
+    const results = within(screen.getByRole('list', { name: 'Search results' })).getAllByRole('listitem');
+    const row = (index: number) => results[index].querySelector('[data-folder-tree-kind="note"]')!;
+    search.focus();
+    scrollIntoView.mockClear();
+
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    expect(row(1).id).not.toBe('');
+    expect(scrollIntoView.mock.contexts).toContain(row(1));
+  });
+
+  it("shows each workspace's root section as it was left there", () => {
+    // The team's notes were collapsed under its root row; My Workspace's were not.
+    window.localStorage.setItem('hackdesk_root_section_collapsed:team:design', 'true');
+    const { props, rerender } = renderFolderNavigator();
+    const rootRow = () => within(screen.getByRole('tree', { name: 'Folders and notes' })).getAllByRole('treeitem')
+      .find((item) => item.getAttribute('aria-level') === '1')!;
+    expect(rootRow()).toHaveAttribute('aria-expanded', 'true');
+
+    rerender(<TooltipProvider><FolderNavigator {...props} scope={{ type: 'team', label: 'Design', teamPath: 'design' }} /></TooltipProvider>);
+    expect(rootRow()).toHaveAttribute('aria-expanded', 'false');
+
+    rerender(<TooltipProvider><FolderNavigator {...props} /></TooltipProvider>);
+    expect(rootRow()).toHaveAttribute('aria-expanded', 'true');
+    window.localStorage.removeItem('hackdesk_root_section_collapsed:team:design');
+  });
+});
