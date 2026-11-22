@@ -1470,6 +1470,8 @@ describe('FolderNavigator: what follows a change on screen', () => {
   });
   afterEach(() => {
     scrollIntoView.mockRestore();
+    // In afterEach, so a failed assertion cannot leave it set for the tests after it.
+    window.localStorage.removeItem('hackdesk_root_section_collapsed:team:design');
   });
 
   it('scrolls the highlighted search result into view as the arrow keys move it', () => {
@@ -1498,6 +1500,5 @@ describe('FolderNavigator: what follows a change on screen', () => {
 
     rerender(<TooltipProvider><FolderNavigator {...props} /></TooltipProvider>);
     expect(rootRow()).toHaveAttribute('aria-expanded', 'true');
-    window.localStorage.removeItem('hackdesk_root_section_collapsed:team:design');
   });
 });
