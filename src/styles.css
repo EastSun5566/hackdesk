@@ -559,6 +559,10 @@
     opacity: 1;
   }
 
+  .entity-row-menu[data-row-menu-open] {
+    opacity: 1;
+  }
+
   [data-popup-open] .entity-row-menu {
     opacity: 1;
   }
