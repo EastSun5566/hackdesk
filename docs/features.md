@@ -7,9 +7,9 @@ outline: deep
 
 Open notes in tabs, arrange them in panes, and save them to a Local Vault or HackMD. To connect a workspace, [get started](./intro.md).
 
-![Project plan and release checklist open in separate panes, beside two demonstration folders](/editor.png)
+<EditorShowcase description="with project plan and release checklist open in separate panes, beside demonstration folders" />
 
-*HackDesk beta.13 with demonstration notes.*
+*HackDesk with demonstration notes.*
 
 ## Choose a workspace
 

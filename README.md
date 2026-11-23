@@ -22,7 +22,18 @@ Work with HackMD notes and local Markdown vaults.
 - **AI and dictation:** Rewrite with your installed Codex or Claude CLI, ask questions across your notes, and dictate on macOS 26 or later.
 - **Customize:** Change themes, fonts, editor modes, and shortcuts in Settings.
 
-![HackDesk with demonstration notes in split panes](./docs/public/editor.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/public/editor-macos-dark.png">
+  <img src="./docs/public/editor-macos-light.png" alt="HackDesk on macOS with demonstration notes in split panes">
+</picture>
+
+<details>
+  <summary>Windows and Linux window frame</summary>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/public/editor-windows-linux-dark.png">
+    <img src="./docs/public/editor-windows-linux-light.png" alt="HackDesk on Windows and Linux with demonstration notes in split panes">
+  </picture>
+</details>
 
 ## Install
 

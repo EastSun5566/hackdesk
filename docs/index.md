@@ -25,8 +25,8 @@ hero:
 
 Open a [Local Vault or HackMD account](./intro.md), [arrange your notes](./features.md), or [navigate with the keyboard](./keyboard-navigation.md).
 
-![HackDesk showing demonstration notes in split panes](/editor.png)
+<EditorShowcase />
 
-*HackDesk beta.13 with demonstration notes.*
+*HackDesk with demonstration notes in macOS and Windows / Linux window frames, in light and dark themes.*
 
 [Code signing policy](./code-signing-policy.md)

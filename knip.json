@@ -11,6 +11,7 @@
     "electron/src/preload/presentation.ts",
     "scripts/*.ts",
     "docs/.vitepress/config.ts",
+    "docs/.vitepress/theme/env.d.ts",
     "docs/.vitepress/theme/index.ts",
     "docs/release.data.ts"
   ],

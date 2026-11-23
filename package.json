@@ -48,7 +48,8 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "docs:release-snapshot": "node docs/.vitepress/update-release-snapshot.ts"
+    "docs:release-snapshot": "node docs/.vitepress/update-release-snapshot.ts",
+    "docs:screenshots": "node scripts/generate-docs-screenshots.ts"
   },
   "author": "Michael Wang <hi@eastsun.me> (https://github.com/EastSun5566)",
   "repository": {

@@ -74,9 +74,17 @@ function withDictationEvents<T>(requestId: string, onEvent: (event: DictationEve
   });
 }
 
+function resolveRendererPlatform() {
+  // Only unpackaged main-process runs pass this flag via BrowserWindow webPreferences.additionalArguments.
+  const override = process.argv
+    .find((arg) => arg.startsWith('--hackdesk-renderer-platform='))
+    ?.slice('--hackdesk-renderer-platform='.length);
+  return override === 'darwin' || override === 'linux' || override === 'win32' ? override : process.platform;
+}
+
 const api: HackDeskElectronAPI = {
   getRuntimeEnvironment: () => 'electron',
-  platform: process.platform,
+  platform: resolveRendererPlatform(),
   settings: {
     get: () => ipcRenderer.invoke(ELECTRON_CHANNELS.settingsGet),
     update: (settings: ElectronSettingsUpdate) => ipcRenderer.invoke(ELECTRON_CHANNELS.settingsUpdate, settings),
