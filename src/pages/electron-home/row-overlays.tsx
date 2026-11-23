@@ -86,15 +86,11 @@ interface CardState {
 const CLOSED_MENU: MenuState = { open: false, anchor: null, row: null, items: null };
 const CLOSED_CARD: CardState = { open: false, anchor: null, card: null };
 
+/** Marks the row whose context menu is open, so its hover controls stay shown (EntityRow). */
 function setRowMenuOpen(row: HTMLElement | null, open: boolean) {
   if (!row) return;
   if (open) row.dataset.rowMenuOpen = 'true';
   else delete row.dataset.rowMenuOpen;
-  const controls = row.querySelector<HTMLElement>('.entity-row-menu');
-  if (controls) {
-    if (open) controls.dataset.rowMenuOpen = 'true';
-    else delete controls.dataset.rowMenuOpen;
-  }
 }
 
 /**

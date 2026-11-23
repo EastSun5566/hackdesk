@@ -4,7 +4,7 @@ import { ROOT_FOLDER_ORDER_KEY } from './hackmd-folders';
 
 /** The workspace row: dropping a folder or note on it moves it to the top level. */
 export const ROOT_FOLDER_DROP_ID = '__hackdesk_root_folder_drop__';
-export const ROOT_FOLDER_BLANK_DROP_ID = '__hackdesk_root_folder_blank_drop__';
+/** A folder's notes area: dropping a note anywhere beside its rows moves it into that folder. */
 const FOLDER_CONTENT_DROP_PREFIX = '__hackdesk_folder_content_drop__:';
 
 export function buildFolderContentDropId(folderId: string) {
@@ -16,7 +16,7 @@ export function parseFolderContentDropId(value: string) {
 }
 
 export function isRootFolderDropTarget(overId: string) {
-  return overId === ROOT_FOLDER_DROP_ID || overId === ROOT_FOLDER_BLANK_DROP_ID;
+  return overId === ROOT_FOLDER_DROP_ID;
 }
 const FOLDER_DND_INDENT_WIDTH = 20;
 

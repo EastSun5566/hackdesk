@@ -196,7 +196,7 @@ function EntityRowContent({
       )}
       {controlsAfterNode ? controlsElement : null}
       {menu ? (
-        <span className="entity-row-menu shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none">
+        <span className="entity-row-menu shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 in-data-row-menu-open:opacity-100 has-data-popup-open:opacity-100 motion-reduce:transition-none">
           {menu}
         </span>
       ) : null}

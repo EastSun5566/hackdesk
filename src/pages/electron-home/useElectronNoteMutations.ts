@@ -79,9 +79,10 @@ function reportSyncEnd<TVariables>(
 
 function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: string, operation: {
   mutationFn: (variables: TVariables) => Promise<TData>;
-  onMutate?: (variables: TVariables) => Promise<unknown> | unknown;
+  /** An optimistic update; returns how to undo it if the operation fails. */
+  onMutate?: (variables: TVariables) => Promise<(() => void) | undefined>;
   onSuccess?: (data: TData, variables: TVariables) => void;
-  onError?: (error: Error, variables: TVariables, context: unknown) => void;
+  onError?: (error: Error) => void;
   sync?: MutationSync<TVariables>;
 }) {
   const queryClient = useQueryClient();
@@ -93,7 +94,7 @@ function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: st
     mutationFn: (request: Request) => request.operation.mutationFn(request.variables),
     onMutate: async (request: Request) => ({
       sync: reportSyncStart(request.operation.sync, request.variables),
-      operation: await request.operation.onMutate?.(request.variables),
+      rollback: await request.operation.onMutate?.(request.variables),
     }),
     onSuccess: (data, request, context) => {
       reportSyncEnd(request.operation.sync, context?.sync, null);
@@ -101,7 +102,8 @@ function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: st
     },
     onError: (error: Error, request, context) => {
       reportSyncEnd(request.operation.sync, context?.sync, error);
-      request.operation.onError?.(error, request.variables, context?.operation);
+      context?.rollback?.();
+      request.operation.onError?.(error);
     },
   });
   // Observe the cache so returning to A still shows its pending operation even
@@ -673,7 +675,10 @@ export function useElectronNoteMutations({
         );
       }
       await cancelQueries;
-      return { previousWorkspace, previousDocument };
+      return () => {
+        queryClient.setQueryData(workspaceKey, previousWorkspace);
+        queryClient.setQueryData(documentKey, previousDocument);
+      };
     },
     onSuccess: ({ note, targetFolderId }) => {
       if (listsFromSnapshot) {
@@ -694,17 +699,7 @@ export function useElectronNoteMutations({
       }
       onNoteMoved(note, targetFolderId);
     },
-    onError: (error, _variables, context) => {
-      if (context) {
-        const rollback = context as {
-          previousWorkspace?: RepositoryValue<NoteSummary[]>;
-          previousDocument?: RepositoryValue<DocumentSummary>;
-        };
-        queryClient.setQueryData(getWorkspaceQueryKey(scope), rollback.previousWorkspace);
-        queryClient.setQueryData(['electron', 'hackmd', 'note', _variables.note.teamPath ?? null, _variables.note.id], rollback.previousDocument);
-      }
-      toast.error(error instanceof Error ? error.message : 'Failed to move note.');
-    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move note.'),
   });
 
   const renameFolderMutation = useWorkspaceMutation(scope, 'rename-folder', {
@@ -773,7 +768,10 @@ export function useElectronNoteMutations({
         data: operation.order,
       }));
       await cancelQueries;
-      return { previousFolders, previousOrder };
+      return () => {
+        queryClient.setQueryData(foldersKey, previousFolders);
+        queryClient.setQueryData(orderKey, previousOrder);
+      };
     },
     onSuccess: () => {
       if (refreshesFolderQueries) {
@@ -781,17 +779,7 @@ export function useElectronNoteMutations({
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
     },
-    onError: (error, _operation, context) => {
-      if (context) {
-        const rollback = context as {
-          previousFolders?: RepositoryValue<FolderPathSummary[]>;
-          previousOrder?: RepositoryValue<Record<string, string[]>>;
-        };
-        queryClient.setQueryData(getFoldersQueryKey(scope), rollback.previousFolders);
-        queryClient.setQueryData(getFolderOrderQueryKey(scope), rollback.previousOrder);
-      }
-      toast.error(error instanceof Error ? error.message : 'Failed to move folder.');
-    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move folder.'),
   });
 
   return {

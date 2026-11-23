@@ -84,17 +84,6 @@ describe('note dnd helpers', () => {
     expect(getNoteCurrentFolderId(tree.allNotes[0])).toBe(folder.id);
   });
 
-  it('uses the target note folder when the pointer lands on a note row', () => {
-    const targetNote = { ...note, id: 'note-2', title: 'Target note' };
-    const tree = buildHackmdFolderTree([note, targetNote], [folder, otherFolder]);
-
-    expect(buildNoteDropOperation({
-      tree,
-      activeId: buildNoteDragId(targetNote.id),
-      overId: buildNoteDragId(note.id),
-    })).toMatchObject({ targetFolderId: folder.id, changed: false });
-  });
-
   it('builds a root move operation with null target folder id', () => {
     const tree = buildHackmdFolderTree([note], [folder]);
     const operation = buildNoteDropOperation({

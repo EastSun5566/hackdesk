@@ -37,7 +37,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import type { NoteSummary } from '@/lib/electron-api';
-import { buildNoteDragId } from '@/lib/hackmd-note-dnd';
+import { buildNoteDragId, parseNoteDragId } from '@/lib/hackmd-note-dnd';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { createTagGroupFocusId } from '@/lib/electron-tag-groups';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -47,7 +47,7 @@ import { ActionMenuShortcut, useActionShortcut } from './ActionShortcutContext';
 import { EntityRow } from './interaction-primitives';
 import { NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
-import { buildFolderContentDropId, isRootFolderDropTarget, parseFolderContentDropId, ROOT_FOLDER_BLANK_DROP_ID, ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
+import { buildFolderContentDropId, isRootFolderDropTarget, parseFolderContentDropId, ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { countVisibleTreeRows, LazyTreeChildren } from './LazyTreeChildren';
@@ -1218,61 +1218,59 @@ export function SidebarHistoryRow({ selected, onOpen }: { selected: boolean; onO
   return <div className="min-w-0"><EntityRow selected={selected} leadingControls={<span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle"><History className="h-3.5 w-3.5" /></span>} title="History" variant="compact" tone="quiet" contentAriaLabel="History" contentOnClick={onOpen} contentAriaCurrent={selected ? 'page' : undefined} className={TREE_ROW_FOCUS_CLASS} /></div>;
 }
 
-/**
- * The blank space below the tree: clicking it selects the top level, and its context menu creates
- * there. Moving something to the top level is a drop on the workspace row instead.
- */
 /** The folder a dragged note would drop into: its row, or the area of its notes. */
-function useNoteDropFolderId(activeNoteId: string | null | undefined) {
-  const { over } = useDndContext();
-  if (!activeNoteId || !over) return null;
+function useNoteDropFolderId() {
+  const { active, over } = useDndContext();
+  if (!active || !over || parseNoteDragId(String(active.id)) === null) return null;
   const overId = String(over.id);
   return parseFolderContentDropId(overId) ?? overId;
 }
 
-/**
- * Lights up the whole tree while a dragged note would move to the top level: over the workspace
- * row or the blank space below the tree, or over no row at all inside the tree's width, which a
- * drop also treats as the top level (see NavigatorTree's drag end).
- */
-export function TreeRootDropHighlight({ noteDragActive, treeRef }: { noteDragActive: boolean; treeRef: { current: HTMLElement | null } }) {
+/** A note dragged over no row or folder, but within the tree's width, drops at the top level. */
+export function isNoteDropOnTreeRoot(
+  { activatorEvent, delta }: { activatorEvent: Event | null; delta: { x: number } },
+  tree: HTMLElement | null,
+) {
+  if (!(activatorEvent instanceof PointerEvent) || !tree) return false;
+  return activatorEvent.clientX + delta.x <= tree.getBoundingClientRect().right;
+}
+
+/** Lights up the whole tree while a dragged note would move to the top level. */
+export function TreeRootDropHighlight({ treeRef }: { treeRef: { current: HTMLElement | null } }) {
   const [rootTarget, setRootTarget] = useState(false);
   useDndMonitor({
-    onDragMove({ over, activatorEvent, delta }) {
-      if (over) {
-        setRootTarget(isRootFolderDropTarget(String(over.id)));
-        return;
-      }
-      const pointerX = activatorEvent && 'clientX' in activatorEvent ? (activatorEvent as PointerEvent).clientX + delta.x : null;
-      setRootTarget(pointerX !== null && pointerX <= (treeRef.current?.getBoundingClientRect().right ?? 0));
+    onDragMove(event) {
+      setRootTarget(parseNoteDragId(String(event.active.id)) !== null && (event.over
+        ? isRootFolderDropTarget(String(event.over.id))
+        : isNoteDropOnTreeRoot(event, treeRef.current)));
     },
     onDragEnd() { setRootTarget(false); },
     onDragCancel() { setRootTarget(false); },
   });
-  if (!noteDragActive || !rootTarget) return null;
+  if (!rootTarget) return null;
   return <span aria-hidden="true" data-testid="note-drop-root-highlight" className="pointer-events-none absolute inset-0 rounded-md bg-background-primary-subtler/40" />;
 }
 
+/**
+ * The blank space below the tree: clicking it selects the top level, and its context menu creates
+ * there. A note dropped on it moves to the top level (see isNoteDropOnTreeRoot).
+ */
 export function TreeBlankArea({
   onSelect,
   onCreateFolder,
   onCreateNote,
-  noteDragActive = false,
 }: {
   onSelect: () => void;
   onCreateFolder: () => void;
   onCreateNote: () => void;
-  noteDragActive?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_BLANK_DROP_ID });
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          ref={setNodeRef}
           data-testid="tree-top-level"
           onClick={onSelect}
-          className={cn('relative z-50 mt-0.5 min-h-10 flex-1', noteDragActive && !isOver && 'bg-background-primary-subtler/20')}
+          className="mt-0.5 min-h-10 flex-1"
         />
       </ContextMenuTrigger>
       <ContextMenuContent>
@@ -1445,13 +1443,15 @@ export function FolderTreeView({
   topLevelGuides?: boolean;
 }) {
   const groupId = useFolderTreeGroupId(parentFolderId ?? '');
-  const contentDropId = parentFolderId ? buildFolderContentDropId(parentFolderId) : null;
+  // The top level has no notes area of its own: a note dropped there moves to the root instead.
   const { setNodeRef: setContentDropRef } = useDroppable({
-    id: contentDropId ?? `${ROOT_FOLDER_BLANK_DROP_ID}:unused`,
-    disabled: !contentDropId || !activeNoteId || collapsedFolderIds.has(parentFolderId ?? ''),
+    id: buildFolderContentDropId(parentFolderId ?? ''),
+    disabled: !parentFolderId || !activeNoteId,
   });
-  const noteDropFolderId = useNoteDropFolderId(activeNoteId);
-  if (nodes.length === 0 && notes.length === 0 && !activeNoteId) return null;
+  const noteDropFolderId = useNoteDropFolderId();
+  if (nodes.length === 0 && notes.length === 0) {
+    return null;
+  }
 
   const items = nodes.map((node, index) => {
     const lastChild = index === nodes.length - 1 && notes.length === 0;
@@ -1562,7 +1562,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul ref={setContentDropRef} role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 w-full list-none gap-0.5 p-0', activeNoteId && 'min-h-7 bg-background-primary-subtler/20', TREE_CHILDREN_INDENT_CLASS)}>
+    <ul ref={setContentDropRef} role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
       {items}
       {noteItems}
     </ul>
