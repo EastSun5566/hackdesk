@@ -47,7 +47,7 @@ import { ActionMenuShortcut, useActionShortcut } from './ActionShortcutContext';
 import { EntityRow } from './interaction-primitives';
 import { NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
-import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
+import { buildFolderContentDropId, ROOT_FOLDER_BLANK_DROP_ID, ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { countVisibleTreeRows, LazyTreeChildren } from './LazyTreeChildren';
@@ -1231,13 +1231,15 @@ export function TreeBlankArea({
   onCreateFolder: () => void;
   onCreateNote: () => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_BLANK_DROP_ID });
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
+          ref={setNodeRef}
           data-testid="tree-top-level"
           onClick={onSelect}
-          className="mt-0.5 min-h-10 flex-1"
+          className={cn('relative z-50 mt-0.5 min-h-10 flex-1', isOver && 'bg-background-primary-subtler/60')}
         />
       </ContextMenuTrigger>
       <ContextMenuContent>
@@ -1410,9 +1412,12 @@ export function FolderTreeView({
   topLevelGuides?: boolean;
 }) {
   const groupId = useFolderTreeGroupId(parentFolderId ?? '');
-  if (nodes.length === 0 && notes.length === 0) {
-    return null;
-  }
+  const contentDropId = parentFolderId ? buildFolderContentDropId(parentFolderId) : null;
+  const { setNodeRef: setContentDropRef, isOver: isContentDropOver } = useDroppable({
+    id: contentDropId ?? `${ROOT_FOLDER_BLANK_DROP_ID}:unused`,
+    disabled: !contentDropId || !activeNoteId || collapsedFolderIds.has(parentFolderId ?? ''),
+  });
+  if (nodes.length === 0 && notes.length === 0 && !activeNoteId) return null;
 
   const items = nodes.map((node, index) => {
     const lastChild = index === nodes.length - 1 && notes.length === 0;
@@ -1518,7 +1523,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
+    <ul ref={setContentDropRef} role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', activeNoteId && 'min-h-7', TREE_CHILDREN_INDENT_CLASS, isContentDropOver && 'bg-background-primary-subtler/60')}>
       {items}
       {noteItems}
     </ul>

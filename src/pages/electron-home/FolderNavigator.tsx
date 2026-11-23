@@ -39,7 +39,9 @@ import {
   getFolderDropPlacement,
   getPlacedFolderDrop,
   getProjectedFolderDrop,
+  parseFolderContentDropId,
   ROOT_FOLDER_DROP_ID,
+  ROOT_FOLDER_BLANK_DROP_ID,
   type FolderDropOperation,
   type FolderDropPlacement,
 } from '@/lib/hackmd-folder-dnd';
@@ -135,11 +137,28 @@ const treeCollisionDetection: CollisionDetection = (input) => {
   if (!pointer) {
     return closestCenter(args).filter((collision) => collision.id !== ROOT_FOLDER_DROP_ID);
   }
+  const droppablePriority = (id: string) => (
+    id === ROOT_FOLDER_DROP_ID ? 3
+      : id === ROOT_FOLDER_BLANK_DROP_ID ? 0
+        : parseFolderContentDropId(id) ? 1
+          : 2
+  );
   const containers = [...args.droppableContainers].sort((left, right) => (
-    Number(right.id === ROOT_FOLDER_DROP_ID) - Number(left.id === ROOT_FOLDER_DROP_ID)
+    droppablePriority(String(right.id)) - droppablePriority(String(left.id))
   ));
   for (const container of containers) {
     if (container.disabled) continue;
+    const contentFolderId = parseFolderContentDropId(String(container.id));
+    if (contentFolderId) {
+      const pointedFolderRow = document.elementFromPoint(pointer.x, pointer.y)?.closest<HTMLElement>('[data-folder-tree-folder-id]');
+      if (pointedFolderRow?.dataset.folderTreeFolderId === contentFolderId) continue;
+      const folderRow = input.droppableContainers.find((candidate) => String(candidate.id) === contentFolderId);
+      const folderBounds = folderRow?.node.current?.getBoundingClientRect();
+      if (folderBounds && pointer.x >= folderBounds.left && pointer.x <= folderBounds.right
+        && pointer.y >= folderBounds.top && pointer.y <= folderBounds.bottom) {
+        continue;
+      }
+    }
     const bounds = container.node.current?.getBoundingClientRect();
     if (bounds && bounds.height > 0
       && pointer.x >= bounds.left && pointer.x <= bounds.right
@@ -1272,7 +1291,7 @@ function NavigatorTree({
   };
 
   const trackPointer = (event: DragStartEvent) => {
-    const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
+    const pointerStart = event.activatorEvent && 'clientY' in event.activatorEvent ? event.activatorEvent as PointerEvent : null;
     if (!pointerStart) return false;
     pointerYRef.current = pointerStart.clientY;
     const track = (moveEvent: PointerEvent) => { pointerYRef.current = moveEvent.clientY; };
@@ -1314,7 +1333,7 @@ function NavigatorTree({
     if (noteId) {
       setActiveNoteId(noteId);
       setActiveFolderId(null);
-      const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
+      const pointerStart = event.activatorEvent && 'clientX' in event.activatorEvent ? event.activatorEvent as PointerEvent : null;
       if (noteDrop && pointerStart) {
         notePointerRef.current = { x: pointerStart.clientX, y: pointerStart.clientY };
         const track = (moveEvent: PointerEvent) => {
@@ -1343,15 +1362,43 @@ function NavigatorTree({
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id);
     const notePoint = endNotePointerDrag();
+    const initialRect = event.active.rect.current.initial;
+    const translatedRect = event.active.rect.current.translated;
+    const finalNotePoint = notePoint
+      ?? (initialRect ? { x: initialRect.left + initialRect.width / 2 + event.delta.x, y: initialRect.top + initialRect.height / 2 + event.delta.y } : null)
+      ?? (translatedRect ? { x: translatedRect.left + translatedRect.width / 2, y: translatedRect.top + translatedRect.height / 2 } : null)
+      ?? (event.activatorEvent instanceof PointerEvent
+        ? { x: event.activatorEvent.clientX + event.delta.x, y: event.activatorEvent.clientY + event.delta.y }
+        : null);
     const droppedNoteId = parseNoteDragId(activeId);
-    if (droppedNoteId && notePoint && noteDrop) {
+    const blankBounds = finalNotePoint
+      ? [...document.querySelectorAll<HTMLElement>('[data-testid="tree-top-level"]')]
+        .map((element) => element.getBoundingClientRect())
+        .find((bounds) => finalNotePoint.x >= bounds.left && finalNotePoint.x <= bounds.right
+          && finalNotePoint.y >= bounds.top && finalNotePoint.y <= bounds.bottom) ?? null
+      : null;
+    const droppedOnRootBlank = Boolean(finalNotePoint && blankBounds
+      && finalNotePoint.x >= blankBounds.left && finalNotePoint.x <= blankBounds.right
+      && finalNotePoint.y >= blankBounds.top && finalNotePoint.y <= blankBounds.bottom);
+    if (droppedNoteId && finalNotePoint && noteDrop && !droppedOnRootBlank) {
       const entry = tree.allNotes.find((candidate) => candidate.note.id === droppedNoteId);
-      if (entry && noteDrop.drop(notePoint, entry.note)) {
+      if (entry && noteDrop.drop(finalNotePoint, entry.note)) {
         setActiveNoteId(null);
         return;
       }
     }
-    const overId = event.over ? String(event.over.id) : null;
+    let overId = event.over ? String(event.over.id) : null;
+    if (droppedNoteId && finalNotePoint) {
+      const pointedBlank = document.elementFromPoint(finalNotePoint.x, finalNotePoint.y)?.closest('[data-testid="tree-top-level"]');
+      if (pointedBlank || droppedOnRootBlank || (blankBounds
+        && finalNotePoint.x >= blankBounds.left && finalNotePoint.x <= blankBounds.right
+        && finalNotePoint.y >= blankBounds.top && finalNotePoint.y <= blankBounds.bottom)) {
+        overId = ROOT_FOLDER_BLANK_DROP_ID;
+      }
+      if (!overId && finalNotePoint.x <= (treeRef.current?.getBoundingClientRect().right ?? 0)) {
+        overId = ROOT_FOLDER_BLANK_DROP_ID;
+      }
+    }
     const pointerFolderDrop = pointerYRef.current === null ? undefined : folderDropRef.current;
     const sectionDrop = parseWorkspaceFolderDragId(activeId) !== null
       ? getWorkspaceFolderDrop(activeId, overId, pointerYRef.current, event.over?.rect ?? null)
