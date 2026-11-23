@@ -1699,6 +1699,7 @@ function NavigatorTree({
                 ) : treeRows}
               </ul>
             <TreeBlankArea
+              noteDragActive={Boolean(activeNoteId)}
               onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
               onCreateFolder={() => actions.onCreateFolderInside(null)}
               onCreateNote={() => actions.onCreateNoteInside(null)}

@@ -1226,10 +1226,12 @@ export function TreeBlankArea({
   onSelect,
   onCreateFolder,
   onCreateNote,
+  noteDragActive = false,
 }: {
   onSelect: () => void;
   onCreateFolder: () => void;
   onCreateNote: () => void;
+  noteDragActive?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_BLANK_DROP_ID });
   return (
@@ -1239,7 +1241,7 @@ export function TreeBlankArea({
           ref={setNodeRef}
           data-testid="tree-top-level"
           onClick={onSelect}
-          className={cn('relative z-50 mt-0.5 min-h-10 flex-1', isOver && 'bg-background-primary-subtler/60')}
+          className={cn('relative z-50 mt-0.5 min-h-10 flex-1', noteDragActive && 'bg-background-primary-subtler/20', isOver && 'bg-background-primary-subtler/60')}
         />
       </ContextMenuTrigger>
       <ContextMenuContent>
@@ -1523,7 +1525,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul ref={setContentDropRef} role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 w-full list-none gap-0.5 p-0', activeNoteId && 'min-h-7', TREE_CHILDREN_INDENT_CLASS, isContentDropOver && 'bg-background-primary-subtler/60')}>
+    <ul ref={setContentDropRef} role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 w-full list-none gap-0.5 p-0', activeNoteId && 'min-h-7 bg-background-primary-subtler/20', TREE_CHILDREN_INDENT_CLASS, isContentDropOver && 'bg-background-primary-subtler/60')}>
       {items}
       {noteItems}
     </ul>
