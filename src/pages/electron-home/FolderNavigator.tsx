@@ -1672,11 +1672,12 @@ function NavigatorTree({
           </FolderTreeFocusContext.Provider>
         </div>
       </SortableContext>
-      {/* The preview never takes the pointer: after a drop it animates back over the tree, where
-          it would swallow the press that starts the next drag. It renders on the body: the sidebar
-          is a size container, which would clip it at its edge as a note is dragged onto the panes. */}
+      {/* The preview never takes the pointer, and disappears on drop instead of sliding back to
+          where the drag started: the row is already in its new place. It renders on the body: the
+          sidebar is a size container, which would clip it at its edge as a note is dragged onto the
+          panes. */}
       {createPortal(
-        <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS}>
+        <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS} dropAnimation={null}>
           {activeNote ? (
             <NoteDragOverlay entry={activeNote} />
           ) : (
