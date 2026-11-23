@@ -1246,4 +1246,33 @@ describe('WindowManager multi-window', () => {
 
     expect(window.loadURL).toHaveBeenCalledWith('hackdesk://renderer/index.html');
   });
+
+  it('passes a renderer platform override only when unpackaged and valid', () => {
+    const previous = process.env.HACKDESK_RENDERER_PLATFORM;
+    const appWithPackaged = app as unknown as { isPackaged?: boolean };
+    const previousPackaged = appWithPackaged.isPackaged;
+    try {
+      appWithPackaged.isPackaged = false;
+      process.env.HACKDESK_RENDERER_PLATFORM = 'linux';
+      const manager = new WindowManager();
+      const overridden = getMockWindow(manager.createMainWindow());
+      expect((overridden.options as { webPreferences?: { additionalArguments?: string[] } }).webPreferences?.additionalArguments)
+        .toEqual(['--hackdesk-renderer-platform=linux']);
+
+      process.env.HACKDESK_RENDERER_PLATFORM = 'solaris';
+      const invalid = getMockWindow(manager.createMainWindow());
+      expect((invalid.options as { webPreferences?: { additionalArguments?: string[] } }).webPreferences?.additionalArguments)
+        .toBeUndefined();
+
+      appWithPackaged.isPackaged = true;
+      process.env.HACKDESK_RENDERER_PLATFORM = 'linux';
+      const packaged = getMockWindow(manager.createMainWindow());
+      expect((packaged.options as { webPreferences?: { additionalArguments?: string[] } }).webPreferences?.additionalArguments)
+        .toBeUndefined();
+    } finally {
+      appWithPackaged.isPackaged = previousPackaged;
+      if (previous === undefined) delete process.env.HACKDESK_RENDERER_PLATFORM;
+      else process.env.HACKDESK_RENDERER_PLATFORM = previous;
+    }
+  });
 });

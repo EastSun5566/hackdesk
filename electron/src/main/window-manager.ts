@@ -55,6 +55,18 @@ const PRESENTATION_CHANNELS = new Set<string>([
   ELECTRON_CHANNELS.appTogglePresentationFullScreen,
 ]);
 
+const RENDERER_PLATFORM_OVERRIDES = new Set(['darwin', 'linux', 'win32']);
+
+/**
+ * Unpackaged dev/screenshot runs can set HACKDESK_RENDERER_PLATFORM to preview another OS's title
+ * bar chrome and shortcut labels without switching machines. Packaged builds ignore the variable.
+ */
+function getRendererPlatformOverride(): string | null {
+  if (app.isPackaged) return null;
+  const candidate = process.env.HACKDESK_RENDERER_PLATFORM;
+  return candidate && RENDERER_PLATFORM_OVERRIDES.has(candidate) ? candidate : null;
+}
+
 function presentationStateOf(window: BrowserWindow | null | undefined): WindowPresentationState {
   return {
     fullScreen: window?.isFullScreen() ?? false,
@@ -824,6 +836,7 @@ export class WindowManager {
     } : centeredFallback;
     const windowState = anchorBounds ? { bounds: fallbackBounds, isMaximized: false } : readWindowState(fallbackBounds);
 
+    const platformOverride = getRendererPlatformOverride();
     const window = new BrowserWindow({
       ...windowState.bounds,
       minWidth: 900,
@@ -844,6 +857,7 @@ export class WindowManager {
         nodeIntegration: false,
         sandbox: true,
         webviewTag: false,
+        ...(platformOverride ? { additionalArguments: [`--hackdesk-renderer-platform=${platformOverride}`] } : {}),
       },
     });
     this.mainWindows.add(window);
