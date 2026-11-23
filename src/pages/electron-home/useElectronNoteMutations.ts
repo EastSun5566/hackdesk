@@ -7,6 +7,7 @@ import type {
   CreateNoteInput,
   DocumentSummary,
   FolderSummary,
+  FolderPathSummary,
   HackDeskElectronAPI,
   NoteSummary,
   RepositoryValue,
@@ -78,8 +79,9 @@ function reportSyncEnd<TVariables>(
 
 function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: string, operation: {
   mutationFn: (variables: TVariables) => Promise<TData>;
+  onMutate?: (variables: TVariables) => Promise<unknown> | unknown;
   onSuccess?: (data: TData, variables: TVariables) => void;
-  onError?: (error: Error) => void;
+  onError?: (error: Error, variables: TVariables, context: unknown) => void;
   sync?: MutationSync<TVariables>;
 }) {
   const queryClient = useQueryClient();
@@ -89,14 +91,17 @@ function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: st
   const mutation = useMutation({
     mutationKey,
     mutationFn: (request: Request) => request.operation.mutationFn(request.variables),
-    onMutate: (request: Request) => reportSyncStart(request.operation.sync, request.variables),
-    onSuccess: (data, request, started) => {
-      reportSyncEnd(request.operation.sync, started, null);
+    onMutate: async (request: Request) => ({
+      sync: reportSyncStart(request.operation.sync, request.variables),
+      operation: await request.operation.onMutate?.(request.variables),
+    }),
+    onSuccess: (data, request, context) => {
+      reportSyncEnd(request.operation.sync, context?.sync, null);
       request.operation.onSuccess?.(data, request.variables);
     },
-    onError: (error: Error, request, started) => {
-      reportSyncEnd(request.operation.sync, started, error);
-      request.operation.onError?.(error);
+    onError: (error: Error, request, context) => {
+      reportSyncEnd(request.operation.sync, context?.sync, error);
+      request.operation.onError?.(error, request.variables, context?.operation);
     },
   });
   // Observe the cache so returning to A still shows its pending operation even
@@ -688,13 +693,49 @@ export function useElectronNoteMutations({
       }
       return operation;
     },
+    onMutate: async (operation) => {
+      if (!refreshesFolderQueries || !operation.changed) return undefined;
+
+      const foldersKey = getFoldersQueryKey(scope);
+      const orderKey = getFolderOrderQueryKey(scope);
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: foldersKey }),
+        queryClient.cancelQueries({ queryKey: orderKey }),
+      ]);
+      const previousFolders = queryClient.getQueryData<RepositoryValue<FolderPathSummary[]>>(foldersKey);
+      const previousOrder = queryClient.getQueryData<RepositoryValue<Record<string, string[]>>>(orderKey);
+      queryClient.setQueryData<RepositoryValue<FolderPathSummary[]>>(foldersKey, (current) => {
+        if (!current || !Array.isArray(current.data)) return current;
+        return {
+          source: 'remote',
+          data: current.data.map((folder) => folder.id === operation.folderId
+            ? { ...folder, parentId: operation.parentFolderId }
+            : folder),
+        };
+      });
+      queryClient.setQueryData<RepositoryValue<Record<string, string[]>>>(orderKey, () => ({
+        source: 'remote',
+        data: operation.order,
+      }));
+      return { previousFolders, previousOrder };
+    },
     onSuccess: () => {
       if (refreshesFolderQueries) {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move folder.'),
+    onError: (error, _operation, context) => {
+      if (context) {
+        const rollback = context as {
+          previousFolders?: RepositoryValue<FolderPathSummary[]>;
+          previousOrder?: RepositoryValue<Record<string, string[]>>;
+        };
+        queryClient.setQueryData(getFoldersQueryKey(scope), rollback.previousFolders);
+        queryClient.setQueryData(getFolderOrderQueryKey(scope), rollback.previousOrder);
+      }
+      toast.error(error instanceof Error ? error.message : 'Failed to move folder.');
+    },
   });
 
   return {

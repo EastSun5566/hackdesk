@@ -112,6 +112,8 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
     if (!row || !items) return;
     event.preventDefault();
     closeCard();
+    if (menu.row && menu.row !== row) delete menu.row.dataset.rowMenuOpen;
+    row.dataset.rowMenuOpen = 'true';
     // The menu key and Shift+F10 report no pointer position: open the menu under the row instead.
     const fromKeyboard = event.clientX === 0 && event.clientY === 0;
     const bounds = row.getBoundingClientRect();
@@ -209,7 +211,10 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
       >
         {children}
       </div>
-      <Menu.Root open={menu.open} onOpenChange={(open) => setMenu((current) => ({ ...current, open }))}>
+      <Menu.Root open={menu.open} onOpenChange={(open) => {
+        if (!open && menu.row) delete menu.row.dataset.rowMenuOpen;
+        setMenu((current) => ({ ...current, open }));
+      }}>
         {menu.items ? (
           <ContextMenuContent
             anchor={menu.anchor}
