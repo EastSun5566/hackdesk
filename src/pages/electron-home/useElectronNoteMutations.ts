@@ -698,12 +698,12 @@ export function useElectronNoteMutations({
 
       const foldersKey = getFoldersQueryKey(scope);
       const orderKey = getFolderOrderQueryKey(scope);
-      await Promise.all([
+      const previousFolders = queryClient.getQueryData<RepositoryValue<FolderPathSummary[]>>(foldersKey);
+      const previousOrder = queryClient.getQueryData<RepositoryValue<Record<string, string[]>>>(orderKey);
+      const cancelQueries = Promise.all([
         queryClient.cancelQueries({ queryKey: foldersKey }),
         queryClient.cancelQueries({ queryKey: orderKey }),
       ]);
-      const previousFolders = queryClient.getQueryData<RepositoryValue<FolderPathSummary[]>>(foldersKey);
-      const previousOrder = queryClient.getQueryData<RepositoryValue<Record<string, string[]>>>(orderKey);
       queryClient.setQueryData<RepositoryValue<FolderPathSummary[]>>(foldersKey, (current) => {
         if (!current || !Array.isArray(current.data)) return current;
         return {
@@ -717,6 +717,7 @@ export function useElectronNoteMutations({
         source: 'remote',
         data: operation.order,
       }));
+      await cancelQueries;
       return { previousFolders, previousOrder };
     },
     onSuccess: () => {

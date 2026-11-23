@@ -51,14 +51,23 @@ export function buildNoteDropOperation({
     };
   }
 
-  const targetFolder = tree.nodesById.get(overId);
-  if (!targetFolder) {
+  const overNoteId = parseNoteDragId(overId);
+  const overNote = overNoteId ? tree.allNotes.find((entry) => entry.note.id === overNoteId) : null;
+  if (overNoteId && !overNote) {
+    return null;
+  }
+  const targetFolderId = overNoteId
+    ? getNoteCurrentFolderId(overNote!)
+    : overId === UNFILED_FOLDER_ID
+      ? null
+      : tree.nodesById.get(overId)?.id;
+  if (targetFolderId === undefined) {
     return null;
   }
 
   return {
     note,
-    targetFolderId: targetFolder.id,
-    changed: currentFolderId !== targetFolder.id,
+    targetFolderId,
+    changed: currentFolderId !== targetFolderId,
   };
 }
