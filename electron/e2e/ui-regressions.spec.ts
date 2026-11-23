@@ -1202,25 +1202,44 @@ test('notes can drop in a folder note area and back to the root blank space', as
       const folderItem = noteRow?.closest('ul[role="group"][data-tree-children]')?.closest('li');
       return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
     }, name);
-    const dragTo = async (sourceName: string, target: Locator, horizontalRatio = 0.5) => {
+    const dragTo = async (sourceName: string, target: Locator, horizontalRatio = 0.5, whileOver?: () => Promise<void>) => {
       const sourceBox = (await row('note', sourceName).getByRole('treeitem', { name: sourceName, exact: true }).boundingBox())!;
       const targetBox = (await target.boundingBox())!;
       await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
       await page.mouse.down();
       await page.mouse.move(targetBox.x + targetBox.width * horizontalRatio, targetBox.y + targetBox.height / 2, { steps: 12 });
+      await whileOver?.();
       await page.mouse.up();
     };
+    const tree = page.getByTestId('folder-navigator-tree');
 
     await dragTo('Alpha', row('folder', 'Projects').getByRole('treeitem', { name: 'Projects', exact: true }));
     await expect.poll(() => parentOf('Alpha')).toBe('Projects');
     const expandProjects = page.getByRole('button', { name: 'Expand Projects', exact: true });
     if (await expandProjects.count()) await expandProjects.click();
-    await dragTo('Beta', row('note', 'Alpha').getByRole('treeitem', { name: 'Alpha', exact: true }), 0.02);
+    // Over the margin left of the folder's notes, the whole folder (row and notes) lights up.
+    await dragTo('Beta', row('note', 'Alpha').getByRole('treeitem', { name: 'Alpha', exact: true }), 0.02, async () => {
+      const highlight = page.getByTestId('note-drop-folder-highlight');
+      await expect(highlight).toHaveCount(1);
+      const highlightBox = (await highlight.boundingBox())!;
+      const folderBox = (await row('folder', 'Projects').boundingBox())!;
+      const alphaBox = (await row('note', 'Alpha').boundingBox())!;
+      expect(highlightBox.y).toBeLessThanOrEqual(folderBox.y + 1);
+      expect(highlightBox.y + highlightBox.height).toBeGreaterThanOrEqual(alphaBox.y + alphaBox.height - 1);
+      expect(highlightBox.x).toBeLessThanOrEqual(folderBox.x + 1);
+    });
     await expect.poll(() => parentOf('Beta')).toBe('Projects');
     await dragTo('Gamma', row('note', 'Alpha').getByRole('treeitem', { name: 'Alpha', exact: true }), 0.98);
     await expect.poll(() => parentOf('Gamma')).toBe('Projects');
 
-    await dragTo('Beta', page.getByTestId('tree-top-level'));
+    await dragTo('Beta', page.getByTestId('tree-top-level'), 0.5, async () => {
+      const highlight = page.getByTestId('note-drop-root-highlight');
+      await expect(highlight).toHaveCount(1);
+      const highlightBox = (await highlight.boundingBox())!;
+      const treeBox = (await tree.boundingBox())!;
+      expect(highlightBox.y).toBeLessThanOrEqual(treeBox.y + 1);
+      expect(highlightBox.height).toBeGreaterThanOrEqual(treeBox.height - 1);
+    });
     await expect.poll(() => parentOf('Beta')).toBeNull();
   } finally {
     await stopApp(app);

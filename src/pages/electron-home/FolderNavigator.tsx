@@ -87,6 +87,7 @@ import {
   NoteRow,
   TagGroupRow,
   TREE_CHILDREN_INDENT_CLASS,
+  TreeRootDropHighlight,
   TreeBlankArea,
   SidebarTrashRow,
   SidebarHistoryRow,
@@ -1613,11 +1614,12 @@ function NavigatorTree({
       >
         <div
           ref={treeRef}
-          className="grid min-w-0 gap-0.5"
+          className="relative grid min-w-0 gap-0.5"
           data-testid="folder-navigator-tree"
           role="tree"
           aria-label="Folders and notes"
         >
+          <TreeRootDropHighlight noteDragActive={Boolean(activeNoteId)} treeRef={treeRef} />
           <FolderTreeFocusContext.Provider value={focusContext}>
           <PendingTreeChildrenContext.Provider value={pendingChildren}>
             {showRootRow ? (
