@@ -39,6 +39,7 @@ import {
   getFolderDropPlacement,
   getPlacedFolderDrop,
   getProjectedFolderDrop,
+  parseFolderContentDropId,
   ROOT_FOLDER_DROP_ID,
   type FolderDropOperation,
   type FolderDropPlacement,
@@ -85,6 +86,8 @@ import {
   NoteRow,
   TagGroupRow,
   TREE_CHILDREN_INDENT_CLASS,
+  isNoteDropOnTreeRoot,
+  TreeRootDropHighlight,
   TreeBlankArea,
   SidebarTrashRow,
   SidebarHistoryRow,
@@ -135,14 +138,21 @@ const treeCollisionDetection: CollisionDetection = (input) => {
   if (!pointer) {
     return closestCenter(args).filter((collision) => collision.id !== ROOT_FOLDER_DROP_ID);
   }
+  // The workspace row first, then rows, then folders' notes areas: those contain rows (nested
+  // folders included), so a row under the pointer wins over the area around it. A notes area takes
+  // the tree's whole width, so a note dropped beside a folder's rows still lands in that folder.
+  const droppablePriority = (id: string) => (
+    id === ROOT_FOLDER_DROP_ID ? 2 : parseFolderContentDropId(id) ? 0 : 1
+  );
   const containers = [...args.droppableContainers].sort((left, right) => (
-    Number(right.id === ROOT_FOLDER_DROP_ID) - Number(left.id === ROOT_FOLDER_DROP_ID)
+    droppablePriority(String(right.id)) - droppablePriority(String(left.id))
   ));
   for (const container of containers) {
     if (container.disabled) continue;
     const bounds = container.node.current?.getBoundingClientRect();
+    const anyX = parseFolderContentDropId(String(container.id)) !== null;
     if (bounds && bounds.height > 0
-      && pointer.x >= bounds.left && pointer.x <= bounds.right
+      && (anyX || (pointer.x >= bounds.left && pointer.x <= bounds.right))
       && pointer.y >= bounds.top && pointer.y <= bounds.bottom) {
       return [{ id: container.id }];
     }
@@ -1351,7 +1361,10 @@ function NavigatorTree({
         return;
       }
     }
-    const overId = event.over ? String(event.over.id) : null;
+    let overId = event.over ? String(event.over.id) : null;
+    // A note dropped in the tree but on no row or folder (the blank space below it, or beside
+    // top-level rows) moves to the top level, as TreeRootDropHighlight shows while dragging.
+    if (droppedNoteId && !overId && isNoteDropOnTreeRoot(event, treeRef.current)) overId = ROOT_FOLDER_DROP_ID;
     const pointerFolderDrop = pointerYRef.current === null ? undefined : folderDropRef.current;
     const sectionDrop = parseWorkspaceFolderDragId(activeId) !== null
       ? getWorkspaceFolderDrop(activeId, overId, pointerYRef.current, event.over?.rect ?? null)
@@ -1564,11 +1577,12 @@ function NavigatorTree({
       >
         <div
           ref={treeRef}
-          className="grid min-w-0 gap-0.5"
+          className="relative grid min-w-0 gap-0.5"
           data-testid="folder-navigator-tree"
           role="tree"
           aria-label="Folders and notes"
         >
+          <TreeRootDropHighlight treeRef={treeRef} />
           <FolderTreeFocusContext.Provider value={focusContext}>
           <PendingTreeChildrenContext.Provider value={pendingChildren}>
             {showRootRow ? (
@@ -1658,11 +1672,12 @@ function NavigatorTree({
           </FolderTreeFocusContext.Provider>
         </div>
       </SortableContext>
-      {/* The preview never takes the pointer: after a drop it animates back over the tree, where
-          it would swallow the press that starts the next drag. It renders on the body: the sidebar
-          is a size container, which would clip it at its edge as a note is dragged onto the panes. */}
+      {/* The preview never takes the pointer, and disappears on drop instead of sliding back to
+          where the drag started: the row is already in its new place. It renders on the body: the
+          sidebar is a size container, which would clip it at its edge as a note is dragged onto the
+          panes. */}
       {createPortal(
-        <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS}>
+        <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS} dropAnimation={null}>
           {activeNote ? (
             <NoteDragOverlay entry={activeNote} />
           ) : (

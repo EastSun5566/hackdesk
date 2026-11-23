@@ -7,6 +7,7 @@ import type {
   CreateNoteInput,
   DocumentSummary,
   FolderSummary,
+  FolderPathSummary,
   HackDeskElectronAPI,
   NoteSummary,
   RepositoryValue,
@@ -78,6 +79,8 @@ function reportSyncEnd<TVariables>(
 
 function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: string, operation: {
   mutationFn: (variables: TVariables) => Promise<TData>;
+  /** An optimistic update; returns how to undo it if the operation fails. */
+  onMutate?: (variables: TVariables) => Promise<(() => void) | undefined>;
   onSuccess?: (data: TData, variables: TVariables) => void;
   onError?: (error: Error) => void;
   sync?: MutationSync<TVariables>;
@@ -89,13 +92,17 @@ function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: st
   const mutation = useMutation({
     mutationKey,
     mutationFn: (request: Request) => request.operation.mutationFn(request.variables),
-    onMutate: (request: Request) => reportSyncStart(request.operation.sync, request.variables),
-    onSuccess: (data, request, started) => {
-      reportSyncEnd(request.operation.sync, started, null);
+    onMutate: async (request: Request) => ({
+      sync: reportSyncStart(request.operation.sync, request.variables),
+      rollback: await request.operation.onMutate?.(request.variables),
+    }),
+    onSuccess: (data, request, context) => {
+      reportSyncEnd(request.operation.sync, context?.sync, null);
       request.operation.onSuccess?.(data, request.variables);
     },
-    onError: (error: Error, request, started) => {
-      reportSyncEnd(request.operation.sync, started, error);
+    onError: (error: Error, request, context) => {
+      reportSyncEnd(request.operation.sync, context?.sync, error);
+      context?.rollback?.();
       request.operation.onError?.(error);
     },
   });
@@ -228,6 +235,23 @@ function removeNoteFromRepositoryValue(
       candidate.id !== note.id || (candidate.teamPath ?? null) !== (note.teamPath ?? null)
     )),
   };
+}
+
+function folderPathForMove(folders: FolderPathSummary[], targetFolderId: string | null) {
+  if (!targetFolderId) return [];
+
+  const foldersById = new Map(folders.map((folder) => [folder.id, folder]));
+  const target = foldersById.get(targetFolderId);
+  if (!target) return null;
+  const path: FolderPathSummary[] = [];
+  const visited = new Set<string>();
+  let current: FolderPathSummary | undefined = target;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    path.unshift(current);
+    current = current.parentId ? foldersById.get(current.parentId) : undefined;
+  }
+  return path;
 }
 
 export function useElectronNoteMutations({
@@ -625,6 +649,37 @@ export function useElectronNoteMutations({
       note: await workspaceOperations().moveNote(note, targetFolderId),
       targetFolderId,
     }),
+    onMutate: async ({ note, targetFolderId }) => {
+      if (listsFromSnapshot) return undefined;
+
+      const workspaceKey = getWorkspaceQueryKey(scope);
+      const documentKey = ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id] as const;
+      const foldersValue = queryClient.getQueryData<RepositoryValue<FolderPathSummary[]>>(getFoldersQueryKey(scope));
+      const folderPaths = folderPathForMove(foldersValue?.data ?? [], targetFolderId);
+      if (!folderPaths) return undefined;
+
+      const previousWorkspace = queryClient.getQueryData<RepositoryValue<NoteSummary[]>>(workspaceKey);
+      const previousDocument = queryClient.getQueryData<RepositoryValue<DocumentSummary>>(documentKey);
+      const optimisticNote = { ...note, folderPaths };
+      const cancelQueries = Promise.all([
+        queryClient.cancelQueries({ queryKey: workspaceKey }),
+        queryClient.cancelQueries({ queryKey: documentKey }),
+      ]);
+      queryClient.setQueryData<RepositoryValue<NoteSummary[]>>(workspaceKey, (current) => (
+        upsertNoteInRepositoryValue(current, optimisticNote)
+      ));
+      if (previousDocument) {
+        queryClient.setQueryData<RepositoryValue<DocumentSummary>>(
+          documentKey,
+          repositoryDocumentValue(previousDocument, optimisticNote as DocumentSummary),
+        );
+      }
+      await cancelQueries;
+      return () => {
+        queryClient.setQueryData(workspaceKey, previousWorkspace);
+        queryClient.setQueryData(documentKey, previousDocument);
+      };
+    },
     onSuccess: ({ note, targetFolderId }) => {
       if (listsFromSnapshot) {
         queryClient.setQueryData<LocalDocument | undefined>(
@@ -687,6 +742,36 @@ export function useElectronNoteMutations({
         await workspaceOperations().moveFolder(operation);
       }
       return operation;
+    },
+    onMutate: async (operation) => {
+      if (!refreshesFolderQueries || !operation.changed) return undefined;
+
+      const foldersKey = getFoldersQueryKey(scope);
+      const orderKey = getFolderOrderQueryKey(scope);
+      const previousFolders = queryClient.getQueryData<RepositoryValue<FolderPathSummary[]>>(foldersKey);
+      const previousOrder = queryClient.getQueryData<RepositoryValue<Record<string, string[]>>>(orderKey);
+      const cancelQueries = Promise.all([
+        queryClient.cancelQueries({ queryKey: foldersKey }),
+        queryClient.cancelQueries({ queryKey: orderKey }),
+      ]);
+      queryClient.setQueryData<RepositoryValue<FolderPathSummary[]>>(foldersKey, (current) => {
+        if (!current || !Array.isArray(current.data)) return current;
+        return {
+          source: 'remote',
+          data: current.data.map((folder) => folder.id === operation.folderId
+            ? { ...folder, parentId: operation.parentFolderId }
+            : folder),
+        };
+      });
+      queryClient.setQueryData<RepositoryValue<Record<string, string[]>>>(orderKey, () => ({
+        source: 'remote',
+        data: operation.order,
+      }));
+      await cancelQueries;
+      return () => {
+        queryClient.setQueryData(foldersKey, previousFolders);
+        queryClient.setQueryData(orderKey, previousOrder);
+      };
     },
     onSuccess: () => {
       if (refreshesFolderQueries) {

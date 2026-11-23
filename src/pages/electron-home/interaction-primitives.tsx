@@ -81,7 +81,7 @@ function entityRowClassName({
     'group/entity-row relative flex w-full min-w-0 items-center text-left transition duration-150 ease-out motion-reduce:transition-none',
     variant === 'compact' ? 'gap-1.5 rounded px-2 py-1 text-sm leading-5' : 'gap-1.5 rounded px-2.5 py-1.5 text-sm leading-5',
     selected || active
-      ? 'bg-background-primary-subtler text-text-emphasize'
+      ? 'bg-background-selected-solid text-text-default'
       : tone === 'quiet'
         ? 'text-text-subtle hover:bg-background-hover hover:text-text-default'
         : 'text-text-default hover:bg-background-hover hover:text-text-emphasize',
@@ -196,7 +196,7 @@ function EntityRowContent({
       )}
       {controlsAfterNode ? controlsElement : null}
       {menu ? (
-        <span className="entity-row-menu shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none">
+        <span className="entity-row-menu shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 in-data-row-menu-open:opacity-100 has-data-popup-open:opacity-100 motion-reduce:transition-none">
           {menu}
         </span>
       ) : null}

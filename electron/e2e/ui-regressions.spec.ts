@@ -936,8 +936,10 @@ test('rows share one hover card and one context menu, and the workspace row keep
     await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(alpha).toBeFocused();
 
+    const projects = page.locator('[data-folder-tree-kind="folder"]').filter({ has: page.getByRole('treeitem', { name: 'Projects', exact: true }) });
     await page.getByRole('treeitem', { name: 'Projects', exact: true }).click({ button: 'right' });
     await expect(page.getByRole('menuitem', { name: 'New Note Inside' })).toBeVisible();
+    await expect(projects.locator('.entity-row-menu')).toHaveCSS('opacity', '1');
     await expect(page.getByRole('menuitem', { name: 'Duplicate Note' })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
@@ -1184,6 +1186,61 @@ test('tree rows drag by their title, with no grip on hover', async () => {
       const folderItem = alphaRow?.closest('ul[role="group"]')?.closest('li');
       return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
     })).toBe('Projects');
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('notes can drop in a folder note area and back to the root blank space', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'vault');
+    const row = (kind: 'note' | 'folder', name: string) => page.locator(`[data-folder-tree-kind="${kind}"]`).filter({ has: page.getByRole('treeitem', { name, exact: true }) });
+    const parentOf = (name: string) => page.evaluate((noteName) => {
+      const noteRow = [...document.querySelectorAll<HTMLElement>('[data-folder-tree-kind="note"]')]
+        .find(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label') === noteName);
+      const folderItem = noteRow?.closest('ul[role="group"][data-tree-children]')?.closest('li');
+      return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
+    }, name);
+    const dragTo = async (sourceName: string, target: Locator, horizontalRatio = 0.5, whileOver?: () => Promise<void>) => {
+      const sourceBox = (await row('note', sourceName).getByRole('treeitem', { name: sourceName, exact: true }).boundingBox())!;
+      const targetBox = (await target.boundingBox())!;
+      await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(targetBox.x + targetBox.width * horizontalRatio, targetBox.y + targetBox.height / 2, { steps: 12 });
+      await whileOver?.();
+      await page.mouse.up();
+    };
+    const tree = page.getByTestId('folder-navigator-tree');
+
+    await dragTo('Alpha', row('folder', 'Projects').getByRole('treeitem', { name: 'Projects', exact: true }));
+    await expect.poll(() => parentOf('Alpha')).toBe('Projects');
+    const expandProjects = page.getByRole('button', { name: 'Expand Projects', exact: true });
+    if (await expandProjects.count()) await expandProjects.click();
+    // Over the margin left of the folder's notes, the whole folder (row and notes) lights up.
+    await dragTo('Beta', row('note', 'Alpha').getByRole('treeitem', { name: 'Alpha', exact: true }), 0.02, async () => {
+      const highlight = page.getByTestId('note-drop-folder-highlight');
+      await expect(highlight).toHaveCount(1);
+      const highlightBox = (await highlight.boundingBox())!;
+      const folderBox = (await row('folder', 'Projects').boundingBox())!;
+      const alphaBox = (await row('note', 'Alpha').boundingBox())!;
+      expect(highlightBox.y).toBeLessThanOrEqual(folderBox.y + 1);
+      expect(highlightBox.y + highlightBox.height).toBeGreaterThanOrEqual(alphaBox.y + alphaBox.height - 1);
+      expect(highlightBox.x).toBeLessThanOrEqual(folderBox.x + 1);
+    });
+    await expect.poll(() => parentOf('Beta')).toBe('Projects');
+    await dragTo('Gamma', row('note', 'Alpha').getByRole('treeitem', { name: 'Alpha', exact: true }), 0.98);
+    await expect.poll(() => parentOf('Gamma')).toBe('Projects');
+
+    await dragTo('Beta', page.getByTestId('tree-top-level'), 0.5, async () => {
+      const highlight = page.getByTestId('note-drop-root-highlight');
+      await expect(highlight).toHaveCount(1);
+      const highlightBox = (await highlight.boundingBox())!;
+      const treeBox = (await tree.boundingBox())!;
+      expect(highlightBox.y).toBeLessThanOrEqual(treeBox.y + 1);
+      expect(highlightBox.height).toBeGreaterThanOrEqual(treeBox.height - 1);
+    });
+    await expect.poll(() => parentOf('Beta')).toBeNull();
   } finally {
     await stopApp(app);
   }

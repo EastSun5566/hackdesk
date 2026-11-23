@@ -25,7 +25,7 @@ import {
   Users,
 } from 'lucide-react';
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from 'react';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { useDndContext, useDndMonitor, useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -37,7 +37,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import type { NoteSummary } from '@/lib/electron-api';
-import { buildNoteDragId } from '@/lib/hackmd-note-dnd';
+import { buildNoteDragId, parseNoteDragId } from '@/lib/hackmd-note-dnd';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { createTagGroupFocusId } from '@/lib/electron-tag-groups';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -47,7 +47,7 @@ import { ActionMenuShortcut, useActionShortcut } from './ActionShortcutContext';
 import { EntityRow } from './interaction-primitives';
 import { NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
-import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
+import { buildFolderContentDropId, isRootFolderDropTarget, parseFolderContentDropId, ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { countVisibleTreeRows, LazyTreeChildren } from './LazyTreeChildren';
@@ -1218,9 +1218,42 @@ export function SidebarHistoryRow({ selected, onOpen }: { selected: boolean; onO
   return <div className="min-w-0"><EntityRow selected={selected} leadingControls={<span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle"><History className="h-3.5 w-3.5" /></span>} title="History" variant="compact" tone="quiet" contentAriaLabel="History" contentOnClick={onOpen} contentAriaCurrent={selected ? 'page' : undefined} className={TREE_ROW_FOCUS_CLASS} /></div>;
 }
 
+/** The folder a dragged note would drop into: its row, or the area of its notes. */
+function useNoteDropFolderId() {
+  const { active, over } = useDndContext();
+  if (!active || !over || parseNoteDragId(String(active.id)) === null) return null;
+  const overId = String(over.id);
+  return parseFolderContentDropId(overId) ?? overId;
+}
+
+/** A note dragged over no row or folder, but within the tree's width, drops at the top level. */
+export function isNoteDropOnTreeRoot(
+  { activatorEvent, delta }: { activatorEvent: Event | null; delta: { x: number } },
+  tree: HTMLElement | null,
+) {
+  if (!(activatorEvent instanceof PointerEvent) || !tree) return false;
+  return activatorEvent.clientX + delta.x <= tree.getBoundingClientRect().right;
+}
+
+/** Lights up the whole tree while a dragged note would move to the top level. */
+export function TreeRootDropHighlight({ treeRef }: { treeRef: { current: HTMLElement | null } }) {
+  const [rootTarget, setRootTarget] = useState(false);
+  useDndMonitor({
+    onDragMove(event) {
+      setRootTarget(parseNoteDragId(String(event.active.id)) !== null && (event.over
+        ? isRootFolderDropTarget(String(event.over.id))
+        : isNoteDropOnTreeRoot(event, treeRef.current)));
+    },
+    onDragEnd() { setRootTarget(false); },
+    onDragCancel() { setRootTarget(false); },
+  });
+  if (!rootTarget) return null;
+  return <span aria-hidden="true" data-testid="note-drop-root-highlight" className="pointer-events-none absolute inset-0 rounded-md bg-background-primary-subtler/40" />;
+}
+
 /**
  * The blank space below the tree: clicking it selects the top level, and its context menu creates
- * there. Moving something to the top level is a drop on the workspace row instead.
+ * there. A note dropped on it moves to the top level (see isNoteDropOnTreeRoot).
  */
 export function TreeBlankArea({
   onSelect,
@@ -1410,6 +1443,12 @@ export function FolderTreeView({
   topLevelGuides?: boolean;
 }) {
   const groupId = useFolderTreeGroupId(parentFolderId ?? '');
+  // The top level has no notes area of its own: a note dropped there moves to the root instead.
+  const { setNodeRef: setContentDropRef } = useDroppable({
+    id: buildFolderContentDropId(parentFolderId ?? ''),
+    disabled: !parentFolderId || !activeNoteId,
+  });
+  const noteDropFolderId = useNoteDropFolderId();
   if (nodes.length === 0 && notes.length === 0) {
     return null;
   }
@@ -1424,6 +1463,11 @@ export function FolderTreeView({
         {/* Guides run the full height of each child, last one included, so a folder's line covers
             everything it contains. A half-height end would need a horizontal stroke to read. */}
         {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
+        {/* The whole folder, its row and everything in it, lights up as the drop target, so a drop
+            beside its rows reads as a drop into it. */}
+        {noteDropFolderId === node.id ? (
+          <span aria-hidden="true" data-testid="note-drop-folder-highlight" className={cn('pointer-events-none absolute inset-y-0 right-0 rounded-md bg-background-primary-subtler/60', depth > 0 || topLevelGuides ? 'left-5' : 'left-0')} />
+        ) : null}
         <div className="relative min-w-0">
         <FolderButton
           node={node}
@@ -1518,7 +1562,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
+    <ul ref={setContentDropRef} role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
       {items}
       {noteItems}
     </ul>

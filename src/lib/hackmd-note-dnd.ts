@@ -1,4 +1,4 @@
-import { isRootFolderDropTarget } from './hackmd-folder-dnd';
+import { isRootFolderDropTarget, parseFolderContentDropId } from './hackmd-folder-dnd';
 import { UNFILED_FOLDER_ID, type FolderTree, type FolderTreeNote } from './hackmd-folders';
 
 const NOTE_DRAG_ID_PREFIX = 'note:';
@@ -51,7 +51,7 @@ export function buildNoteDropOperation({
     };
   }
 
-  const targetFolder = tree.nodesById.get(overId);
+  const targetFolder = tree.nodesById.get(parseFolderContentDropId(overId) ?? overId);
   if (!targetFolder) {
     return null;
   }

@@ -86,6 +86,13 @@ interface CardState {
 const CLOSED_MENU: MenuState = { open: false, anchor: null, row: null, items: null };
 const CLOSED_CARD: CardState = { open: false, anchor: null, card: null };
 
+/** Marks the row whose context menu is open, so its hover controls stay shown (EntityRow). */
+function setRowMenuOpen(row: HTMLElement | null, open: boolean) {
+  if (!row) return;
+  if (open) row.dataset.rowMenuOpen = 'true';
+  else delete row.dataset.rowMenuOpen;
+}
+
 /**
  * Hosts the context menu and hover card for the rows inside it. Renders no box of its own
  * (display: contents), so it never changes the layout around the rows.
@@ -112,6 +119,8 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
     if (!row || !items) return;
     event.preventDefault();
     closeCard();
+    if (menu.row && menu.row !== row) setRowMenuOpen(menu.row, false);
+    setRowMenuOpen(row, true);
     // The menu key and Shift+F10 report no pointer position: open the menu under the row instead.
     const fromKeyboard = event.clientX === 0 && event.clientY === 0;
     const bounds = row.getBoundingClientRect();
@@ -209,7 +218,10 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
       >
         {children}
       </div>
-      <Menu.Root open={menu.open} onOpenChange={(open) => setMenu((current) => ({ ...current, open }))}>
+      <Menu.Root open={menu.open} onOpenChange={(open) => {
+        if (!open) setRowMenuOpen(menu.row, false);
+        setMenu((current) => ({ ...current, open }));
+      }}>
         {menu.items ? (
           <ContextMenuContent
             anchor={menu.anchor}
