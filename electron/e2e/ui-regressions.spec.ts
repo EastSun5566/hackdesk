@@ -936,8 +936,10 @@ test('rows share one hover card and one context menu, and the workspace row keep
     await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(alpha).toBeFocused();
 
+    const projects = page.locator('[data-folder-tree-kind="folder"]').filter({ has: page.getByRole('treeitem', { name: 'Projects', exact: true }) });
     await page.getByRole('treeitem', { name: 'Projects', exact: true }).click({ button: 'right' });
     await expect(page.getByRole('menuitem', { name: 'New Note Inside' })).toBeVisible();
+    await expect(projects.locator('.entity-row-menu')).toHaveCSS('opacity', '1');
     await expect(page.getByRole('menuitem', { name: 'Duplicate Note' })).toHaveCount(0);
     await page.keyboard.press('Escape');
 

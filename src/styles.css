@@ -556,15 +556,15 @@
   }
 
   [data-row-menu-open] .entity-row-menu {
-    opacity: 1;
+    opacity: 1 !important;
   }
 
   .entity-row-menu[data-row-menu-open] {
-    opacity: 1;
+    opacity: 1 !important;
   }
 
   [data-popup-open] .entity-row-menu {
-    opacity: 1;
+    opacity: 1 !important;
   }
 
   /* A resize handle that is a surface's border (PanelResizeSash edge): it lays a primary line over
