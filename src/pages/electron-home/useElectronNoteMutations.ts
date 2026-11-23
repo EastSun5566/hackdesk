@@ -235,6 +235,23 @@ function removeNoteFromRepositoryValue(
   };
 }
 
+function folderPathForMove(folders: FolderPathSummary[], targetFolderId: string | null) {
+  if (!targetFolderId) return [];
+
+  const foldersById = new Map(folders.map((folder) => [folder.id, folder]));
+  const target = foldersById.get(targetFolderId);
+  if (!target) return null;
+  const path: FolderPathSummary[] = [];
+  const visited = new Set<string>();
+  let current: FolderPathSummary | undefined = target;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    path.unshift(current);
+    current = current.parentId ? foldersById.get(current.parentId) : undefined;
+  }
+  return path;
+}
+
 export function useElectronNoteMutations({
   api,
   scope,
@@ -630,6 +647,34 @@ export function useElectronNoteMutations({
       note: await workspaceOperations().moveNote(note, targetFolderId),
       targetFolderId,
     }),
+    onMutate: async ({ note, targetFolderId }) => {
+      if (listsFromSnapshot) return undefined;
+
+      const workspaceKey = getWorkspaceQueryKey(scope);
+      const documentKey = ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id] as const;
+      const foldersValue = queryClient.getQueryData<RepositoryValue<FolderPathSummary[]>>(getFoldersQueryKey(scope));
+      const folderPaths = folderPathForMove(foldersValue?.data ?? [], targetFolderId);
+      if (!folderPaths) return undefined;
+
+      const previousWorkspace = queryClient.getQueryData<RepositoryValue<NoteSummary[]>>(workspaceKey);
+      const previousDocument = queryClient.getQueryData<RepositoryValue<DocumentSummary>>(documentKey);
+      const optimisticNote = { ...note, folderPaths };
+      const cancelQueries = Promise.all([
+        queryClient.cancelQueries({ queryKey: workspaceKey }),
+        queryClient.cancelQueries({ queryKey: documentKey }),
+      ]);
+      queryClient.setQueryData<RepositoryValue<NoteSummary[]>>(workspaceKey, (current) => (
+        upsertNoteInRepositoryValue(current, optimisticNote)
+      ));
+      if (previousDocument) {
+        queryClient.setQueryData<RepositoryValue<DocumentSummary>>(
+          documentKey,
+          repositoryDocumentValue(previousDocument, optimisticNote as DocumentSummary),
+        );
+      }
+      await cancelQueries;
+      return { previousWorkspace, previousDocument };
+    },
     onSuccess: ({ note, targetFolderId }) => {
       if (listsFromSnapshot) {
         queryClient.setQueryData<LocalDocument | undefined>(
@@ -649,7 +694,17 @@ export function useElectronNoteMutations({
       }
       onNoteMoved(note, targetFolderId);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move note.'),
+    onError: (error, _variables, context) => {
+      if (context) {
+        const rollback = context as {
+          previousWorkspace?: RepositoryValue<NoteSummary[]>;
+          previousDocument?: RepositoryValue<DocumentSummary>;
+        };
+        queryClient.setQueryData(getWorkspaceQueryKey(scope), rollback.previousWorkspace);
+        queryClient.setQueryData(['electron', 'hackmd', 'note', _variables.note.teamPath ?? null, _variables.note.id], rollback.previousDocument);
+      }
+      toast.error(error instanceof Error ? error.message : 'Failed to move note.');
+    },
   });
 
   const renameFolderMutation = useWorkspaceMutation(scope, 'rename-folder', {

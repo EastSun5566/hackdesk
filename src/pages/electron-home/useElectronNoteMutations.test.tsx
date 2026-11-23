@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { toast } from '@/components/ui/toast';
-import type { DocumentSummary, ElectronSafeSettings, FolderPathSummary, HackDeskElectronAPI, RepositoryValue } from '@/lib/electron-api';
+import type { DocumentSummary, ElectronSafeSettings, FolderPathSummary, HackDeskElectronAPI, NoteSummary, RepositoryValue } from '@/lib/electron-api';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 
 import { HACKMD_NOTE_CHANGED_MESSAGE } from '@/lib/note-errors';
@@ -814,6 +814,33 @@ describe('mutation workspace ownership', () => {
 
     expect(queryClient.getQueryData(getFoldersQueryKey(scope))).toEqual(folders);
     expect(queryClient.getQueryData(getFolderOrderQueryKey(scope))).toEqual(order);
+  });
+
+  it('updates a remote note folder path before the move request settles', async () => {
+    const pending = Promise.withResolvers<DocumentSummary>();
+    const api = { hackmd: {
+      updateNote: vi.fn(() => pending.promise),
+    } } as unknown as HackDeskElectronAPI;
+    const scope: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
+    const { queryClient, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useElectronNoteMutations(createOptions({ api, scope })), { wrapper: Wrapper });
+    const folder: FolderPathSummary = { id: 'folder', name: 'Folder', icon: null, color: null, parentId: null, clientId: null };
+    const note = createDocument({ id: 'note-1', folderPaths: [] });
+    const workspaceKey = getWorkspaceQueryKey(scope);
+    const documentKey = ['electron', 'hackmd', 'note', null, note.id];
+    queryClient.setQueryData(getFoldersQueryKey(scope), { source: 'remote' as const, data: [folder] });
+    queryClient.setQueryData(workspaceKey, { source: 'remote' as const, data: [note] });
+    queryClient.setQueryData(documentKey, { source: 'remote' as const, data: note });
+
+    act(() => { result.current.moveNoteMutation.mutate({ note, targetFolderId: folder.id }); });
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith(note.id, { parentFolderId: folder.id }));
+    expect(queryClient.getQueryData<RepositoryValue<NoteSummary[]>>(workspaceKey)?.data?.[0]?.folderPaths).toEqual([folder]);
+    expect(queryClient.getQueryData<RepositoryValue<DocumentSummary>>(documentKey)?.data?.folderPaths).toEqual([folder]);
+
+    pending.reject(new Error('move failed'));
+    await waitFor(() => expect(result.current.moveNoteMutation.isError).toBe(true));
+    expect(queryClient.getQueryData(workspaceKey)).toEqual({ source: 'remote', data: [note] });
+    expect(queryClient.getQueryData(documentKey)).toEqual({ source: 'remote', data: note });
   });
 
   it.each<WorkspaceScope>([
