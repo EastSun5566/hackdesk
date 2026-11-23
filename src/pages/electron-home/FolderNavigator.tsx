@@ -146,6 +146,7 @@ const treeCollisionDetection: CollisionDetection = (input) => {
   const containers = [...args.droppableContainers].sort((left, right) => (
     droppablePriority(String(right.id)) - droppablePriority(String(left.id))
   ));
+  const noteDrag = parseNoteDragId(String(input.active.id)) !== null;
   for (const container of containers) {
     if (container.disabled) continue;
     const contentFolderId = parseFolderContentDropId(String(container.id));
@@ -160,8 +161,9 @@ const treeCollisionDetection: CollisionDetection = (input) => {
       }
     }
     const bounds = container.node.current?.getBoundingClientRect();
+    const noteContentDrop = noteDrag && Boolean(parseFolderContentDropId(String(container.id)));
     if (bounds && bounds.height > 0
-      && pointer.x >= bounds.left && pointer.x <= bounds.right
+      && (pointer.x >= bounds.left && pointer.x <= bounds.right || noteContentDrop)
       && pointer.y >= bounds.top && pointer.y <= bounds.bottom) {
       return [{ id: container.id }];
     }

@@ -1523,7 +1523,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul ref={setContentDropRef} role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', activeNoteId && 'min-h-7', TREE_CHILDREN_INDENT_CLASS, isContentDropOver && 'bg-background-primary-subtler/60')}>
+    <ul ref={setContentDropRef} role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 w-full list-none gap-0.5 p-0', activeNoteId && 'min-h-7', TREE_CHILDREN_INDENT_CLASS, isContentDropOver && 'bg-background-primary-subtler/60')}>
       {items}
       {noteItems}
     </ul>

@@ -1202,12 +1202,12 @@ test('notes can drop in a folder note area and back to the root blank space', as
       const folderItem = noteRow?.closest('ul[role="group"][data-tree-children]')?.closest('li');
       return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
     }, name);
-    const dragTo = async (sourceName: string, target: Locator) => {
+    const dragTo = async (sourceName: string, target: Locator, horizontalRatio = 0.5) => {
       const sourceBox = (await row('note', sourceName).getByRole('treeitem', { name: sourceName, exact: true }).boundingBox())!;
       const targetBox = (await target.boundingBox())!;
       await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
       await page.mouse.down();
-      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 });
+      await page.mouse.move(targetBox.x + targetBox.width * horizontalRatio, targetBox.y + targetBox.height / 2, { steps: 12 });
       await page.mouse.up();
     };
 
@@ -1215,8 +1215,10 @@ test('notes can drop in a folder note area and back to the root blank space', as
     await expect.poll(() => parentOf('Alpha')).toBe('Projects');
     const expandProjects = page.getByRole('button', { name: 'Expand Projects', exact: true });
     if (await expandProjects.count()) await expandProjects.click();
-    await dragTo('Beta', row('note', 'Alpha').getByRole('treeitem', { name: 'Alpha', exact: true }));
+    await dragTo('Beta', row('note', 'Alpha').getByRole('treeitem', { name: 'Alpha', exact: true }), 0.02);
     await expect.poll(() => parentOf('Beta')).toBe('Projects');
+    await dragTo('Gamma', row('note', 'Alpha').getByRole('treeitem', { name: 'Alpha', exact: true }), 0.98);
+    await expect.poll(() => parentOf('Gamma')).toBe('Projects');
 
     await dragTo('Beta', page.getByTestId('tree-top-level'));
     await expect.poll(() => parentOf('Beta')).toBeNull();
