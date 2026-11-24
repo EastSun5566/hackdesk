@@ -68,6 +68,9 @@ export const editorChromeTheme = {
     marginInline: 'auto',
     boxSizing: 'border-box',
     caretColor: 'var(--primary-default)',
+    // The source is markdown: a font's ligatures (JetBrains Mono draws `:::`, `==` and `||` as one glyph)
+    // would merge syntax characters that are revealed and edited one at a time.
+    fontVariantLigatures: 'none',
     minWidth: '0',
   },
   '.cm-line': {

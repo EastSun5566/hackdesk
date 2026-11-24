@@ -51,6 +51,10 @@ describe('HackMD preview widget theme', () => {
     });
   });
 
+  it('turns off font ligatures, so markdown like ::: and == shows every character', () => {
+    expect(editorChromeTheme['.cm-content']).toHaveProperty('fontVariantLigatures', 'none');
+  });
+
   it('keeps UI chrome and editor content font sizes on separate semantic tokens', () => {
     expect(editorChromeTheme['&']).toHaveProperty('fontSize', 'var(--font-size-ui)');
     expect(editorChromeTheme['.cm-scroller']).toHaveProperty('fontSize', 'var(--font-size-editor)');
