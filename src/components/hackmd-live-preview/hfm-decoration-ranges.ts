@@ -1,6 +1,7 @@
-import { StateEffect, StateField, type EditorState } from '@codemirror/state';
+import { StateEffect, StateField, type EditorState, type Line } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 
+import { parseSpoilerOpener } from './hfm-block-ranges';
 import {
   getHfmLineDecorations,
   type HfmBlockRange,
@@ -53,6 +54,36 @@ class AlertHeaderWidget extends WidgetType {
       header.append(title);
     }
     return header;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
+/** A spoiler's disclosure mark, as hackmd.io draws it closed (or open with `state="open"`), and its default summary. */
+class SpoilerSummaryWidget extends WidgetType {
+  constructor(private readonly open: boolean, private readonly summarized: boolean) {
+    super();
+  }
+
+  eq(other: SpoilerSummaryWidget): boolean {
+    return other.open === this.open && other.summarized === this.summarized;
+  }
+
+  toDOM(): HTMLElement {
+    const summary = document.createElement('span');
+    summary.className = `cm-hackmd-spoiler-disclosure${this.open ? ' cm-hackmd-spoiler-disclosure-open' : ''}`;
+    summary.setAttribute('contenteditable', 'false');
+    summary.title = this.open ? 'Open when published' : 'Collapsed when published';
+    if (!this.summarized) {
+      // A <details> without a summary is labelled "Details".
+      const label = document.createElement('span');
+      label.className = 'cm-hackmd-spoiler-summary';
+      label.textContent = 'Details';
+      summary.append(label);
+    }
+    return summary;
   }
 
   ignoreEvent(): boolean {
@@ -231,6 +262,8 @@ export function addHfmBlockRanges(
         ranges.push(Decoration.mark({ class: `cm-hackmd-alert-custom-title cm-hackmd-alert-heading-${blockRange.variant}` })
           .range(openerLine.from + blockRange.titleFrom!, openerLine.from + blockRange.titleTo!));
       }
+    } else if (blockRange.variant === 'spoiler') {
+      addSpoilerOpenerRanges(state, openerLine, blockRange.openerFrom, ranges);
     } else {
       pushReplace(
         ranges,
@@ -254,6 +287,29 @@ export function addHfmBlockRanges(
       );
     }
   }
+}
+
+/**
+ * Shows a spoiler's opener as hackmd.io shows the collapsed section: a disclosure mark and the summary,
+ * with `:::spoiler` and the `{…}` attributes hidden. The summary stays source, so its marks still render.
+ */
+function addSpoilerOpenerRanges(state: EditorState, line: Line, openerFrom: number, ranges: PreviewRange[]) {
+  const spoiler = parseSpoilerOpener(line.text);
+  if (!spoiler) return;
+  const { params, summary } = spoiler;
+  const widget = new SpoilerSummaryWidget(spoiler.open, Boolean(summary));
+  if (!summary) {
+    pushReplace(ranges, state.doc, line.from + openerFrom, line.from + line.text.trimEnd().length, { widget });
+    return;
+  }
+  // Hide everything before the summary (the attributes too when they come first), then any attributes after it.
+  pushReplace(ranges, state.doc, line.from + openerFrom, line.from + summary.from, { widget });
+  if (params && params.from >= summary.to) {
+    pushReplace(ranges, state.doc, line.from + summary.to, line.from + line.text.trimEnd().length);
+  } else if (params && params.from > summary.from) {
+    pushReplace(ranges, state.doc, line.from + params.from, line.from + params.to);
+  }
+  ranges.push(Decoration.mark({ class: 'cm-hackmd-spoiler-summary' }).range(line.from + summary.from, line.from + summary.to));
 }
 
 export function addHackmdLineSyntaxRanges(

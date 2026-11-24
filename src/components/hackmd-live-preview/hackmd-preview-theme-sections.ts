@@ -791,6 +791,29 @@ export const inlineMarksTheme = {
     width: '1em',
     color: 'var(--text-subtle)',
   },
+  // `||spoiler||` text stays blurred, as hackmd.io blacks it out, until pointed at or edited.
+  '.cm-hackmd-inline-spoiler': {
+    backgroundColor: 'var(--background-muted)',
+    borderRadius: '3px',
+    filter: 'blur(0.22em)',
+    transition: 'filter 120ms ease',
+  },
+  '.cm-hackmd-inline-spoiler:hover, .cm-activeLine .cm-hackmd-inline-spoiler': {
+    filter: 'none',
+  },
+  // A spoiler's opener reads like the summary of a collapsed section.
+  '.cm-hackmd-spoiler-disclosure::before': {
+    content: '"\u25B8"',
+    display: 'inline-block',
+    width: '1.1em',
+    color: 'var(--text-subtle)',
+  },
+  '.cm-hackmd-spoiler-disclosure-open::before': {
+    content: '"\u25BE"',
+  },
+  '.cm-hackmd-spoiler-summary': {
+    fontWeight: '600',
+  },
   '.cm-hackmd-html-br': {
     color: 'var(--text-subtle)',
     fontSize: '0.85em',

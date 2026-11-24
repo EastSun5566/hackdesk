@@ -87,6 +87,39 @@ export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
   return ranges;
 }
 
+export type SpoilerOpener = {
+  /** `{state="open"}` and other attributes: the first `{…}` after `spoiler`, which is not summary text. */
+  params?: { from: number; to: number };
+  open: boolean;
+  /** The summary hackmd.io shows on the collapsed section, without its attributes. */
+  summary?: { from: number; to: number };
+  /** Where the summary may start: just after `spoiler`. */
+  keywordTo: number;
+};
+
+/** Reads a `:::spoiler Summary {state="open"}` opener line; null for any other line. */
+export function parseSpoilerOpener(text: string): SpoilerOpener | null {
+  const match = /^( {0,3}:::\s*spoiler)(?=\s|$)/.exec(text);
+  if (!match) return null;
+  const keywordTo = match[1]!.length;
+  const rest = text.slice(keywordTo);
+  const paramsMatch = /\{[^}]*\}/.exec(rest);
+  const params = paramsMatch ? { from: keywordTo + paramsMatch.index, to: keywordTo + paramsMatch.index + paramsMatch[0].length } : undefined;
+  const open = Boolean(paramsMatch && /(?:^|[\s{])state\s*=\s*(["']?)open\1(?=[\s}])/i.test(paramsMatch[0]));
+  // The summary is what is left on either side of the attributes; it is shown from its first word to its last.
+  const trimmedEnd = text.trimEnd().length;
+  const before = params ? text.slice(keywordTo, params.from) : text.slice(keywordTo, trimmedEnd);
+  const after = params ? text.slice(params.to, trimmedEnd) : '';
+  let summary: SpoilerOpener['summary'];
+  if (before.trim() || after.trim()) {
+    const from = before.trim()
+      ? keywordTo + before.length - before.trimStart().length
+      : params!.to + after.length - after.trimStart().length;
+    summary = { from, to: after.trim() ? trimmedEnd : keywordTo + before.trimEnd().length };
+  }
+  return { keywordTo, open, params, summary };
+}
+
 export function getAlertMarkerRange(text: string): { from: number; to: number } | null {
   const markerStart = text.indexOf('[!');
   const markerText = text.slice(markerStart).match(/^\[![^\]]+\]/)?.[0];

@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { parseSpoilerOpener } from './hfm-block-ranges';
 import { findMetadataTags } from './hfm-metadata-tags';
 import {
   getHfmBlockRanges,
@@ -218,6 +219,46 @@ describe('HFM live-preview recognizers', () => {
     expect(getHfmLineDecorations(':::spoiler {state="open"} Details').inlineMarks).toEqual(expect.arrayContaining([
       expect.objectContaining({ className: 'cm-hackmd-container-meta' }),
     ]));
+  });
+
+  it('reads containers as hackmd.io does: a case-sensitive name that is the first word', () => {
+    const variant = (line: string) => getHfmBlockRanges([line, 'Body', ':::'])[0]?.variant ?? null;
+    expect(variant(':::info')).toBe('info');
+    expect(variant(':::warning Read this first')).toBe('warning');
+    expect(variant('  ::: spoiler')).toBe('spoiler');
+    for (const line of [':::INFO', ':::info-box', ':::spoilers', '    :::info']) {
+      expect(variant(line), line).toBeNull();
+    }
+  });
+
+  it('reads a spoiler opener into its summary and attributes', () => {
+    const read = (text: string) => {
+      const opener = parseSpoilerOpener(text);
+      if (!opener) return null;
+      const slice = (range?: { from: number; to: number }) => (range ? text.slice(range.from, range.to) : undefined);
+      return { open: opener.open, params: slice(opener.params), summary: slice(opener.summary) };
+    };
+    expect(read(':::spoiler')).toEqual({ open: false, params: undefined, summary: undefined });
+    expect(read(':::spoiler Click to expand  ')).toEqual({ open: false, params: undefined, summary: 'Click to expand' });
+    expect(read(':::spoiler {state="open"} Open by default')).toEqual({ open: true, params: '{state="open"}', summary: 'Open by default' });
+    expect(read(':::spoiler Summary {state=open}')).toEqual({ open: true, params: '{state=open}', summary: 'Summary' });
+    expect(read(':::spoiler {state="closed"}')).toEqual({ open: false, params: '{state="closed"}', summary: undefined });
+    expect(read(':::spoilers')).toBeNull();
+    // Only the attributes are metadata; the summary is content.
+    expect(getHfmLineDecorations(':::spoiler {state="open"} Details').inlineMarks
+      .filter(({ className }) => className === 'cm-hackmd-container-meta')).toEqual([{ className: 'cm-hackmd-container-meta', from: 11, to: 25 }]);
+  });
+
+  it('marks ||inline spoilers|| from the first || to the last, and hides their bars', () => {
+    const spoilers = (text: string) => getHfmLineDecorations(text).inlineMarks
+      .filter(({ className }) => className === 'cm-hackmd-inline-spoiler')
+      .map(({ from, to }) => text.slice(from, to));
+    expect(spoilers('Ends ||with a twist|| here')).toEqual(['||with a twist||']);
+    expect(spoilers('||a|| and ||b||')).toEqual(['||a|| and ||b||']);
+    expect(getHfmLineDecorations('See ||it||').hiddenRanges).toEqual([{ from: 4, to: 6 }, { from: 8, to: 10 }]);
+    for (const text of ['No ||close', '|||| empty', 'Code `||a||` only', 'Escaped \\||a||', '| a || b |']) {
+      expect(spoilers(text), text).toEqual([]);
+    }
   });
 
   it('leaves metadata lines to the tag widgets instead of hiding the whole line', () => {

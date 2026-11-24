@@ -79,10 +79,20 @@ plain fence with a very long line that should either wrap or scroll horizontally
 > A second line that is long enough to wrap onto another line at the default width, so the bar shows its full height.
 
 > A quote with metadata.
-> [name=Someone] [color=#2b8a3e]
+> [name=Someone] [time=Thu, Oct 29, 2026 7:41 PM] [color=#2b8a3e]
+
+- A list item with a tag [name=Someone]
+
+Outside a list or quote, [name=Someone] and [undefined reference] are plain text.
 
 > [!NOTE]
 > A GitHub-style alert.
+
+> [!TIP] An alert with its own title
+> The title replaces "Tip".
+
+> [!danger]
+> Not an alert type on hackmd.io, so an ordinary quote.
 
 :::info
 An info container.
@@ -99,6 +109,20 @@ A warning container.
 :::danger
 A danger container.
 :::
+
+:::spoiler Click to **expand**
+A spoiler, collapsed when published.
+:::
+
+:::spoiler {state="open"} Open by default
+A spoiler that starts open.
+:::
+
+:::spoiler
+A spoiler without a summary.
+:::
+
+An inline ||spoiler|| in a sentence.
 
 | Column | Value |
 | ------ | ----- |

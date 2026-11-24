@@ -1,4 +1,5 @@
-import { fenceOpenPattern } from './hfm-patterns';
+import { parseSpoilerOpener } from './hfm-block-ranges';
+import { containerLinePattern, fenceOpenPattern } from './hfm-patterns';
 import type {
   HfmHiddenRange,
   HfmInlineMark,
@@ -15,9 +16,25 @@ const delimitedMarks = [
   { pattern: /(?<![[\\])\^(?![[^])((?:\\.|[^^\s\\])+)\^/g, className: 'cm-hackmd-superscript', delimiter: 1 },
 ] as const;
 
+/**
+ * `||hidden text||`, which hackmd.io blacks out until clicked. Like there, it runs from the first `||` to
+ * the last one after it, and a backslash escapes a bar. Table rows are left alone: there `||` is an empty cell.
+ */
+function getInlineSpoiler(text: string, codeSpans: readonly HfmHiddenRange[]): HfmInlineMark | null {
+  if (!text.includes('||') || /^\s*\|(?!\|).*\|\s*$/.test(text)) return null;
+  const outsideCode = (index: number) => !codeSpans.some((span) => index < span.to && index + 2 > span.from);
+  const delimiters = [...text.matchAll(/(?<!\\)\|\|/g)].map((match) => match.index).filter(outsideCode);
+  const from = delimiters[0];
+  const last = delimiters.at(-1);
+  if (from === undefined || last === undefined || last < from + 3) return null;
+  return { className: 'cm-hackmd-inline-spoiler', from, to: last + 2 };
+}
+
 export function getHackmdInlineMarks(text: string): HfmInlineMark[] {
   const codeSpans = getCodeSpans(text);
+  const spoiler = getInlineSpoiler(text, codeSpans);
   return [
+    ...(spoiler ? [spoiler] : []),
     ...getFenceMetadataMarks(text),
     ...getContainerMetadataMarks(text),
     ...delimitedMarks.flatMap(({ pattern, className }) => getRegexMarks(text, pattern, className, codeSpans)),
@@ -47,6 +64,11 @@ export function getHackmdHiddenRanges(text: string): HfmHiddenRange[] {
     for (const mark of getRegexMarks(text, pattern, className, codeSpans)) {
       ranges.push({ from: mark.from, to: mark.from + delimiter }, { from: mark.to - delimiter, to: mark.to });
     }
+  }
+
+  const spoiler = getInlineSpoiler(text, codeSpans);
+  if (spoiler) {
+    ranges.push({ from: spoiler.from, to: spoiler.from + 2 }, { from: spoiler.to - 2, to: spoiler.to });
   }
 
   ranges.push(...getInlineHtmlDecorations(text, codeSpans).hidden);
@@ -85,13 +107,18 @@ function getFenceMetadataMarks(text: string): HfmInlineMark[] {
 }
 
 function getContainerMetadataMarks(text: string): HfmInlineMark[] {
-  const match = text.match(/^:::\s*(info|success|warning|danger|spoiler)\b(.*)$/i);
+  // A spoiler's summary is content, so only its `{…}` attributes read as metadata.
+  const spoiler = parseSpoilerOpener(text);
+  if (spoiler) {
+    return spoiler.params ? [{ className: 'cm-hackmd-container-meta', ...spoiler.params }] : [];
+  }
+
+  const match = text.match(containerLinePattern);
   if (!match) {
     return [];
   }
 
-  const variantIndex = text.toLowerCase().indexOf(match[1].toLowerCase());
-  const variantEnd = variantIndex + match[1].length;
+  const variantEnd = match[0].length;
   const to = text.trimEnd().length;
   if (to <= variantEnd) {
     return [];

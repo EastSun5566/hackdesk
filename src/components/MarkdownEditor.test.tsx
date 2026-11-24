@@ -1828,6 +1828,40 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
   });
 
+  it('shows spoilers with their summary, as hackmd.io shows the collapsed section', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      ':::spoiler Click to **expand**',
+      'Hidden body.',
+      ':::',
+      '',
+      ':::spoiler {state="open"} Open by default',
+      'Body.',
+      ':::',
+      '',
+      ':::spoiler',
+      'No summary.',
+      ':::',
+      '',
+      'A ||secret|| word.',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const lines = () => Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'));
+
+    await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-spoiler-disclosure')).toHaveLength(3));
+    expect(lines()[2]).toHaveTextContent(/^Click to expand$/);
+    expect(lines()[2]!.querySelector('.cm-hackmd-spoiler-summary .cm-hackmd-strong')).toHaveTextContent('expand');
+    expect(lines()[6]).toHaveTextContent(/^Open by default$/);
+    expect(lines()[6]!.querySelector('.cm-hackmd-spoiler-disclosure-open')).not.toBeNull();
+    expect(lines()[10]).toHaveTextContent(/^Details$/);
+    expect(lines()[14]!.querySelector('.cm-hackmd-inline-spoiler')).toHaveTextContent(/^secret$/);
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
   it('shows bracketed text as a link only when a definition gives it a URL', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
