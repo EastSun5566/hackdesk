@@ -383,15 +383,17 @@ export const searchPanelTheme = {
 export const completionTheme = {
   '& .cm-tooltip.cm-tooltip-autocomplete': {
     minWidth: '208px',
-    overflow: 'hidden',
     border: '1px solid var(--border-default)',
     borderRadius: '4px',
     backgroundColor: 'var(--background-raised)',
     color: 'var(--text-default)',
     boxShadow: '0 3px 15px 0 rgba(0, 0, 0, 0.15)',
   },
+  // The list clips the chosen row to the rounded corners. The tooltip itself doesn't clip, so an info pane,
+  // which CodeMirror places beside the list, would stay visible.
   '& .cm-tooltip.cm-tooltip-autocomplete > ul': {
     maxHeight: '16rem',
+    borderRadius: '3px',
     padding: '0.375rem 0',
     fontFamily: 'var(--font-sans)',
     fontSize: '0.8125rem',
@@ -426,16 +428,6 @@ export const completionTheme = {
   },
   '& .cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionDetail': {
     color: 'var(--text-subtle)',
-  },
-  '& .cm-tooltip.cm-completionInfo': {
-    padding: '0.375rem 0.75rem',
-    border: '1px solid var(--border-default)',
-    borderRadius: '4px',
-    backgroundColor: 'var(--background-raised)',
-    color: 'var(--text-subtle)',
-    fontFamily: 'var(--font-sans)',
-    fontSize: '0.75rem',
-    boxShadow: '0 3px 15px 0 rgba(0, 0, 0, 0.15)',
   },
 };
 
