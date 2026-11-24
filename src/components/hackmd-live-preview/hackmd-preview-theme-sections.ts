@@ -545,7 +545,7 @@ export const codeAndBlockTheme = {
     borderEndEndRadius: '6px',
     boxShadow: 'none',
   },
-  '.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo': {
+  '.cm-hackmd-alert-block-note': {
     borderLeftColor: 'var(--link-text-default)',
   },
   '.cm-hackmd-alert-block-tip': {
@@ -557,7 +557,7 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-alert-block-warning': {
     borderLeftColor: 'var(--warning-default)',
   },
-  '.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger': {
+  '.cm-hackmd-alert-block-caution': {
     borderLeftColor: 'var(--destructive-default)',
   },
   '.cm-hackmd-container-block-success': {
@@ -830,6 +830,15 @@ export const inlineMarksTheme = {
     fontWeight: '700',
     paddingBlock: '0.1rem 0.3rem',
   },
+  '.cm-hackmd-alert-heading-titled': {
+    marginInlineEnd: '0.55rem',
+  },
+  // An alert's own title reads like the default one it replaces.
+  '.cm-hackmd-alert-custom-title': {
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.92em',
+    fontWeight: '700',
+  },
   '.cm-hackmd-alert-icon': {
     display: 'inline-flex',
     alignItems: 'center',
@@ -848,13 +857,13 @@ export const inlineMarksTheme = {
   '.cm-hackmd-alert-heading-important': {
     color: 'var(--primary-default)',
   },
-  '.cm-hackmd-alert-heading-note, .cm-hackmd-alert-heading-todo': {
+  '.cm-hackmd-alert-heading-note': {
     color: 'var(--link-text-default)',
   },
   '.cm-hackmd-alert-heading-warning': {
     color: 'var(--warning-default)',
   },
-  '.cm-hackmd-alert-heading-caution, .cm-hackmd-alert-heading-danger': {
+  '.cm-hackmd-alert-heading-caution': {
     color: 'var(--destructive-default)',
   },
 };

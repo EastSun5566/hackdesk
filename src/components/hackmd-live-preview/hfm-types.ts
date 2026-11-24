@@ -45,4 +45,7 @@ export type HfmBlockRange = {
   closerFrom?: number;
   closerLine?: number;
   closerTo?: number;
+  /** An alert's own title, the text after its marker, which replaces the default title. */
+  titleFrom?: number;
+  titleTo?: number;
 };

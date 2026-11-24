@@ -72,6 +72,8 @@ export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
       endLine = nextIndex + 1;
     }
 
+    const titleTo = line.trimEnd().length;
+    const titleFrom = titleTo - line.slice(markerRange.to, titleTo).trimStart().length;
     ranges.push({
       endLine,
       kind: 'alert',
@@ -80,6 +82,7 @@ export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
       openerTo: markerRange.to,
       startLine: lineNumber,
       variant: alertMatch[1].toLowerCase(),
+      ...(titleTo > titleFrom ? { titleFrom, titleTo } : {}),
     });
   }
 

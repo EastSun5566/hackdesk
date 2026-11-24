@@ -188,13 +188,13 @@ describe('HackMD preview widget theme', () => {
   });
 
   it('uses semantic status tokens for alert blocks and headings', () => {
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo'].borderLeftColor)
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note'].borderLeftColor)
       .toBe('var(--link-text-default)');
     expect(codeAndBlockTheme['.cm-hackmd-alert-block-tip'].borderLeftColor)
       .toBe('var(--success-default)');
     expect(codeAndBlockTheme['.cm-hackmd-alert-block-warning'].borderLeftColor)
       .toBe('var(--warning-default)');
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger'].borderLeftColor)
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution'].borderLeftColor)
       .toBe('var(--destructive-default)');
     expect(inlineMarksTheme['.cm-hackmd-alert-heading-important'].color)
       .toBe('var(--primary-default)');

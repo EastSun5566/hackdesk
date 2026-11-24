@@ -126,6 +126,19 @@ describe('HFM live-preview recognizers', () => {
     ]);
   });
 
+  it('recognizes only the alert types hackmd.io renders, and an alert title after the marker', () => {
+    const kinds = (line: string) => getHfmBlockRanges([line, '> Body']).map(({ kind, variant }) => `${kind}:${variant}`);
+    expect(kinds('> [!NOTE]')).toEqual(['alert:note']);
+    expect(kinds('   > [!Caution]')).toEqual(['alert:caution']);
+    for (const line of ['> [!danger]', '> [!todo]', '    > [!NOTE]', '> Text [!NOTE]']) {
+      expect(kinds(line), line).toEqual([]);
+    }
+    expect(getHfmLineDecorations('> [!todo]').lineClasses.join(' ')).not.toContain('alert');
+
+    expect(getHfmBlockRanges(['> [!TIP]  Ship on Fridays  '])[0]).toMatchObject({ openerTo: 8, titleFrom: 10, titleTo: 25 });
+    expect(getHfmBlockRanges(['> [!TIP]   '])[0]).not.toHaveProperty('titleFrom');
+  });
+
   it('recognizes table and blockquote metadata blocks without treating them as rendered HTML', () => {
     expect(getHfmBlockRanges([
       'Intro',

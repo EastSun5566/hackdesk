@@ -9,49 +9,49 @@ import { pushReplace, type PreviewRange } from './preview-ranges';
 
 const alertTitles: Record<string, string> = {
   caution: 'Caution',
-  danger: 'Caution',
   important: 'Important',
   note: 'Note',
   tip: 'Tip',
-  todo: 'Note',
   warning: 'Warning',
 };
 
 const alertIcons: Record<string, string> = {
   caution: '!',
-  danger: '!',
   important: '!',
   note: 'i',
   tip: '!',
-  todo: 'i',
   warning: '!',
 };
 
+/** An alert's icon and default title; with a title of its own, only the icon, before that text. */
 class AlertHeaderWidget extends WidgetType {
-  constructor(private readonly variant: string) {
+  constructor(private readonly variant: string, private readonly titled: boolean) {
     super();
   }
 
   eq(other: AlertHeaderWidget): boolean {
-    return other.variant === this.variant;
+    return other.variant === this.variant && other.titled === this.titled;
   }
 
   toDOM(): HTMLElement {
     const header = document.createElement('span');
     const variant = this.variant in alertTitles ? this.variant : 'note';
     header.className = `cm-hackmd-alert-heading cm-hackmd-alert-heading-${variant}`;
+    if (this.titled) header.classList.add('cm-hackmd-alert-heading-titled');
     header.setAttribute('contenteditable', 'false');
 
     const icon = document.createElement('span');
     icon.className = 'cm-hackmd-alert-icon';
     icon.setAttribute('aria-hidden', 'true');
     icon.textContent = alertIcons[variant] ?? 'i';
+    header.append(icon);
 
-    const title = document.createElement('span');
-    title.className = 'cm-hackmd-alert-title';
-    title.textContent = alertTitles[variant] ?? 'Note';
-
-    header.append(icon, title);
+    if (!this.titled) {
+      const title = document.createElement('span');
+      title.className = 'cm-hackmd-alert-title';
+      title.textContent = alertTitles[variant] ?? 'Note';
+      header.append(title);
+    }
     return header;
   }
 
@@ -217,15 +217,28 @@ export function addHfmBlockRanges(
     }
 
     const openerLine = state.doc.line(blockRange.openerLine);
-    pushReplace(
-      ranges,
-      state.doc,
-      openerLine.from + blockRange.openerFrom,
-      openerLine.from + blockRange.openerTo,
-      blockRange.kind === 'alert'
-        ? { widget: new AlertHeaderWidget(blockRange.variant) }
-        : {},
-    );
+    if (blockRange.kind === 'alert') {
+      // Like hackmd.io, text after the marker is the alert's title in place of the default one.
+      const titled = blockRange.titleFrom !== undefined && blockRange.titleTo !== undefined;
+      pushReplace(
+        ranges,
+        state.doc,
+        openerLine.from + blockRange.openerFrom,
+        openerLine.from + (blockRange.titleFrom ?? blockRange.openerTo),
+        { widget: new AlertHeaderWidget(blockRange.variant, titled) },
+      );
+      if (titled) {
+        ranges.push(Decoration.mark({ class: `cm-hackmd-alert-custom-title cm-hackmd-alert-heading-${blockRange.variant}` })
+          .range(openerLine.from + blockRange.titleFrom!, openerLine.from + blockRange.titleTo!));
+      }
+    } else {
+      pushReplace(
+        ranges,
+        state.doc,
+        openerLine.from + blockRange.openerFrom,
+        openerLine.from + blockRange.openerTo,
+      );
+    }
 
     if (
       blockRange.closerLine !== undefined

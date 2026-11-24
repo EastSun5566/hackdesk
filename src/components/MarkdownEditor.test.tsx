@@ -947,7 +947,7 @@ describe('MarkdownEditor', () => {
     expect(activeRef.current?.getMarkdown()).toBe('> [!note]\n> A useful note.');
   });
 
-  it('renders GitHub alert variants with stable heading and rail classes', async () => {
+  it('renders the alert types hackmd.io renders, with stable heading and rail classes', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       'Intro',
@@ -958,7 +958,7 @@ describe('MarkdownEditor', () => {
       '> [!tip]',
       '> Tip body',
       '',
-      '> [!important]',
+      '> [!IMPORTANT]',
       '> Important body',
       '',
       '> [!warning]',
@@ -968,23 +968,34 @@ describe('MarkdownEditor', () => {
       '> Caution body',
       '',
       '> [!danger]',
-      '> Danger body',
-      '',
-      '> [!todo]',
-      '> Todo body',
+      '> Not an alert on hackmd.io',
     ].join('\n');
 
     render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
-    for (const variant of ['note', 'tip', 'important', 'warning', 'caution', 'danger', 'todo']) {
+    for (const variant of ['note', 'tip', 'important', 'warning', 'caution']) {
       expect(editor.querySelector(`.cm-hackmd-alert-block-${variant}`)).not.toBeNull();
       expect(editor.querySelector(`.cm-hackmd-alert-heading-${variant}`)).not.toBeNull();
     }
     expect(editor.querySelector('.cm-hackmd-alert-heading-important')).toHaveTextContent('Important');
-    expect(editor.querySelector('.cm-hackmd-alert-heading-danger')).toHaveTextContent('Caution');
-    expect(editor.querySelector('.cm-hackmd-alert-heading-todo')).toHaveTextContent('Note');
+    // Any other `[!word]` is an ordinary quote that shows its source.
+    expect(editor.querySelector('.cm-hackmd-alert-block-danger')).toBeNull();
+    expect(editor.querySelector('.cm-content')).toHaveTextContent('[!danger]');
+  });
+
+  it('shows text after an alert marker as the title in place of the default one', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = 'Intro\n\n> [!TIP] Ship on Fridays\n> Body.';
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-alert-heading-tip')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-alert-heading-tip')).not.toHaveTextContent('Tip');
+    expect(editor.querySelector('.cm-hackmd-alert-custom-title')).toHaveTextContent('Ship on Fridays');
+    expect(editor.querySelector('.cm-content')).not.toHaveTextContent('[!TIP]');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
   it.each([

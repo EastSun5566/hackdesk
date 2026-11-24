@@ -11,7 +11,8 @@ export const hfmFenceLanguages = new Set([
 ]);
 
 export const externalEmbedPattern = /^\{%(youtube|vimeo|gist|slideshare|speakerdeck|pdf|figma)\s+(.+?)\s*%\}$/i;
-export const alertLinePattern = /^>\s*\[!(note|tip|important|warning|caution|danger|todo)\]/i;
+// The alert types hackmd.io renders (GitHub's five, any case); other `[!word]` markers stay quotes.
+export const alertLinePattern = /^ {0,3}>\s*\[!(note|tip|important|warning|caution)\]/i;
 export const containerLinePattern = /^:::\s*(info|success|warning|danger|spoiler)\b/i;
 export const blockquoteMetadataLinePattern = /^>\s*(?:\[[a-z]+=[^\]]+\]\s*)+$/i;
 export const tableDelimiterPattern = /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/;
