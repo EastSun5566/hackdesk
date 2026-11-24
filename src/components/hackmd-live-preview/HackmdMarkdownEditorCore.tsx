@@ -57,6 +57,7 @@ import {
 } from './initial-reveal';
 import { createHackmdPreviewTheme } from './hackmd-preview-theme';
 import { createImageUploadPlaceholder, IMAGE_UPLOAD_PROGRESS_TEXT } from './markdown-image';
+import { emphasisPairSpace } from './emphasis-pairs';
 import { createHackdeskSearchPanel } from './hackmd-search-panel';
 import { hackmdLinkOpenAffordance } from './preview-links';
 import { hackmdRichPreviewNavigation } from './rich-preview-navigation';
@@ -142,6 +143,7 @@ const editorExtensions: Extension[] = [
   markdownLanguage.data.of({
     closeBrackets: { brackets: ['(', '[', '{', "'", '"', '*', '_', '`'] },
   }),
+  emphasisPairSpace,
   treeProgressPlugin,
   editorStatusExtension,
   hackmdInlinePreview(),
