@@ -10,6 +10,7 @@ import type { EditorState, Line } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { gemoji } from 'gemoji';
 
+import { getHfmDocumentIndex } from '../hfm-document-index';
 import { hfmFenceLanguages } from '../hfm-patterns';
 import { isInCodeOrFrontMatter, isInFrontMatter, type NoteLinksHost } from './note-links';
 
@@ -98,10 +99,12 @@ function writesNewCodeBlock(state: EditorState, line: Line, after: string) {
  * Options are reused while the user keeps typing, so they read the document as it is when chosen.
  */
 function blockOptions(names: [name: string, detail: string][], marker: string, indent: string, isNewBlock = writesNewBlock) {
-  return names.map(([name, detail]): Completion => ({
+  return names.map(([name, detail], index): Completion => ({
     label: name,
     detail,
     type: 'keyword',
+    // Keep the listed order (info first for containers) when nothing is typed yet, not the alphabet.
+    boost: -index / names.length,
     apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
       const { line, after } = textAround(view.state, to);
       if (!isNewBlock(view.state, line, after.replace(/^[`~]+$/, ''))) {
@@ -136,12 +139,20 @@ function fenceSource(context: CompletionContext): CompletionResult | null {
   };
 }
 
-/** :::wa lists container styles, on a line that opens a container. */
+/** Whether this `:::` line closes a container above it. */
+function closesContainer(state: EditorState, line: Line) {
+  return getHfmDocumentIndex(state).blockRanges.some((block) => block.kind === 'container' && block.closerLine === line.number);
+}
+
+/**
+ * ::: and :::wa list container styles, on a line that opens a container. A bare ::: that closes a
+ * container stays quiet, so Enter after it still starts a new line.
+ */
 function containerSource(context: CompletionContext): CompletionResult | null {
-  const { before } = textBefore(context);
+  const { line, before } = textBefore(context);
   const match = /^(\s*):::\s*([a-z]*)$/i.exec(before);
-  // A bare ::: closes a container, so Enter after it must still start a new line.
-  if (!match || (!match[2] && !context.explicit) || isInCodeOrFrontMatter(context.state, context.pos)) return null;
+  if (!match || isInCodeOrFrontMatter(context.state, context.pos)) return null;
+  if (!match[2] && !context.explicit && closesContainer(context.state, line)) return null;
   return {
     from: context.pos - match[2]!.length,
     options: blockOptions(CONTAINERS, ':::', match[1]!),

@@ -98,6 +98,17 @@ describe('container completions', () => {
     expect(cursorLine(view)).toBe(2);
   });
 
+  it('lists container styles on a bare ::: that opens a container', async () => {
+    expect(await offersWhileTyping(':::')).toBe(true);
+    expect(await offersWhileTyping('Intro\n\n:::')).toBe(true);
+    // After a closed container, a new ::: opens the next one.
+    expect(await offersWhileTyping(':::info\nText\n:::\n\n:::')).toBe(true);
+    const view = setup('Intro\n\n:::');
+    expect(await labels(view)).toEqual(['info', 'success', 'warning', 'danger', 'spoiler']);
+    await choose(view, 'success');
+    expect(view.state.doc.toString()).toBe('Intro\n\n:::success\n\n:::');
+  });
+
   it('stays quiet on a closing ::: and inside code', async () => {
     expect(await offersWhileTyping(':::info\nText\n:::')).toBe(false);
     expect(await offersWhileTyping('```\n:::in')).toBe(false);
