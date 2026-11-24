@@ -31,7 +31,11 @@ test('editor text stays in a centered, readable column', async () => {
       const scroller = line.closest('.cm-scroller')!;
       // The readable column is 46em of the editor font (EDITOR_LINE_WIDTH), about 75 characters of prose.
       const probe = document.body.appendChild(document.createElement('span'));
-      probe.style.cssText = `position:absolute;visibility:hidden;display:block;width:46em;font:${getComputedStyle(content).font}`;
+      probe.style.cssText = 'position:absolute;visibility:hidden;display:block;width:46em';
+      // Size and family one by one: the `font` shorthand reads back empty when the editor sets a longhand
+      // it can't express, such as font-variant-ligatures.
+      const { fontFamily, fontSize } = getComputedStyle(content);
+      Object.assign(probe.style, { fontFamily, fontSize });
       const columnWidth = probe.getBoundingClientRect().width;
       probe.remove();
       const box = scroller.getBoundingClientRect();
