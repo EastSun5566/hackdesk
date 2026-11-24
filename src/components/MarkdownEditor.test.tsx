@@ -1803,6 +1803,24 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
   });
 
+  it('shows bracketed text as a link only when a definition gives it a URL', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      'See [Docs] and [the guide][Docs], not [Draft] or [text][missing].',
+      '',
+      '[docs]: https://hackmd.io/docs',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-link')).toHaveLength(2));
+    const line = Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'))[2]!;
+    expect(Array.from(line.querySelectorAll('.cm-hackmd-link'), (link) => link.textContent)).toEqual(['Docs', 'the guide[Docs]']);
+    expect(line).toHaveTextContent('not [Draft] or [text][missing].');
+  });
+
   it('shows front matter as a metadata panel without reading its YAML as markdown', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = ['---', 'title: Hello', 'tags: [a, b] :smile:', '---', '', 'Body'].join('\n');
