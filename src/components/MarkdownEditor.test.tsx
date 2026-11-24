@@ -1828,6 +1828,21 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
   });
 
+  it('keeps an unclosed container opener and colons at the end of text visible', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = ['Intro', '', ':::warning', 'Body ends with:::', 'More'].join('\n');
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const lines = () => Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'));
+
+    await waitFor(() => expect(lines()[2]!.classList.contains('cm-hackmd-container-block-warning')).toBe(true));
+    // Away from the cursor: the opener still shows, as does a `:::` that only ends a line of text.
+    expect(lines()[2]).toHaveTextContent(':::warning');
+    expect(lines()[3]).toHaveTextContent('Body ends with:::');
+    // As on hackmd.io, the unclosed container runs to the end of the note.
+    expect(lines()[4]!.classList.contains('cm-hackmd-container-block-warning')).toBe(true);
+  });
+
   it('shows spoilers with their summary, as hackmd.io shows the collapsed section', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [

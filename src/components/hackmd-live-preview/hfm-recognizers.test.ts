@@ -231,6 +231,11 @@ describe('HFM live-preview recognizers', () => {
     }
   });
 
+  it('closes a container only with a ::: line of its own, and otherwise runs to the end', () => {
+    expect(getHfmBlockRanges([':::info', 'See below:::', 'Body', '  :::', 'After'])[0]).toMatchObject({ endLine: 4, closerLine: 4, closerFrom: 2, closerTo: 5 });
+    expect(getHfmBlockRanges([':::warning', 'Body', 'More'])[0]).toMatchObject({ startLine: 1, endLine: 3, closerLine: undefined });
+  });
+
   it('reads a spoiler opener into its summary and attributes', () => {
     const read = (text: string) => {
       const opener = parseSpoilerOpener(text);

@@ -21,12 +21,15 @@ export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
       let closerFrom: number | undefined;
       let closerTo: number | undefined;
 
+      // A closer is a `:::` line of its own, not text that ends in `:::`. Without one the container
+      // runs to the end of the note, as on hackmd.io.
+      endLine = lines.length;
       for (let closingIndex = index + 1; closingIndex < lines.length; closingIndex += 1) {
         const closingLine = lines[closingIndex] ?? '';
-        const closingStart = closingLine.search(/:::/);
-        if (closingStart < 0 || !/^:::\s*$/.test(closingLine.slice(closingStart))) {
+        if (!/^ {0,3}:{3,}\s*$/.test(closingLine)) {
           continue;
         }
+        const closingStart = closingLine.indexOf(':');
 
         endLine = closingIndex + 1;
         closerLine = endLine;

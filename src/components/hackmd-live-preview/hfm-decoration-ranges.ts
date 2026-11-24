@@ -168,6 +168,9 @@ export function getActiveHfmBlocks(
   activeLines: Set<number>,
 ) {
   return blockRanges.filter((blockRange) => {
+    // An unclosed container shows its opener as source anyway; editing below it must not reveal the
+    // source of everything to the end of the note.
+    if (isUnclosedContainer(blockRange)) return false;
     for (let lineNumber = blockRange.startLine; lineNumber <= blockRange.endLine; lineNumber += 1) {
       if (activeLines.has(lineNumber)) {
         return true;
@@ -176,6 +179,10 @@ export function getActiveHfmBlocks(
 
     return false;
   });
+}
+
+function isUnclosedContainer(blockRange: HfmBlockRange) {
+  return blockRange.kind === 'container' && blockRange.closerLine === undefined;
 }
 
 export function expandActiveHfmBlockLines(
@@ -243,7 +250,8 @@ export function addHfmBlockRanges(
       ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
     }
 
-    if (active) {
+    // Without a closer, the opener stays in view: hiding it would make `:::name` vanish while it is typed.
+    if (active || isUnclosedContainer(blockRange)) {
       continue;
     }
 
