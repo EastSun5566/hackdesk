@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { parseSpoilerOpener } from './hfm-block-ranges';
+import { findMetadataTags } from './hfm-metadata-tags';
 import {
   getHfmBlockRanges,
   getHfmLineDecorations,
@@ -126,7 +128,20 @@ describe('HFM live-preview recognizers', () => {
     ]);
   });
 
-  it('recognizes table and blockquote metadata blocks without treating them as rendered HTML', () => {
+  it('recognizes only the alert types hackmd.io renders, and an alert title after the marker', () => {
+    const kinds = (line: string) => getHfmBlockRanges([line, '> Body']).map(({ kind, variant }) => `${kind}:${variant}`);
+    expect(kinds('> [!NOTE]')).toEqual(['alert:note']);
+    expect(kinds('   > [!Caution]')).toEqual(['alert:caution']);
+    for (const line of ['> [!danger]', '> [!todo]', '    > [!NOTE]', '> Text [!NOTE]']) {
+      expect(kinds(line), line).toEqual([]);
+    }
+    expect(getHfmLineDecorations('> [!todo]').lineClasses.join(' ')).not.toContain('alert');
+
+    expect(getHfmBlockRanges(['> [!TIP]  Ship on Fridays  '])[0]).toMatchObject({ openerTo: 8, titleFrom: 10, titleTo: 25 });
+    expect(getHfmBlockRanges(['> [!TIP]   '])[0]).not.toHaveProperty('titleFrom');
+  });
+
+  it('recognizes table blocks, and leaves metadata lines to the tags inside them', () => {
     expect(getHfmBlockRanges([
       'Intro',
       '| Option | Description |',
@@ -135,7 +150,7 @@ describe('HFM live-preview recognizers', () => {
       '',
       '> [name=Michael] [time=Today] [color=#907bf7]',
       '> Quote body.',
-    ])).toEqual(expect.arrayContaining([
+    ])).toEqual([
       expect.objectContaining({
         endLine: 4,
         kind: 'table',
@@ -143,14 +158,19 @@ describe('HFM live-preview recognizers', () => {
         startLine: 2,
         variant: 'table',
       }),
-      expect.objectContaining({
-        endLine: 7,
-        kind: 'blockquote-meta',
-        openerLine: 6,
-        startLine: 6,
-        variant: 'meta',
-      }),
-    ]));
+    ]);
+  });
+
+  it('finds [name=], [time=] and [color=] tags anywhere on a line, as hackmd.io reads them', () => {
+    const tags = (text: string) => findMetadataTags(text).map(({ name, value, from, to }) => `${name}=${value}@${from}-${to}`);
+    expect(tags('> [name=Michael] [time=Today] [color=#907bf7]')).toEqual([
+      'name=Michael@2-16', 'time=Today@17-29', 'color=#907bf7@30-45',
+    ]);
+    expect(tags('- Ship it [name=Ada Lovelace] today')).toEqual(['name=Ada Lovelace@10-29']);
+    expect(tags('> [color=Teal] [color=#abc]')).toEqual(['color=Teal@2-14', 'color=#abc@15-27']);
+    // Not colours, empty, escaped, in code, or not a tag name.
+    expect(tags('> [color=#12] [color=notacolor] [color=url(x)]')).toEqual([]);
+    expect(tags('> [name=] [name= ] \\[name=Ada] `[name=Ada]` [title=Ada]')).toEqual([]);
   });
 
   it('recognizes HFM inline marks as source offsets', () => {
@@ -201,15 +221,59 @@ describe('HFM live-preview recognizers', () => {
     ]));
   });
 
-  it('returns inactive-only hidden ranges for HackMD blockquote metadata', () => {
-    const metadata = '> [name=Michael] [time=Today]';
+  it('reads containers as hackmd.io does: a case-sensitive name that is the first word', () => {
+    const variant = (line: string) => getHfmBlockRanges([line, 'Body', ':::'])[0]?.variant ?? null;
+    expect(variant(':::info')).toBe('info');
+    expect(variant(':::warning Read this first')).toBe('warning');
+    expect(variant('  ::: spoiler')).toBe('spoiler');
+    for (const line of [':::INFO', ':::info-box', ':::spoilers', '    :::info']) {
+      expect(variant(line), line).toBeNull();
+    }
+  });
 
-    expect(getHfmLineDecorations(metadata).hiddenRanges).toEqual([
-      {
-        from: 2,
-        to: metadata.length,
-      },
-    ]);
-    expect(getHfmLineDecorations('Normal text').hiddenRanges).toEqual([]);
+  it('closes a container only with a ::: line of its own, and otherwise runs to the end', () => {
+    expect(getHfmBlockRanges([':::info', 'See below:::', 'Body', '  :::', 'After'])[0]).toMatchObject({ endLine: 4, closerLine: 4, closerFrom: 2, closerTo: 5 });
+    expect(getHfmBlockRanges([':::warning', 'Body', 'More'])[0]).toMatchObject({ startLine: 1, endLine: 3, closerLine: undefined });
+  });
+
+  it('reads a spoiler opener into its summary and attributes', () => {
+    const read = (text: string) => {
+      const opener = parseSpoilerOpener(text);
+      if (!opener) return null;
+      const slice = (range?: { from: number; to: number }) => (range ? text.slice(range.from, range.to) : undefined);
+      return { open: opener.open, params: slice(opener.params), summary: slice(opener.summary) };
+    };
+    expect(read(':::spoiler')).toEqual({ open: false, params: undefined, summary: undefined });
+    expect(read(':::spoiler Click to expand  ')).toEqual({ open: false, params: undefined, summary: 'Click to expand' });
+    expect(read(':::spoiler {state="open"} Open by default')).toEqual({ open: true, params: '{state="open"}', summary: 'Open by default' });
+    expect(read(':::spoiler Summary {state=open}')).toEqual({ open: true, params: '{state=open}', summary: 'Summary' });
+    expect(read(':::spoiler {state="closed"}')).toEqual({ open: false, params: '{state="closed"}', summary: undefined });
+    expect(read(':::spoilers')).toBeNull();
+    // Only the attributes are metadata; the summary is content.
+    expect(getHfmLineDecorations(':::spoiler {state="open"} Details').inlineMarks
+      .filter(({ className }) => className === 'cm-hackmd-container-meta')).toEqual([{ className: 'cm-hackmd-container-meta', from: 11, to: 25 }]);
+  });
+
+  it('marks ||inline spoilers|| from the first || to the last, and hides their bars', () => {
+    const spoilers = (text: string) => getHfmLineDecorations(text).inlineMarks
+      .filter(({ className }) => className === 'cm-hackmd-inline-spoiler')
+      .map(({ from, to }) => text.slice(from, to));
+    expect(spoilers('Ends ||with a twist|| here')).toEqual(['||with a twist||']);
+    expect(spoilers('||a|| and ||b||')).toEqual(['||a|| and ||b||']);
+    expect(getHfmLineDecorations('See ||it||').hiddenRanges).toEqual([{ from: 4, to: 6 }, { from: 8, to: 10 }]);
+    for (const text of ['No ||close', '|||| empty', 'Code `||a||` only', 'Escaped \\||a||', '| a || b |']) {
+      expect(spoilers(text), text).toEqual([]);
+    }
+  });
+
+  it('marks only shortcodes that name an emoji', () => {
+    const emoji = (text: string) => getHfmLineDecorations(text).inlineMarks
+      .filter(({ className }) => className === 'cm-hackmd-emoji')
+      .map(({ from, to }) => text.slice(from, to));
+    expect(emoji(':smile: at 10:30:45 is :not_an_emoji:')).toEqual([':smile:']);
+  });
+
+  it('leaves metadata lines to the tag widgets instead of hiding the whole line', () => {
+    expect(getHfmLineDecorations('> [name=Michael] [time=Today]').hiddenRanges).toEqual([]);
   });
 });

@@ -68,6 +68,9 @@ export const editorChromeTheme = {
     marginInline: 'auto',
     boxSizing: 'border-box',
     caretColor: 'var(--primary-default)',
+    // The source is markdown: a font's ligatures (JetBrains Mono draws `:::`, `==` and `||` as one glyph)
+    // would merge syntax characters that are revealed and edited one at a time.
+    fontVariantLigatures: 'none',
     minWidth: '0',
   },
   '.cm-line': {
@@ -372,6 +375,62 @@ export const searchPanelTheme = {
   },
 };
 
+/**
+ * The completion list looks like HackDesk's own menus (`MENU_POPUP_CLASS`, `MENU_ITEM_CLASS`): the raised
+ * surface, a hairline border and soft shadow, sans-serif rows, and the hover tint for the chosen row in place
+ * of CodeMirror's solid blue. Selectors start at the editor so they outrank CodeMirror's base theme.
+ */
+export const completionTheme = {
+  '& .cm-tooltip.cm-tooltip-autocomplete': {
+    minWidth: '208px',
+    border: '1px solid var(--border-default)',
+    borderRadius: '4px',
+    backgroundColor: 'var(--background-raised)',
+    color: 'var(--text-default)',
+    boxShadow: '0 3px 15px 0 rgba(0, 0, 0, 0.15)',
+  },
+  // The list clips the chosen row to the rounded corners. The tooltip itself doesn't clip, so an info pane,
+  // which CodeMirror places beside the list, would stay visible.
+  '& .cm-tooltip.cm-tooltip-autocomplete > ul': {
+    maxHeight: '16rem',
+    borderRadius: '3px',
+    padding: '0.375rem 0',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.8125rem',
+    lineHeight: '1.25rem',
+  },
+  '& .cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '0.75rem',
+    padding: '0.375rem 1.25rem',
+    color: 'var(--text-default)',
+  },
+  '& .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+    backgroundColor: 'var(--element-bg-hover)',
+    color: 'var(--text-emphasize)',
+  },
+  '& .cm-tooltip-autocomplete .cm-completionLabel': {
+    whiteSpace: 'nowrap',
+  },
+  '& .cm-tooltip-autocomplete .cm-completionMatchedText': {
+    textDecoration: 'none',
+    fontWeight: '600',
+  },
+  '& .cm-tooltip-autocomplete .cm-completionDetail': {
+    marginInlineStart: 'auto',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontStyle: 'normal',
+    fontSize: '0.75rem',
+    color: 'var(--text-subtler)',
+  },
+  '& .cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionDetail': {
+    color: 'var(--text-subtle)',
+  },
+};
+
 export const proseTheme = {
   // Headings sit close to the body size and lean on weight, the way Obsidian's Minimal theme does,
   // so a long note reads as one column. Markdown already leaves a blank line before a heading, so
@@ -410,7 +469,8 @@ export const proseTheme = {
   },
   '.cm-hackmd-blockquote': {
     color: 'var(--text-subtle)',
-    borderLeft: '3px solid var(--border-bold)',
+    // `[color=]` in the quote sets the bar's colour.
+    borderLeft: '3px solid var(--cm-quote-bar, var(--border-bold))',
     paddingLeft: '0.75rem',
   },
   // Front matter shares the code panel's classes. The markdown highlighter still reads its YAML as
@@ -545,7 +605,7 @@ export const codeAndBlockTheme = {
     borderEndEndRadius: '6px',
     boxShadow: 'none',
   },
-  '.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo': {
+  '.cm-hackmd-alert-block-note': {
     borderLeftColor: 'var(--link-text-default)',
   },
   '.cm-hackmd-alert-block-tip': {
@@ -557,7 +617,7 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-alert-block-warning': {
     borderLeftColor: 'var(--warning-default)',
   },
-  '.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger': {
+  '.cm-hackmd-alert-block-caution': {
     borderLeftColor: 'var(--destructive-default)',
   },
   '.cm-hackmd-container-block-success': {
@@ -587,16 +647,38 @@ export const codeAndBlockTheme = {
     borderEndEndRadius: '6px',
     paddingBottom: '0.1rem',
   },
-  // `[name=]`, `[time=]` and `[color=]` lines belong to the blockquote around them; they take its
-  // border and colour instead of a tinted band of their own.
-  '.cm-hackmd-blockquote-meta-block': {
-    color: 'var(--text-subtle)',
-  },
   '.cm-hackmd-tags-line, .cm-hackmd-toc-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'var(--background-muted)',
   },
   '.cm-hackmd-blockquote-meta': {
+    color: 'var(--text-subtle)',
+  },
+  // `[name=]` and `[time=]` as hackmd.io shows them: small, quiet, each after its icon.
+  // Inline, not inline-flex: an inline block would inherit a list line's hanging text-indent.
+  '.cm-hackmd-metadata-tag': {
+    color: 'var(--text-subtle)',
+    fontSize: '0.85em',
+    whiteSpace: 'nowrap',
+  },
+  '.cm-hackmd-metadata-tag-icon': {
+    display: 'inline-block',
+    width: '1em',
+    height: '1em',
+    marginInlineEnd: '0.3em',
+    verticalAlign: '-0.125em',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.5',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+  },
+  // Bracketed text with no link definition reads as the text it is, not as a link.
+  '.cm-hackmd-plain-brackets span': {
+    color: 'inherit',
+    textDecoration: 'none',
+  },
+  '.cm-hackmd-metadata-tag-source': {
     color: 'var(--text-subtle)',
   },
   // `$$` delimiters while editing math: quiet source text, no band or edge bar.
@@ -768,6 +850,29 @@ export const inlineMarksTheme = {
     width: '1em',
     color: 'var(--text-subtle)',
   },
+  // `||spoiler||` text stays blurred, as hackmd.io blacks it out, until pointed at or edited.
+  '.cm-hackmd-inline-spoiler': {
+    backgroundColor: 'var(--background-muted)',
+    borderRadius: '3px',
+    filter: 'blur(0.22em)',
+    transition: 'filter 120ms ease',
+  },
+  '.cm-hackmd-inline-spoiler:hover, .cm-activeLine .cm-hackmd-inline-spoiler': {
+    filter: 'none',
+  },
+  // A spoiler's opener reads like the summary of a collapsed section.
+  '.cm-hackmd-spoiler-disclosure::before': {
+    content: '"\u25B8"',
+    display: 'inline-block',
+    width: '1.1em',
+    color: 'var(--text-subtle)',
+  },
+  '.cm-hackmd-spoiler-disclosure-open::before': {
+    content: '"\u25BE"',
+  },
+  '.cm-hackmd-spoiler-summary': {
+    fontWeight: '600',
+  },
   '.cm-hackmd-html-br': {
     color: 'var(--text-subtle)',
     fontSize: '0.85em',
@@ -830,6 +935,19 @@ export const inlineMarksTheme = {
     fontWeight: '700',
     paddingBlock: '0.1rem 0.3rem',
   },
+  '.cm-hackmd-alert-heading-titled': {
+    marginInlineEnd: '0.55rem',
+  },
+  // An alert's own title reads like the default one it replaces.
+  '.cm-hackmd-alert-custom-title': {
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.92em',
+    fontWeight: '700',
+  },
+  // The highlighter's quote colour would otherwise win over the alert's.
+  '.cm-hackmd-alert-custom-title span': {
+    color: 'inherit',
+  },
   '.cm-hackmd-alert-icon': {
     display: 'inline-flex',
     alignItems: 'center',
@@ -848,13 +966,13 @@ export const inlineMarksTheme = {
   '.cm-hackmd-alert-heading-important': {
     color: 'var(--primary-default)',
   },
-  '.cm-hackmd-alert-heading-note, .cm-hackmd-alert-heading-todo': {
+  '.cm-hackmd-alert-heading-note': {
     color: 'var(--link-text-default)',
   },
   '.cm-hackmd-alert-heading-warning': {
     color: 'var(--warning-default)',
   },
-  '.cm-hackmd-alert-heading-caution, .cm-hackmd-alert-heading-danger': {
+  '.cm-hackmd-alert-heading-caution': {
     color: 'var(--destructive-default)',
   },
 };

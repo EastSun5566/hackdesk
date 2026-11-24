@@ -1,6 +1,5 @@
 import {
   alertLinePattern,
-  blockquoteMetadataLinePattern,
   containerLinePattern,
   tableDelimiterPattern,
 } from './hfm-patterns';
@@ -9,7 +8,6 @@ import type { HfmBlockRange } from './hfm-types';
 export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
   const ranges: HfmBlockRange[] = [];
   ranges.push(...getTableBlockRanges(lines));
-  ranges.push(...getBlockquoteMetadataBlockRanges(lines));
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? '';
@@ -23,12 +21,15 @@ export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
       let closerFrom: number | undefined;
       let closerTo: number | undefined;
 
+      // A closer is a `:::` line of its own, not text that ends in `:::`. Without one the container
+      // runs to the end of the note, as on hackmd.io.
+      endLine = lines.length;
       for (let closingIndex = index + 1; closingIndex < lines.length; closingIndex += 1) {
         const closingLine = lines[closingIndex] ?? '';
-        const closingStart = closingLine.search(/:::/);
-        if (closingStart < 0 || !/^:::\s*$/.test(closingLine.slice(closingStart))) {
+        if (!/^ {0,3}:{3,}\s*$/.test(closingLine)) {
           continue;
         }
+        const closingStart = closingLine.indexOf(':');
 
         endLine = closingIndex + 1;
         closerLine = endLine;
@@ -72,6 +73,8 @@ export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
       endLine = nextIndex + 1;
     }
 
+    const titleTo = line.trimEnd().length;
+    const titleFrom = titleTo - line.slice(markerRange.to, titleTo).trimStart().length;
     ranges.push({
       endLine,
       kind: 'alert',
@@ -80,10 +83,44 @@ export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
       openerTo: markerRange.to,
       startLine: lineNumber,
       variant: alertMatch[1].toLowerCase(),
+      ...(titleTo > titleFrom ? { titleFrom, titleTo } : {}),
     });
   }
 
   return ranges;
+}
+
+export type SpoilerOpener = {
+  /** `{state="open"}` and other attributes: the first `{…}` after `spoiler`, which is not summary text. */
+  params?: { from: number; to: number };
+  open: boolean;
+  /** The summary hackmd.io shows on the collapsed section, without its attributes. */
+  summary?: { from: number; to: number };
+  /** Where the summary may start: just after `spoiler`. */
+  keywordTo: number;
+};
+
+/** Reads a `:::spoiler Summary {state="open"}` opener line; null for any other line. */
+export function parseSpoilerOpener(text: string): SpoilerOpener | null {
+  const match = /^( {0,3}:::\s*spoiler)(?=\s|$)/.exec(text);
+  if (!match) return null;
+  const keywordTo = match[1]!.length;
+  const rest = text.slice(keywordTo);
+  const paramsMatch = /\{[^}]*\}/.exec(rest);
+  const params = paramsMatch ? { from: keywordTo + paramsMatch.index, to: keywordTo + paramsMatch.index + paramsMatch[0].length } : undefined;
+  const open = Boolean(paramsMatch && /(?:^|[\s{])state\s*=\s*(["']?)open\1(?=[\s}])/i.test(paramsMatch[0]));
+  // The summary is what is left on either side of the attributes; it is shown from its first word to its last.
+  const trimmedEnd = text.trimEnd().length;
+  const before = params ? text.slice(keywordTo, params.from) : text.slice(keywordTo, trimmedEnd);
+  const after = params ? text.slice(params.to, trimmedEnd) : '';
+  let summary: SpoilerOpener['summary'];
+  if (before.trim() || after.trim()) {
+    const from = before.trim()
+      ? keywordTo + before.length - before.trimStart().length
+      : params!.to + after.length - after.trimStart().length;
+    summary = { from, to: after.trim() ? trimmedEnd : keywordTo + before.trimEnd().length };
+  }
+  return { keywordTo, open, params, summary };
 }
 
 export function getAlertMarkerRange(text: string): { from: number; to: number } | null {
@@ -96,18 +133,6 @@ export function getAlertMarkerRange(text: string): { from: number; to: number } 
   return {
     from: markerStart,
     to: markerStart + markerText.length,
-  };
-}
-
-export function getBlockquoteMetadataRange(text: string): { from: number; to: number } | null {
-  const from = text.indexOf('[');
-  if (from < 0) {
-    return null;
-  }
-
-  return {
-    from,
-    to: text.trimEnd().length,
   };
 }
 
@@ -143,40 +168,6 @@ function getTableBlockRanges(lines: readonly string[]): HfmBlockRange[] {
       openerTo: headerLine.length,
       startLine: startIndex + 1,
       variant: 'table',
-    });
-
-    index = endIndex;
-  }
-
-  return ranges;
-}
-
-function getBlockquoteMetadataBlockRanges(lines: readonly string[]): HfmBlockRange[] {
-  const ranges: HfmBlockRange[] = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index] ?? '';
-    if (!blockquoteMetadataLinePattern.test(line.trim())) {
-      continue;
-    }
-
-    let endIndex = index;
-    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
-      const nextLine = lines[nextIndex] ?? '';
-      if (!/^\s*>/.test(nextLine)) {
-        break;
-      }
-      endIndex = nextIndex;
-    }
-
-    ranges.push({
-      endLine: endIndex + 1,
-      kind: 'blockquote-meta',
-      openerFrom: getBlockquoteMetadataRange(line)?.from ?? 0,
-      openerLine: index + 1,
-      openerTo: getBlockquoteMetadataRange(line)?.to ?? line.trimEnd().length,
-      startLine: index + 1,
-      variant: 'meta',
     });
 
     index = endIndex;

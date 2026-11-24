@@ -51,6 +51,10 @@ describe('HackMD preview widget theme', () => {
     });
   });
 
+  it('turns off font ligatures, so markdown like ::: and == shows every character', () => {
+    expect(editorChromeTheme['.cm-content']).toHaveProperty('fontVariantLigatures', 'none');
+  });
+
   it('keeps UI chrome and editor content font sizes on separate semantic tokens', () => {
     expect(editorChromeTheme['&']).toHaveProperty('fontSize', 'var(--font-size-ui)');
     expect(editorChromeTheme['.cm-scroller']).toHaveProperty('fontSize', 'var(--font-size-editor)');
@@ -188,13 +192,13 @@ describe('HackMD preview widget theme', () => {
   });
 
   it('uses semantic status tokens for alert blocks and headings', () => {
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo'].borderLeftColor)
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note'].borderLeftColor)
       .toBe('var(--link-text-default)');
     expect(codeAndBlockTheme['.cm-hackmd-alert-block-tip'].borderLeftColor)
       .toBe('var(--success-default)');
     expect(codeAndBlockTheme['.cm-hackmd-alert-block-warning'].borderLeftColor)
       .toBe('var(--warning-default)');
-    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger'].borderLeftColor)
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution'].borderLeftColor)
       .toBe('var(--destructive-default)');
     expect(inlineMarksTheme['.cm-hackmd-alert-heading-important'].color)
       .toBe('var(--primary-default)');

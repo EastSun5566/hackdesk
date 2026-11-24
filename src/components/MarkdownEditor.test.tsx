@@ -947,7 +947,7 @@ describe('MarkdownEditor', () => {
     expect(activeRef.current?.getMarkdown()).toBe('> [!note]\n> A useful note.');
   });
 
-  it('renders GitHub alert variants with stable heading and rail classes', async () => {
+  it('renders the alert types hackmd.io renders, with stable heading and rail classes', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       'Intro',
@@ -958,7 +958,7 @@ describe('MarkdownEditor', () => {
       '> [!tip]',
       '> Tip body',
       '',
-      '> [!important]',
+      '> [!IMPORTANT]',
       '> Important body',
       '',
       '> [!warning]',
@@ -968,23 +968,34 @@ describe('MarkdownEditor', () => {
       '> Caution body',
       '',
       '> [!danger]',
-      '> Danger body',
-      '',
-      '> [!todo]',
-      '> Todo body',
+      '> Not an alert on hackmd.io',
     ].join('\n');
 
     render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
-    for (const variant of ['note', 'tip', 'important', 'warning', 'caution', 'danger', 'todo']) {
+    for (const variant of ['note', 'tip', 'important', 'warning', 'caution']) {
       expect(editor.querySelector(`.cm-hackmd-alert-block-${variant}`)).not.toBeNull();
       expect(editor.querySelector(`.cm-hackmd-alert-heading-${variant}`)).not.toBeNull();
     }
     expect(editor.querySelector('.cm-hackmd-alert-heading-important')).toHaveTextContent('Important');
-    expect(editor.querySelector('.cm-hackmd-alert-heading-danger')).toHaveTextContent('Caution');
-    expect(editor.querySelector('.cm-hackmd-alert-heading-todo')).toHaveTextContent('Note');
+    // Any other `[!word]` is an ordinary quote that shows its source.
+    expect(editor.querySelector('.cm-hackmd-alert-block-danger')).toBeNull();
+    expect(editor.querySelector('.cm-content')).toHaveTextContent('[!danger]');
+  });
+
+  it('shows text after an alert marker as the title in place of the default one', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = 'Intro\n\n> [!TIP] Ship on Fridays\n> Body.';
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-alert-heading-tip')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-alert-heading-tip')).not.toHaveTextContent('Tip');
+    expect(editor.querySelector('.cm-hackmd-alert-custom-title')).toHaveTextContent('Ship on Fridays');
+    expect(editor.querySelector('.cm-content')).not.toHaveTextContent('[!TIP]');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
   it.each([
@@ -1279,31 +1290,45 @@ describe('MarkdownEditor', () => {
     expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
-  it('hides inactive blockquote metadata and reveals it when active', async () => {
-    const inactiveRef = createRef<MarkdownEditorHandle>();
+  it('shows [name=] and [time=] tags with icons and paints the quote bar with [color=]', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       'Intro',
       '',
-      '> [name=Michael] [time=Today] [color=#907bf7]',
       '> Quote body.',
+      '> [name=Michael] [time=Today] [color=#907bf7]',
+      '',
+      '- Item by [name=Ada]',
+      '',
+      'Outside a quote [name=Nobody] is text.',
     ].join('\n');
 
-    render(<MarkdownEditor ref={inactiveRef} value={markdown} onChange={vi.fn()} />);
-    const inactiveEditor = await screen.findByTestId('hackmd-markdown-editor');
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const lines = () => Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'));
 
-    await waitFor(() => expect(inactiveEditor.querySelector('.cm-hackmd-blockquote-meta-block-start')).not.toBeNull());
-    expect(inactiveEditor.querySelector('.cm-content')).toHaveTextContent('Quote body.');
-    expect(inactiveEditor.querySelector('.cm-content')).not.toHaveTextContent('[name=Michael]');
-    expect(inactiveRef.current?.getMarkdown()).toBe(markdown);
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-metadata-tag-name')).not.toBeNull());
+    expect(Array.from(lines()[3]!.querySelectorAll('.cm-hackmd-metadata-tag'), (tag) => tag.textContent)).toEqual(['Michael', 'Today']);
+    expect(lines()[3]!.querySelectorAll('.cm-hackmd-metadata-tag svg')).toHaveLength(2);
+    expect(lines()[3]).not.toHaveTextContent('#907bf7');
+    expect(lines()[2]!.style.getPropertyValue('--cm-quote-bar')).toBe('#907bf7');
+    expect(lines()[3]!.style.getPropertyValue('--cm-quote-bar')).toBe('#907bf7');
+    expect(lines()[5]!.querySelector('.cm-hackmd-metadata-tag-name')).toHaveTextContent('Ada');
+    expect(lines()[7]).toHaveTextContent('Outside a quote [name=Nobody] is text.');
+    expect(lines()[7]!.querySelector('.cm-hackmd-metadata-tag')).toBeNull();
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
 
-    const activeRef = createRef<MarkdownEditorHandle>();
-    render(<MarkdownEditor ref={activeRef} value={markdown.split('\n').slice(2).join('\n')} onChange={vi.fn()} />);
-    const editors = await screen.findAllByTestId('hackmd-markdown-editor');
-    const activeEditor = editors.at(-1);
+  it('shows a tag\'s source on the cursor line', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = '> [name=Michael] [color=red]\n> Quote body.';
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    act(() => ref.current?.focus());
 
-    expect(activeEditor).toBeDefined();
-    await waitFor(() => expect(activeEditor?.querySelector('.cm-content')).toHaveTextContent('[name=Michael]'));
-    expect(activeRef.current?.getMarkdown()).toBe(markdown.split('\n').slice(2).join('\n'));
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-metadata-tag-source')).not.toBeNull());
+    expect(editor.querySelector('.cm-content')).toHaveTextContent('[name=Michael] [color=red]');
+    expect(editor.querySelector('.cm-hackmd-metadata-tag')).toBeNull();
   });
 
   it('toggles task checkbox widgets without converting surrounding markdown', async () => {
@@ -1801,6 +1826,73 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
     await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
+  });
+
+  it('keeps an unclosed container opener and colons at the end of text visible', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = ['Intro', '', ':::warning', 'Body ends with:::', 'More'].join('\n');
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const lines = () => Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'));
+
+    await waitFor(() => expect(lines()[2]!.classList.contains('cm-hackmd-container-block-warning')).toBe(true));
+    // Away from the cursor: the opener still shows, as does a `:::` that only ends a line of text.
+    expect(lines()[2]).toHaveTextContent(':::warning');
+    expect(lines()[3]).toHaveTextContent('Body ends with:::');
+    // As on hackmd.io, the unclosed container runs to the end of the note.
+    expect(lines()[4]!.classList.contains('cm-hackmd-container-block-warning')).toBe(true);
+  });
+
+  it('shows spoilers with their summary, as hackmd.io shows the collapsed section', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      ':::spoiler Click to **expand**',
+      'Hidden body.',
+      ':::',
+      '',
+      ':::spoiler {state="open"} Open by default',
+      'Body.',
+      ':::',
+      '',
+      ':::spoiler',
+      'No summary.',
+      ':::',
+      '',
+      'A ||secret|| word.',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const lines = () => Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'));
+
+    await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-spoiler-disclosure')).toHaveLength(3));
+    expect(lines()[2]).toHaveTextContent(/^Click to expand$/);
+    expect(lines()[2]!.querySelector('.cm-hackmd-spoiler-summary .cm-hackmd-strong')).toHaveTextContent('expand');
+    expect(lines()[6]).toHaveTextContent(/^Open by default$/);
+    expect(lines()[6]!.querySelector('.cm-hackmd-spoiler-disclosure-open')).not.toBeNull();
+    expect(lines()[10]).toHaveTextContent(/^Details$/);
+    expect(lines()[14]!.querySelector('.cm-hackmd-inline-spoiler')).toHaveTextContent(/^secret$/);
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('shows bracketed text as a link only when a definition gives it a URL', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      'See [Docs] and [the guide][Docs], not [Draft] or [text][missing].',
+      '',
+      '[docs]: https://hackmd.io/docs',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-link')).toHaveLength(2));
+    const line = Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'))[2]!;
+    expect(Array.from(line.querySelectorAll('.cm-hackmd-link'), (link) => link.textContent)).toEqual(['Docs', 'the guide[Docs]']);
+    expect(line).toHaveTextContent('not [Draft] or [text][missing].');
   });
 
   it('shows front matter as a metadata panel without reading its YAML as markdown', async () => {

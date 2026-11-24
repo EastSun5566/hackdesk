@@ -25,6 +25,7 @@ import {
 } from './hfm-decoration-ranges';
 import { getCodeFenceLineRole, getCodeFenceLines, getCodeFences, type CodeFence } from './code-fences';
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
+import { addMetadataTagRanges } from './hfm-metadata-tags';
 import { getOrderedListMarkerPreviews } from './list-markers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
 import {
@@ -263,13 +264,53 @@ function buildPreviewDocument(state: EditorState) {
   const hfmBlockRanges = getHfmDocumentIndex(state).blockRanges
     .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, sourceOnlyLines));
   const orderedListMarkers = getOrderedListMarkerPreviews(state);
-  return { doc: state.doc, sourceTree, tree, codeFences, fencedCodeLines, frontmatter, sourceOnlyLines, hfmBlockRanges, orderedListMarkers };
+  const referenceLabels = getReferenceLabels(state, tree);
+  return { doc: state.doc, sourceTree, tree, codeFences, fencedCodeLines, frontmatter, sourceOnlyLines, hfmBlockRanges, orderedListMarkers, referenceLabels };
+}
+
+type SyntaxNodeRef = Parameters<NonNullable<Parameters<ReturnType<typeof syntaxTree>['iterate']>[0]['enter']>>[0];
+
+const blockContainerNames = new Set(['Document', 'Blockquote', 'BulletList', 'OrderedList', 'ListItem']);
+
+/** A reference label as CommonMark matches it: case-insensitive, with runs of whitespace as one space. */
+function normalizeReferenceLabel(label: string) {
+  return label.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** The labels of every `[label]: url` definition, which live in block containers, never inside paragraphs. */
+function getReferenceLabels(state: EditorState, tree: ReturnType<typeof syntaxTree>) {
+  const labels = new Set<string>();
+  tree.iterate({
+    enter(node) {
+      if (node.name === 'LinkReference') {
+        const label = node.node.getChild('LinkLabel');
+        if (label) labels.add(normalizeReferenceLabel(state.sliceDoc(label.from + 1, label.to - 1)));
+        return false;
+      }
+      return blockContainerNames.has(node.name);
+    },
+  });
+  return labels;
+}
+
+/**
+ * Whether a link without a URL (`[text]`, `[text][]`, `[text][label]`) points at a definition. Without
+ * one it is plain text with its brackets, as hackmd.io shows it, not a link.
+ */
+function isDefinedReferenceLink(state: EditorState, node: SyntaxNodeRef, labels: ReadonlySet<string>) {
+  const label = node.node.getChild('LinkLabel');
+  const marks = node.node.getChildren('LinkMark');
+  let text = label && label.to - label.from > 2 ? state.sliceDoc(label.from + 1, label.to - 1) : '';
+  if (!text && marks.length >= 2) text = state.sliceDoc(marks[0]!.to, marks[1]!.from);
+  return labels.has(normalizeReferenceLabel(text));
 }
 
 type PreviewDocument = ReturnType<typeof buildPreviewDocument>;
 
 function buildDecorations(view: EditorView, state: EditorState, document: PreviewDocument): DecorationSet {
-  const { tree, codeFences, frontmatter, sourceOnlyLines, hfmBlockRanges, orderedListMarkers } = document;
+  const { tree, codeFences, frontmatter, sourceOnlyLines, hfmBlockRanges, orderedListMarkers, referenceLabels } = document;
+  // Bracketed text the parser calls a link but that has no definition: it keeps its source.
+  const plainBracketStarts = new Set<number>();
   const frontmatterEnd = frontmatter ? state.doc.line(frontmatter.endLine).to : -1;
   // Opening fence lines that show a language label in place of their source.
   const labelledFenceLines = new Set<number>();
@@ -288,6 +329,7 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
     const endLine = state.doc.lineAt(to).number;
     for (let number = startLine; number <= endLine; number++) visibleLines.add(number);
     addHackmdLineSyntaxRanges(state, activeLines, ranges, sourceOnlyLines, startLine, endLine);
+    addMetadataTagRanges(state, activeLines, ranges, sourceOnlyLines, startLine, endLine);
   }
 
   // Block replacements stay in StateFields. Only this plugin's inline/line
@@ -322,6 +364,17 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
           if (fence) {
             addCodeFenceRanges(state, ranges, fence, fenceIsActive, visibleLines, labelledFenceLines);
           }
+        }
+
+        if (node.name === 'Link' && !hasUrl(node.node) && !isDefinedReferenceLink(state, node, referenceLabels)) {
+          plainBracketStarts.add(node.from);
+          // The highlighter still colours it as a link; this mark takes that back.
+          ranges.push(Decoration.mark({ class: 'cm-hackmd-plain-brackets' }).range(node.from, node.to));
+          return;
+        }
+
+        if (node.name === 'LinkMark' && node.node.parent && plainBracketStarts.has(node.node.parent.from)) {
+          return;
         }
 
         if (node.name === 'Link' || node.name === 'Image') {

@@ -36,7 +36,7 @@ export type HfmLineDecorations = {
 
 export type HfmBlockRange = {
   endLine: number;
-  kind: 'alert' | 'blockquote-meta' | 'container' | 'table';
+  kind: 'alert' | 'container' | 'table';
   openerFrom: number;
   openerLine: number;
   openerTo: number;
@@ -45,4 +45,7 @@ export type HfmBlockRange = {
   closerFrom?: number;
   closerLine?: number;
   closerTo?: number;
+  /** An alert's own title, the text after its marker, which replaces the default title. */
+  titleFrom?: number;
+  titleTo?: number;
 };

@@ -1,6 +1,7 @@
-import { StateEffect, StateField, type EditorState } from '@codemirror/state';
+import { StateEffect, StateField, type EditorState, type Line } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 
+import { parseSpoilerOpener } from './hfm-block-ranges';
 import {
   getHfmLineDecorations,
   type HfmBlockRange,
@@ -9,50 +10,80 @@ import { pushReplace, type PreviewRange } from './preview-ranges';
 
 const alertTitles: Record<string, string> = {
   caution: 'Caution',
-  danger: 'Caution',
   important: 'Important',
   note: 'Note',
   tip: 'Tip',
-  todo: 'Note',
   warning: 'Warning',
 };
 
 const alertIcons: Record<string, string> = {
   caution: '!',
-  danger: '!',
   important: '!',
   note: 'i',
   tip: '!',
-  todo: 'i',
   warning: '!',
 };
 
+/** An alert's icon and default title; with a title of its own, only the icon, before that text. */
 class AlertHeaderWidget extends WidgetType {
-  constructor(private readonly variant: string) {
+  constructor(private readonly variant: string, private readonly titled: boolean) {
     super();
   }
 
   eq(other: AlertHeaderWidget): boolean {
-    return other.variant === this.variant;
+    return other.variant === this.variant && other.titled === this.titled;
   }
 
   toDOM(): HTMLElement {
     const header = document.createElement('span');
     const variant = this.variant in alertTitles ? this.variant : 'note';
     header.className = `cm-hackmd-alert-heading cm-hackmd-alert-heading-${variant}`;
+    if (this.titled) header.classList.add('cm-hackmd-alert-heading-titled');
     header.setAttribute('contenteditable', 'false');
 
     const icon = document.createElement('span');
     icon.className = 'cm-hackmd-alert-icon';
     icon.setAttribute('aria-hidden', 'true');
     icon.textContent = alertIcons[variant] ?? 'i';
+    header.append(icon);
 
-    const title = document.createElement('span');
-    title.className = 'cm-hackmd-alert-title';
-    title.textContent = alertTitles[variant] ?? 'Note';
-
-    header.append(icon, title);
+    if (!this.titled) {
+      const title = document.createElement('span');
+      title.className = 'cm-hackmd-alert-title';
+      title.textContent = alertTitles[variant] ?? 'Note';
+      header.append(title);
+    }
     return header;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
+/** A spoiler's disclosure mark, as hackmd.io draws it closed (or open with `state="open"`), and its default summary. */
+class SpoilerSummaryWidget extends WidgetType {
+  constructor(private readonly open: boolean, private readonly summarized: boolean) {
+    super();
+  }
+
+  eq(other: SpoilerSummaryWidget): boolean {
+    return other.open === this.open && other.summarized === this.summarized;
+  }
+
+  toDOM(): HTMLElement {
+    const summary = document.createElement('span');
+    summary.className = `cm-hackmd-spoiler-disclosure${this.open ? ' cm-hackmd-spoiler-disclosure-open' : ''}`;
+    summary.setAttribute('contenteditable', 'false');
+    summary.title = this.open ? 'Open when published' : 'Collapsed when published';
+    if (!this.summarized) {
+      // A <details> without a summary is labelled "Details".
+      const label = document.createElement('span');
+      label.className = 'cm-hackmd-spoiler-summary';
+      label.textContent = 'Details';
+      summary.append(label);
+    }
+    return summary;
   }
 
   ignoreEvent(): boolean {
@@ -137,6 +168,9 @@ export function getActiveHfmBlocks(
   activeLines: Set<number>,
 ) {
   return blockRanges.filter((blockRange) => {
+    // An unclosed container shows its opener as source anyway; editing below it must not reveal the
+    // source of everything to the end of the note.
+    if (isUnclosedContainer(blockRange)) return false;
     for (let lineNumber = blockRange.startLine; lineNumber <= blockRange.endLine; lineNumber += 1) {
       if (activeLines.has(lineNumber)) {
         return true;
@@ -145,6 +179,10 @@ export function getActiveHfmBlocks(
 
     return false;
   });
+}
+
+function isUnclosedContainer(blockRange: HfmBlockRange) {
+  return blockRange.kind === 'container' && blockRange.closerLine === undefined;
 }
 
 export function expandActiveHfmBlockLines(
@@ -212,20 +250,36 @@ export function addHfmBlockRanges(
       ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
     }
 
-    if (active || blockRange.kind === 'blockquote-meta') {
+    // Without a closer, the opener stays in view: hiding it would make `:::name` vanish while it is typed.
+    if (active || isUnclosedContainer(blockRange)) {
       continue;
     }
 
     const openerLine = state.doc.line(blockRange.openerLine);
-    pushReplace(
-      ranges,
-      state.doc,
-      openerLine.from + blockRange.openerFrom,
-      openerLine.from + blockRange.openerTo,
-      blockRange.kind === 'alert'
-        ? { widget: new AlertHeaderWidget(blockRange.variant) }
-        : {},
-    );
+    if (blockRange.kind === 'alert') {
+      // Like hackmd.io, text after the marker is the alert's title in place of the default one.
+      const titled = blockRange.titleFrom !== undefined && blockRange.titleTo !== undefined;
+      pushReplace(
+        ranges,
+        state.doc,
+        openerLine.from + blockRange.openerFrom,
+        openerLine.from + (blockRange.titleFrom ?? blockRange.openerTo),
+        { widget: new AlertHeaderWidget(blockRange.variant, titled) },
+      );
+      if (titled) {
+        ranges.push(Decoration.mark({ class: `cm-hackmd-alert-custom-title cm-hackmd-alert-heading-${blockRange.variant}` })
+          .range(openerLine.from + blockRange.titleFrom!, openerLine.from + blockRange.titleTo!));
+      }
+    } else if (blockRange.variant === 'spoiler') {
+      addSpoilerOpenerRanges(state, openerLine, blockRange.openerFrom, ranges);
+    } else {
+      pushReplace(
+        ranges,
+        state.doc,
+        openerLine.from + blockRange.openerFrom,
+        openerLine.from + blockRange.openerTo,
+      );
+    }
 
     if (
       blockRange.closerLine !== undefined
@@ -241,6 +295,29 @@ export function addHfmBlockRanges(
       );
     }
   }
+}
+
+/**
+ * Shows a spoiler's opener as hackmd.io shows the collapsed section: a disclosure mark and the summary,
+ * with `:::spoiler` and the `{…}` attributes hidden. The summary stays source, so its marks still render.
+ */
+function addSpoilerOpenerRanges(state: EditorState, line: Line, openerFrom: number, ranges: PreviewRange[]) {
+  const spoiler = parseSpoilerOpener(line.text);
+  if (!spoiler) return;
+  const { params, summary } = spoiler;
+  const widget = new SpoilerSummaryWidget(spoiler.open, Boolean(summary));
+  if (!summary) {
+    pushReplace(ranges, state.doc, line.from + openerFrom, line.from + line.text.trimEnd().length, { widget });
+    return;
+  }
+  // Hide everything before the summary (the attributes too when they come first), then any attributes after it.
+  pushReplace(ranges, state.doc, line.from + openerFrom, line.from + summary.from, { widget });
+  if (params && params.from >= summary.to) {
+    pushReplace(ranges, state.doc, line.from + summary.to, line.from + line.text.trimEnd().length);
+  } else if (params && params.from > summary.from) {
+    pushReplace(ranges, state.doc, line.from + params.from, line.from + params.to);
+  }
+  ranges.push(Decoration.mark({ class: 'cm-hackmd-spoiler-summary' }).range(line.from + summary.from, line.from + summary.to));
 }
 
 export function addHackmdLineSyntaxRanges(

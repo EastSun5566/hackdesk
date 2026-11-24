@@ -10,6 +10,7 @@ import type { EditorState, Line } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { gemoji } from 'gemoji';
 
+import { getHfmDocumentIndex } from '../hfm-document-index';
 import { hfmFenceLanguages } from '../hfm-patterns';
 import { isInCodeOrFrontMatter, isInFrontMatter, type NoteLinksHost } from './note-links';
 
@@ -98,10 +99,12 @@ function writesNewCodeBlock(state: EditorState, line: Line, after: string) {
  * Options are reused while the user keeps typing, so they read the document as it is when chosen.
  */
 function blockOptions(names: [name: string, detail: string][], marker: string, indent: string, isNewBlock = writesNewBlock) {
-  return names.map(([name, detail]): Completion => ({
+  return names.map(([name, detail], index): Completion => ({
     label: name,
     detail,
     type: 'keyword',
+    // Keep the listed order (info first for containers) when nothing is typed yet, not the alphabet.
+    boost: -index / names.length,
     apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
       const { line, after } = textAround(view.state, to);
       if (!isNewBlock(view.state, line, after.replace(/^[`~]+$/, ''))) {
@@ -136,12 +139,20 @@ function fenceSource(context: CompletionContext): CompletionResult | null {
   };
 }
 
-/** :::wa lists container styles, on a line that opens a container. */
+/** Whether this `:::` line closes a container above it. */
+function closesContainer(state: EditorState, line: Line) {
+  return getHfmDocumentIndex(state).blockRanges.some((block) => block.kind === 'container' && block.closerLine === line.number);
+}
+
+/**
+ * ::: and :::wa list container styles, on a line that opens a container. A bare ::: that closes a
+ * container stays quiet, so Enter after it still starts a new line.
+ */
 function containerSource(context: CompletionContext): CompletionResult | null {
-  const { before } = textBefore(context);
+  const { line, before } = textBefore(context);
   const match = /^(\s*):::\s*([a-z]*)$/i.exec(before);
-  // A bare ::: closes a container, so Enter after it must still start a new line.
-  if (!match || (!match[2] && !context.explicit) || isInCodeOrFrontMatter(context.state, context.pos)) return null;
+  if (!match || isInCodeOrFrontMatter(context.state, context.pos)) return null;
+  if (!match[2] && !context.explicit && closesContainer(context.state, line)) return null;
   return {
     from: context.pos - match[2]!.length,
     options: blockOptions(CONTAINERS, ':::', match[1]!),
@@ -176,24 +187,37 @@ function embedNameSource(context: CompletionContext): CompletionResult | null {
   };
 }
 
-const ALERTS = ['Note', 'Tip', 'Important', 'Warning', 'Caution'];
+const ALERTS: [name: string, detail: string][] = [
+  ['Note', 'Information worth knowing, even when skimming'],
+  ['Tip', 'Advice for doing something better or more easily'],
+  ['Important', 'Information needed to reach the goal'],
+  ['Warning', 'Urgent information that needs attention'],
+  ['Caution', 'Risks or bad outcomes of an action'],
+];
 
-/** `[!` right after `>` lists alert types, where an alert starts. On a new alert the next line starts its text. */
+/**
+ * `[!` (or `[` and a letter) right after `>` lists alert types where an alert starts: the first line of
+ * a blockquote, since hackmd.io reads a marker only there. On a new alert the next line starts its text.
+ */
 function alertSource(context: CompletionContext): CompletionResult | null {
-  const { before } = textBefore(context);
-  const match = /^\s*>\s*\[!([a-z]*)$/i.exec(before);
-  if (!match || isInCodeOrFrontMatter(context.state, context.pos)) return null;
+  const { line, before } = textBefore(context);
+  const match = /^\s*>\s*\[(!?)([a-z]*)$/i.exec(before);
+  if (!match || (!match[1] && !match[2] && !context.explicit) || isInCodeOrFrontMatter(context.state, context.pos)) return null;
+  if (line.number > 1 && /^\s*>/.test(context.state.doc.line(line.number - 1).text)) return null;
+  const bang = match[1] ? '' : '!';
   return {
-    from: context.pos - match[1]!.length,
+    from: context.pos - match[2]!.length,
     validFor: /^[a-z]*$/i,
-    options: ALERTS.map((name): Completion => ({
+    options: ALERTS.map(([name, detail]): Completion => ({
       label: name,
+      displayLabel: `${bang}${name}`,
+      detail,
       type: 'keyword',
       apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
         const { line, after } = textAround(view.state, to);
         const end = to + /^[a-z]*\]?/i.exec(after)![0].length;
         const quote = `${/^\s*>/.exec(line.text)![0]} `;
-        const insert = `${name.toUpperCase()}]${end === line.to ? `\n${quote}` : ''}`;
+        const insert = `${bang}${name.toUpperCase()}]${end === line.to ? `\n${quote}` : ''}`;
         view.dispatch({ changes: { from, to: end, insert }, selection: { anchor: from + insert.length } });
       },
     })),
