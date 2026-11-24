@@ -372,6 +372,70 @@ export const searchPanelTheme = {
   },
 };
 
+/**
+ * The completion list looks like HackDesk's own menus (`MENU_POPUP_CLASS`, `MENU_ITEM_CLASS`): the raised
+ * surface, a hairline border and soft shadow, sans-serif rows, and the hover tint for the chosen row in place
+ * of CodeMirror's solid blue. Selectors start at the editor so they outrank CodeMirror's base theme.
+ */
+export const completionTheme = {
+  '& .cm-tooltip.cm-tooltip-autocomplete': {
+    minWidth: '208px',
+    overflow: 'hidden',
+    border: '1px solid var(--border-default)',
+    borderRadius: '4px',
+    backgroundColor: 'var(--background-raised)',
+    color: 'var(--text-default)',
+    boxShadow: '0 3px 15px 0 rgba(0, 0, 0, 0.15)',
+  },
+  '& .cm-tooltip.cm-tooltip-autocomplete > ul': {
+    maxHeight: '16rem',
+    padding: '0.375rem 0',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.8125rem',
+    lineHeight: '1.25rem',
+  },
+  '& .cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '0.75rem',
+    padding: '0.375rem 1.25rem',
+    color: 'var(--text-default)',
+  },
+  '& .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+    backgroundColor: 'var(--element-bg-hover)',
+    color: 'var(--text-emphasize)',
+  },
+  '& .cm-tooltip-autocomplete .cm-completionLabel': {
+    whiteSpace: 'nowrap',
+  },
+  '& .cm-tooltip-autocomplete .cm-completionMatchedText': {
+    textDecoration: 'none',
+    fontWeight: '600',
+  },
+  '& .cm-tooltip-autocomplete .cm-completionDetail': {
+    marginInlineStart: 'auto',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontStyle: 'normal',
+    fontSize: '0.75rem',
+    color: 'var(--text-subtler)',
+  },
+  '& .cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionDetail': {
+    color: 'var(--text-subtle)',
+  },
+  '& .cm-tooltip.cm-completionInfo': {
+    padding: '0.375rem 0.75rem',
+    border: '1px solid var(--border-default)',
+    borderRadius: '4px',
+    backgroundColor: 'var(--background-raised)',
+    color: 'var(--text-subtle)',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.75rem',
+    boxShadow: '0 3px 15px 0 rgba(0, 0, 0, 0.15)',
+  },
+};
+
 export const proseTheme = {
   // Headings sit close to the body size and lean on weight, the way Obsidian's Minimal theme does,
   // so a long note reads as one column. Markdown already leaves a blank line before a heading, so

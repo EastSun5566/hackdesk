@@ -9,6 +9,7 @@ import {
   CODE_PANEL_BACKGROUNDS,
   CONTAINER_TINTS,
   codeAndBlockTheme,
+  completionTheme,
   editorChromeTheme,
   inlineMarksTheme,
   proseTheme,
@@ -40,6 +41,7 @@ export function createHackmdPreviewTheme(mode: ResolvedThemeMode): Extension[] {
     EditorView.theme({
       ...editorChromeTheme,
       ...searchPanelTheme,
+      ...completionTheme,
       ...proseTheme,
       ...codeAndBlockTheme,
       ...inlineMarksTheme,
