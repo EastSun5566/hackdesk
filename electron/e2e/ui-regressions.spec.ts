@@ -1235,8 +1235,12 @@ test('notes can drop in a folder note area and back to the root blank space', as
     await dragTo('Beta', page.getByTestId('tree-top-level'), 0.5, async () => {
       const highlight = page.getByTestId('note-drop-root-highlight');
       await expect(highlight).toHaveCount(1);
-      const highlightBox = (await highlight.boundingBox())!;
-      const treeBox = (await tree.boundingBox())!;
+      // The pointer is in the blank strip at the bottom of the scroll area, so dnd-kit may
+      // autoscroll the tree mid-check: measure both rects in the same frame.
+      const { highlightBox, treeBox } = await tree.evaluate((treeElement) => {
+        const highlightElement = treeElement.querySelector('[data-testid="note-drop-root-highlight"]')!;
+        return { highlightBox: highlightElement.getBoundingClientRect().toJSON(), treeBox: treeElement.getBoundingClientRect().toJSON() };
+      });
       expect(highlightBox.y).toBeLessThanOrEqual(treeBox.y + 1);
       expect(highlightBox.height).toBeGreaterThanOrEqual(treeBox.height - 1);
     });
