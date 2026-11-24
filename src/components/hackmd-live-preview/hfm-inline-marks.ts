@@ -5,6 +5,7 @@ import type {
   HfmInlineMark,
 } from './hfm-types';
 import { getInlineHtmlDecorations } from './inline-html';
+import { resolveEmojiShortcode } from './rich-preview-adapters';
 import { findInlineMath } from './inline-math';
 
 // HackMD's delimited inline marks (markdown-it-mark, -ins, -sub, -sup). Sub and sup content has no
@@ -49,7 +50,8 @@ export function getHackmdInlineMarks(text: string): HfmInlineMark[] {
     ...getRegexMarks(text, /\bhttps?:\/\/[^\s<]+/g, 'cm-hackmd-autolink'),
     ...getRegexMarks(text, /<\/?[A-Za-z][^>\n]*>/g, 'cm-hackmd-raw-html', codeSpans),
     ...getInlineHtmlDecorations(text, codeSpans).marks,
-    ...getRegexMarks(text, /:[A-Za-z0-9_+-]+:/g, 'cm-hackmd-emoji'),
+    // Only shortcodes that name an emoji: `10:30:45` and `:todo:` are text, on hackmd.io too.
+    ...getRegexMarks(text, /:[A-Za-z0-9_+-]+:/g, 'cm-hackmd-emoji').filter(({ from, to }) => resolveEmojiShortcode(text.slice(from + 1, to - 1))),
     ...getRegexMarks(text, /^\s*:\s+.+$/g, 'cm-hackmd-definition-line'),
     ...getRegexMarks(text, /^\s*~\s+.+$/g, 'cm-hackmd-definition-line'),
   ];

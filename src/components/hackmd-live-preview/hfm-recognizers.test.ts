@@ -261,6 +261,13 @@ describe('HFM live-preview recognizers', () => {
     }
   });
 
+  it('marks only shortcodes that name an emoji', () => {
+    const emoji = (text: string) => getHfmLineDecorations(text).inlineMarks
+      .filter(({ className }) => className === 'cm-hackmd-emoji')
+      .map(({ from, to }) => text.slice(from, to));
+    expect(emoji(':smile: at 10:30:45 is :not_an_emoji:')).toEqual([':smile:']);
+  });
+
   it('leaves metadata lines to the tag widgets instead of hiding the whole line', () => {
     expect(getHfmLineDecorations('> [name=Michael] [time=Today]').hiddenRanges).toEqual([]);
   });
