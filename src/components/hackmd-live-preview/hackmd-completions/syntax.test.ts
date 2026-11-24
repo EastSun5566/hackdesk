@@ -1,4 +1,4 @@
-import { acceptCompletion } from '@codemirror/autocomplete';
+import { acceptCompletion, currentCompletions } from '@codemirror/autocomplete';
 import { history, redo, undo } from '@codemirror/commands';
 import { StateEffect } from '@codemirror/state';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -139,6 +139,25 @@ describe('alert completions', () => {
     // Only `[!` right after `>` starts an alert.
     expect(await offersWhileTyping('> Ship it [!no')).toBe(false);
     expect(await offersWhileTyping('> - [!no')).toBe(false);
+  });
+
+  it('describes each type, and offers them from a bracket and a letter too', async () => {
+    const view = setup('> [im');
+    expect(await labels(view)).toContain('Important');
+    const important = currentCompletions(view.state).find((option) => option.label === 'Important')!;
+    expect(important.displayLabel).toBe('!Important');
+    expect(important.detail).toMatch(/\w/);
+    await choose(view, 'Important');
+    expect(view.state.doc.toString()).toBe('> [!IMPORTANT]\n> ');
+
+    // `[` alone could be a link or a tag, so the list waits for a letter.
+    expect(await offersWhileTyping('> [')).toBe(false);
+  });
+
+  it('offers alerts only on the first line of a blockquote, where hackmd.io reads them', async () => {
+    expect(await offersWhileTyping('Para\n> [!no')).toBe(true);
+    expect(await offersWhileTyping('> Text\n> [!no')).toBe(false);
+    expect(await offersWhileTyping('> Text\n>\n> [!no')).toBe(false);
   });
 });
 
