@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { findMetadataTags } from './hfm-metadata-tags';
 import {
   getHfmBlockRanges,
   getHfmLineDecorations,
@@ -139,7 +140,7 @@ describe('HFM live-preview recognizers', () => {
     expect(getHfmBlockRanges(['> [!TIP]   '])[0]).not.toHaveProperty('titleFrom');
   });
 
-  it('recognizes table and blockquote metadata blocks without treating them as rendered HTML', () => {
+  it('recognizes table blocks, and leaves metadata lines to the tags inside them', () => {
     expect(getHfmBlockRanges([
       'Intro',
       '| Option | Description |',
@@ -148,7 +149,7 @@ describe('HFM live-preview recognizers', () => {
       '',
       '> [name=Michael] [time=Today] [color=#907bf7]',
       '> Quote body.',
-    ])).toEqual(expect.arrayContaining([
+    ])).toEqual([
       expect.objectContaining({
         endLine: 4,
         kind: 'table',
@@ -156,14 +157,19 @@ describe('HFM live-preview recognizers', () => {
         startLine: 2,
         variant: 'table',
       }),
-      expect.objectContaining({
-        endLine: 7,
-        kind: 'blockquote-meta',
-        openerLine: 6,
-        startLine: 6,
-        variant: 'meta',
-      }),
-    ]));
+    ]);
+  });
+
+  it('finds [name=], [time=] and [color=] tags anywhere on a line, as hackmd.io reads them', () => {
+    const tags = (text: string) => findMetadataTags(text).map(({ name, value, from, to }) => `${name}=${value}@${from}-${to}`);
+    expect(tags('> [name=Michael] [time=Today] [color=#907bf7]')).toEqual([
+      'name=Michael@2-16', 'time=Today@17-29', 'color=#907bf7@30-45',
+    ]);
+    expect(tags('- Ship it [name=Ada Lovelace] today')).toEqual(['name=Ada Lovelace@10-29']);
+    expect(tags('> [color=Teal] [color=#abc]')).toEqual(['color=Teal@2-14', 'color=#abc@15-27']);
+    // Not colours, empty, escaped, in code, or not a tag name.
+    expect(tags('> [color=#12] [color=notacolor] [color=url(x)]')).toEqual([]);
+    expect(tags('> [name=] [name= ] \\[name=Ada] `[name=Ada]` [title=Ada]')).toEqual([]);
   });
 
   it('recognizes HFM inline marks as source offsets', () => {
@@ -214,15 +220,7 @@ describe('HFM live-preview recognizers', () => {
     ]));
   });
 
-  it('returns inactive-only hidden ranges for HackMD blockquote metadata', () => {
-    const metadata = '> [name=Michael] [time=Today]';
-
-    expect(getHfmLineDecorations(metadata).hiddenRanges).toEqual([
-      {
-        from: 2,
-        to: metadata.length,
-      },
-    ]);
-    expect(getHfmLineDecorations('Normal text').hiddenRanges).toEqual([]);
+  it('leaves metadata lines to the tag widgets instead of hiding the whole line', () => {
+    expect(getHfmLineDecorations('> [name=Michael] [time=Today]').hiddenRanges).toEqual([]);
   });
 });

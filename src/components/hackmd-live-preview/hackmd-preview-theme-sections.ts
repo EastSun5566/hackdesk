@@ -410,7 +410,8 @@ export const proseTheme = {
   },
   '.cm-hackmd-blockquote': {
     color: 'var(--text-subtle)',
-    borderLeft: '3px solid var(--border-bold)',
+    // `[color=]` in the quote sets the bar's colour.
+    borderLeft: '3px solid var(--cm-quote-bar, var(--border-bold))',
     paddingLeft: '0.75rem',
   },
   // Front matter shares the code panel's classes. The markdown highlighter still reads its YAML as
@@ -587,16 +588,38 @@ export const codeAndBlockTheme = {
     borderEndEndRadius: '6px',
     paddingBottom: '0.1rem',
   },
-  // `[name=]`, `[time=]` and `[color=]` lines belong to the blockquote around them; they take its
-  // border and colour instead of a tinted band of their own.
-  '.cm-hackmd-blockquote-meta-block': {
-    color: 'var(--text-subtle)',
-  },
   '.cm-hackmd-tags-line, .cm-hackmd-toc-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'var(--background-muted)',
   },
   '.cm-hackmd-blockquote-meta': {
+    color: 'var(--text-subtle)',
+  },
+  // `[name=]` and `[time=]` as hackmd.io shows them: small, quiet, each after its icon.
+  // Inline, not inline-flex: an inline block would inherit a list line's hanging text-indent.
+  '.cm-hackmd-metadata-tag': {
+    color: 'var(--text-subtle)',
+    fontSize: '0.85em',
+    whiteSpace: 'nowrap',
+  },
+  '.cm-hackmd-metadata-tag-icon': {
+    display: 'inline-block',
+    width: '1em',
+    height: '1em',
+    marginInlineEnd: '0.3em',
+    verticalAlign: '-0.125em',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.5',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+  },
+  // Bracketed text with no link definition reads as the text it is, not as a link.
+  '.cm-hackmd-plain-brackets span': {
+    color: 'inherit',
+    textDecoration: 'none',
+  },
+  '.cm-hackmd-metadata-tag-source': {
     color: 'var(--text-subtle)',
   },
   // `$$` delimiters while editing math: quiet source text, no band or edge bar.
@@ -838,6 +861,10 @@ export const inlineMarksTheme = {
     fontFamily: 'var(--font-sans)',
     fontSize: '0.92em',
     fontWeight: '700',
+  },
+  // The highlighter's quote colour would otherwise win over the alert's.
+  '.cm-hackmd-alert-custom-title span': {
+    color: 'inherit',
   },
   '.cm-hackmd-alert-icon': {
     display: 'inline-flex',

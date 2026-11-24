@@ -1,6 +1,5 @@
 import {
   alertLinePattern,
-  blockquoteMetadataLinePattern,
   containerLinePattern,
   tableDelimiterPattern,
 } from './hfm-patterns';
@@ -9,7 +8,6 @@ import type { HfmBlockRange } from './hfm-types';
 export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
   const ranges: HfmBlockRange[] = [];
   ranges.push(...getTableBlockRanges(lines));
-  ranges.push(...getBlockquoteMetadataBlockRanges(lines));
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? '';
@@ -102,18 +100,6 @@ export function getAlertMarkerRange(text: string): { from: number; to: number } 
   };
 }
 
-export function getBlockquoteMetadataRange(text: string): { from: number; to: number } | null {
-  const from = text.indexOf('[');
-  if (from < 0) {
-    return null;
-  }
-
-  return {
-    from,
-    to: text.trimEnd().length,
-  };
-}
-
 function getTableBlockRanges(lines: readonly string[]): HfmBlockRange[] {
   const ranges: HfmBlockRange[] = [];
 
@@ -146,40 +132,6 @@ function getTableBlockRanges(lines: readonly string[]): HfmBlockRange[] {
       openerTo: headerLine.length,
       startLine: startIndex + 1,
       variant: 'table',
-    });
-
-    index = endIndex;
-  }
-
-  return ranges;
-}
-
-function getBlockquoteMetadataBlockRanges(lines: readonly string[]): HfmBlockRange[] {
-  const ranges: HfmBlockRange[] = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index] ?? '';
-    if (!blockquoteMetadataLinePattern.test(line.trim())) {
-      continue;
-    }
-
-    let endIndex = index;
-    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
-      const nextLine = lines[nextIndex] ?? '';
-      if (!/^\s*>/.test(nextLine)) {
-        break;
-      }
-      endIndex = nextIndex;
-    }
-
-    ranges.push({
-      endLine: endIndex + 1,
-      kind: 'blockquote-meta',
-      openerFrom: getBlockquoteMetadataRange(line)?.from ?? 0,
-      openerLine: index + 1,
-      openerTo: getBlockquoteMetadataRange(line)?.to ?? line.trimEnd().length,
-      startLine: index + 1,
-      variant: 'meta',
     });
 
     index = endIndex;

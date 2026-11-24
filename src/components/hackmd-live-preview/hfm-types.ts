@@ -36,7 +36,7 @@ export type HfmLineDecorations = {
 
 export type HfmBlockRange = {
   endLine: number;
-  kind: 'alert' | 'blockquote-meta' | 'container' | 'table';
+  kind: 'alert' | 'container' | 'table';
   openerFrom: number;
   openerLine: number;
   openerTo: number;

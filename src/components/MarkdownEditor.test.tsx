@@ -1290,31 +1290,45 @@ describe('MarkdownEditor', () => {
     expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
-  it('hides inactive blockquote metadata and reveals it when active', async () => {
-    const inactiveRef = createRef<MarkdownEditorHandle>();
+  it('shows [name=] and [time=] tags with icons and paints the quote bar with [color=]', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       'Intro',
       '',
-      '> [name=Michael] [time=Today] [color=#907bf7]',
       '> Quote body.',
+      '> [name=Michael] [time=Today] [color=#907bf7]',
+      '',
+      '- Item by [name=Ada]',
+      '',
+      'Outside a quote [name=Nobody] is text.',
     ].join('\n');
 
-    render(<MarkdownEditor ref={inactiveRef} value={markdown} onChange={vi.fn()} />);
-    const inactiveEditor = await screen.findByTestId('hackmd-markdown-editor');
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const lines = () => Array.from(editor.querySelectorAll<HTMLElement>('.cm-line'));
 
-    await waitFor(() => expect(inactiveEditor.querySelector('.cm-hackmd-blockquote-meta-block-start')).not.toBeNull());
-    expect(inactiveEditor.querySelector('.cm-content')).toHaveTextContent('Quote body.');
-    expect(inactiveEditor.querySelector('.cm-content')).not.toHaveTextContent('[name=Michael]');
-    expect(inactiveRef.current?.getMarkdown()).toBe(markdown);
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-metadata-tag-name')).not.toBeNull());
+    expect(Array.from(lines()[3]!.querySelectorAll('.cm-hackmd-metadata-tag'), (tag) => tag.textContent)).toEqual(['Michael', 'Today']);
+    expect(lines()[3]!.querySelectorAll('.cm-hackmd-metadata-tag svg')).toHaveLength(2);
+    expect(lines()[3]).not.toHaveTextContent('#907bf7');
+    expect(lines()[2]!.style.getPropertyValue('--cm-quote-bar')).toBe('#907bf7');
+    expect(lines()[3]!.style.getPropertyValue('--cm-quote-bar')).toBe('#907bf7');
+    expect(lines()[5]!.querySelector('.cm-hackmd-metadata-tag-name')).toHaveTextContent('Ada');
+    expect(lines()[7]).toHaveTextContent('Outside a quote [name=Nobody] is text.');
+    expect(lines()[7]!.querySelector('.cm-hackmd-metadata-tag')).toBeNull();
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
 
-    const activeRef = createRef<MarkdownEditorHandle>();
-    render(<MarkdownEditor ref={activeRef} value={markdown.split('\n').slice(2).join('\n')} onChange={vi.fn()} />);
-    const editors = await screen.findAllByTestId('hackmd-markdown-editor');
-    const activeEditor = editors.at(-1);
+  it('shows a tag\'s source on the cursor line', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = '> [name=Michael] [color=red]\n> Quote body.';
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    act(() => ref.current?.focus());
 
-    expect(activeEditor).toBeDefined();
-    await waitFor(() => expect(activeEditor?.querySelector('.cm-content')).toHaveTextContent('[name=Michael]'));
-    expect(activeRef.current?.getMarkdown()).toBe(markdown.split('\n').slice(2).join('\n'));
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-metadata-tag-source')).not.toBeNull());
+    expect(editor.querySelector('.cm-content')).toHaveTextContent('[name=Michael] [color=red]');
+    expect(editor.querySelector('.cm-hackmd-metadata-tag')).toBeNull();
   });
 
   it('toggles task checkbox widgets without converting surrounding markdown', async () => {

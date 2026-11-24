@@ -212,7 +212,7 @@ export function addHfmBlockRanges(
       ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
     }
 
-    if (active || blockRange.kind === 'blockquote-meta') {
+    if (active) {
       continue;
     }
 

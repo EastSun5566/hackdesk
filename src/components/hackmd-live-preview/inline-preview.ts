@@ -25,6 +25,7 @@ import {
 } from './hfm-decoration-ranges';
 import { getCodeFenceLineRole, getCodeFenceLines, getCodeFences, type CodeFence } from './code-fences';
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
+import { addMetadataTagRanges } from './hfm-metadata-tags';
 import { getOrderedListMarkerPreviews } from './list-markers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
 import {
@@ -328,6 +329,7 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
     const endLine = state.doc.lineAt(to).number;
     for (let number = startLine; number <= endLine; number++) visibleLines.add(number);
     addHackmdLineSyntaxRanges(state, activeLines, ranges, sourceOnlyLines, startLine, endLine);
+    addMetadataTagRanges(state, activeLines, ranges, sourceOnlyLines, startLine, endLine);
   }
 
   // Block replacements stay in StateFields. Only this plugin's inline/line
@@ -366,6 +368,8 @@ function buildDecorations(view: EditorView, state: EditorState, document: Previe
 
         if (node.name === 'Link' && !hasUrl(node.node) && !isDefinedReferenceLink(state, node, referenceLabels)) {
           plainBracketStarts.add(node.from);
+          // The highlighter still colours it as a link; this mark takes that back.
+          ranges.push(Decoration.mark({ class: 'cm-hackmd-plain-brackets' }).range(node.from, node.to));
           return;
         }
 

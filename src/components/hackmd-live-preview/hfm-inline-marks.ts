@@ -1,8 +1,4 @@
-import { getBlockquoteMetadataRange } from './hfm-block-ranges';
-import {
-  blockquoteMetadataLinePattern,
-  fenceOpenPattern,
-} from './hfm-patterns';
+import { fenceOpenPattern } from './hfm-patterns';
 import type {
   HfmHiddenRange,
   HfmInlineMark,
@@ -44,10 +40,6 @@ export function getHackmdInlineMarks(text: string): HfmInlineMark[] {
 
 export function getHackmdHiddenRanges(text: string): HfmHiddenRange[] {
   const ranges: HfmHiddenRange[] = [];
-  const blockquoteMetadata = getBlockquoteMetadataRange(text);
-  if (blockquoteMetadata && blockquoteMetadataLinePattern.test(text.trim())) {
-    ranges.push(blockquoteMetadata);
-  }
 
   // Like `**` and `~~`, the delimiters of HackMD's own marks hide away from the cursor.
   const codeSpans = getCodeSpans(text);
