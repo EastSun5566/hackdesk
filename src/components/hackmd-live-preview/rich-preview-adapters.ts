@@ -233,8 +233,9 @@ function renderDiagramTex(katex: KatexApi, tex: string): string {
   // HTML output only: DOMPurify's profiles here drop MathML, which would leave its text behind.
   const options = { output: 'html', throwOnError: false, trust: false } as const;
   const html = katex.renderToString(`\\displaystyle ${tex}`, options);
-  // Invalid TeX shows its source in red; show what the note wrote, without the prefix.
-  return html.includes('katex-error') ? katex.renderToString(tex, options) : html;
+  // Invalid TeX shows its source in red; show what the note wrote, without the prefix. Match the
+  // class attribute: label text such as `\text{katex-error}` renders as content, with quotes escaped.
+  return /class="katex-error"/.test(html) ? katex.renderToString(tex, options) : html;
 }
 
 function createMathMeasurer(html: string): HTMLElement {

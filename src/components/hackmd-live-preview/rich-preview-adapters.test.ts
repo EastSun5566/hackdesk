@@ -113,6 +113,14 @@ describe('rich-preview-adapters', () => {
       expect(box.querySelector('.katex-error')?.textContent).toBe('\\notACommand{');
     });
 
+    it('keeps display style for valid TeX whose text mentions the error class', async () => {
+      const result = await renderMermaid(['graph TD', 'A["$$\\sum_i \\text{katex-error}$$"] --> B'].join('\n'));
+      const [box] = mathBoxes(result.html);
+
+      expect(box.querySelector('.katex-error')).toBeNull();
+      expect(box.querySelector('.mop.large-op')).not.toBeNull();
+    });
+
     it('keeps the label as text when the math cannot be measured', async () => {
       vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockReturnValue(new DOMRect(0, 0, 0, 0));
       const result = await renderMermaid(['graph TD', 'A["$$y_0$$"] --> B'].join('\n'));
