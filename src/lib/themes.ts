@@ -28,6 +28,9 @@ export type ResolvedHackDeskTheme = Record<string, string>;
 
 type ThemeTokenOverrides = Partial<ResolvedHackDeskTheme>;
 
+/** Eight chart colors, in the order Mermaid assigns them to pie slices, branches and other series. */
+type ChartSeries = readonly [string, string, string, string, string, string, string, string];
+
 export type ThemePreset = {
   id: ThemePresetId;
   name: string;
@@ -35,6 +38,9 @@ export type ThemePreset = {
   light: ThemeSeed;
   dark: ThemeSeed;
   tokens?: Partial<Record<ResolvedThemeMode, ThemeTokenOverrides>>;
+  /** The preset's own accent hues, each at 4.5:1 or more against its background: diagrams draw
+   *  their labels (pie percentages, branch names) in the background color on top of these. */
+  chartSeries: Record<ResolvedThemeMode, ChartSeries>;
 };
 
 export const THEME_STYLE_ID = 'hackdesk-theme';
@@ -106,6 +112,11 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
       success: '#59C335',
       warning: '#FBBF24',
       destructive: '#F87171',
+    },
+    chartSeries: {
+      // Primary, then HackMD's state and code hues.
+      light: ['#564DFF', '#C2410C', '#357520', '#DC2626', '#0369A1', '#A16207', '#0F766E', '#BE185D'],
+      dark: ['#9894F9', '#F78C6C', '#59C335', '#F07178', '#82AAFF', '#FFCB6B', '#89DDFF', '#F48FB1'],
     },
     // HackMD's zinc and primary tokens. State colors are one step darker in
     // light mode so small text stays readable.
@@ -202,6 +213,11 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
       success: '#859900',
       warning: '#CB4B16',
       destructive: '#DC322F',
+    },
+    chartSeries: {
+      // The eight Solarized accents, darkened (light) or lightened (dark) just enough to reach 4.5:1.
+      light: ['#0575B9', '#C6460E', '#687804', '#D72C2A', '#6468BA', '#8F6B02', '#007F78', '#CC2E7C'],
+      dark: ['#2AA198', '#E76535', '#859900', '#FB524A', '#3093DA', '#B58900', '#8086DB', '#F0539A'],
     },
     tokens: {
       light: {
@@ -305,6 +321,11 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
       warning: '#F9E2AF',
       destructive: '#F38BA8',
     },
+    chartSeries: {
+      // Mauve, peach, green, red, blue, yellow, teal, pink; Latte's are deepened to reach 4.5:1.
+      light: ['#8839EF', '#BD4703', '#207F00', '#D20F39', '#1B63F1', '#9D6000', '#087A80', '#B24297'],
+      dark: ['#CBA6F7', '#FAB387', '#A6E3A1', '#F38BA8', '#89B4FA', '#F9E2AF', '#94E2D5', '#F5C2E7'],
+    },
     tokens: {
       light: {
         '--text-default': '#4C4F69',
@@ -406,6 +427,11 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
       success: '#50FA7B',
       warning: '#FFB86C',
       destructive: '#FF5555',
+    },
+    chartSeries: {
+      // Purple, orange, green, red, cyan, yellow, comment, pink.
+      light: ['#815CD6', '#A34D14', '#14710A', '#CB3A2A', '#036A96', '#846E15', '#6C664B', '#A3144D'],
+      dark: ['#BD93F9', '#FFB86C', '#50FA7B', '#FF5555', '#8BE9FD', '#F1FA8C', '#7F90C4', '#FF79C6'],
     },
     tokens: {
       light: {
@@ -510,6 +536,11 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
       warning: '#FABD2F',
       destructive: '#FB4934',
     },
+    chartSeries: {
+      // Faded (light) and bright (dark) blue, orange, green, red, purple, yellow, aqua, gray.
+      light: ['#076678', '#AF3A03', '#757004', '#9D0006', '#8F3F71', '#996204', '#3F7855', '#786B60'],
+      dark: ['#83A598', '#FE8019', '#B8BB26', '#FF513C', '#D3869B', '#FABD2F', '#8EC07C', '#A89984'],
+    },
     tokens: {
       light: {
         '--text-default': '#3C3836',
@@ -611,6 +642,11 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
       success: '#49E9A6',
       warning: '#E69533',
       destructive: '#E34E1C',
+    },
+    chartSeries: {
+      // Cyan, orange, green, red, blue, yellow, violet, pink; Lux's are deepened to reach 4.5:1.
+      light: ['#067D8D', '#A46406', '#03844B', '#D03F04', '#0575BF', '#8D6F05', '#5842FF', '#D32A6E'],
+      dark: ['#40D4E7', '#E69533', '#49E9A6', '#EC5727', '#49ACE9', '#E4B781', '#8174FF', '#DF769B'],
     },
     tokens: {
       light: {
@@ -1002,6 +1038,7 @@ export function resolveHackDeskTheme({
 
   return {
     ...contrastTheme,
+    ...resolveChartSeriesTokens(preset.chartSeries[mode], contrastTheme['--background-default']),
     ...resolveStateActionTokens(contrastTheme, dark),
     ...resolveNativeSurfaceTokens(contrastTheme),
     ...resolveCommandPaletteTokens(contrastTheme),
@@ -1171,6 +1208,11 @@ function compositeThemeColor(color: string, background: string) {
     g: Number(channels[2]) * opacity + base.g * (1 - opacity),
     b: Number(channels[3]) * opacity + base.b * (1 - opacity),
   });
+}
+
+// Preset colors already reach 4.5:1; this keeps them there on a custom Neutral's background.
+function resolveChartSeriesTokens(series: ChartSeries, background: string): ResolvedHackDeskTheme {
+  return Object.fromEntries(series.map((color, index) => [`--chart-series-${index + 1}`, ensureContrast(color, background, 4.5)]));
 }
 
 // Solid warning and danger buttons need a readable label and a hover shade.

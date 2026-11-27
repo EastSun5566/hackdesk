@@ -222,6 +222,25 @@ describe('HackDesk themes', () => {
     }
   });
 
+  it('gives diagrams eight distinct series colors that labels in the background color read on', () => {
+    for (const preset of HACKDESK_THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        // Pele draws pie percentages and branch names in the page background on the series fill.
+        for (const customSeed of [{}, { neutral: mode === 'dark' ? '#8899AA' : '#445566' }]) {
+          const theme = resolveHackDeskTheme({ presetId: preset.id, mode, customSeed });
+          const label = `${preset.id} ${mode}${'neutral' in customSeed ? ' custom neutral' : ''}`;
+          const series = Array.from({ length: 8 }, (_, index) => theme[`--chart-series-${index + 1}`]);
+
+          series.forEach((color, index) => expectContrast(color, theme['--background-default'], 4.5, `${label} series ${index + 1}`));
+          expect(new Set(series).size, `${label} distinct series`).toBe(8);
+        }
+        // The presets' own colors pass as written, so the resolver doesn't shift their hues.
+        const theme = resolveHackDeskTheme({ presetId: preset.id, mode });
+        expect(Array.from({ length: 8 }, (_, index) => theme[`--chart-series-${index + 1}`])).toEqual(preset.chartSeries[mode]);
+      }
+    }
+  });
+
   it('resolves contrast-safe native surface tokens for every preset and mode', () => {
     for (const preset of HACKDESK_THEME_PRESETS) {
       for (const mode of ['light', 'dark'] as const) {

@@ -1136,6 +1136,16 @@ export const widgetTheme = {
     '--pele-accent': 'var(--primary-default)',
     '--pele-font': 'var(--font-sans)',
     '--pele-font-mono': 'var(--font-mono)',
+    // Pie percentages and branch names are drawn in --pele-bg on these, so each theme's series
+    // colors keep 4.5:1 against its background.
+    '--pele-series-1': 'var(--chart-series-1)',
+    '--pele-series-2': 'var(--chart-series-2)',
+    '--pele-series-3': 'var(--chart-series-3)',
+    '--pele-series-4': 'var(--chart-series-4)',
+    '--pele-series-5': 'var(--chart-series-5)',
+    '--pele-series-6': 'var(--chart-series-6)',
+    '--pele-series-7': 'var(--chart-series-7)',
+    '--pele-series-8': 'var(--chart-series-8)',
   },
   '.cm-hackmd-rich-render-body': {
     minHeight: '1.5rem',
