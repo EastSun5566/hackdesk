@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderMath, renderMermaid, withWoff2FontFace } from './rich-preview-adapters';
 
@@ -61,6 +61,73 @@ describe('rich-preview-adapters', () => {
     const result = await renderMermaid(['graph TD', 'A --> B', 'click A "https://example.com"'].join('\n'));
 
     expect(result.html).not.toContain('example.com');
+  });
+
+  describe('math in labels', () => {
+    // jsdom has no layout, and pele drops math with an empty box; the measurer lays math out at 100px.
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 250, 150));
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    function mathBoxes(html: string) {
+      const boxes = [...new DOMParser().parseFromString(html, 'text/html').querySelectorAll('svg .pele-math')];
+      for (const box of boxes) expect(box.localName).toBe('foreignObject');
+      return boxes;
+    }
+
+    it('renders $$…$$ in a flowchart label as KaTeX inside the diagram', async () => {
+      const result = await renderMermaid(['graph TD', 'A["area $$x^2$$"] --> B'].join('\n'));
+      const [box] = mathBoxes(result.html);
+
+      expect(box).toBeDefined();
+      expect(box.querySelector('.katex .katex-html')).not.toBeNull();
+      expect(box.querySelector('.katex-mathml, math')).toBeNull();
+      expect(result.html).not.toContain('$$');
+    });
+
+    it('sizes each math box from its measured KaTeX box, scaled to the label font size', async () => {
+      const result = await renderMermaid(['graph TD', 'A["$$\\frac{a}{b}$$"] --> B'].join('\n'));
+      const [box] = mathBoxes(result.html);
+
+      // 2.5em × 1.5em at pele's 16px label size.
+      expect(box.getAttribute('width')).toBe('40');
+      expect(box.getAttribute('height')).toBe('24');
+    });
+
+    it('renders math with trust off, so TeX cannot add links', async () => {
+      const result = await renderMermaid(['graph TD', 'A["$$\\href{javascript:alert(1)}{x}$$"] --> B'].join('\n'));
+
+      expect(mathBoxes(result.html)).toHaveLength(1);
+      expect(result.html).not.toContain('javascript:');
+      expect(result.html).not.toMatch(/<a\b/);
+    });
+
+    it('shows invalid TeX as written, in KaTeX error style', async () => {
+      const result = await renderMermaid(['graph TD', 'A["$$\\notACommand{$$"] --> B'].join('\n'));
+      const [box] = mathBoxes(result.html);
+
+      expect(box.querySelector('.katex-error')?.textContent).toBe('\\notACommand{');
+    });
+
+    it('keeps display style for valid TeX whose text mentions the error class', async () => {
+      const result = await renderMermaid(['graph TD', 'A["$$\\sum_i \\text{katex-error}$$"] --> B'].join('\n'));
+      const [box] = mathBoxes(result.html);
+
+      expect(box.querySelector('.katex-error')).toBeNull();
+      expect(box.querySelector('.mop.large-op')).not.toBeNull();
+    });
+
+    it('keeps the label as text when the math cannot be measured', async () => {
+      vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockReturnValue(new DOMRect(0, 0, 0, 0));
+      const result = await renderMermaid(['graph TD', 'A["$$y_0$$"] --> B'].join('\n'));
+
+      expect(mathBoxes(result.html)).toHaveLength(0);
+      expect(result.html).toContain('$$y_0$$');
+    });
   });
 
   it('keeps Mermaid styles inside each rendered diagram', async () => {
