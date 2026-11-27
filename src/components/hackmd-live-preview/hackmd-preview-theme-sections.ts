@@ -1124,6 +1124,19 @@ export const widgetTheme = {
     overflow: 'auto',
     padding: '0.5rem 0',
   },
+  // Pele draws Mermaid diagrams with these variables, so they follow the theme without a re-render.
+  '.cm-hackmd-mermaid-preview': {
+    '--pele-bg': 'var(--background-default)',
+    '--pele-fg': 'var(--text-default)',
+    '--pele-muted': 'var(--text-subtle)',
+    '--pele-line': 'var(--border-bold)',
+    '--pele-surface': 'var(--background-muted)',
+    '--pele-surface-alt': 'var(--element-bg-hover)',
+    '--pele-border': 'var(--border-default)',
+    '--pele-accent': 'var(--primary-default)',
+    '--pele-font': 'var(--font-sans)',
+    '--pele-font-mono': 'var(--font-mono)',
+  },
   '.cm-hackmd-rich-render-body': {
     minHeight: '1.5rem',
     color: 'var(--text-subtle)',

@@ -140,4 +140,51 @@ $$e^{i\pi} + 1 = 0$$
 \int_0^1 x^2 \, dx = \frac{1}{3}
 ```
 
+## Diagrams
+
+```mermaid
+flowchart LR
+  A[Write a note] --> B{Synced?}
+  B -- yes --> C[Share link]
+  B -- no --> D[(Local vault)]
+```
+
+```mermaid
+sequenceDiagram
+  Alice->>HackMD: Push note
+  HackMD-->>Alice: Saved
+```
+
+```mermaid
+pie title Notes by team
+  "Docs" : 42
+  "Design" : 18
+  "Infra" : 9
+```
+
+```mermaid
+gantt
+  dateFormat YYYY-MM-DD
+  section Release
+  Spike   :a1, 2026-12-01, 3d
+  Ship it :after a1, 2d
+```
+
+```mermaid
+gitGraph
+  commit
+  branch feature
+  commit
+  checkout main
+  merge feature
+```
+
+```mermaid
+mindmap
+  root((HackDesk))
+    Editor
+    Sidebar
+    Sync
+```
+
 Last line.
