@@ -126,13 +126,15 @@ export async function renderMath(source: string, options: { display: boolean }):
 }
 
 export async function renderMermaid(source: string): Promise<RenderedDiagram> {
-  const cacheKey = source;
+  const fonts = getDiagramFonts();
+  // Label boxes are sized for the font, so a font change needs a new layout.
+  const cacheKey = `${fonts.fontFamily}\n${fonts.fontFamilyMono}\n${source}`;
   const cached = getCached(mermaidCache, cacheKey);
   if (cached) {
     return cached;
   }
 
-  const promise = renderBeautifulMermaid(source)
+  const promise = renderPeleMermaid(source, fonts)
     .then((html) => ({ html: scopeDiagramStyles(sanitizeRichHtml(html)) }))
     .catch((error) => {
       mermaidCache.delete(cacheKey);
@@ -159,19 +161,29 @@ async function getKatex(): Promise<KatexApi> {
   return katexPromise;
 }
 
-async function renderBeautifulMermaid(source: string): Promise<string> {
-  const { renderMermaidSVG } = await import('beautiful-mermaid');
-  return renderMermaidSVG(source, {
-    accent: 'var(--primary-default)',
-    bg: 'var(--background-default)',
-    border: 'var(--border-default)',
-    fg: 'var(--text-default)',
-    line: 'var(--border-bold)',
-    muted: 'var(--text-subtle)',
-    surface: 'var(--background-muted)',
-    transparent: true,
-    font: 'var(--font-sans)',
+let nextMermaidId = 0;
+
+/**
+ * The fonts as the page resolves them. Pele measures label widths with a canvas, which can't read
+ * `var(--font-sans)`; colors and the drawn font still come from the `--pele-*` variables in the theme.
+ */
+function getDiagramFonts() {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    fontFamily: style.getPropertyValue('--font-sans').trim() || 'sans-serif',
+    fontFamilyMono: style.getPropertyValue('--font-mono').trim() || 'monospace',
+  };
+}
+
+async function renderPeleMermaid(source: string, fonts: ReturnType<typeof getDiagramFonts>): Promise<string> {
+  const { renderAsync } = await import('pele/lazy');
+  const { svg } = await renderAsync(source, {
+    ...fonts,
+    // Mermaid's default `strict` security level ignores `click` directives; a diagram never navigates the app.
+    links: false,
+    idPrefix: `cm-hackmd-mermaid-${++nextMermaidId}-`,
   });
+  return svg;
 }
 
 function escapeHtml(value: string): string {

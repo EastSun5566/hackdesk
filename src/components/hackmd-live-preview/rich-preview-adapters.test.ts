@@ -29,13 +29,38 @@ describe('rich-preview-adapters', () => {
     expect(result.html).not.toContain('<script');
   });
 
-  it('renders Mermaid SVG with the HackDesk font token', async () => {
+  it('renders Mermaid SVG that takes its colors and font from the --pele-* theme variables', async () => {
     const result = await renderMermaid(['graph TD', 'A --> B'].join('\n'));
+    const svg = new DOMParser().parseFromString(result.html, 'text/html').querySelector('svg')!;
+    const style = svg.getAttribute('style') ?? '';
 
-    expect(result.html).toContain("font-family: 'var(--font-sans)'");
-    expect(result.html).toContain('var(--border-bold)');
-    expect(result.html).not.toContain('var(--border-strong)');
-    expect(result.html).not.toContain("font-family: 'Inter'");
+    expect(svg.classList).toContain('pele-flowchart');
+    for (const name of ['--pele-bg', '--pele-fg', '--pele-line', '--pele-border', '--pele-font']) {
+      expect(style).toContain(`var(${name}`);
+    }
+  });
+
+  // HackMD renders these with mermaid.js; the previous renderer rejected them.
+  it.each([
+    ['pie', ['pie title Pets', '"Dogs" : 3', '"Cats" : 2']],
+    ['gantt', ['gantt', 'dateFormat YYYY-MM-DD', 'section A', 'Task :a1, 2026-01-01, 3d']],
+    ['gitGraph', ['gitGraph', 'commit', 'branch dev', 'commit', 'checkout main', 'merge dev']],
+    ['mindmap', ['mindmap', '  root', '    A', '    B']],
+    ['journey', ['journey', 'title Day', 'section Work', 'Code: 5: Me']],
+  ])('renders a %s diagram', async (_type, lines) => {
+    const result = await renderMermaid(lines.join('\n'));
+
+    expect(new DOMParser().parseFromString(result.html, 'text/html').querySelector('svg')?.getAttribute('aria-roledescription')).toBeTruthy();
+  });
+
+  it('rejects invalid Mermaid with the parser message and position', async () => {
+    await expect(renderMermaid(['graph TD', 'A -->'].join('\n'))).rejects.toThrow(/line 2/);
+  });
+
+  it('drops click links, as Mermaid does at its strict security level', async () => {
+    const result = await renderMermaid(['graph TD', 'A --> B', 'click A "https://example.com"'].join('\n'));
+
+    expect(result.html).not.toContain('example.com');
   });
 
   it('keeps Mermaid styles inside each rendered diagram', async () => {

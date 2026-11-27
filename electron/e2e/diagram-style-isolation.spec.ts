@@ -31,39 +31,25 @@ test('Mermaid diagram styles stay inside their own diagram', async () => {
 
     const result = await page.evaluate(() => {
       const [graph, er] = [...document.querySelectorAll<SVGSVGElement>('.cm-hackmd-mermaid-preview svg')];
-      const ns = 'http://www.w3.org/2000/svg';
-      const monoText = (parent: Element) => {
-        const text = parent.appendChild(document.createElementNS(ns, 'text'));
-        text.classList.add('mono');
-        return text;
-      };
-      // Probes outside any diagram, and in each diagram. Only the ER diagram ships a `.mono` rule.
-      const outside = document.body.appendChild(document.createElementNS(ns, 'svg'));
-      const outsideText = monoText(outside);
-      const graphMono = monoText(graph);
-      const erMono = monoText(er);
-      const line = (element: Element) => getComputedStyle(element).getPropertyValue('--_line').trim();
-      const font = (element: Element) => getComputedStyle(element).fontFamily;
+      const outside = document.body.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'svg'));
+      outside.classList.add('pele');
+      const line = (element: Element) => getComputedStyle(element).getPropertyValue('--_l').trim();
       return {
         diagramLines: [line(graph), line(er)],
         outsideLine: line(outside),
-        outsideFont: font(outsideText),
-        graphMonoFont: font(graphMono),
-        erMonoFont: font(erMono),
-        imports: [...document.querySelectorAll('.cm-hackmd-mermaid-preview style')].some((style) => style.textContent?.includes('@import')),
+        // The theme reaches each diagram through the --pele-* variables on its block.
+        themedLine: line(graph) === getComputedStyle(graph.closest('.cm-hackmd-mermaid-preview')!).getPropertyValue('--pele-line').trim(),
+        styleElements: document.querySelectorAll('.cm-hackmd-mermaid-preview style').length,
       };
     });
 
-    // Each diagram still gets its theme variables.
+    // Each diagram gets its theme variables, from the HackDesk theme rather than Pele's defaults.
     expect(result.diagramLines.every(Boolean)).toBe(true);
-    // Nothing reaches an SVG outside the diagrams.
+    expect(result.themedLine).toBe(true);
+    // Nothing reaches an SVG outside the diagrams, even one with Pele's class.
     expect(result.outsideLine).toBe('');
-    expect(result.outsideFont).not.toContain('JetBrains Mono');
-    expect(result.outsideFont).not.toContain('var(--font-sans)');
-    // One diagram's rules do not reach another diagram.
-    expect(result.erMonoFont).toContain('JetBrains Mono');
-    expect(result.graphMonoFont).not.toContain('JetBrains Mono');
-    expect(result.imports).toBe(false);
+    // Pele styles each diagram inline; no stylesheet can reach the workbench.
+    expect(result.styleElements).toBe(0);
   } finally {
     child.kill('SIGKILL');
   }
