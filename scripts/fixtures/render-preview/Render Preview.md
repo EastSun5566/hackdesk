@@ -150,6 +150,11 @@ flowchart LR
 ```
 
 ```mermaid
+flowchart LR
+  E["Area $$\pi r^2$$"] --> F["$$x^2 + \frac{a}{b}$$"]
+```
+
+```mermaid
 sequenceDiagram
   Alice->>HackMD: Push note
   HackMD-->>Alice: Saved

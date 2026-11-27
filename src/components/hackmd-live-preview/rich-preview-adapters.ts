@@ -2,6 +2,8 @@ import DOMPurify from 'dompurify';
 import { nameToEmoji } from 'gemoji';
 import Papa from 'papaparse';
 
+import type { MathResolver } from 'pele/lazy';
+
 import { scopeDiagramStyles } from './diagram-style-scope';
 
 export type CsvPreviewModel = {
@@ -135,7 +137,9 @@ export async function renderMermaid(source: string): Promise<RenderedDiagram> {
   }
 
   const promise = renderPeleMermaid(source, fonts)
-    .then((html) => ({ html: scopeDiagramStyles(sanitizeRichHtml(html)) }))
+    .then(({ svg, hasMath }) => ({
+      html: scopeDiagramStyles(hasMath ? sanitizeDiagramWithMath(svg) : sanitizeRichHtml(svg)),
+    }))
     .catch((error) => {
       mermaidCache.delete(cacheKey);
       throw error;
@@ -147,6 +151,19 @@ export async function renderMermaid(source: string): Promise<RenderedDiagram> {
 function sanitizeRichHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true, svg: true, svgFilters: true },
+  });
+}
+
+/**
+ * Pele draws resolved math as KaTeX HTML in a `<foreignObject class="pele-math">`. DOMPurify drops
+ * foreignObject and any HTML inside SVG by default; this lets that one integration point through.
+ * Its contents are still sanitized as HTML, and only diagrams whose labels held `$$…$$` get it.
+ */
+function sanitizeDiagramWithMath(html: string): string {
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true, svg: true, svgFilters: true },
+    ADD_TAGS: ['foreignObject'],
+    HTML_INTEGRATION_POINTS: { foreignobject: true },
   });
 }
 
@@ -175,15 +192,109 @@ function getDiagramFonts() {
   };
 }
 
-async function renderPeleMermaid(source: string, fonts: ReturnType<typeof getDiagramFonts>): Promise<string> {
-  const { renderAsync } = await import('pele/lazy');
+async function renderPeleMermaid(
+  source: string,
+  fonts: ReturnType<typeof getDiagramFonts>,
+): Promise<{ svg: string; hasMath: boolean }> {
+  const [{ renderAsync }, katex] = await Promise.all([
+    import('pele/lazy'),
+    // Mermaid draws `$$…$$` in labels as math; only those diagrams load KaTeX.
+    source.includes('$$') ? getKatex() : null,
+  ]);
+  let hasMath = false;
+  let math: MathResolver | undefined;
+  if (katex) {
+    await warmDiagramMath(katex, source);
+    math = (tex, size) => {
+      hasMath = true;
+      const { html, width, height } = getDiagramMath(katex, tex);
+      return { html, width: Math.ceil(width * size), height: Math.ceil(height * size) };
+    };
+  }
   const { svg } = await renderAsync(source, {
     ...fonts,
     // Mermaid's default `strict` security level ignores `click` directives; a diagram never navigates the app.
     links: false,
     idPrefix: `cm-hackmd-mermaid-${++nextMermaidId}-`,
+    math,
   });
-  return svg;
+  return { svg, hasMath };
+}
+
+type DiagramMath = { html: string; width: number; height: number };
+
+const diagramMathCache = new Map<string, DiagramMath>();
+// Matches pele's own `$$…$$` label syntax: one line, shortest match.
+const DIAGRAM_MATH = /\$\$(.+?)\$\$/g;
+const MEASURE_FONT_SIZE = 100;
+
+function renderDiagramTex(katex: KatexApi, tex: string): string {
+  // Mermaid renders label math in display style; `\displaystyle` keeps that without KaTeX's block margins.
+  // HTML output only: DOMPurify's profiles here drop MathML, which would leave its text behind.
+  const options = { output: 'html', throwOnError: false, trust: false } as const;
+  const html = katex.renderToString(`\\displaystyle ${tex}`, options);
+  // Invalid TeX shows its source in red; show what the note wrote, without the prefix.
+  return html.includes('katex-error') ? katex.renderToString(tex, options) : html;
+}
+
+function createMathMeasurer(html: string): HTMLElement {
+  const element = document.createElement('div');
+  element.setAttribute('aria-hidden', 'true');
+  // The same box pele puts the HTML in, at a large size so rounding stays small.
+  element.style.cssText = `position:absolute;left:-10000px;top:0;visibility:hidden;display:inline-block;font-size:${MEASURE_FONT_SIZE}px;line-height:normal;white-space:nowrap`;
+  element.innerHTML = html;
+  return element;
+}
+
+function readMathSize(element: HTMLElement): { width: number; height: number } {
+  const rect = element.getBoundingClientRect();
+  // In ems of the label's font size, so one measurement serves every size pele asks for.
+  return { width: rect.width / MEASURE_FONT_SIZE, height: rect.height / MEASURE_FONT_SIZE };
+}
+
+/**
+ * Pele asks for math synchronously while it lays out, so the KaTeX fonts must be loaded before then
+ * or the boxes would be measured with a fallback font. Laying the expressions out starts those loads.
+ */
+async function warmDiagramMath(katex: KatexApi, source: string) {
+  const pending = [...new Set([...source.matchAll(DIAGRAM_MATH)].map(([, tex]) => tex))]
+    .filter((tex) => getCached(diagramMathCache, tex) === undefined)
+    .map((tex) => {
+      // The HTML is KaTeX's output with `trust: false`, not note content.
+      const html = renderDiagramTex(katex, tex);
+      return { tex, html, element: createMathMeasurer(html) };
+    });
+  if (pending.length === 0) return;
+
+  document.body.append(...pending.map(({ element }) => element));
+  try {
+    for (const { element } of pending) element.getBoundingClientRect();
+    await document.fonts?.ready;
+    for (const { tex, html, element } of pending) cacheDiagramMath(tex, { html, ...readMathSize(element) });
+  } finally {
+    for (const { element } of pending) element.remove();
+  }
+}
+
+function cacheDiagramMath(tex: string, math: DiagramMath): DiagramMath {
+  // An empty box (no layout yet) makes pele show the source; measure again next time.
+  if (math.width > 0 && math.height > 0) setCached(diagramMathCache, tex, math);
+  return math;
+}
+
+function getDiagramMath(katex: KatexApi, tex: string): DiagramMath {
+  const cached = getCached(diagramMathCache, tex);
+  if (cached) return cached;
+
+  // A label whose `$$` the warm-up regex read differently from pele (quotes, entities).
+  const html = renderDiagramTex(katex, tex);
+  const element = createMathMeasurer(html);
+  document.body.append(element);
+  try {
+    return cacheDiagramMath(tex, { html, ...readMathSize(element) });
+  } finally {
+    element.remove();
+  }
 }
 
 function escapeHtml(value: string): string {
