@@ -157,9 +157,14 @@ sequenceDiagram
 
 ```mermaid
 pie title Notes by team
-  "Docs" : 42
+  "Docs" : 30
   "Design" : 18
-  "Infra" : 9
+  "Infra" : 14
+  "Sales" : 11
+  "Support" : 9
+  "Legal" : 7
+  "Ops" : 6
+  "QA" : 5
 ```
 
 ```mermaid
@@ -176,7 +181,11 @@ gitGraph
   branch feature
   commit
   checkout main
+  branch fix
+  commit
+  checkout main
   merge feature
+  merge fix
 ```
 
 ```mermaid

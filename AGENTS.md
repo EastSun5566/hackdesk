@@ -55,7 +55,8 @@ server, so every run reflects the current source; it never touches your real set
   feature (lists, images and sizes, inline HTML, code fences, alerts, containers, tables, math).
   Add a section there when you add a rendering feature.
 - `--scroll-to "<source text>"` starts the shot where that markdown appears, `--click "<source text>"`
-  puts the cursor there (to see that line's source revealed), `--modes dark`, `--note <file.md>`, `--eval "<js>"` to print DOM facts.
+  puts the cursor there (to see that line's source revealed), `--modes dark`, `--preset <id>` (another theme
+  preset, e.g. `dracula`), `--note <file.md>`, `--eval "<js>"` to print DOM facts.
 - `--editor-mode <vim|helix|emacs|kakoune>` opens the note in that mode, and `--keys "<k1> <k2>"` presses
   Playwright keys in the editor before the shot (e.g. `--editor-mode helix --keys ": c"` for the
   command prompt with completions, `--keys "Space"` for a pending key).

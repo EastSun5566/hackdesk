@@ -7,6 +7,7 @@
  *   pnpm render:preview --note path/to/note.md            # any note; images beside it are copied too
  *   pnpm render:preview --scroll-to "## Code blocks"      # start the shot at this markdown source text
  *   pnpm render:preview --modes dark --click "Last line"  # put the cursor there (reveals that line's source)
+ *   pnpm render:preview --preset dracula                  # another theme preset (default hackmd-neo)
  *   pnpm render:preview --find "link"                     # open find (Cmd/Ctrl+F) and type a query
  *   pnpm render:preview --eval "document.querySelectorAll('.cm-line').length"
  *   pnpm render:preview --window --translucency clear     # macOS: the whole window as the screen shows it
@@ -29,6 +30,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { parseArgs, promisify } from 'node:util';
 import { createServer } from 'vite';
+import { HACKDESK_THEME_PRESETS, isThemePresetId } from '../src/lib/themes.ts';
 import { buildTargets } from './electron-build.ts';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
@@ -62,6 +64,7 @@ const { values } = parseArgs({
   options: {
     note: { type: 'string', default: path.join(repoRoot, 'scripts/fixtures/render-preview/Render Preview.md') },
     modes: { type: 'string', default: 'light,dark' },
+    preset: { type: 'string', default: 'hackmd-neo' },
     out: { type: 'string', default: path.join(repoRoot, '.local/render-preview') },
     name: { type: 'string' },
     'scroll-to': { type: 'string' },
@@ -86,6 +89,9 @@ if (translucency !== undefined && !translucencyLevels.includes(translucency)) {
 const editorModes = ['standard', 'emacs', 'vim', 'helix', 'kakoune'];
 if (values['editor-mode'] !== undefined && !editorModes.includes(values['editor-mode'])) {
   throw new Error(`--editor-mode must be one of ${editorModes.join(', ')}.`);
+}
+if (!isThemePresetId(values.preset)) {
+  throw new Error(`--preset must be one of ${HACKDESK_THEME_PRESETS.map((preset) => preset.id).join(', ')}.`);
 }
 if (values.window && process.platform !== 'darwin') throw new Error('--window needs macOS (it uses screencapture).');
 
@@ -112,7 +118,7 @@ try {
       if (/\.(?:svg|png|jpe?g|gif|webp)$/i.test(file)) await copyFile(path.join(path.dirname(notePath), file), path.join(vault, file));
     }
     await writeFile(path.join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-      appearance: { theme: mode, presetId: 'hackmd-neo', customSeed: {} },
+      appearance: { theme: mode, presetId: values.preset, customSeed: {} },
       localVault: { vaults: [{ id: 'render-preview', path: vault }], activeVaultId: 'render-preview' },
       onboarding: { hackmdTokenSetupDeferred: true },
       ...(values['editor-mode'] ? { editor: { mode: values['editor-mode'] } } : {}),
