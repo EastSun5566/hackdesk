@@ -14,7 +14,8 @@
  *   pnpm render:preview --page                            # the whole page (title bars, sidebar, panes), not just the editor
  *   pnpm render:preview --editor-mode helix --keys ": c"  # a modal editor mode, then press keys (space-separated)
  *
- * Screenshots land in .local/render-preview/<name>-<mode>.png. The script starts its own Vite dev
+ * Screenshots land in .local/render-preview/<name>-<mode>.png (<name> is the note's, plus the preset
+ * unless it is hackmd-neo; --name overrides it). The script starts its own Vite dev
  * server, so source edits are picked up on every run; it builds the Electron main bundle first.
  * Windows stay in the background (HACKDESK_E2E_BACKGROUND) and never touch your real settings.
  *
@@ -98,7 +99,8 @@ if (values.window && process.platform !== 'darwin') throw new Error('--window ne
 const notePath = path.resolve(values.note);
 const note = await readFile(notePath, 'utf8');
 const title = path.basename(notePath, '.md');
-const name = values.name ?? title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+// Another preset's shots get their own name, so runs across presets sit side by side.
+const name = values.name ?? `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}${values.preset === 'hackmd-neo' ? '' : `-${values.preset}`}`;
 await mkdir(values.out, { recursive: true });
 await buildTargets();
 
